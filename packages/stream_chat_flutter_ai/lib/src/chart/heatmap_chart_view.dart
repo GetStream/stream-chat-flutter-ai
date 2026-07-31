@@ -16,14 +16,22 @@ const _kLegendBarHeight = 10.0;
 /// axis label style used by the `fl_chart`-backed kinds.
 const _kLabelStyle = TextStyle(fontSize: 10);
 
-/// The sequential color scale used for cell intensity, anchored on the chart
-/// palette's first series color. Darker always means higher.
-const _kScaleLow = Color(0xFFEAF2FB);
-const _kScaleMid = Color(0xFF4A90D9);
-const _kScaleHigh = Color(0xFF1B4F8A);
+/// A sequential color scale for cell intensity: three stops the cell value is
+/// interpolated between.
+typedef _Scale = ({Color low, Color mid, Color high});
 
-/// The border drawn around every cell, including cells with no value.
-const _kCellBorderColor = Color(0x1A000000);
+/// The scale used in a light theme, anchored on the chart palette's first series
+/// color. Higher values are darker and more saturated.
+const _kLightScale = (low: Color(0xFFEAF2FB), mid: Color(0xFF4A90D9), high: Color(0xFF1B4F8A));
+
+/// The scale used in a dark theme.
+///
+/// The ramp runs the other way — higher values are *lighter* — because a
+/// light-to-dark ramp on a dark surface makes the highest cells recede into the
+/// background, inverting the intensity the color is supposed to encode.
+const _kDarkScale = (low: Color(0xFF12283F), mid: Color(0xFF3B7CB8), high: Color(0xFFC3DDF6));
+
+_Scale _scaleFor(Brightness brightness) => brightness == Brightness.dark ? _kDarkScale : _kLightScale;
 
 /// Renders a [USpecKind.heatmap] [USpec] as a grid of color-scaled cells.
 ///
@@ -47,6 +55,13 @@ class HeatmapChartView extends StatelessWidget {
     final grid = _HeatmapGrid.fromSpec(spec);
     if (grid == null) return const SizedBox.shrink();
 
+    final theme = Theme.of(context);
+    final scale = _scaleFor(theme.brightness);
+    // Theme-derived: the cell border used to be a hardcoded translucent black,
+    // invisible against a dark surface.
+    final borderColor = theme.colorScheme.outlineVariant;
+    final labelStyle = _kLabelStyle.copyWith(color: theme.colorScheme.onSurfaceVariant);
+
     return Column(
       children: [
         Expanded(
@@ -64,7 +79,7 @@ class HeatmapChartView extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 4),
                             child: Text(
                               row.label,
-                              style: _kLabelStyle,
+                              style: labelStyle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -86,8 +101,8 @@ class HeatmapChartView extends StatelessWidget {
                                 child: Container(
                                   margin: const EdgeInsets.all(0.5),
                                   decoration: BoxDecoration(
-                                    color: _cellColor(row.values[column], grid),
-                                    border: Border.all(color: _kCellBorderColor),
+                                    color: _cellColor(row.values[column], grid, scale),
+                                    border: Border.all(color: borderColor),
                                   ),
                                 ),
                               ),
@@ -114,7 +129,7 @@ class HeatmapChartView extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             column,
-                            style: _kLabelStyle,
+                            style: labelStyle,
                             textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -129,7 +144,13 @@ class HeatmapChartView extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.only(left: _kRowLabelWidth),
-          child: _ScaleLegend(min: grid.min, max: grid.max),
+          child: _ScaleLegend(
+            min: grid.min,
+            max: grid.max,
+            scale: scale,
+            borderColor: borderColor,
+            labelStyle: labelStyle,
+          ),
         ),
       ],
     );
@@ -137,20 +158,29 @@ class HeatmapChartView extends StatelessWidget {
 
   /// Maps a cell's value onto the sequential scale, or returns `null` for a
   /// cell the series has no value for (leaving it unfilled).
-  Color? _cellColor(double? value, _HeatmapGrid grid) {
+  Color? _cellColor(double? value, _HeatmapGrid grid, _Scale scale) {
     if (value == null) return null;
     final t = grid.max > grid.min ? (value - grid.min) / (grid.max - grid.min) : 1.0;
-    return t <= 0.5 ? Color.lerp(_kScaleLow, _kScaleMid, t * 2) : Color.lerp(_kScaleMid, _kScaleHigh, (t - 0.5) * 2);
+    return t <= 0.5 ? Color.lerp(scale.low, scale.mid, t * 2) : Color.lerp(scale.mid, scale.high, (t - 0.5) * 2);
   }
 }
 
 /// The gradient scale bar shown below the grid, labelled with the value range
 /// the colors span.
 class _ScaleLegend extends StatelessWidget {
-  const _ScaleLegend({required this.min, required this.max});
+  const _ScaleLegend({
+    required this.min,
+    required this.max,
+    required this.scale,
+    required this.borderColor,
+    required this.labelStyle,
+  });
 
   final double min;
   final double max;
+  final _Scale scale;
+  final Color borderColor;
+  final TextStyle labelStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -160,8 +190,8 @@ class _ScaleLegend extends StatelessWidget {
         Container(
           height: _kLegendBarHeight,
           decoration: BoxDecoration(
-            border: Border.all(color: _kCellBorderColor),
-            gradient: const LinearGradient(colors: [_kScaleLow, _kScaleMid, _kScaleHigh]),
+            border: Border.all(color: borderColor),
+            gradient: LinearGradient(colors: [scale.low, scale.mid, scale.high]),
           ),
         ),
         Padding(
@@ -169,8 +199,8 @@ class _ScaleLegend extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(min.toStringAsFixed(1), style: _kLabelStyle),
-              Text(max.toStringAsFixed(1), style: _kLabelStyle),
+              Text(min.toStringAsFixed(1), style: labelStyle),
+              Text(max.toStringAsFixed(1), style: labelStyle),
             ],
           ),
         ),
@@ -208,7 +238,10 @@ class _HeatmapGrid {
   /// seen order — rows can be ragged (the Plotly adapter drops cells whose `z`
   /// isn't numeric), so a row is keyed by column label rather than by index.
   static _HeatmapGrid? fromSpec(USpec spec) {
-    final columns = <String>[];
+    // A LinkedHashSet keeps first-seen order while making the membership check
+    // O(1) — `List.contains` made building the column list quadratic in the
+    // number of cells.
+    final columns = <String>{};
     final rows = <_HeatmapRow>[];
     var min = double.infinity;
     var max = double.negativeInfinity;
@@ -216,7 +249,7 @@ class _HeatmapGrid {
     for (final series in spec.series) {
       final values = <String, double>{};
       for (final point in series.points) {
-        if (!columns.contains(point.x)) columns.add(point.x);
+        columns.add(point.x);
         final value = point.z ?? point.y;
         values[point.x] = value;
         if (value < min) min = value;
@@ -226,6 +259,6 @@ class _HeatmapGrid {
     }
     if (columns.isEmpty) return null;
 
-    return _HeatmapGrid(columns: columns, rows: rows, min: min, max: max);
+    return _HeatmapGrid(columns: columns.toList(), rows: rows, min: min, max: max);
   }
 }

@@ -28,6 +28,100 @@ void main() {
       expect(find.byType(PieChart), findsOneWidget);
     });
 
+    group('multi-series bar', () {
+      // Two series of different lengths. The category count used to be read off
+      // the *first* series, dropping any later series' extra points, and missing
+      // points were drawn as a zero-height bar rather than omitted.
+      const spec = USpec(
+        kind: USpecKind.bar,
+        series: [
+          USeries(
+            name: 'Short',
+            points: [UPoint(x: 'Jan', y: 1)],
+          ),
+          USeries(
+            name: 'Long',
+            points: [
+              UPoint(x: 'Jan', y: 2),
+              UPoint(x: 'Feb', y: 3),
+            ],
+          ),
+        ],
+      );
+
+      testWidgets("covers every category, not just the first series' own", (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+        expect(groups, hasLength(2));
+      });
+
+      testWidgets('omits the rod for a series with no point at that category', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+
+        expect(groups[0].barRods.map((r) => r.toY), [1, 2], reason: 'both series have a January point');
+        expect(groups[1].barRods.map((r) => r.toY), [3], reason: 'only the long series reaches February');
+      });
+    });
+
+    testWidgets('scatter plots categorical series over shared x positions', (tester) async {
+      // The fallback x used to be the running count of spots across *all*
+      // series, so each series was pushed to the right of the previous one
+      // instead of sharing the same categories.
+      const spec = USpec(
+        kind: USpecKind.scatter,
+        series: [
+          USeries(
+            name: 'A',
+            points: [
+              UPoint(x: 'Jan', y: 1),
+              UPoint(x: 'Feb', y: 2),
+            ],
+          ),
+          USeries(
+            name: 'B',
+            points: [
+              UPoint(x: 'Jan', y: 3),
+              UPoint(x: 'Feb', y: 4),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+      final spots = tester.widget<ScatterChart>(find.byType(ScatterChart)).data.scatterSpots;
+
+      expect(spots.map((s) => s.x), [0, 1, 0, 1]);
+      expect(spots.map((s) => s.y), [1, 2, 3, 4]);
+    });
+
+    testWidgets('bubble radii are normalized across the chart, not clamped', (tester) async {
+      // Sizes arrive in the data's own units. Clamping them as raw pixel radii
+      // pinned everything past the maximum to one size, flattening the encoding.
+      const spec = USpec(
+        kind: USpecKind.bubble,
+        series: [
+          USeries(
+            name: 'Cities',
+            points: [
+              UPoint(x: '0', y: 1, size: 1000),
+              UPoint(x: '1', y: 2, size: 5000),
+              UPoint(x: '2', y: 3, size: 9000),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+      final spots = tester.widget<ScatterChart>(find.byType(ScatterChart)).data.scatterSpots;
+      final radii = spots.map((s) => (s.dotPainter as FlDotCirclePainter).radius).toList();
+
+      expect(radii, hasLength(3));
+      expect(radii[0], lessThan(radii[1]));
+      expect(radii[1], lessThan(radii[2]));
+      expect(radii.toSet(), hasLength(3), reason: 'distinct sizes must map to distinct radii');
+    });
+
     testWidgets('scatter renders ScatterChart (not a line fallback)', (tester) async {
       await tester.pumpWidget(_wrap(const ChartView(spec: _scatterSpec)));
       expect(find.byType(ScatterChart), findsOneWidget);
