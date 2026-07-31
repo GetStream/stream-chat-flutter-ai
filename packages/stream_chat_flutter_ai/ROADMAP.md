@@ -17,6 +17,7 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 | 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ⬜ |
 | 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
 | 2.3 | Localization scaffolding | 2 | M | ⬜ |
+| 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
 | 3.1 | MCP client-tool / agentic tool-calling | 3 | L | ⬜ |
 | 3.2 | Generic sidebar / split-view (`SidebarView`) | 3 | S–M | 🅾️ |
 
@@ -111,16 +112,34 @@ existing dark theme (`_kBgColor 0xFF1E1E1E`), header, and copy button intact.
 
 - Evaluate `re_highlight` (actively maintained, highlight.js grammars) vs. `flutter_highlight` +
   `highlight` (popular but stale) vs. `syntax_highlight` (Dart-team maintained, fewer languages).
-  Recommend `re_highlight` for language breadth. Add it to `melos.yaml`'s bootstrap dependencies
-  per repo convention — **do not** edit the package `pubspec.yaml` version constraint directly.
+  Recommend `re_highlight` for language breadth. Add it under `melos.command.bootstrap` in the
+  **root `pubspec.yaml`** (this repo is on Melos 8 and has no `melos.yaml`) — **do not** edit the
+  package `pubspec.yaml` version constraint directly.
 - Replace the `SelectableText` body with a highlighted `TextSpan` tree; when `language` is null or
   unrecognized, fall back to the current plain rendering (must stay selectable and horizontally
   scrollable).
 
-- **Files:** `lib/src/code_block_view.dart`; `melos.yaml`.
+**Fold in while the file is open** (known issues deliberately left for this work rather than patched
+separately, since the body and its header are being rewritten anyway):
+
+- **`fontFamily: 'monospace'` doesn't resolve on iOS/macOS/web.** Only Android maps that generic
+  family to a real font; elsewhere it silently falls back to the default sans face, so code blocks
+  aren't monospaced at all. Use `fontFamilyFallback: ['monospace', 'Menlo', 'Courier New']` (or
+  whatever the highlighting package wants). Note `test/flutter_test_config.dart` currently registers
+  a system font under the `monospace` family purely to work around this in goldens — revisit that
+  once the family name is real.
+- **The copy button `setState`s after an `await` with no `mounted` guard** (`_CopyButtonState._onTap`
+  guards the second `setState` but not the first, after `Clipboard.setData`), and repeated taps race
+  two 2-second reset timers against each other.
+- **No test coverage at all** for the copy button or the language label.
+- The block is hardcoded dark (`_kBgColor 0xFF1E1E1E`) regardless of theme. That's a deliberate
+  choice worth keeping — code blocks read as code — but the *header* row's label color should come
+  out of the token set the highlighting theme establishes rather than a bare constant.
+
+- **Files:** `lib/src/code_block_view.dart`; root `pubspec.yaml` (`melos.command.bootstrap`).
 - **Acceptance:** a `dart`/`json`/`python` block renders multi-colored tokens; unknown language
-  still renders plain; copy button + text selection still work; widget test asserting a themed
-  span tree is produced.
+  still renders plain; copy button + text selection still work; monospaced on iOS/macOS/web; widget
+  test asserting a themed span tree is produced, plus one covering the copy button.
 - **Effort:** M (1–2 days including dependency vetting).
 
 ### 2.2 Composer factory slot coverage (`ChatComposerFactory`)
@@ -152,9 +171,23 @@ text input and the attachment sheet are hardcoded inside `chat_composer.dart` an
 ### 2.3 Localization scaffolding
 
 **Gap:** Swift externalizes strings via an `L10n` enum backed by a `.strings` bundle (English-only
-today, but the seam exists for adding locales). Flutter hardcodes every user-facing string —
-`'Photos'`, `'All Photos'`, `'Copy code'`, `'Send'`, `'Stop generating'`, `'Add photos'`,
-`'Allow photo access'`, the default hint text, etc.
+today, but the seam exists for adding locales). Flutter hardcodes every user-facing string. The
+complete list as of now, so the work can be done in one pass:
+
+| String | Where |
+|---|---|
+| `'Ask anything…'` | `chat_composer.dart` — default `hintText` |
+| `'Send'` | `chat_composer.dart` — trailing button tooltip (enabled and disabled) |
+| `'Stop generating'` | `chat_composer.dart` — stop button tooltip |
+| `'Remove attachment'` | `chat_composer.dart` — thumbnail remove tooltip |
+| `'Clear {option}'` | `chat_composer.dart` — selected-option chip dismiss tooltip |
+| `'Add photos'` | `chat_composer_factory.dart` — leading "+" tooltip |
+| `'Photos'`, `'All Photos'`, `'Allow photo access'`, `'Take a photo'` | `composer_attachment_sheet.dart` |
+| `'Voice input'`, `'Stop recording'` | `speech_to_text_button.dart` — mic tooltips |
+| `'Copy code'`, `'Copied!'` | `code_block_view.dart` — see 2.1, which rewrites this file |
+
+Several of these are tooltips doubling as the only accessible label for an icon-only button, so the
+translations object is also what makes those buttons legible to a screen reader in any locale.
 
 **Proposed work:** introduce a single injectable translations object — a `StreamAiTranslations`
 abstract class plus a `DefaultStreamAiTranslations` implementation holding today's English
@@ -162,13 +195,37 @@ literals — passed via constructor/`InheritedWidget` rather than pulling in
 `flutter_localizations` (keeps the package dependency-light and framework-agnostic, matching its
 standalone design goal). Replace hardcoded literals with lookups against this object.
 
-- **Files:** new `lib/src/localization/stream_ai_translations.dart`; touch every widget currently
-  holding a literal (`code_block_view.dart`, `composer_attachment_sheet.dart`,
-  `chat_composer.dart`, `chat_composer_factory.dart`).
+- **Files:** new `lib/src/localization/stream_ai_translations.dart`; touch every widget listed in the
+  table above.
 - **Acceptance:** all user-facing strings resolve through the translations object; a test injecting
   a custom translations instance observes the overridden strings.
 - **Effort:** M (1 day). Ships no non-English translations yet — just the seam for adding them
   later.
+
+### 2.4 Chart theming & accessibility
+
+**Gap:** `ChartView`'s presentation is entirely fixed. The chrome that was outright broken in dark
+mode has been fixed (grid lines, heatmap cell borders and labels now come from the `ColorScheme`,
+and the heatmap's sequential ramp inverts so higher values stay brighter than the surface), but
+everything else is still a hardcoded constant with no way for a host to intervene:
+
+- `_kSeriesColors` — a fixed six-color categorical palette, so charts can't follow an app's brand.
+- `_kChartHeight` (220), the bubble radius range, and the histogram's 10-bucket count.
+- `PieChartSectionData.titleStyle` is hardcoded white-on-slice.
+- Charts carry **no `Semantics` at all**: to a screen reader a `ChartView` is an empty box. Even a
+  summary label ("bar chart, Messages per day, 5 categories, values 8 to 24") would be a large
+  improvement, and the data for it is all sitting in the `USpec`.
+
+**Proposed work:** a `ChartTheme`-style object (constructor parameter plus optional
+`InheritedWidget`, mirroring whatever shape 2.3 settles on for translations) carrying the palette,
+height, and sizing constants; plus a `Semantics` wrapper deriving a summary from the `USpec`.
+Consider `USpecKind`-aware summaries and per-series labels.
+
+- **Files:** `lib/src/chart/chart_view.dart`, `lib/src/chart/heatmap_chart_view.dart`; new theme
+  class.
+- **Acceptance:** a host palette overrides the series colors; a chart exposes a non-empty semantic
+  label under `SemanticsTester`; goldens regenerated.
+- **Effort:** M.
 
 ---
 

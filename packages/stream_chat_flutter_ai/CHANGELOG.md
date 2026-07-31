@@ -1,5 +1,13 @@
 ## 0.0.1
 
+First release of `stream_chat_flutter_ai`.
+
+> **On the 🔄 Changed entries below:** they describe how the package differs from the unreleased code
+> it grew out of, which lived on a branch in the
+> [`stream-chat-flutter`](https://github.com/GetStream/stream-chat-flutter) repo. Nothing here was
+> ever published, so there is no earlier version to upgrade from — read them as design notes rather
+> than migration steps.
+
 🔄 Changed
 
 - `stream_chat_flutter_ai` no longer depends on `stream_chat_flutter` (or any `stream_chat*` package). The package is fully standalone and can be used in any Flutter app, independent of Stream Chat. Wiring it up to a Stream Chat channel is now shown in the docs as an optional integration, not a dependency.
@@ -41,3 +49,80 @@
 - `USpecParser` recognises five additional chart schemas, matching `stream-chat-swift-ai`'s `parseUSpec` breadth: Plotly (single-spec and figure heatmaps), ECharts, Highcharts, a Vega-Lite subset (mark + encoding), and a flat pie schema (`{type: "pie", data: [{label, value}]}`). Its existing Chart.js adapter now also recognises pie/doughnut, scatter/bubble point objects (`{x, y, r}`), the `radar`/`polarArea` fallback mappings, and `options.scales.y.beginAtZero`.
 - `UPoint` gained optional `size` (bubble radius) and `z` (heatmap intensity) fields; `USpec` gained `beginAtZeroY`, applied to the y-axis in `ChartView`.
 - `AIMarkdownBody` now also routes ` ```highcharts ` fences to the chart parser.
+- `XFile` is re-exported from `package:cross_file` (now a direct dependency), where the type is
+  actually defined, rather than from `package:image_picker`, which merely re-exports it.
+
+🐞 Fixed
+
+- **`StreamingMessageView` could get stuck on stale text.** Replacing the text with anything shorter
+  than what was already revealed — a regenerated or edited reply, an error message swapping in for a
+  partial one — left the *previous* text on screen indefinitely, because `TypewriterController` only
+  swapped its target string and left the char index pointing past the end of it. Text that continues
+  what is on screen still types on from where it was; anything else is now revealed from the start.
+- **`StreamingMessageView.onTypewriterStateChanged` never fired for an already-complete message.** A
+  view built with its full text is revealed immediately and so never transitioned, leaving hosts that
+  flip a "generating" flag off on `TypewriterState.idle` stuck in the generating state forever. The
+  initial state is now reported once, after the first frame.
+- `TypewriterController.stopTyping` reset its char index but not the revealed text, so a following
+  `startTyping` jumped from the fully-revealed text back to its first character.
+- **`USpecParser` now accepts `type` and `label` as aliases for `kind` and `name`.** Models asked for
+  a USpec routinely reach for the Chart.js vocabulary instead, and such a spec used to degrade to a
+  raw code block. Relatedly, a `kind`/`series` payload that yields no points is no longer claimed by
+  the USpec adapter (it would render an empty chart) and falls through to the adapter that
+  understands it, and numeric strings (`"y": "12"`) are accepted as values.
+- A Vega-Lite spec whose `encoding` field names don't match its data no longer coerces every missing
+  `y` to zero — producing a chart of flat zeroes that read as real data — and falls through instead.
+- **Multi-series bar charts dropped data.** The category count was read off the *first* series, so
+  any later series' extra points were silently discarded; and a series with no point at a given
+  category had a zero-height bar drawn for it rather than no bar. Categories now come from the
+  longest series, and absent points are omitted.
+- **Scatter and bubble charts mispositioned categorical series.** The fallback x for a non-numeric
+  label was the running count of points across *all* series, so each series was pushed to the right
+  of the one before it instead of sharing the same categories. They also drew no bottom-axis labels
+  at all; category names (or the raw numeric values) are now shown.
+- Bubble radii are normalized across the chart instead of clamped as though `UPoint.size` were
+  already a pixel value — any data-domain size (a population, a revenue figure) previously pinned
+  every bubble to the maximum radius, flattening the encoding.
+- A histogram whose values are all identical renders a single bin instead of a blank chart.
+- **Charts and heatmaps are legible in a dark theme.** Grid lines, heatmap cell borders and axis
+  labels now come from the `ColorScheme` rather than hardcoded translucent black, and the heatmap's
+  sequential ramp inverts in a dark theme so higher values stay brighter than the surface instead of
+  receding into it.
+- **`SpeechToTextButton` no longer asks for the microphone at mount.** `initialize()` ran in
+  `initState`, so merely rendering a composer with `enableSpeechToText: true` prompted for microphone
+  and speech-recognition access before the user had shown any interest in dictating; it now
+  initializes on first tap. When no recognizer is available the button renders *disabled* rather than
+  hiding itself — hiding left the composer's trailing slot completely empty, with no mic and no send
+  button either.
+- Dictation appends to whatever is already in the field instead of replacing it, so using
+  `SpeechToTextButton` in a custom slot no longer discards typed text.
+- `AnimatedDots.spacing` was documented and accepted but ignored — the row was hardcoded to 4.
+- Suggestion chips use `TextAlign.start` instead of `TextAlign.left`, so they render correctly in
+  right-to-left locales (their width measurement already respected the text direction).
+- The circular composer buttons ("+", send/stop/mic, the thumbnail remove and chip dismiss buttons,
+  the sheet's camera tile) show an ink ripple when tapped. Their `InkWell` sat *inside* an opaque
+  decoration, which painted over the splash and left taps with no feedback. The remove, dismiss and
+  camera controls also gained tooltips, which double as their accessible label.
+- Fixed doc comments referencing names that don't exist (`AI_STATE_THINKING`,
+  `AI_STATE_CHECKING_SOURCES`) or aren't resolvable from their library, which rendered as dead links
+  in the generated API docs. `comment_references` is now enabled repo-wide to keep them honest.
+
+🚀 Performance
+
+- **`AIMarkdownBody` no longer re-parses its markdown on every build.** While streaming that meant a
+  full regex scan plus a `jsonDecode` of every chart fence once per typewriter tick — roughly every
+  10ms. The segment list is now recomputed only when the markdown actually changes, and chart-fence
+  parses are memoized on the fence's content (which stops changing as soon as its closing fence
+  arrives), failures included.
+- **Attachment thumbnails are read and decoded once.** The `Future` was created inside `build`, and
+  the composer rebuilds on every keystroke, so each character re-read every attachment off disk in
+  full and re-decoded it. They now also decode at thumbnail resolution rather than full camera
+  resolution.
+- Recent-photo tiles in `ComposerAttachmentSheet` likewise request their thumbnail once, instead of
+  re-requesting every visible one each time a photo is selected.
+- `SpeechToTextButton`'s pulse animation only runs while listening; it previously ticked every frame
+  for the button's whole lifetime. It also no longer rebuilds on unrelated controller changes.
+- `AITypingIndicatorView`'s dots build their `CurvedAnimation` and tweens once instead of allocating
+  a fresh (and undisposed) set on every frame of the animation.
+- Suggestion chips dispose the `TextPainter` used to measure their label.
+- Heatmap column collection is linear rather than quadratic in the number of cells.
