@@ -149,29 +149,35 @@ class _SuggestionChip extends StatelessWidget {
       maxLines: 2,
     )..layout();
 
-    final naturalWidth = painter.width;
-    if (naturalWidth <= maxContentWidth) return naturalWidth;
+    // A TextPainter holds a native paragraph, so it has to be disposed however
+    // this method exits.
+    try {
+      final naturalWidth = painter.width;
+      if (naturalWidth <= maxContentWidth) return naturalWidth;
 
-    painter.layout(maxWidth: maxContentWidth);
-    // Even the max width can't fit this in 2 lines (it'll ellipsize) —
-    // nothing narrower to gain, so use the full budget.
-    if (painter.didExceedMaxLines) return maxContentWidth;
+      painter.layout(maxWidth: maxContentWidth);
+      // Even the max width can't fit this in 2 lines (it'll ellipsize) —
+      // nothing narrower to gain, so use the full budget.
+      if (painter.didExceedMaxLines) return maxContentWidth;
 
-    // Binary search the narrowest width that still fits in 2 lines. Two
-    // lines of width `w` hold roughly `2w` worth of single-line content, so
-    // `naturalWidth / 2` is a safe lower bound to start from.
-    var lo = naturalWidth / 2;
-    var hi = maxContentWidth;
-    while (hi - lo > 1) {
-      final mid = (lo + hi) / 2;
-      painter.layout(maxWidth: mid);
-      if (painter.didExceedMaxLines) {
-        lo = mid;
-      } else {
-        hi = mid;
+      // Binary search the narrowest width that still fits in 2 lines. Two
+      // lines of width `w` hold roughly `2w` worth of single-line content, so
+      // `naturalWidth / 2` is a safe lower bound to start from.
+      var lo = naturalWidth / 2;
+      var hi = maxContentWidth;
+      while (hi - lo > 1) {
+        final mid = (lo + hi) / 2;
+        painter.layout(maxWidth: mid);
+        if (painter.didExceedMaxLines) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
       }
+      return hi;
+    } finally {
+      painter.dispose();
     }
-    return hi;
   }
 
   @override
@@ -201,7 +207,9 @@ class _SuggestionChip extends StatelessWidget {
                 text,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
+                // `start`, not `left`: the measurement above already respects
+                // the ambient text direction, so the rendering must too.
+                textAlign: TextAlign.start,
                 style: textStyle,
               ),
             ),
