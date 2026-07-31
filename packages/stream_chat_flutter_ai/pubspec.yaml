@@ -25,6 +25,10 @@ environment:
 resolution: workspace
 
 dependencies:
+  # Depended on directly, not just via image_picker: `XFile` appears in this
+  # package's own public API (`ChatComposerSendCallback`, and
+  # `ChatComposerController.attachments`) and is re-exported from the barrel file.
+  cross_file: ^0.3.5
   fl_chart: ^1.2.0
   flutter:
     sdk: flutter

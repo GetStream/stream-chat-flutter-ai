@@ -31,6 +31,7 @@ melos:
 
       # List of all the dependencies used in the project.
       dependencies:
+        cross_file: ^0.3.5
         fl_chart: ^1.2.0
         flutter_markdown_plus: ^1.0.7
         image_picker: ^1.2.2

@@ -1,8 +1,11 @@
 /// Stream Chat AI Flutter components.
 library stream_chat_flutter_ai;
 
+// Exported from `cross_file`, where `XFile` is actually defined, rather than
+// from `image_picker`, which merely re-exports it — this package's use of the
+// type doesn't depend on the picker it happens to arrive from.
+export 'package:cross_file/cross_file.dart' show XFile;
 export 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
-export 'package:image_picker/image_picker.dart' show XFile;
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';
