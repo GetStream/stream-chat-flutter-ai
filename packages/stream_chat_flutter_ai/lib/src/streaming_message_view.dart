@@ -72,6 +72,17 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     )..addListener(_onTypewriterValueChanged);
 
     _displayText = _controller.value.text;
+
+    // Report the initial state once, after the first frame.
+    //
+    // A view constructed with its complete text is already fully revealed and
+    // never transitions, so the controller emits nothing and a host waiting to
+    // hear `idle` (to flip a "generating" flag back off, say) would wait
+    // forever. Deferred to post-frame so that host is free to rebuild in
+    // response without doing so during this build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onTypewriterStateChanged?.call(_controller.value.state);
+    });
   }
 
   @override

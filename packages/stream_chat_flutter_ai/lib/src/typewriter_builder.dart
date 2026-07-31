@@ -103,9 +103,11 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
     String text = '',
     this.typingSpeed = const Duration(milliseconds: 10),
   }) : super(TypewriterValue(text: text)) {
-    // Set the target text and the current char index.
+    // Start fully revealed: a controller constructed with its complete text
+    // represents an already-finished message (e.g. one loaded from history),
+    // not one waiting to be typed out.
     _targetText = value.text.characters;
-    _currentCharIndex = _targetText.length - 1;
+    _currentCharIndex = _targetText.length;
   }
 
   /// The speed at which the text should be typed out.
@@ -118,6 +120,18 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   late int _currentCharIndex;
   late Characters _targetText;
 
+  /// Every method here maintains the invariant
+  /// `value.text == _targetText.take(_currentCharIndex).string`.
+  ///
+  /// Breaking it is what makes the displayed text go stale: the index is what
+  /// [startTyping] checks to decide whether there is anything left to reveal,
+  /// so an index that outruns the target silently freezes the view on text
+  /// that is no longer being typed.
+  void _reveal(int charIndex, {TypewriterState? state}) {
+    _currentCharIndex = charIndex;
+    value = value.copyWith(text: _targetText.take(charIndex).string, state: state);
+  }
+
   /// Cancels the current typing timer and displays the target text immediately.
   ///
   /// This is useful when you want to display the target text immediately
@@ -125,8 +139,7 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   set text(String newText) {
     _timer?.cancel();
     _targetText = newText.characters;
-    _currentCharIndex = _targetText.length;
-    value = value.copyWith(text: newText, state: TypewriterState.idle);
+    _reveal(_targetText.length, state: TypewriterState.idle);
   }
 
   /// Updates the target text to [newText].
@@ -134,9 +147,24 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   /// If the controller is currently typing, the new text will be typed out
   /// automatically. If it is not typing, the new text will be typed out only
   /// if [autoStart] is true.
+  ///
+  /// [newText] is treated as a continuation when it starts with the text
+  /// already on screen — the common streaming case, where each chunk appends
+  /// to the last — and typing simply carries on from where it was.
+  ///
+  /// Anything else (a regenerated or edited message, a shorter replacement, an
+  /// error message swapped in for a partial reply) is treated as a *new* text
+  /// and revealed from the start. Without this, a replacement shorter than what
+  /// is already displayed would leave the previous text on screen indefinitely,
+  /// because there would be nothing left for [startTyping] to reveal.
   void updateText(String newText, {bool autoStart = true}) {
-    // Update the target text.
+    final isContinuation = newText.startsWith(value.text);
     _targetText = newText.characters;
+
+    if (!isContinuation) {
+      _timer?.cancel();
+      _reveal(0, state: TypewriterState.idle);
+    }
 
     // Start typing the new text if autoStart is true.
     //
@@ -160,11 +188,11 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
 
     value = value.copyWith(state: TypewriterState.typing);
 
+    // Defensive: never leave a previous timer running alongside a new one.
+    _timer?.cancel();
     _timer = Timer.periodic(typingSpeed, (timer) {
       if (_currentCharIndex < _targetText.length) {
-        _currentCharIndex = min(_currentCharIndex + 1, _targetText.length);
-        final newDisplayedText = _targetText.take(_currentCharIndex).string;
-        value = value.copyWith(text: newDisplayedText);
+        _reveal(min(_currentCharIndex + 1, _targetText.length));
       } else {
         timer.cancel();
         value = value.copyWith(state: TypewriterState.idle);
@@ -182,14 +210,15 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
     value = value.copyWith(state: TypewriterState.paused);
   }
 
-  /// Stops typing and resets the current char index.
+  /// Stops typing and resets back to the start of the target text.
   ///
-  /// To start typing again, call [startTyping].
+  /// Unlike [pauseTyping], this clears the revealed text as well as the char
+  /// index, so a subsequent [startTyping] types the target out from the
+  /// beginning rather than jumping from the fully-revealed text back to its
+  /// first character.
   void stopTyping() {
     _timer?.cancel();
-    value = value.copyWith(state: TypewriterState.stopped);
-
-    _currentCharIndex = 0;
+    _reveal(0, state: TypewriterState.stopped);
   }
 
   @override

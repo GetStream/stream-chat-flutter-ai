@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
+import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
 
 void main() {
   group('StreamingMessageView Tests', () {
@@ -55,6 +56,50 @@ void main() {
         await tester.pump(typingSpeed * updatedText.length);
 
         expect(find.text(updatedText), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'replaces the text when the new message is shorter',
+      (WidgetTester tester) async {
+        // Regression test: a replaced message (regenerate, edit, or an error
+        // swapped in for a partial reply) that is shorter than what is already
+        // on screen used to leave the previous text displayed indefinitely.
+        Widget build(String text) => MaterialApp(
+          home: Scaffold(body: StreamingMessageView(text: text)),
+        );
+
+        await tester.pumpWidget(build('Hello, world! This is a long reply.'));
+        await tester.pumpWidget(build('Bye.'));
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(find.textContaining('Hello, world!'), findsNothing);
+        expect(find.text('Bye.'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'reports the initial typewriter state to onTypewriterStateChanged',
+      (WidgetTester tester) async {
+        // Regression test: a view built with its complete text is already fully
+        // revealed, so the controller never transitioned and this callback never
+        // fired — leaving hosts that flip a "generating" flag off on `idle`
+        // stuck in the generating state forever.
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: StreamingMessageView(
+                text: 'A complete reply.',
+                onTypewriterStateChanged: states.add,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(states, contains(TypewriterState.idle));
       },
     );
 
