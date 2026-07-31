@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+// Here for the [ChartView] doc link only — this library is otherwise pure Dart
+// with no Flutter dependency, and nothing below uses the widget.
+import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
+
 /// Supported chart types.
 enum USpecKind {
   /// Line chart.
@@ -129,7 +133,11 @@ class USpecParser {
   // ---------------------------------------------------------------------------
 
   static USpec? _tryUSpec(Map<String, dynamic> json) {
-    final rawKind = json['kind'];
+    // `type`/`label` are accepted alongside `kind`/`name`: models asked for a
+    // USpec routinely reach for the Chart.js vocabulary they have seen far more
+    // of during training, and a spec that is otherwise perfectly well-formed
+    // shouldn't degrade to a raw code block over that.
+    final rawKind = json['kind'] ?? json['type'];
     final rawSeries = json['series'];
     if (rawKind == null || rawSeries is! List) return null;
 
@@ -142,19 +150,24 @@ class USpecParser {
       if (rawPoints is List) {
         for (final p in rawPoints) {
           if (p is! Map<String, dynamic>) continue;
-          final y = (p['y'] as num?)?.toDouble();
+          final y = _asDouble(p['y']);
           if (y == null) continue;
           points.add(
             UPoint(
               x: p['x']?.toString() ?? '',
               y: y,
-              size: (p['size'] as num?)?.toDouble(),
-              z: (p['z'] as num?)?.toDouble(),
+              size: _asDouble(p['size']),
+              z: _asDouble(p['z']),
             ),
           );
         }
       }
-      series.add(USeries(name: s['name']?.toString() ?? '', points: points));
+      // Skip series that yielded nothing. Without this, a payload that merely
+      // *looks* like a USpec (a `kind`/`type` plus a `series` list keying its
+      // values under something other than `points`) would be claimed here and
+      // rendered as an empty chart, instead of falling through to the adapter
+      // that does understand it.
+      if (points.isNotEmpty) series.add(USeries(name: (s['name'] ?? s['label'])?.toString() ?? '', points: points));
     }
     if (series.isEmpty) return null;
 
@@ -465,7 +478,12 @@ class USpecParser {
       final xRaw = r[xField];
       final xDouble = xRaw is String ? null : _asDouble(xRaw);
       final xStr = xRaw is String ? xRaw : (xDouble != null ? _numToString(xDouble) : '');
-      final y = _asDouble(r[yField]) ?? 0;
+      // Skip rows with no usable y rather than substituting zero: when the
+      // encoding's field names don't match the data, coercing produced a chart
+      // of flat zeroes that looked like real data instead of falling through to
+      // a plain code block.
+      final y = _asDouble(r[yField]);
+      if (y == null) continue;
       final key = colorField != null ? (r[colorField]?.toString() ?? 'Series') : 'Series';
       final size = sizeField != null ? _asDouble(r[sizeField]) : null;
       (groups[key] ??= []).add(UPoint(x: xStr, y: y, size: size));

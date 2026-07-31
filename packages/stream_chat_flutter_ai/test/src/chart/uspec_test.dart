@@ -44,6 +44,51 @@ void main() {
         expect(spec.beginAtZeroY, isTrue);
         expect(spec.series.first.points.first.size, 12);
       });
+
+      test('accepts `type`/`label` as aliases for `kind`/`name`', () {
+        // Models asked for a USpec routinely reach for the Chart.js vocabulary
+        // instead; an otherwise well-formed spec shouldn't degrade to a raw
+        // code block over that.
+        final spec = USpecParser.tryParse('''
+        {
+          "type": "bar",
+          "title": "Messages per day",
+          "series": [
+            {"label": "Messages", "points": [{"x": "Mon", "y": 12}, {"x": "Tue", "y": 19}]}
+          ]
+        }
+        ''');
+
+        expect(spec, isNotNull);
+        expect(spec!.kind, USpecKind.bar);
+        expect(spec.title, 'Messages per day');
+        expect(spec.series.first.name, 'Messages');
+        expect(spec.series.first.points.map((p) => p.y), [12, 19]);
+      });
+
+      test('parses numeric strings as values', () {
+        final spec = USpecParser.tryParse('''
+        {"kind": "line", "series": [{"name": "S", "points": [{"x": "A", "y": "1.5"}]}]}
+        ''');
+
+        expect(spec?.series.first.points.first.y, 1.5);
+      });
+
+      test('defers to another adapter when no series yields points', () {
+        // A `type` + `series` payload keying its values under something other
+        // than `points` must fall through rather than being claimed here and
+        // rendered as an empty chart.
+        final spec = USpecParser.tryParse('''
+        {
+          "type": "bar",
+          "xAxis": {"data": ["Mon", "Tue"]},
+          "series": [{"name": "Messages", "data": [12, 19]}]
+        }
+        ''');
+
+        expect(spec, isNotNull, reason: 'the ECharts adapter understands this shape');
+        expect(spec!.series.first.points.map((p) => p.y), [12, 19]);
+      });
     });
 
     group('Chart.js schema', () {
@@ -228,6 +273,21 @@ void main() {
         expect(spec, isNotNull);
         expect(spec!.kind, USpecKind.bar);
         expect(spec.series, hasLength(1));
+      });
+
+      test('returns null when the encoding fields do not match the data', () {
+        // A mismatched `y` field used to be coerced to zero for every row,
+        // producing a chart of flat zeroes that read as real data. Falling
+        // through to a plain code block is the honest outcome.
+        final spec = USpecParser.tryParse('''
+        {
+          "data": {"values": [{"cat": "A", "val": 3}]},
+          "mark": "bar",
+          "encoding": {"x": {"field": "cat"}, "y": {"field": "missing"}}
+        }
+        ''');
+
+        expect(spec, isNull);
       });
 
       test('maps point mark to scatter', () {
