@@ -49,6 +49,10 @@ linter:
     - camel_case_extensions
     - camel_case_types
     - cascade_invocations
+    # `public_member_api_docs` makes docs mandatory; this keeps the [links] in
+    # them honest, so they don't silently rot into plain text in the published
+    # dartdoc.
+    - comment_references
 
     - constant_identifier_names
     - curly_braces_in_flow_control_structures

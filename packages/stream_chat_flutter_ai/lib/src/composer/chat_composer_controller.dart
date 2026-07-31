@@ -1,5 +1,11 @@
-import 'package:flutter/widgets.dart';
+// `material` (rather than just `widgets`) and `chat_composer` are here for the
+// [TextField] and [ChatComposer] doc links below — nothing in this file's code
+// needs either. Dart is fine with the resulting import cycle, and
+// `comment_references` fails the build if the links ever stop resolving, so an
+// over-eager import cleanup can't silently rot them back into plain text.
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 
 /// Controller for [ChatComposer] that holds all mutable UI state.
