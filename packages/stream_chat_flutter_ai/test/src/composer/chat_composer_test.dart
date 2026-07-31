@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
@@ -225,8 +226,45 @@ void main() {
       );
       await tester.pump();
 
+      // Asserting the mic is actually *there*, not merely that the send button
+      // isn't: the button used to hide itself until the platform recognizer had
+      // initialized, so this passed while the trailing slot rendered nothing at
+      // all — no mic and no send button either.
+      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
       expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
       controller.dispose();
+    });
+
+    testWidgets('does not initialize speech recognition until the mic is tapped', (tester) async {
+      // `SpeechToText.initialize` triggers the microphone permission prompt, so
+      // it must not run just because a composer rendered.
+      const channel = MethodChannel('plugin.csdcorp.com/speech_to_text');
+      final calls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return call.method == 'initialize' ? true : null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            enableSpeechToText: true,
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(calls, isEmpty, reason: 'mounting the composer must not ask for the microphone');
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.pump();
+
+      expect(calls, contains('initialize'));
     });
 
     testWidgets('trailing control morphs from mic to send once text is entered', (tester) async {
