@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+// Here for the [ChatComposer] doc links below only; nothing in this file's code
+// uses it.
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 
@@ -75,22 +78,26 @@ class _AttachmentButton extends StatelessWidget {
 
     return Tooltip(
       message: 'Add photos',
-      child: InkWell(
-        onTap: enabled ? () => _openAttachmentSheet(context) : null,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            // Same fill/border tokens as the input pill (see
-            // `_InputContainer` in chat_composer.dart) so the two read
-            // as one connected surface rather than mismatched colors.
-            color: colorScheme.surfaceContainerHigh,
-            shape: BoxShape.circle,
-            border: Border.all(color: colorScheme.outlineVariant),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          // Same fill/border tokens as the input pill (see
+          // `_InputContainer` in chat_composer.dart) so the two read
+          // as one connected surface rather than mismatched colors.
+          color: colorScheme.surfaceContainerHigh,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        // Above the fill, so the ink splash is actually visible.
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: enabled ? () => _openAttachmentSheet(context) : null,
+            child: Center(child: Icon(Icons.add, size: 22, color: iconColor)),
           ),
-          alignment: Alignment.center,
-          child: Icon(Icons.add, size: 22, color: iconColor),
         ),
       ),
     );

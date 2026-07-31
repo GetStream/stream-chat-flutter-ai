@@ -437,7 +437,7 @@ class _AttachmentThumbnails extends StatelessWidget {
   }
 }
 
-class _AttachmentThumbnail extends StatelessWidget {
+class _AttachmentThumbnail extends StatefulWidget {
   const _AttachmentThumbnail({
     super.key,
     required this.file,
@@ -447,11 +447,37 @@ class _AttachmentThumbnail extends StatelessWidget {
   final XFile file;
   final VoidCallback onRemove;
 
+  @override
+  State<_AttachmentThumbnail> createState() => _AttachmentThumbnailState();
+}
+
+class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
   static const double _size = 64;
+
+  /// Held in state rather than started inside `build`.
+  ///
+  /// The controller notifies on every keystroke, so a future created in `build`
+  /// meant re-reading every attachment off disk in full — and re-decoding it —
+  /// for each character the user typed.
+  late Future<Uint8List> _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = widget.file.readAsBytes();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AttachmentThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.file.path != oldWidget.file.path) _bytes = widget.file.readAsBytes();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Decode at thumbnail resolution instead of full camera resolution.
+    final cacheWidth = (_size * MediaQuery.devicePixelRatioOf(context)).round();
 
     return SizedBox(
       width: _size,
@@ -465,13 +491,13 @@ class _AttachmentThumbnail extends StatelessWidget {
               width: _size,
               height: _size,
               child: FutureBuilder<Uint8List>(
-                future: file.readAsBytes(),
+                future: _bytes,
                 builder: (context, snapshot) {
                   final bytes = snapshot.data;
                   if (bytes == null) {
                     return ColoredBox(color: colorScheme.surface);
                   }
-                  return Image.memory(bytes, fit: BoxFit.cover);
+                  return Image.memory(bytes, fit: BoxFit.cover, cacheWidth: cacheWidth);
                 },
               ),
             ),
@@ -479,21 +505,31 @@ class _AttachmentThumbnail extends StatelessWidget {
           Positioned(
             top: -6,
             right: -6,
-            child: InkWell(
-              onTap: onRemove,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: Icon(
-                  Icons.close,
-                  size: 14,
-                  color: colorScheme.onSurface,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: colorScheme.outlineVariant),
+              ),
+              // The Material sits *above* the fill so the ink splash is
+              // visible — an InkWell wrapped around an opaque decoration
+              // paints its ripple behind it, leaving the tap with no feedback.
+              child: Material(
+                type: MaterialType.transparency,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: widget.onRemove,
+                  child: Tooltip(
+                    message: 'Remove attachment',
+                    child: Icon(
+                      Icons.close,
+                      size: 14,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -543,10 +579,17 @@ class _SelectedOptionChip extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                InkWell(
-                  onTap: onDismiss,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Icon(Icons.close, size: 18, color: colorScheme.onPrimaryContainer),
+                Material(
+                  type: MaterialType.transparency,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onDismiss,
+                    child: Tooltip(
+                      message: 'Clear ${option.text}',
+                      child: Icon(Icons.close, size: 18, color: colorScheme.onPrimaryContainer),
+                    ),
+                  ),
                 ),
               ],
             ),

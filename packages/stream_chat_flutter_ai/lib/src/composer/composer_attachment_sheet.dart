@@ -209,24 +209,32 @@ class _CameraTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(12),
+    final borderRadius = BorderRadius.circular(12);
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: borderRadius,
+      ),
+      // Above the fill, so the ink splash is actually visible.
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: borderRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Tooltip(
+            message: 'Take a photo',
+            child: Center(child: Icon(Icons.camera_alt_outlined, color: colorScheme.onSurface)),
+          ),
         ),
-        alignment: Alignment.center,
-        child: Icon(Icons.camera_alt_outlined, color: colorScheme.onSurface),
       ),
     );
   }
 }
 
-class _RecentPhotoTile extends StatelessWidget {
+class _RecentPhotoTile extends StatefulWidget {
   const _RecentPhotoTile({required this.asset, required this.selected, required this.onTap});
 
   final AssetEntity asset;
@@ -234,10 +242,36 @@ class _RecentPhotoTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_RecentPhotoTile> createState() => _RecentPhotoTileState();
+}
+
+class _RecentPhotoTileState extends State<_RecentPhotoTile> {
+  /// Held in state rather than started inside `build`.
+  ///
+  /// Toggling one photo rebuilds the whole sheet, so a future created in `build`
+  /// re-requested every visible thumbnail from the platform on each selection.
+  late Future<Uint8List?> _thumbnail;
+
+  @override
+  void initState() {
+    super.initState();
+    _thumbnail = widget.asset.thumbnailDataWithSize(const ThumbnailSize.square(200));
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecentPhotoTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.asset.id != oldWidget.asset.id) {
+      _thumbnail = widget.asset.thumbnailDataWithSize(const ThumbnailSize.square(200));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final selected = widget.selected;
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
         width: 72,
@@ -248,7 +282,7 @@ class _RecentPhotoTile extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: FutureBuilder<Uint8List?>(
-                future: asset.thumbnailDataWithSize(const ThumbnailSize.square(200)),
+                future: _thumbnail,
                 builder: (context, snapshot) {
                   final bytes = snapshot.data;
                   if (bytes == null) {
