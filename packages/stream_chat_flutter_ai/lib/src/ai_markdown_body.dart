@@ -20,6 +20,31 @@ const _kChartLanguages = {'json', 'chart', 'chartjs', 'echarts', 'highcharts', '
 /// Group 2: the raw code content inside the fence.
 final _kFenceRegex = RegExp(r'```(\w*)\n([\s\S]*?)```', multiLine: true);
 
+/// How many chart-fence parses to remember. Comfortably more than the number of
+/// charts visible at once, small enough to stay cheap.
+const _kSpecCacheCapacity = 32;
+
+/// Memoized [USpecParser.tryParse] results, keyed on the fence's exact content.
+///
+/// A fence's content stops changing the moment its closing ` ``` ` arrives, but
+/// the enclosing message keeps rebuilding — once per typewriter tick while
+/// streaming, so every ~10ms. Re-running `jsonDecode` plus a full schema walk on
+/// each of those ticks (including the throw-and-catch for a fence that isn't
+/// chart data at all) is pure waste. Failures are cached too, for exactly that
+/// reason.
+final _specCache = <String, USpec?>{};
+
+USpec? _parseSpecCached(String code) {
+  final cached = _specCache[code];
+  if (cached != null || _specCache.containsKey(code)) return cached;
+
+  // Evict in insertion order — a streaming message appends fences, so the
+  // oldest entry is the one least likely to still be on screen.
+  if (_specCache.length >= _kSpecCacheCapacity) _specCache.remove(_specCache.keys.first);
+
+  return _specCache[code] = USpecParser.tryParse(code);
+}
+
 /// A markdown renderer tailored for AI-generated messages.
 ///
 /// Parses the markdown string into segments and renders:
@@ -27,7 +52,7 @@ final _kFenceRegex = RegExp(r'```(\w*)\n([\s\S]*?)```', multiLine: true);
 /// - Code fences via [CodeBlockView] (dark box, copy button, language label).
 /// - JSON / chart fences via [ChartView] when the content is a valid [USpec];
 ///   otherwise falls back to [CodeBlockView].
-class AIMarkdownBody extends StatelessWidget {
+class AIMarkdownBody extends StatefulWidget {
   /// Creates an [AIMarkdownBody].
   const AIMarkdownBody({
     super.key,
@@ -58,12 +83,32 @@ class AIMarkdownBody extends StatelessWidget {
   final MarkdownStyleSheet? styleSheet;
 
   @override
+  State<AIMarkdownBody> createState() => _AIMarkdownBodyState();
+}
+
+class _AIMarkdownBodyState extends State<AIMarkdownBody> {
+  late List<_Segment> _segments;
+
+  @override
+  void initState() {
+    super.initState();
+    _segments = _parse(widget.data);
+  }
+
+  @override
+  void didUpdateWidget(covariant AIMarkdownBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only re-scan when the markdown itself changed — a rebuild triggered by a
+    // theme change, a scroll, or an ancestor doesn't need one.
+    if (widget.data != oldWidget.data) _segments = _parse(widget.data);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final segments = _parse(data);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: segments.map((s) => _buildSegment(context, s)).toList(),
+      children: _segments.map((s) => _buildSegment(context, s)).toList(),
     );
   }
 
@@ -72,9 +117,11 @@ class AIMarkdownBody extends StatelessWidget {
       if (segment.text.trim().isEmpty) return const SizedBox.shrink();
       return MarkdownBody(
         data: segment.text,
-        selectable: selectable,
-        styleSheet: styleSheet,
-        onTapLink: onTapLink != null ? (text, href, title) => onTapLink!(text, href, title) : null,
+        selectable: widget.selectable,
+        styleSheet: widget.styleSheet,
+        // Our own typedef is structurally identical to the one
+        // `flutter_markdown_plus` expects, so it can be handed over directly.
+        onTapLink: widget.onTapLink,
       );
     }
 
@@ -82,7 +129,7 @@ class AIMarkdownBody extends StatelessWidget {
 
     // Try to render as a chart when the language suggests JSON / chart content.
     if (_kChartLanguages.contains(code.language.toLowerCase())) {
-      final spec = USpecParser.tryParse(code.code);
+      final spec = _parseSpecCached(code.code);
       if (spec != null) return ChartView(spec: spec);
     }
 
