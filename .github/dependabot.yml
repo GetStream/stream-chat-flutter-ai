@@ -1,0 +1,39 @@
+# See Dependabot documentation for all configuration options:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # GitHub Actions
+  # Updates workflow dependencies and groups them into a single PR
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    # Group all GitHub Actions updates into a single PR
+    groups:
+      all-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+    # Ignore patch updates to reduce noise
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+
+  # Pub Packages
+  # This is a pub workspace, so the resolution is shared from the root — the
+  # root is listed alongside the members that declare the dependencies.
+  - package-ecosystem: "pub"
+    directories:
+      - "/"
+      - "/packages/stream_chat_flutter_ai"
+      - "/packages/stream_chat_flutter_ai/example"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      all-dependencies:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"

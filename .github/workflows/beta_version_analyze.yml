@@ -1,0 +1,29 @@
+name: beta_version_analyze
+
+on:
+  schedule:
+    # Runs "At 02:00 every monday"
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  # Does a sanity check on the package against the next beta version so we are
+  # not surprised by any breaking changes.
+  analyze_beta_versions:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          channel: beta
+          cache: true
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+
+      - name: 📊 Analyze and test packages
+        uses: ./.github/actions/package_analysis

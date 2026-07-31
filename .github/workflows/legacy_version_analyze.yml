@@ -1,0 +1,72 @@
+name: legacy_version_analyze
+
+env:
+  # Note: The versions below should be manually updated after a new stable
+  # version comes out.
+  flutter_version: "3.41.0"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Centralizes every gating decision for this workflow — path filter, draft
+  # state, and push-vs-PR semantics. Downstream jobs only need a single
+  # `if: needs.gate.outputs.should_run == 'true'`. A job skipped this way
+  # reports `success` to branch protection (vs. `on.paths` filtering, which
+  # hangs forever) — see
+  # https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ github.event_name == 'push' || (steps.filter.outputs.packages == 'true' && github.event.pull_request.draft != true) }}
+    steps:
+      # paths-filter needs a checkout on push events (it diffs against the
+      # previous commit via git history). On pull_request events it uses
+      # the API and the checkout is unused, but is cheap.
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Detect Path Changes"
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            packages:
+              - 'packages/**'
+              - 'pubspec.yaml'
+              - '.github/workflows/legacy_version_analyze.yml'
+
+  # Does a sanity check that the package at least passes analysis on the N-1
+  # version of Flutter stable if it claims to support that version.
+  # This is to minimize accidentally making changes that break old versions
+  # (which we don't commit to supporting, but don't want to actively break)
+  # without updating the constraints.
+  analyze_legacy_versions:
+    needs: gate
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+
+      - name: 📊 Analyze and test packages
+        uses: ./.github/actions/package_analysis

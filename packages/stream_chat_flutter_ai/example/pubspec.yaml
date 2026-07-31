@@ -1,0 +1,27 @@
+name: stream_chat_flutter_ai_example
+description: "Showcase app for the stream_chat_flutter_ai components."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
+
+# This app is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  cupertino_icons: ^1.0.8
+  flutter:
+    sdk: flutter
+  # Resolves to the local `packages/stream_chat_flutter_ai` member of this
+  # workspace, so it needs no update when the package version is bumped.
+  stream_chat_flutter_ai: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

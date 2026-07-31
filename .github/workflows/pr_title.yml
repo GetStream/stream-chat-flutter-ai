@@ -1,0 +1,45 @@
+name: 'PR is Conventional and Semantic'
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventional_pr_title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6.1.1
+        with:
+          # `deps` matches the `chore(deps)` prefix Dependabot is configured
+          # with in .github/dependabot.yml.
+          scopes: |
+            ai
+            repo
+            docs
+            deps
+          requireScope: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  semantic_changelog_update:
+    needs: conventional_pr_title # Trigger after the [conventional_pr_title] completes
+    runs-on: ubuntu-latest
+    steps:
+      # Only `ai` is mapped, so `repo`/`docs`/`deps` PRs aren't required to
+      # touch a CHANGELOG.
+      - uses: GetStream/verify-semantic-changelog-update@main
+        with:
+          scopes: |
+            {
+              "ai": "packages/stream_chat_flutter_ai"
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

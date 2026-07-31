@@ -1,0 +1,135 @@
+name: stream_flutter_ai_workflow
+
+env:
+  flutter_version: "3.x"
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Centralizes every gating decision for this workflow — path filter,
+  # draft state, and push-vs-PR semantics. Downstream jobs only need a
+  # single `if: needs.gate.outputs.should_run == 'true'`. A job skipped
+  # this way reports `success` to branch protection (vs. `on.paths`
+  # filtering, which hangs forever) — see
+  # https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
+  #
+  # `push` events to main always run the full suite.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ github.event_name == 'push' || (steps.filter.outputs.relevant == 'true' && github.event.pull_request.draft != true) }}
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Detect Path Changes"
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'packages/**'
+              - 'analysis_options.yaml'
+              - 'pubspec.yaml'
+              - '.github/workflows/stream_flutter_ai_workflow.yml'
+
+  analyze:
+    needs: gate
+    timeout-minutes: 15
+    if: needs.gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: |
+          flutter pub global activate melos
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap --verbose
+      - name: "Dart Analyze"
+        run: |
+          melos run analyze
+      - name: "Pub Check"
+        if: github.base_ref == 'main'
+        run: |
+          melos run lint:pub
+
+  format:
+    needs: gate
+    runs-on: ubuntu-latest
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 15
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: |
+          flutter pub global activate melos
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap
+      - name: "Melos Format"
+        run: melos run format
+      - name: "Validate Formatting"
+        run: |
+          ./.github/workflows/scripts/validate-formatting.sh
+
+  test:
+    needs: gate
+    runs-on: ubuntu-latest
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 30
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: |
+          flutter pub global activate melos
+          flutter pub global activate remove_from_coverage
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap
+      - name: "Flutter Test"
+        run: melos run test:all
+      - name: "Collect Coverage"
+        run: melos run coverage:ignore-file --no-select
+      - name: "Upload Coverage"
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          files: packages/*/coverage/lcov.info

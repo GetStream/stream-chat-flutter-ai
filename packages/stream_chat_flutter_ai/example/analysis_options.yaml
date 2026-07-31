@@ -1,0 +1,10 @@
+# `dart analyze` resolves the whole pub workspace in one pass, so this example is
+# analyzed alongside the package. It's demo code, not a published API, so the
+# rules that only make sense for the library are relaxed here.
+include: ../../../analysis_options.yaml
+
+linter:
+  rules:
+    public_member_api_docs: false
+    avoid_print: false
+    avoid_redundant_argument_values: false
