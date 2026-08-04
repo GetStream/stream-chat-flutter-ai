@@ -34,6 +34,10 @@ dependencies:
     sdk: flutter
   flutter_markdown_plus: ^1.0.7
   image_picker: ^1.2.2
+  # Depended on directly, not just via flutter_markdown_plus: the `pre` element
+  # builder and the LaTeX syntaxes in `src/markdown/` work against `md.Element`,
+  # `md.BlockSyntax` and `md.InlineSyntax`.
+  markdown: ^7.3.1
   photo_manager: ^3.9.0
   speech_to_text: ^7.0.0
 

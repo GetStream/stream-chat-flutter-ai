@@ -15,8 +15,11 @@ bool get _isDesktopDeviceOrWeb =>
 /// displayed as if it is being typed out by a typewriter.
 ///
 /// Markdown in the message is fully rendered, including:
-/// - Fenced code blocks (with a copy-to-clipboard button and language label).
+/// - Fenced code blocks (with a copy-to-clipboard button and language label),
+///   which appear as soon as the opening fence arrives rather than waiting for
+///   the block to close.
 /// - JSON / chart blocks rendered as interactive charts.
+/// - LaTeX, when a [mathBuilder] is supplied.
 /// {@endtemplate}
 class StreamingMessageView extends StatefulWidget {
   /// {@macro streamingMessageView}
@@ -27,6 +30,8 @@ class StreamingMessageView extends StatefulWidget {
     this.typingSpeed = const Duration(milliseconds: 10),
     this.onTypewriterStateChanged,
     this.styleSheet,
+    this.mathBuilder,
+    this.useDollarDelimitersForMath = false,
   });
 
   /// The text to display in the widget.
@@ -35,6 +40,13 @@ class StreamingMessageView extends StatefulWidget {
   /// Style overrides for the rendered markdown. See
   /// [AIMarkdownBody.styleSheet].
   final MarkdownStyleSheet? styleSheet;
+
+  /// Renders LaTeX expressions. See [AIMarkdownBody.mathBuilder].
+  final MathBuilder? mathBuilder;
+
+  /// Whether `$…$` is also treated as a LaTeX delimiter. See
+  /// [AIMarkdownBody.useDollarDelimitersForMath].
+  final bool useDollarDelimitersForMath;
 
   /// The speed at which the text is typed out.
   ///
@@ -108,6 +120,8 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
       selectable: _isDesktopDeviceOrWeb,
       onTapLink: widget.onTapLink,
       styleSheet: widget.styleSheet,
+      mathBuilder: widget.mathBuilder,
+      useDollarDelimitersForMath: widget.useDollarDelimitersForMath,
     );
   }
 }

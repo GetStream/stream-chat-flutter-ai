@@ -19,5 +19,6 @@ export 'src/composer/chat_option.dart';
 export 'src/composer/composer_attachment_sheet.dart';
 export 'src/composer/speech_to_text_button.dart';
 export 'src/composer/suggestions_view.dart';
+export 'src/markdown/math_syntax.dart';
 export 'src/streaming_message_view.dart';
 export 'src/typewriter_builder.dart';

@@ -35,7 +35,7 @@ First release of `stream_chat_flutter_ai`.
   - `TypewriterController` / `TypewriterValue` / `TypewriterState` — controller for character-by-character text reveal.
   - `TypewriterBuilder` — `ValueListenableBuilder` wrapper for `TypewriterController`.
   - `StreamingMessageView` — renders markdown with a typewriter animation, used for streaming AI responses.
-  - `AIMarkdownBody` — segment-based markdown renderer that handles text, fenced code blocks, and chart blocks.
+  - `AIMarkdownBody` — markdown renderer that handles text, fenced code blocks, chart blocks, and LaTeX.
   - `CodeBlockView` — dark-themed code block with copy-to-clipboard button and language label.
   - `ChartView` — renders `USpec` chart data as line, bar, or pie charts via `fl_chart`.
   - `USpec` / `USeries` / `UPoint` / `USpecKind` — chart data model.
@@ -51,9 +51,31 @@ First release of `stream_chat_flutter_ai`.
 - `AIMarkdownBody` now also routes ` ```highcharts ` fences to the chart parser.
 - `XFile` is re-exported from `package:cross_file` (now a direct dependency), where the type is
   actually defined, rather than from `package:image_picker`, which merely re-exports it.
+- **LaTeX support.** `AIMarkdownBody` and `StreamingMessageView` recognise `\(…\)` inline and `\[…\]`
+  display math (`MathInlineSyntax` / `MathBlockSyntax`, built on `package:markdown`, now a direct
+  dependency). Rendering goes through a new `mathBuilder` callback rather than a bundled math engine:
+  every Flutter TeX renderer pulls a non-trivial dependency tree behind it (`flutter_math_fork`, the
+  usual pick, brings `flutter_svg` and `provider`), and this package stays standalone — the same
+  trade `styleSheet` already makes for text styling. With no `mathBuilder` the TeX source is shown as
+  plain text rather than dropped. The example app wires up `flutter_math_fork` to demonstrate it.
+  `useDollarDelimitersForMath` additionally accepts `$…$` / `$$…$$`; it is off by default because `$`
+  collides with currency in ordinary prose.
 
 🐞 Fixed
 
+- **Code blocks now appear as soon as their opening fence arrives, instead of after the closing one.**
+  `AIMarkdownBody` used to pre-split the markdown with a regex that required *both* fences, so a code
+  block still being streamed showed its raw ` ``` ` markers and unstyled source for as long as it was
+  arriving, then snapped into a `CodeBlockView` once complete. Fences are now found by
+  `package:markdown`, which — as CommonMark requires — treats an unclosed fence as running to the end
+  of the document, so the block is styled and its language labelled from the first line. Dropping that
+  pre-split fixed three more things with it:
+  - An ordered list interrupted by an indented code fence no longer restarts its numbering at 1. Each
+    segment used to be rendered by a separate `MarkdownBody`, and two of those share no parser state.
+  - Fences nested inside a list item or blockquote reach `CodeBlockView` (and the chart parser) rather
+    than falling through to the default `pre` rendering.
+  - `~~~` fences and 4-space-indented code blocks are recognised; the old regex only looked for
+    backticks.
 - **`StreamingMessageView` could get stuck on stale text.** Replacing the text with anything shorter
   than what was already revealed — a regenerated or edited reply, an error message swapping in for a
   partial one — left the *previous* text on screen indefinitely, because `TypewriterController` only
@@ -109,11 +131,13 @@ First release of `stream_chat_flutter_ai`.
 
 🚀 Performance
 
-- **`AIMarkdownBody` no longer re-parses its markdown on every build.** While streaming that meant a
-  full regex scan plus a `jsonDecode` of every chart fence once per typewriter tick — roughly every
-  10ms. The segment list is now recomputed only when the markdown actually changes, and chart-fence
-  parses are memoized on the fence's content (which stops changing as soon as its closing fence
-  arrives), failures included.
+- **`AIMarkdownBody` no longer re-parses every chart fence on every build.** While streaming, a
+  `jsonDecode` plus a full schema walk ran for each chart fence once per typewriter tick — roughly
+  every 10ms — including the throw-and-catch for a fence that holds no chart data at all. Those parses
+  are memoized on the fence's content (which stops changing as soon as its closing fence arrives),
+  failures included.
+- `AIMarkdownBody` renders the whole message with a single `MarkdownBody` rather than a `Column` of
+  one per text segment, and its element builders and syntax lists are built once instead of per frame.
 - **Attachment thumbnails are read and decoded once.** The `Future` was created inside `build`, and
   the composer rebuilds on every keystroke, so each character re-read every attachment off disk in
   full and re-decoded it. They now also decode at thumbnail resolution rather than full camera

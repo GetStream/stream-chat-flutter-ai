@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() => runApp(const ExampleApp());
@@ -43,7 +44,8 @@ class _Message {
 /// fence ([ChartView]). There is no backend here — the reply is revealed by
 /// [StreamingMessageView]'s typewriter, the same way a real streamed response
 /// would arrive.
-const _cannedReply = '''
+// Raw so the LaTeX backslashes below read the way an LLM would emit them.
+const _cannedReply = r'''
 Sure — here's a quick tour of what this package renders.
 
 ### Markdown
@@ -60,6 +62,14 @@ Regular **bold**, *italic* and `inline code` all work, plus lists:
 final controller = ChatComposerController();
 controller.isGenerating = true;
 ```
+
+### Some maths
+
+Inline like \(e^{i\pi} + 1 = 0\), or as its own block:
+
+\[
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+\]
 
 ### A chart
 
@@ -243,6 +253,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
                         if (message.isUser) return _UserBubble(text: message.text);
                         return StreamingMessageView(
                           text: message.text,
+                          // The package recognises LaTeX but ships no math
+                          // engine; this is the seam where a host supplies one.
+                          mathBuilder: (context, tex, style, {required inline}) => Math.tex(
+                            tex,
+                            textStyle: style,
+                            mathStyle: inline ? MathStyle.text : MathStyle.display,
+                            onErrorFallback: (error) => Text(tex, style: style),
+                          ),
                           onTypewriterStateChanged: (state) {
                             // Flip the composer back to "send" once the backend
                             // has stopped sending chunks *and* the typewriter

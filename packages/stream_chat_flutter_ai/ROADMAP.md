@@ -88,9 +88,9 @@ chart** (the `switch` default case, `_ => _buildLineChart()`).
       value range. Axis gutters match the `fl_chart` kinds' reserved sizes so a heatmap lines up
       with a bar/line chart in the same message.
 
-Fence-language routing already exists in `lib/src/ai_markdown_body.dart`
-(`json, chart, chartjs, echarts, plotly, vega`) — extend the language set as needed, the hook is
-already there.
+Fence-language routing already exists in `lib/src/ai_markdown_body.dart` — `_kChartLanguages`
+(`json, chart, chartjs, echarts, highcharts, plotly, vega`), consulted by the `pre` element builder.
+Extend the language set as needed, the hook is already there.
 
 - **Acceptance:** a unit test per new schema, feeding a representative JSON payload and asserting
   the resulting `USpec.kind`/series; scatter/bubble/histogram render visibly distinct from a plain
@@ -109,6 +109,11 @@ decorative language label — no token coloring.
 
 **Proposed work:** introduce a highlighting dependency and colorize the code body, keeping the
 existing dark theme (`_kBgColor 0xFF1E1E1E`), header, and copy button intact.
+
+> `CodeBlockView` is now constructed by the `pre` element builder in `ai_markdown_body.dart`
+> (`_CodeFenceBuilder`), which is where the language and raw source arrive. Nothing about this item
+> changes — the highlighting work is still confined to `code_block_view.dart` — but that builder is
+> the seam to look at if a highlighter needs anything the widget isn't currently handed.
 
 - Evaluate `re_highlight` (actively maintained, highlight.js grammars) vs. `flutter_highlight` +
   `highlight` (popular but stale) vs. `syntax_highlight` (Dart-team maintained, fewer languages).
@@ -274,6 +279,46 @@ the `stream_core_flutter` split from the chat-specific packages), not in
 - **Effort:** S–M if pursued.
 
 ---
+
+## Decisions taken
+
+Recorded so they aren't re-litigated. State the counter-evidence if you want to reopen one.
+
+### Markdown renderer: stay on `flutter_markdown_plus` 🅾️
+
+`gpt_markdown` was evaluated as a replacement (July 2026) and **rejected**. It markets itself as the
+LLM-oriented renderer, and it does have real AI-shaped features — built-in LaTeX, `SourceTag`
+citation markers, a `closed` flag on its `codeBuilder`. But:
+
+- **The streaming claim doesn't hold up.** It is the headline reason to switch, and there is no
+  streaming API, no documentation of partial-input behaviour, and
+  [issue #67](https://github.com/Infinitix-LLC/gpt_markdown/issues/67) ("Can AI streaming chat render
+  Markdown in real time?") has been open and unanswered since June 2025. Its inline syntaxes all
+  require paired closers, so a half-typed `**wor` renders as literal asterisks.
+- **It parses with its own regexes**, not `package:markdown`, so it isn't CommonMark/GFM-compliant.
+  Missing what LLMs actually emit: `_italic_` / `__bold__`, reference-style links, autolinks,
+  footnotes, setext headings.
+- **No `selectable` parameter** ([#118](https://github.com/Infinitix-LLC/gpt_markdown/issues/118)),
+  which `StreamingMessageView` relies on for desktop/web.
+- **No built-in syntax highlighting**, despite the docs claiming it (`custom_widgets/code_field.dart`
+  renders plain text) — so 2.1 above would be unaffected either way.
+- Switching would break the public API: `MarkdownStyleSheet` is exported and is the documented seam
+  for matching a host's `stream_chat_flutter` text theme. `GptMarkdownThemeData` is less expressive.
+- It pulls `flutter_svg` + `provider` + `tuple` transitively, against this package's standalone,
+  dependency-light design.
+
+`flutter_markdown_plus` is also the better-supported option: ~3× the downloads, a direct handover
+from Google's discontinued `flutter_markdown` to foresightmobile.com, and `package:markdown`
+underneath.
+
+Crucially, the one genuine architectural win — replacing the hand-rolled fence pre-split with a real
+element builder — needed no dependency change at all; `flutter_markdown_plus`' `builders` API already
+provided it, and taking it fixed four bugs (see the CHANGELOG). LaTeX landed in place too, as
+`src/markdown/math_syntax.dart` plus a `mathBuilder` seam.
+
+**Still worth stealing from `gpt_markdown`:** `SourceTag`-style inline citation markers
+(`【…[1]`) have no equivalent here. If inline citations become a requirement, that is a custom
+`md.InlineSyntax` plus a builder, in the same shape as the math support.
 
 ## Where Flutter already leads
 
