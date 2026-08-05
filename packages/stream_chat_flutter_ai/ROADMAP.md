@@ -133,18 +133,23 @@ separately, since the body and its header are being rewritten anyway):
   whatever the highlighting package wants). Note `test/flutter_test_config.dart` currently registers
   a system font under the `monospace` family purely to work around this in goldens — revisit that
   once the family name is real.
-- **The copy button `setState`s after an `await` with no `mounted` guard** (`_CopyButtonState._onTap`
-  guards the second `setState` but not the first, after `Clipboard.setData`), and repeated taps race
-  two 2-second reset timers against each other.
-- **No test coverage at all** for the copy button or the language label.
+- ~~**The copy button `setState`s after an `await` with no `mounted` guard**, and repeated taps race
+  two 2-second reset timers against each other.~~ ✅ Fixed separately — it needed no rewrite of the
+  body, so it wasn't worth carrying. `_CopyButtonState` now bails when unmounted and uses one
+  restartable `Timer`, cancelled on dispose.
+- ~~**No test coverage at all** for the copy button or the language label.~~ ✅ Covered by
+  `test/src/code_block_view_test.dart` (label shown/omitted, copy + confirm + revert, tap-again does
+  not race, disposal mid-copy). Still to add when 2.1 lands: an assertion that a themed span tree is
+  produced.
 - The block is hardcoded dark (`_kBgColor 0xFF1E1E1E`) regardless of theme. That's a deliberate
   choice worth keeping — code blocks read as code — but the *header* row's label color should come
   out of the token set the highlighting theme establishes rather than a bare constant.
 
 - **Files:** `lib/src/code_block_view.dart`; root `pubspec.yaml` (`melos.command.bootstrap`).
 - **Acceptance:** a `dart`/`json`/`python` block renders multi-colored tokens; unknown language
-  still renders plain; copy button + text selection still work; monospaced on iOS/macOS/web; widget
-  test asserting a themed span tree is produced, plus one covering the copy button.
+  still renders plain; copy button + text selection still work (the existing
+  `code_block_view_test.dart` is the guard); monospaced on iOS/macOS/web; widget test asserting a
+  themed span tree is produced.
 - **Effort:** M (1–2 days including dependency vetting).
 
 ### 2.2 Composer factory slot coverage (`ChatComposerFactory`)

@@ -63,6 +63,12 @@ First release of `stream_chat_flutter_ai`.
 
 🐞 Fixed
 
+- **`CodeBlockView`'s copy button could crash, and repeated taps cleared the confirmation early.** The
+  `setState` after `Clipboard.setData` ran unguarded, so a block disposed during that platform
+  round-trip — scrolled out of a list, or a streamed message replaced — hit `setState` on a defunct
+  state object. The 2-second revert is also a single restartable `Timer` now instead of a
+  `Future.delayed` per tap; two overlapping delays raced, and the first to resolve cleared the check
+  mark while the later tap still expected it. The timer is cancelled on dispose.
 - **Code blocks now appear as soon as their opening fence arrives, instead of after the closing one.**
   `AIMarkdownBody` used to pre-split the markdown with a regex that required *both* fences, so a code
   block still being streamed showed its raw ` ``` ` markers and unstyled source for as long as it was

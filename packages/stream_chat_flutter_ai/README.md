@@ -1,7 +1,7 @@
 # Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
 
 > A standalone set of Flutter components for building LLM-driven chat experiences:
-> streaming text, animated typing indicators, syntax-highlighted code blocks, charts,
+> streaming text, animated typing indicators, labelled code blocks, charts,
 > a purpose-built AI composer, and speech-to-text input. This package has **no
 > dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 > package** — every widget operates on plain strings, callbacks, and controllers, so
