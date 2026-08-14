@@ -93,6 +93,81 @@ void main() {
       expect(controller.attachments, equals([fileB]));
       controller.dispose();
     });
+
+    test('removeAttachment matches by path, not identity', () {
+      // The removal uses a separately-constructed XFile for the same image: the
+      // type doesn't override `==`, so identity matching would silently fail.
+      final controller = ChatComposerController()
+        ..addAttachments([XFile('a.png')])
+        ..removeAttachment(XFile('a.png'));
+
+      expect(controller.attachments, isEmpty);
+      controller.dispose();
+    });
+
+    test('addAttachments skips a file that is already attached', () {
+      final controller = ChatComposerController()..addAttachments([XFile('a.png')]);
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      final added = controller.addAttachments([XFile('a.png'), XFile('b.png')]);
+
+      expect(added.map((it) => it.path), ['b.png']);
+      expect(controller.attachments.map((it) => it.path), ['a.png', 'b.png']);
+      expect(notified, isTrue);
+      controller.dispose();
+    });
+
+    test('addAttachments does not notify when everything was a duplicate', () {
+      final controller = ChatComposerController()..addAttachments([XFile('a.png')]);
+      var notified = false;
+      controller.addListener(() => notified = true);
+
+      expect(controller.addAttachments([XFile('a.png')]), isEmpty);
+      expect(notified, isFalse);
+      controller.dispose();
+    });
+
+    test('addAttachments stops at maxAttachments', () {
+      final controller = ChatComposerController(maxAttachments: 2);
+
+      final added = controller.addAttachments([XFile('a.png'), XFile('b.png'), XFile('c.png')]);
+
+      expect(added.map((it) => it.path), ['a.png', 'b.png']);
+      expect(controller.attachments, hasLength(2));
+      expect(controller.remainingAttachmentSlots, 0);
+      controller.dispose();
+    });
+
+    test('the cap holds across separate addAttachments calls', () {
+      final controller = ChatComposerController(maxAttachments: 2)
+        ..addAttachments([XFile('a.png')])
+        ..addAttachments([XFile('b.png')])
+        ..addAttachments([XFile('c.png')]);
+
+      expect(controller.attachments.map((it) => it.path), ['a.png', 'b.png']);
+      controller.dispose();
+    });
+
+    test('removing frees a slot again', () {
+      final controller = ChatComposerController(maxAttachments: 1)..addAttachments([XFile('a.png')]);
+      expect(controller.addAttachments([XFile('b.png')]), isEmpty);
+
+      controller
+        ..removeAttachment(XFile('a.png'))
+        ..addAttachments([XFile('b.png')]);
+
+      expect(controller.attachments.map((it) => it.path), ['b.png']);
+      controller.dispose();
+    });
+
+    test('hasAttachmentAt reports what is attached', () {
+      final controller = ChatComposerController()..addAttachments([XFile('a.png')]);
+
+      expect(controller.hasAttachmentAt('a.png'), isTrue);
+      expect(controller.hasAttachmentAt('b.png'), isFalse);
+      controller.dispose();
+    });
   });
 
   group('ChatComposer', () {

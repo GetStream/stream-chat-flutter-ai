@@ -25,10 +25,6 @@ class ChatComposerFactory {
   /// Creates a [ChatComposerFactory].
   const ChatComposerFactory();
 
-  /// The maximum number of images the default [buildLeading] button lets the
-  /// user pick in one go.
-  static const int maxAttachments = 3;
-
   /// The widget placed to the left of the input container, or `null` for
   /// none.
   ///
@@ -36,6 +32,8 @@ class ChatComposerFactory {
   /// [ComposerAttachmentSheet] — a combined photo picker and, if
   /// [ChatComposerController.chatOptions] is non-empty, chat-option list. The
   /// button is disabled while [ChatComposerController.isGenerating] is `true`.
+  /// How many photos the sheet will accept is
+  /// [ChatComposerController.maxAttachments].
   ///
   /// Override to replace it, or return `null` to hide it — [ChatComposer]
   /// only reserves layout space (and the gap to the input container) for a

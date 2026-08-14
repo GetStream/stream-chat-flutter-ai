@@ -35,6 +35,43 @@ void main() {
       expect(find.byType(BarChart), findsOneWidget);
     });
 
+    group('fence memoization', () {
+      // A streaming message rebuilds roughly every 10ms. A completed fence's
+      // content can't change, so its widget is reused verbatim: the framework
+      // skips the subtree's rebuild on an identical widget, and the
+      // RepaintBoundary keeps the raster while the trailing text grows.
+      testWidgets('reuses the same widget instance for an unchanged fence', (tester) async {
+        Element chartElement() => tester.element(find.byType(ChartView));
+
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: _mixedContent)));
+        final first = chartElement().widget;
+
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: '$_mixedContent\nmore text arriving')));
+        expect(chartElement().widget, same(first));
+      });
+
+      testWidgets('wraps fences in a RepaintBoundary', (tester) async {
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: _mixedContent)));
+
+        expect(
+          find.ancestor(of: find.byType(ChartView), matching: find.byType(RepaintBoundary)),
+          findsWidgets,
+        );
+      });
+
+      testWidgets('rebuilds a fence whose content changed', (tester) async {
+        const growing = '```python\ndef aver';
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: growing)));
+        final first = tester.element(find.byType(CodeBlockView)).widget;
+
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: '${growing}age(values):')));
+        final second = tester.element(find.byType(CodeBlockView)).widget;
+
+        expect(second, isNot(same(first)));
+        expect((second as CodeBlockView).code, contains('age(values):'));
+      });
+    });
+
     goldenTest(
       'mixed text, code block, and chart',
       fileName: 'ai_markdown_body_mixed_content',

@@ -8,6 +8,34 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dar
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 
+/// How many asset-id → file-path mappings to remember. Comfortably more than
+/// the strip shows at once, small enough to stay cheap.
+const _kAssetPathCacheCapacity = 128;
+
+/// Maps a [AssetEntity.id] to the file path resolving it produced.
+///
+/// A tile's checkmark is derived from [ChatComposerController.attachments],
+/// which stores paths, while the strip is keyed by asset id — so telling
+/// whether an asset is attached needs the mapping between the two, and
+/// resolving it is an async platform call (on iOS, potentially an iCloud
+/// download). Cached at library scope rather than in the sheet's state so that
+/// closing and reopening the sheet doesn't forget which photos are still
+/// attached.
+final _assetPathCache = <String, String>{};
+
+void _cacheAssetPath(String id, String path) {
+  // Evict in insertion order — the oldest entry is the one least likely to
+  // still be in the recent-photo strip.
+  if (_assetPathCache.length >= _kAssetPathCacheCapacity) {
+    _assetPathCache.remove(_assetPathCache.keys.first);
+  }
+  _assetPathCache[id] = path;
+}
+
+/// Clears the asset-path cache. Exposed for tests.
+@visibleForTesting
+void debugClearAssetPathCache() => _assetPathCache.clear();
+
 /// The combined attachment / chat-option sheet opened from the composer's
 /// leading "+" button by default (see [ChatComposerFactory.buildLeading]).
 ///
@@ -54,16 +82,6 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 
   List<AssetEntity> _recentPhotos = const [];
 
-  /// Maps a selected asset's id to the exact [XFile] instance passed to
-  /// [ChatComposerController.addAttachments], so deselecting can pass that same
-  /// instance back to [ChatComposerController.removeAttachment].
-  ///
-  /// [XFile] doesn't override `==`, so a freshly-constructed `XFile` with the
-  /// same path is *not* `==` to the one already in
-  /// [ChatComposerController.attachments] — reconstructing one to remove would
-  /// silently fail to match.
-  final Map<String, XFile> _selectedAssets = {};
-
   bool _isLoading = true;
   bool _hasAccess = false;
 
@@ -100,19 +118,31 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
     }
   }
 
+  /// Whether [asset] is currently among the controller's attachments.
+  ///
+  /// Derived rather than tracked: the composer's own thumbnail ✕ removes
+  /// attachments behind the sheet's back, and the sheet is rebuilt from
+  /// scratch every time it opens.
+  bool _isSelected(AssetEntity asset) {
+    final path = _assetPathCache[asset.id];
+    return path != null && widget.controller.hasAttachmentAt(path);
+  }
+
   Future<void> _toggleAsset(AssetEntity asset) async {
-    final selected = _selectedAssets[asset.id];
-    if (selected != null) {
-      setState(() => _selectedAssets.remove(asset.id));
-      widget.controller.removeAttachment(selected);
+    final cachedPath = _assetPathCache[asset.id];
+    if (cachedPath != null && widget.controller.hasAttachmentAt(cachedPath)) {
+      widget.controller.removeAttachment(XFile(cachedPath));
       return;
     }
 
-    final file = await asset.file;
-    if (file == null || !mounted) return;
-    final xFile = XFile(file.path);
-    setState(() => _selectedAssets[asset.id] = xFile);
-    widget.controller.addAttachments([xFile]);
+    // Always re-resolved when adding, never taken from the cache: on iOS the
+    // path points at a temporary copy the system is free to purge, so a cached
+    // one is only trustworthy for as long as the attachment referencing it
+    // lives.
+    final path = (await asset.file)?.path;
+    if (path == null || !mounted) return;
+    _cacheAssetPath(asset.id, path);
+    widget.controller.addAttachments([XFile(path)]);
   }
 
   Future<void> _pickFromCamera() async {
@@ -122,7 +152,18 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
   }
 
   Future<void> _pickFromFullLibrary() async {
-    final photos = await ImagePicker().pickMultiImage(limit: ChatComposerFactory.maxAttachments);
+    final remaining = widget.controller.remainingAttachmentSlots;
+    if (remaining <= 0) return;
+
+    // `pickMultiImage` rejects a limit below 2, so the last free slot has to be
+    // filled by the single-image picker instead.
+    final List<XFile> photos;
+    if (remaining == 1) {
+      final photo = await ImagePicker().pickImage(source: ImageSource.gallery);
+      photos = photo == null ? const [] : [photo];
+    } else {
+      photos = await ImagePicker().pickMultiImage(limit: remaining);
+    }
     if (photos.isEmpty) return;
     widget.controller.addAttachments(photos);
   }
@@ -134,8 +175,21 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilt from the controller so the checkmarks track
+    // `ChatComposerController.attachments` rather than a private copy of it —
+    // removing a photo via the composer's own thumbnail ✕ clears its checkmark
+    // here too, and reaching the cap greys out the tiles that can no longer be
+    // added.
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) => _buildSheet(context),
+    );
+  }
+
+  Widget _buildSheet(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final chatOptions = widget.controller.chatOptions;
+    final atCapacity = widget.controller.remainingAttachmentSlots <= 0;
 
     return SafeArea(
       top: false,
@@ -151,7 +205,10 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
                 children: [
                   Text('Photos', style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
-                  TextButton(onPressed: _pickFromFullLibrary, child: const Text('All Photos')),
+                  TextButton(
+                    onPressed: atCapacity ? null : _pickFromFullLibrary,
+                    child: const Text('All Photos'),
+                  ),
                 ],
               ),
             ),
@@ -161,7 +218,7 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _CameraTile(onTap: _pickFromCamera),
+                  _CameraTile(onTap: atCapacity ? null : _pickFromCamera),
                   const SizedBox(width: 8),
                   if (_isLoading)
                     const SizedBox(
@@ -182,8 +239,10 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
                     for (final asset in _recentPhotos) ...[
                       _RecentPhotoTile(
                         asset: asset,
-                        selected: _selectedAssets.containsKey(asset.id),
-                        onTap: () => _toggleAsset(asset),
+                        selected: _isSelected(asset),
+                        // Deselecting stays available at the cap; only *adding*
+                        // is blocked.
+                        onTap: atCapacity && !_isSelected(asset) ? null : () => _toggleAsset(asset),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -204,12 +263,15 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 class _CameraTile extends StatelessWidget {
   const _CameraTile({required this.onTap});
 
-  final VoidCallback onTap;
+  /// `null` once the composer is holding its maximum attachments, which
+  /// disables the tile.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final borderRadius = BorderRadius.circular(12);
+    final iconColor = onTap == null ? colorScheme.onSurface.withValues(alpha: 0.3) : colorScheme.onSurface;
     return Container(
       width: 72,
       height: 72,
@@ -226,7 +288,7 @@ class _CameraTile extends StatelessWidget {
           onTap: onTap,
           child: Tooltip(
             message: 'Take a photo',
-            child: Center(child: Icon(Icons.camera_alt_outlined, color: colorScheme.onSurface)),
+            child: Center(child: Icon(Icons.camera_alt_outlined, color: iconColor)),
           ),
         ),
       ),
@@ -239,7 +301,10 @@ class _RecentPhotoTile extends StatefulWidget {
 
   final AssetEntity asset;
   final bool selected;
-  final VoidCallback onTap;
+
+  /// `null` when the composer is at its attachment cap and this photo isn't one
+  /// of the attached ones, which disables the tile.
+  final VoidCallback? onTap;
 
   @override
   State<_RecentPhotoTile> createState() => _RecentPhotoTileState();
@@ -281,15 +346,20 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: FutureBuilder<Uint8List?>(
-                future: _thumbnail,
-                builder: (context, snapshot) {
-                  final bytes = snapshot.data;
-                  if (bytes == null) {
-                    return ColoredBox(color: colorScheme.surfaceContainerHigh);
-                  }
-                  return Image.memory(bytes, fit: BoxFit.cover);
-                },
+              child: Opacity(
+                // Dimmed when the cap makes this photo unpickable, so the tile
+                // reads as unavailable rather than unresponsive.
+                opacity: widget.onTap == null ? 0.4 : 1,
+                child: FutureBuilder<Uint8List?>(
+                  future: _thumbnail,
+                  builder: (context, snapshot) {
+                    final bytes = snapshot.data;
+                    if (bytes == null) {
+                      return ColoredBox(color: colorScheme.surfaceContainerHigh);
+                    }
+                    return Image.memory(bytes, fit: BoxFit.cover);
+                  },
+                ),
               ),
             ),
             if (selected)

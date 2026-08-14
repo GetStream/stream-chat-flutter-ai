@@ -25,9 +25,9 @@ typedef MathBuilder = Widget Function(BuildContext context, String tex, TextStyl
 /// The set of languages whose fences are treated as chart blocks.
 const _kChartLanguages = {'json', 'chart', 'chartjs', 'echarts', 'highcharts', 'plotly', 'vega'};
 
-/// How many chart-fence parses to remember. Comfortably more than the number of
-/// charts visible at once, small enough to stay cheap.
-const _kSpecCacheCapacity = 32;
+/// How many code fences to remember the parse and built widget for. Comfortably
+/// more than the number visible at once, small enough to stay cheap.
+const _kFenceCacheCapacity = 32;
 
 /// Memoized [USpecParser.tryParse] results, keyed on the fence's exact content.
 ///
@@ -39,15 +39,45 @@ const _kSpecCacheCapacity = 32;
 /// reason.
 final _specCache = <String, USpec?>{};
 
+/// Memoized fence *widgets*, keyed on language + content.
+///
+/// Caching the parse alone still left every completed chart rebuilding and
+/// repainting on each typewriter tick, which is what actually shows up on a
+/// low-end device rendering a message with several charts. Returning the
+/// identical [Widget] instance lets the framework short-circuit the subtree's
+/// rebuild entirely, and the [RepaintBoundary] each entry is wrapped in keeps
+/// its rasterized pixels while only the growing trailing text repaints.
+final _fenceWidgetCache = <String, Widget>{};
+
 USpec? _parseSpecCached(String code) {
   final cached = _specCache[code];
   if (cached != null || _specCache.containsKey(code)) return cached;
 
   // Evict in insertion order — a streaming message appends fences, so the
   // oldest entry is the one least likely to still be on screen.
-  if (_specCache.length >= _kSpecCacheCapacity) _specCache.remove(_specCache.keys.first);
+  if (_specCache.length >= _kFenceCacheCapacity) _specCache.remove(_specCache.keys.first);
 
   return _specCache[code] = USpecParser.tryParse(code);
+}
+
+Widget _buildFenceCached(String? language, String source) {
+  final key = '${language ?? ''}\n$source';
+  final cached = _fenceWidgetCache[key];
+  if (cached != null) return cached;
+
+  if (_fenceWidgetCache.length >= _kFenceCacheCapacity) {
+    _fenceWidgetCache.remove(_fenceWidgetCache.keys.first);
+  }
+
+  final spec = language != null && _kChartLanguages.contains(language.toLowerCase()) ? _parseSpecCached(source) : null;
+  final child = spec != null
+      ? ChartView(spec: spec)
+      : CodeBlockView(
+          code: source,
+          language: (language == null || language.isEmpty) ? null : language,
+        );
+
+  return _fenceWidgetCache[key] = RepaintBoundary(child: child);
 }
 
 /// A markdown renderer tailored for AI-generated messages.
@@ -231,15 +261,7 @@ class _CodeFenceBuilder extends MarkdownElementBuilder {
     // source. The parser appends a trailing newline to the code element.
     final source = element.textContent.trimRight();
 
-    if (language != null && _kChartLanguages.contains(language.toLowerCase())) {
-      final spec = _parseSpecCached(source);
-      if (spec != null) return ChartView(spec: spec);
-    }
-
-    return CodeBlockView(
-      code: source,
-      language: (language == null || language.isEmpty) ? null : language,
-    );
+    return _buildFenceCached(language, source);
   }
 }
 

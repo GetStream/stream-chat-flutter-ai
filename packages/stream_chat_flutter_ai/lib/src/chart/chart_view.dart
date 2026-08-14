@@ -33,6 +33,9 @@ Color _seriesColor(int index) => _kSeriesColors[index % _kSeriesColors.length];
 /// [USpecKind.pie], [USpecKind.scatter], [USpecKind.bubble],
 /// [USpecKind.histogram], and [USpecKind.heatmap] — the last of which is drawn
 /// by [HeatmapChartView] rather than `fl_chart`, which has no heatmap widget.
+///
+/// [USpec.title], when the spec carries one, is rendered as a heading above the
+/// plot, matching the reference Android/iOS AI packages.
 class ChartView extends StatelessWidget {
   /// Creates a [ChartView].
   const ChartView({super.key, required this.spec});
@@ -43,7 +46,7 @@ class ChartView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    final plot = Container(
       height: _kChartHeight,
       padding: const EdgeInsets.only(top: 8, right: 16, bottom: 8),
       child: switch (spec.kind) {
@@ -55,6 +58,24 @@ class ChartView extends StatelessWidget {
         USpecKind.heatmap => HeatmapChartView(spec: spec),
         _ => _buildLineChart(colorScheme),
       },
+    );
+
+    final title = spec.title?.trim();
+    if (title == null || title.isEmpty) return plot;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurface),
+          ),
+        ),
+        plot,
+      ],
     );
   }
 

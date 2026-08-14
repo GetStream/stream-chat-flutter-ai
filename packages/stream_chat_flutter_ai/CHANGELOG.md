@@ -20,6 +20,10 @@ First release of `stream_chat_flutter_ai`.
 - Fixed vertical alignment of the leading/trailing circles against the input pill: both Rows now use `CrossAxisAlignment.center` instead of `.end`. The pill is naturally taller than the fixed-size 40x40 circles, so bottom-aligning them dumped 100% of that extra height above the circles as a lopsided gap — visually different from the reference Android layout, where the "+" and mic sit evenly inset within the pill's height. Centering fixes this without needing to change either the pill's or the circles' size.
 - The input pill and the default "+" attachment button now use the same, lighter `colorScheme.surfaceContainerHigh` fill and `outlineVariant` border (previously the pill used the darker/more-tinted `surfaceContainerHighest` while the button used plain `surface`, so the two visibly didn't match). The text field's hint text now uses `onSurfaceVariant` at 60% opacity instead of the theme's default (near-black) hint color, matching the muted placeholder look of the reference Android/iOS composers.
 - The inline selected-option chip (shown inside the input box once a `ChatOption` is chosen) is now a proper pill badge — `colorScheme.primaryContainer` background, larger icon/text/dismiss-button — instead of plain icon+text directly on the input's own background.
+- The attachment cap moved from `ChatComposerFactory.maxAttachments` (a `static const`, now removed) to `ChatComposerController.maxAttachments`, a constructor parameter still defaulting to 3 — **breaking change** for anything reading the old constant. It sits on the controller because that is where it can actually be enforced: the controller owns the attachment list, so every picker funnels through it. `addAttachments` also returns the files it accepted rather than `void`, so a caller can tell what the cap and the duplicate check dropped.
+- `SpeechToTextButton`'s `localeId`, `listenFor`, `pauseFor`, `onError` and `onStatus` parameters are replaced by a single `config` of the new `SpeechToTextConfig` — **breaking change** for direct callers. The same object is accepted by `ChatComposer.speechToTextConfig`, which previously had no way at all to configure or observe voice input.
+- `SpeechToTextConfig.pauseFor` defaults to `null` (resolved per platform) instead of a flat 3 seconds — see 🐞 Fixed below for why the flat value was wrong on Android.
+- While a dictation session is running, the composer's trailing control stays on the mic (in its stop state) instead of morphing to send as soon as recognised words give the field content.
 
 ✅ Added
 
@@ -60,6 +64,17 @@ First release of `stream_chat_flutter_ai`.
   plain text rather than dropped. The example app wires up `flutter_math_fork` to demonstrate it.
   `useDollarDelimitersForMath` additionally accepts `$…$` / `$$…$$`; it is off by default because `$`
   collides with currency in ordinary prose.
+- `SpeechToTextController` — the owner of the app's recognition session, and the thing
+  `SpeechToTextButton` is now merely a view over. Exposes `isListening`, `isAvailable`, `start`,
+  `stop` and `cancel`, so a host can drive or observe dictation without going through the button.
+- `SpeechToTextConfig` — locale, timeouts and status/error callbacks for voice input, accepted by
+  both `ChatComposer` and `SpeechToTextButton`.
+- `ChartView` renders `USpec.title` as a heading above the plot when the spec carries one, matching
+  the reference Android/iOS packages. A blank title is treated as absent.
+- `ChatComposerController.remainingAttachmentSlots` and `hasAttachmentAt`, which let a picker
+  disable itself at the cap and show which images are already attached.
+- `HeatmapChartView` and `ComposerActionButton` are exported from the library. Both are public,
+  documented types that were only reachable through a `src/` import.
 
 🐞 Fixed
 
@@ -124,6 +139,47 @@ First release of `stream_chat_flutter_ai`.
   button either.
 - Dictation appends to whatever is already in the field instead of replacing it, so using
   `SpeechToTextButton` in a custom slot no longer discards typed text.
+- **Dictation cancelled itself as soon as it produced a word, and every mic button after the first
+  was inert.** Both came from the recognition session being owned by `SpeechToTextButton`, a widget
+  the composer creates and destroys constantly. The first recognised word gave the field content,
+  which morphed the trailing control from mic to send, which disposed the button, whose `dispose`
+  cancelled the session — roughly 170ms after dictation started working. Separately, `SpeechToText`
+  is a process singleton whose `initialize()` returns early once it has succeeded *without*
+  re-registering the `onStatus`/`onError` handlers it is given, so only the very first button
+  instance in the process ever received status callbacks; every later one rendered a mic that never
+  switched to "stop" (reproducible by typing a character and deleting it, which swaps the button
+  out and back). The session now lives in `SpeechToTextController.instance`, which initializes once
+  and outlives the widgets observing it; the button reads and drives it and no longer cancels on
+  dispose; and the composer holds the mic in its stop state for the length of a session so there is
+  always a control to end it with. The composer does cancel the session when the composer itself is
+  disposed.
+- **Speech recognition cut off after ~3 seconds on some Android devices.** `pauseFor` — which the
+  package hardcoded to 3 seconds — starts a timer in `speech_to_text` that measures the gap between
+  *recognition results*, not silence in the audio. Engines that deliver nothing until the utterance
+  ends (a Galaxy A05s takes ~3.3s to produce its first partial) were therefore killed mid-sentence,
+  every time. `SpeechToTextConfig.pauseFor` now resolves per platform when left unset: 3 seconds on
+  iOS/macOS, where Apple's recognizer streams partials continuously and the gap really does
+  approximate silence, and nothing on Android, where the engine's own audio-based endpointing ends
+  the utterance and `listenFor` stays the backstop.
+- **The attachment cap only applied to one of the three pickers.** `maxAttachments` was passed to
+  `pickMultiImage`, so the "All Photos" picker respected it while the recent-photo strip and the
+  camera tile let the user add without limit. It is enforced in `ChatComposerController` now — the
+  one place every picker goes through — and the sheet's tiles disable themselves once the cap is
+  reached rather than accepting taps that do nothing. The "All Photos" picker also asks for only
+  the *remaining* slots, falling back to the single-image picker for the last one, since
+  `pickMultiImage` rejects a limit below 2.
+- **The same photo could be attached twice.** The recent-photo strip and the "All Photos" picker
+  don't know about each other, and `addAttachments` appended unconditionally, so picking one image
+  through both produced two identical thumbnails. Attachments are now de-duplicated by path.
+- **The sheet's checkmarks drifted out of sync with the composer.** They were driven by a map local
+  to the sheet's state rather than derived from `ChatComposerController.attachments`, which broke in
+  both directions: removing an attachment with the composer thumbnail's ✕ left the sheet still
+  showing it as selected, and reopening the sheet forgot about photos that were still attached (no
+  checkmark — and tapping one again added a duplicate). Selection is now read from the controller,
+  and the sheet rebuilds with it.
+- `ChatComposerController.removeAttachment` matches by path instead of by identity. `XFile` doesn't
+  override `==`, so a caller holding a freshly-constructed `XFile` for an image it could plainly see
+  attached silently failed to remove it.
 - `AnimatedDots.spacing` was documented and accepted but ignored — the row was hardcoded to 4.
 - Suggestion chips use `TextAlign.start` instead of `TextAlign.left`, so they render correctly in
   right-to-left locales (their width measurement already respected the text direction).
@@ -142,6 +198,14 @@ First release of `stream_chat_flutter_ai`.
   every 10ms — including the throw-and-catch for a fence that holds no chart data at all. Those parses
   are memoized on the fence's content (which stops changing as soon as its closing fence arrives),
   failures included.
+- **Completed charts and code blocks no longer rebuild and repaint on every typewriter frame.**
+  Memoizing the parse still left a new `ChartView` constructed per tick, so a message with several
+  charts kept re-laying-out and re-rasterizing work that could not have changed — visible as heavy
+  jank while streaming on a low-end device (measured on a Galaxy A05s). The built widget is memoized
+  on language + content as well: returning the identical instance lets the framework skip the
+  subtree's rebuild, and each entry is wrapped in a `RepaintBoundary` so the raster cache keeps its
+  pixels while only the growing trailing text repaints. A fence whose content is still arriving
+  misses the cache and rebuilds as before.
 - `AIMarkdownBody` renders the whole message with a single `MarkdownBody` rather than a `Column` of
   one per text segment, and its element builders and syntax lists are built once instead of per frame.
 - **Attachment thumbnails are read and decoded once.** The `Future` was created inside `build`, and

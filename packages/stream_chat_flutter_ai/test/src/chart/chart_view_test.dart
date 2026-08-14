@@ -28,6 +28,49 @@ void main() {
       expect(find.byType(PieChart), findsOneWidget);
     });
 
+    group('title', () {
+      testWidgets('renders spec.title above the plot', (tester) async {
+        const spec = USpec(
+          title: 'Messages per day',
+          kind: USpecKind.bar,
+          series: [
+            USeries(
+              name: 'Messages',
+              points: [UPoint(x: 'Jan', y: 1)],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(find.text('Messages per day'), findsOneWidget);
+        final titleY = tester.getCenter(find.text('Messages per day')).dy;
+        final chartY = tester.getCenter(find.byType(BarChart)).dy;
+        expect(titleY, lessThan(chartY));
+      });
+
+      testWidgets('adds nothing when the spec has no title', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _lineSpec)));
+        expect(find.byType(Column), findsNothing);
+      });
+
+      testWidgets('treats a blank title as absent', (tester) async {
+        const spec = USpec(
+          title: '   ',
+          kind: USpecKind.line,
+          series: [
+            USeries(
+              name: 'A',
+              points: [UPoint(x: 'Jan', y: 1)],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        expect(find.byType(Column), findsNothing);
+      });
+    });
+
     group('multi-series bar', () {
       // Two series of different lengths. The category count used to be read off
       // the *first* series, dropping any later series' extra points, and missing

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
+import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 
 /// Callback fired when the user taps the send button.
 ///
@@ -59,6 +61,7 @@ class ChatComposer extends StatefulWidget {
     this.maxLines = 8,
     this.textInputAction = TextInputAction.newline,
     this.enableSpeechToText = false,
+    this.speechToTextConfig = const SpeechToTextConfig(),
   });
 
   /// The controller that manages input text, chat options, attachments, and
@@ -100,7 +103,17 @@ class ChatComposer extends StatefulWidget {
   /// into the send button as soon as the user types (or the stop button
   /// while generating). Requires the platform permissions documented on
   /// [SpeechToTextButton]. Defaults to `false`.
+  ///
+  /// The one exception to that morph is an in-flight dictation: the mic stays
+  /// put, showing its stop state, until the session ends. Otherwise the first
+  /// recognised word — which is content — would replace the control the user
+  /// needs in order to stop talking.
   final bool enableSpeechToText;
+
+  /// Locale, timeouts and callbacks for voice input.
+  ///
+  /// Only consulted when [enableSpeechToText] is `true`.
+  final SpeechToTextConfig speechToTextConfig;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -160,6 +173,9 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   void dispose() {
+    // The recognition session outlives the mic button by design, but not the
+    // composer that offered it — nothing would be left to stop it.
+    if (widget.enableSpeechToText) unawaited(SpeechToTextController.instance.cancel());
     if (_ownsController) _controller.dispose();
     if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
@@ -183,7 +199,12 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _controller,
+      // The speech controller is merged in so the trailing control can hold its
+      // stop state for the length of a dictation — that state lives there, not
+      // in `_controller`.
+      listenable: widget.enableSpeechToText
+          ? Listenable.merge([_controller, SpeechToTextController.instance])
+          : _controller,
       builder: (context, _) {
         final leading = widget.factory.buildLeading(context, _controller);
         final trailing = widget.factory.buildTrailing(context, _controller);
@@ -214,6 +235,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       maxLines: widget.maxLines,
                       textInputAction: widget.textInputAction,
                       enableSpeechToText: widget.enableSpeechToText,
+                      speechToTextConfig: widget.speechToTextConfig,
                       onSend: _onSend,
                       onStop: _onStop,
                     ),
@@ -244,6 +266,7 @@ class _InputContainer extends StatelessWidget {
     this.maxLines = 8,
     this.textInputAction = TextInputAction.newline,
     this.enableSpeechToText = false,
+    this.speechToTextConfig = const SpeechToTextConfig(),
   });
 
   final ChatComposerController controller;
@@ -255,6 +278,7 @@ class _InputContainer extends StatelessWidget {
   final int maxLines;
   final TextInputAction textInputAction;
   final bool enableSpeechToText;
+  final SpeechToTextConfig speechToTextConfig;
 
   @override
   Widget build(BuildContext context) {
@@ -322,6 +346,7 @@ class _InputContainer extends StatelessWidget {
                     onSend: onSend,
                     onStop: onStop,
                     enableSpeechToText: enableSpeechToText,
+                    speechToTextConfig: speechToTextConfig,
                   ),
                 ),
               ),
@@ -340,6 +365,10 @@ String _trailingState(
   bool enableSpeechToText,
 ) {
   if (controller.isGenerating) return 'stop';
+  // Ahead of the content check: dictation puts its first recognised word in the
+  // field, and morphing to send there took away the only control that could
+  // stop the session.
+  if (enableSpeechToText && SpeechToTextController.instance.isListening) return 'mic';
   if (controller.hasContent) return 'send';
   if (enableSpeechToText) return 'mic';
   return 'send-disabled';
@@ -356,12 +385,14 @@ class _TrailingControl extends StatelessWidget {
     required this.onSend,
     required this.onStop,
     required this.enableSpeechToText,
+    required this.speechToTextConfig,
   });
 
   final ChatComposerController controller;
   final VoidCallback onSend;
   final VoidCallback onStop;
   final bool enableSpeechToText;
+  final SpeechToTextConfig speechToTextConfig;
 
   @override
   Widget build(BuildContext context) {
@@ -376,6 +407,12 @@ class _TrailingControl extends StatelessWidget {
       );
     }
 
+    // Checked before `hasContent` — see `_trailingState`, which keys the
+    // AnimatedSwitcher on the same ordering.
+    if (enableSpeechToText && (SpeechToTextController.instance.isListening || !controller.hasContent)) {
+      return SpeechToTextButton(controller: controller, config: speechToTextConfig);
+    }
+
     if (controller.hasContent) {
       return ComposerActionButton(
         icon: Icons.arrow_upward_rounded,
@@ -383,10 +420,6 @@ class _TrailingControl extends StatelessWidget {
         tooltip: 'Send',
         color: colorScheme.primary,
       );
-    }
-
-    if (enableSpeechToText) {
-      return SpeechToTextButton(controller: controller);
     }
 
     return ComposerActionButton(
