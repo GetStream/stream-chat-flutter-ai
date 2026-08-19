@@ -33,7 +33,7 @@ jobs:
       should_run: ${{ github.event_name == 'push' || (steps.filter.outputs.relevant == 'true' && github.event.pull_request.draft != true) }}
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: "Detect Path Changes"
         uses: dorny/paths-filter@v4
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: "Install Flutter"
@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: "Install Flutter"
@@ -109,7 +109,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: "Install Flutter"
