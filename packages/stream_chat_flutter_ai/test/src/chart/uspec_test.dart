@@ -364,7 +364,35 @@ void main() {
         expect(spec!.kind, USpecKind.scatter);
       });
 
-      test('maps rect mark to heatmap', () {
+      test('maps a rect mark to a heatmap with x and y as the two axes', () {
+        // A Vega-Lite heatmap encodes the cell value in `color`, with x and y
+        // as the axes — the opposite of every other mark, where `color` names
+        // the series. Running it through the shared path produced one row per
+        // distinct *value*, with the hour painted as the intensity.
+        final spec = USpecParser.tryParse('''
+        {
+          "data": {
+            "values": [
+              {"day": "Mon", "hour": 9, "v": 5},
+              {"day": "Mon", "hour": 10, "v": 8},
+              {"day": "Tue", "hour": 9, "v": 2}
+            ]
+          },
+          "mark": "rect",
+          "encoding": {"x": {"field": "day"}, "y": {"field": "hour"}, "color": {"field": "v"}}
+        }
+        ''');
+
+        expect(spec!.kind, USpecKind.heatmap);
+        expect(spec.series.map((s) => s.name), ['9', '10'], reason: 'rows are the y encoding');
+        expect(spec.series.first.points.map((p) => p.x), ['Mon', 'Tue'], reason: 'columns are the x encoding');
+        expect(spec.series.first.points.map((p) => p.z), [5, 2], reason: 'intensity is the color encoding');
+        expect(spec.series.last.points.single.z, 8);
+      });
+
+      test('declines a rect mark with no color encoding', () {
+        // Nothing to shade the cells by, and guessing would draw a plausible
+        // grid out of data that says nothing about intensity.
         final spec = USpecParser.tryParse('''
         {
           "data": {"values": [{"x": 1, "y": 2}]},
@@ -373,7 +401,7 @@ void main() {
         }
         ''');
 
-        expect(spec!.kind, USpecKind.heatmap);
+        expect(spec, isNull);
       });
 
       test('groups rows by the color field into separate series', () {

@@ -493,6 +493,18 @@ class USpecParser {
     final colorField = (encoding['color'] as Map<String, dynamic>?)?['field']?.toString();
     final sizeField = (encoding['size'] as Map<String, dynamic>?)?['field']?.toString();
 
+    final markStr = mark is String ? mark : (mark is Map<String, dynamic> ? mark['type']?.toString() : null);
+    final kind = switch (markStr?.toLowerCase()) {
+      'line' => USpecKind.line,
+      'bar' => USpecKind.bar,
+      'area' => USpecKind.area,
+      'point' => USpecKind.scatter,
+      'rect' => USpecKind.heatmap,
+      _ => USpecKind.line,
+    };
+
+    if (kind == USpecKind.heatmap) return _vegaLiteHeatmap(rows, xField, yField, colorField);
+
     final groups = <String, List<UPoint>>{};
     for (final r in rows) {
       if (r is! Map<String, dynamic>) continue;
@@ -513,17 +525,38 @@ class USpecParser {
 
     final series = groups.entries.map((e) => USeries(name: e.key, points: e.value)).toList();
 
-    final markStr = mark is String ? mark : (mark is Map<String, dynamic> ? mark['type']?.toString() : null);
-    final kind = switch (markStr?.toLowerCase()) {
-      'line' => USpecKind.line,
-      'bar' => USpecKind.bar,
-      'area' => USpecKind.area,
-      'point' => USpecKind.scatter,
-      'rect' => USpecKind.heatmap,
-      _ => USpecKind.line,
-    };
-
     return USpec(kind: kind, series: series);
+  }
+
+  /// Builds the grid for a Vega-Lite `mark: "rect"` heatmap.
+  ///
+  /// Kept apart from the other marks because the encoding means something
+  /// different here: `x` and `y` are the two *axes* and `color` carries the cell
+  /// value. Running it through the shared path — colour as the series key, `y`
+  /// as the value — inverted every axis, producing one row per distinct value
+  /// with the y field painted as the intensity.
+  static USpec? _vegaLiteHeatmap(List<dynamic> rows, String xField, String yField, String? colorField) {
+    // Without a colour encoding there is no cell value to shade by, and
+    // guessing one would draw a plausible-looking grid out of nothing.
+    if (colorField == null) return null;
+
+    final grid = <String, List<UPoint>>{};
+    for (final r in rows) {
+      if (r is! Map<String, dynamic>) continue;
+      final z = _asDouble(r[colorField]);
+      if (z == null) continue;
+      final row = r[yField];
+      if (row == null) continue;
+      // `y: 0` throughout: a heatmap cell's value lives in `z`, and the row it
+      // belongs to is the series name.
+      (grid[row.toString()] ??= []).add(UPoint(x: r[xField]?.toString() ?? '', y: 0, z: z));
+    }
+    if (grid.isEmpty) return null;
+
+    return USpec(
+      kind: USpecKind.heatmap,
+      series: [for (final e in grid.entries) USeries(name: e.key, points: e.value)],
+    );
   }
 
   // ---------------------------------------------------------------------------
