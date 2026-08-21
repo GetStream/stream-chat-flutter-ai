@@ -161,6 +161,11 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> with SingleTick
   }
 
   void _onWords(String words) {
+    // A session outlives this widget by design, and its *final* transcript
+    // lands after listening has stopped — so by the time this runs the field it
+    // writes into may already be gone, taking the controller with it. Writing
+    // anyway threw "A TextEditingController was used after being disposed".
+    if (!mounted) return;
     final text = _baseText.isEmpty ? words : '$_baseText $words';
     widget.controller.textEditingController
       ..text = text

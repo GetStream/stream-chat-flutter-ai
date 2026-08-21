@@ -175,7 +175,13 @@ class _ChatComposerState extends State<ChatComposer> {
   void dispose() {
     // The recognition session outlives the mic button by design, but not the
     // composer that offered it — nothing would be left to stop it.
-    if (widget.enableSpeechToText) unawaited(SpeechToTextController.instance.cancel());
+    //
+    // Not gated on `enableSpeechToText`: a host can place a [SpeechToTextButton]
+    // itself through a [ChatComposerFactory] and leave that flag false, which is
+    // exactly the arrangement [SpeechToTextButton]'s own documentation
+    // recommends. Skipping the cancel there left a live session writing into the
+    // controller disposed on the next line.
+    unawaited(SpeechToTextController.instance.cancel());
     if (_ownsController) _controller.dispose();
     if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();

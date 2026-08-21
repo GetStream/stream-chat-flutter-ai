@@ -356,5 +356,38 @@ void main() {
       expect(platform.cancelCalls, 1);
       expect(SpeechToTextController.instance.isListening, isFalse);
     });
+
+    testWidgets('a late transcript does not reach a disposed field', (tester) async {
+      // The arrangement SpeechToTextButton's own documentation recommends: the
+      // button placed by a factory, which leaves `enableSpeechToText` false.
+      // The composer's dispose used to gate its cancel on that flag while
+      // disposing the controller regardless, so navigating away mid-dictation
+      // crashed with "A TextEditingController was used after being disposed"
+      // when the session's final transcript landed.
+      await tester.pumpWidget(_wrap(ChatComposer(factory: _MicFactory(), onSendPressed: (_, _, _) {})));
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      expect(SpeechToTextController.instance.isListening, isTrue);
+
+      await tester.pumpWidget(_wrap(const SizedBox()));
+      await tester.pumpAndSettle();
+
+      expect(platform.cancelCalls, 1, reason: 'the cancel must not be gated on enableSpeechToText');
+
+      // Inside the detach window, which is where the crash used to happen.
+      platform.emitWords('too late', isFinal: true);
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(tester.takeException(), isNull);
+    });
   });
+}
+
+/// Places the mic in the leading slot, exactly as [SpeechToTextButton]'s class
+/// documentation shows.
+class _MicFactory extends ChatComposerFactory {
+  @override
+  Widget buildLeading(BuildContext context, ChatComposerController controller) =>
+      SpeechToTextButton(controller: controller);
 }
