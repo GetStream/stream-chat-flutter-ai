@@ -1,6 +1,15 @@
 # `dart analyze` resolves the whole pub workspace in one pass, so this example is
 # analyzed alongside the package. It's demo code, not a published API, so the
 # rules that only make sense for the library are relaxed here.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 include: ../../../analysis_options.yaml
 
 linter:
