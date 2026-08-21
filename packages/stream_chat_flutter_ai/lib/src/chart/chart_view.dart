@@ -85,10 +85,11 @@ class ChartView extends StatelessWidget {
 
   Widget _buildLineChart(ColorScheme colorScheme) {
     final filled = spec.kind == USpecKind.area;
+    final labels = _categoryLabels();
     final lineBarsData = spec.series.asMap().entries.map((e) {
       final color = _seriesColor(e.key);
       return LineChartBarData(
-        spots: _toSpots(e.value),
+        spots: _toSpots(e.value, labels),
         color: color,
         dotData: const FlDotData(show: false),
         belowBarData: filled ? BarAreaData(show: true, color: color.withValues(alpha: 0.15)) : BarAreaData(show: false),
@@ -98,7 +99,7 @@ class ChartView extends StatelessWidget {
     return LineChart(
       LineChartData(
         lineBarsData: lineBarsData,
-        titlesData: _titlesData(_categoryLabels(), colorScheme),
+        titlesData: _titlesData(labels, colorScheme),
         gridData: _gridData(colorScheme),
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
@@ -116,12 +117,12 @@ class ChartView extends StatelessWidget {
     final groups = List.generate(labels.length, (xi) {
       final rods = <BarChartRodData>[];
       for (var si = 0; si < spec.series.length; si++) {
-        final points = spec.series[si].points;
-        // Omit the rod where a series has no point at this position. Falling
+        // Omit the rod where a series has no point in this category. Falling
         // back to zero drew a bar for data that doesn't exist, which reads as a
         // real measurement of nothing rather than as absent.
-        if (xi >= points.length) continue;
-        rods.add(BarChartRodData(toY: points[xi].y, color: _seriesColor(si), width: 10));
+        final point = _pointAt(spec.series[si], labels[xi], xi);
+        if (point == null) continue;
+        rods.add(BarChartRodData(toY: point.y, color: _seriesColor(si), width: 10));
       }
       return BarChartGroupData(x: xi, barRods: rods, barsSpace: 4);
     });
@@ -163,11 +164,12 @@ class ChartView extends StatelessWidget {
 
   Widget _buildScatterChart(ColorScheme colorScheme, {required bool bubble}) {
     // Categorical x values ('Jan', 'Feb') have no numeric position, so they're
-    // plotted at their index within their own series and labelled along the
-    // bottom axis. Previously the fallback used the running total of spots
-    // across *all* series, so every series after the first was pushed off to
-    // the right of the one before it instead of sharing the same categories.
+    // placed on the shared category axis and labelled along the bottom.
+    // Previously the fallback used the running total of spots across *all*
+    // series, so every series after the first was pushed off to the right of the
+    // one before it instead of sharing the same categories.
     final numericX = _hasNumericX();
+    final labels = numericX ? const <String>[] : _categoryLabels();
     final sizeRange = bubble ? _sizeRange() : null;
 
     final spots = <ScatterSpot>[];
@@ -176,7 +178,7 @@ class ChartView extends StatelessWidget {
       final points = entry.value.points;
       for (var i = 0; i < points.length; i++) {
         final point = points[i];
-        final x = numericX ? (double.tryParse(point.x) ?? i.toDouble()) : i.toDouble();
+        final x = numericX ? (double.tryParse(point.x) ?? i.toDouble()) : _categoryX(point, i, labels);
         final radius = bubble ? _bubbleRadius(point.size, sizeRange) : _kScatterRadius;
         spots.add(
           ScatterSpot(
@@ -192,7 +194,7 @@ class ChartView extends StatelessWidget {
       ScatterChartData(
         scatterSpots: spots,
         // An empty label list means "show the raw numeric x values".
-        titlesData: _titlesData(numericX ? const [] : _categoryLabels(), colorScheme),
+        titlesData: _titlesData(labels, colorScheme),
         gridData: _gridData(colorScheme),
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
@@ -290,20 +292,75 @@ class ChartView extends StatelessWidget {
   // Shared helpers
   // ---------------------------------------------------------------------------
 
-  List<FlSpot> _toSpots(USeries series) =>
-      series.points.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.y)).toList();
+  List<FlSpot> _toSpots(USeries series, List<String> labels) =>
+      series.points.asMap().entries.map((e) => FlSpot(_categoryX(e.value, e.key, labels), e.value.y)).toList();
 
-  /// The x-axis category labels, taken from the series with the most points.
+  /// Where [point] — the [index]-th in its series — sits on the shared category
+  /// axis [labels].
   ///
-  /// Reading them off the *first* series dropped any category only a later
-  /// series had, silently truncating the chart to the first series' length.
+  /// Falls back to the position within its own series when the point's label
+  /// isn't on the axis, or when labels aren't usable as keys at all.
+  double _categoryX(UPoint point, int index, List<String> labels) {
+    if (!_hasCategoryKeys) return index.toDouble();
+    final at = labels.indexOf(point.x);
+    return (at >= 0 ? at : index).toDouble();
+  }
+
+  /// Whether a point can be located on the x axis by its [UPoint.x] label.
+  ///
+  /// True when no series repeats a label. One that does carries no usable
+  /// category key — a histogram's raw samples all share an empty `x` — so those
+  /// charts keep plotting each point at its position within its own series.
+  bool get _hasCategoryKeys => spec.series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
+
+  /// The x-axis categories, in axis order.
+  ///
+  /// Every series' labels are merged rather than read off the longest one
+  /// alone, and points are then placed by *label* rather than by their position
+  /// within their own list. Position was wrong for any series with a hole in it:
+  /// a Chart.js `null` — the documented way to write a gap — parses to a series
+  /// that is simply shorter, so every point after the gap was drawn one category
+  /// to the left, out of step with both the axis and the other series.
+  ///
+  /// Longest series first, so the fullest one sets the order and the rest only
+  /// contribute categories it is missing.
   List<String> _categoryLabels() {
-    var labels = const <String>[];
-    for (final series in spec.series) {
-      if (series.points.length <= labels.length) continue;
-      labels = series.points.map((p) => p.x).toList();
+    if (!_hasCategoryKeys) {
+      var labels = const <String>[];
+      for (final series in spec.series) {
+        if (series.points.length <= labels.length) continue;
+        labels = series.points.map((p) => p.x).toList();
+      }
+      return labels;
     }
-    return labels;
+
+    final ordered = <String>[];
+    final bySize = [...spec.series]..sort((a, b) => b.points.length.compareTo(a.points.length));
+    for (final series in bySize) {
+      // Where the previous point of *this* series landed, so a category no
+      // other series carried is inserted next to its neighbours rather than
+      // appended to the end.
+      var cursor = -1;
+      for (final point in series.points) {
+        final at = ordered.indexOf(point.x);
+        if (at >= 0) {
+          cursor = at;
+          continue;
+        }
+        ordered.insert(++cursor, point.x);
+      }
+    }
+    return ordered;
+  }
+
+  /// The point [series] holds for the category [label], or `null` if it has
+  /// none — a gap, or a series that doesn't reach this far.
+  UPoint? _pointAt(USeries series, String label, int index) {
+    if (!_hasCategoryKeys) return index < series.points.length ? series.points[index] : null;
+    for (final point in series.points) {
+      if (point.x == label) return point;
+    }
+    return null;
   }
 
   /// Builds the axis titles.

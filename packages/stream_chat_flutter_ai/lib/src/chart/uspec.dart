@@ -231,6 +231,12 @@ class USpecParser {
       if (labels != null) {
         // Arrays aligned with labels — each value may be a number or an
         // object `{x, y, r}` (scatter/bubble encoded with labels present).
+        //
+        // A `null` here is Chart.js's documented way to write a gap. The label
+        // still has to travel with each surviving point, because the renderer
+        // places points by category: dropping the gap silently and leaving the
+        // rest to be plotted by their position in this list drew every later
+        // point one category to the left of where it belongs.
         for (var i = 0; i < labels.length; i++) {
           final raw = i < rawValues.length ? rawValues[i] : null;
           final (y, size) = _asPointValue(raw);

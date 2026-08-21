@@ -107,6 +107,65 @@ void main() {
       });
     });
 
+    group('gapped series', () {
+      // A Chart.js `null` — the documented way to write a gap — parses to a
+      // series that is simply shorter. Plotting each point at its position
+      // within its own list then drew everything after the gap one category to
+      // the left of where it belongs.
+      const series = [
+        USeries(
+          name: 'A',
+          points: [
+            UPoint(x: 'Jan', y: 1),
+            UPoint(x: 'Mar', y: 3),
+          ],
+        ),
+        USeries(
+          name: 'B',
+          points: [
+            UPoint(x: 'Jan', y: 4),
+            UPoint(x: 'Feb', y: 5),
+            UPoint(x: 'Mar', y: 6),
+          ],
+        ),
+      ];
+      const spec = USpec(kind: USpecKind.line, series: series);
+
+      testWidgets('places each point on its own category, not its own index', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        final bars = tester.widget<LineChart>(find.byType(LineChart)).data.lineBarsData;
+
+        expect(bars.first.spots.map((s) => s.x), [0, 2], reason: 'March is category 2, not category 1');
+        expect(bars.first.spots.map((s) => s.y), [1, 3]);
+        expect(bars.last.spots.map((s) => s.x), [0, 1, 2]);
+      });
+
+      testWidgets('leaves the gap out of the bar group rather than shifting it', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const ChartView(
+              spec: USpec(kind: USpecKind.bar, series: series),
+            ),
+          ),
+        );
+        final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+
+        expect(groups, hasLength(3));
+        expect(groups[0].barRods.map((r) => r.toY), [1, 4]);
+        expect(groups[1].barRods.map((r) => r.toY), [5], reason: 'A has no February value');
+        expect(groups[2].barRods.map((r) => r.toY), [3, 6]);
+      });
+    });
+
+    testWidgets('a histogram keeps positional bars despite its repeated empty labels', (tester) async {
+      // Its samples all carry the same (empty) x, so labels are no use as keys
+      // and the positional fallback has to stay.
+      await tester.pumpWidget(_wrap(const ChartView(spec: _histogramSpec)));
+      final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+
+      expect(groups.length, greaterThan(1));
+    });
+
     testWidgets('scatter plots categorical series over shared x positions', (tester) async {
       // The fallback x used to be the running count of spots across *all*
       // series, so each series was pushed to the right of the previous one
