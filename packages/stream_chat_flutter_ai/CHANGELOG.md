@@ -10,6 +10,10 @@ First release of `stream_chat_flutter_ai`.
 
 🔄 Changed
 
+- `SpeechToTextController.instance` now asserts rather than allowing `dispose()`. It is owned by the
+  process; a host disposing its controllers reflexively in `State.dispose` would otherwise brick
+  dictation app-wide, surfacing much later on an unrelated screen.
+
 - `stream_chat_flutter_ai` no longer depends on `stream_chat_flutter` (or any `stream_chat*` package). The package is fully standalone and can be used in any Flutter app, independent of Stream Chat. Wiring it up to a Stream Chat channel is now shown in the docs as an optional integration, not a dependency.
 - Renamed the composer family to drop the `Stream`/`StreamAI` branding, since the package has no Stream dependency: `StreamAIComposer` → `ChatComposer`, `StreamAIComposerFactory` → `ChatComposerFactory`, `AIComposerController` → `ChatComposerController`, `AIComposerSendCallback` → `ChatComposerSendCallback`, `StreamAISuggestionsView` → `AISuggestionsView`, `StreamTypewriterBuilder` → `TypewriterBuilder`. `StreamingMessageView` is unchanged (descriptive name, not branding).
 - Redesigned `ChatComposer` to match spacing and sizing in the reference Android/iOS AI samples: 8dp gaps around the leading/input/trailing row, and a single 40x40 circular trailing control that morphs between mic, send, and stop instead of stacking a bare-icon mic button underneath a differently-styled send button.
@@ -26,6 +30,18 @@ First release of `stream_chat_flutter_ai`.
 - While a dictation session is running, the composer's trailing control stays on the mic (in its stop state) instead of morphing to send as soon as recognised words give the field content.
 
 ✅ Added
+
+- `AIMarkdownBody.chartLanguages` — which fence languages are offered to `USpecParser`, defaulting to
+  the exported `kDefaultChartLanguages`. `json` is in that set because models label chart data that
+  way constantly, which also means a plain ```json fence shaped like a chart spec used to render as a
+  chart with no way to read the source; pass a narrower set (or an empty one) to keep those as code.
+- `TypewriterController.finishTyping()` — stops typing and reveals everything received so far. The
+  natural companion to a "stop generating" control: `stopTyping()` empties the view (it resets) and
+  `pauseTyping()` freezes it half-written, and neither was what that button wanted.
+- `SpeechToTextController.invalidateAvailability()` — forgets whether the recognizer is usable, so
+  the next attempt asks the platform again.
+- `SpeechRecognitionError` is re-exported, so reacting to `SpeechToTextConfig.onError` no longer
+  requires depending on `speech_to_text` directly just to name the parameter's type.
 
 - `AISuggestionsView` — a horizontally-scrolling row of free-text quick-reply chips, independent of `ChatOption`. Mirrors `stream-chat-swift-ai`'s `SuggestionsView`, which the reference iOS sample docks above the composer on the "new chat" landing screen.
 - `ChatComposerController` gained attachment support: `attachments`, `addAttachments`, `removeAttachment`, and `hasText` (pure-text check, separate from `hasContent` which also considers attachments). `clear()` now also clears attachments.
@@ -77,6 +93,68 @@ First release of `stream_chat_flutter_ai`.
   documented types that were only reachable through a `src/` import.
 
 🐞 Fixed
+
+- **A dictation session outliving its composer could crash on a disposed `TextEditingController`.**
+  `ChatComposer.dispose` cancelled the recognition session only when `enableSpeechToText` was true,
+  but disposed its internally-owned controller either way — and the arrangement `SpeechToTextButton`'s
+  own documentation recommends (placing the button through a `ChatComposerFactory`) leaves that flag
+  at its default `false`. Navigating away mid-dictation then threw "A TextEditingController was used
+  after being disposed" when the session's final transcript landed. The cancel is now unconditional,
+  and `SpeechToTextButton` checks `mounted` before writing recognised words.
+- **`\[…\]` at the start of a line silently deleted the rest of the line.** `MathBlockSyntax` kept
+  only what sat between the delimiters and dropped everything after the closer, so
+  `\[E = mc^2\] where m is mass.` lost its sentence. Worse in prose than in math: `\[` is also
+  CommonMark's escape for a literal `[`, so a citation line like `\[1\] First source` collapsed to a
+  bare number. The tail is now parsed as ordinary markdown — including a second expression on the
+  same line — and an empty `\[\]` renders as its own source instead of vanishing.
+- **Chart.js payloads with no `labels` rendered an empty chart instead of falling back to code.**
+  Plain numeric `data` was only decoded when `labels` was present; without it the dataset yielded no
+  points, yet the empty series was still returned, so `ChartView` drew bare axes and the numbers
+  appeared nowhere. Unlabelled numbers now take their position in the array as the category, and —
+  as `_tryUSpec` already did — the Chart.js, ECharts and Highcharts adapters decline a payload they
+  couldn't decode so the fence falls through to `CodeBlockView`.
+- **A `null` gap in a Chart.js series shifted every later point one category left.** `null` is the
+  documented way to write a gap; dropping it produced a dense list, and points were then plotted at
+  their position within that list rather than on their own category. `ChartView` now places line, bar
+  and scatter points by label against a category axis merged across all series, so a gapped series
+  stays in step with the axis and with its neighbours. Series whose labels repeat (a histogram's raw
+  samples) keep the positional behaviour.
+- **Vega-Lite `rect` heatmaps were mapped inside-out.** A heatmap encodes the cell value in `color`
+  with `x`/`y` as the two axes — the opposite of every other mark, where `color` names the series.
+  Running it through the shared path produced one row per distinct *value*, with the y field painted
+  as the intensity. A `rect` mark without a `color` encoding is now declined rather than guessed at.
+- **Tapping the mic twice during the permission prompt started two overlapping sessions.**
+  `isListening` is only set after `ensureInitialized` returns, and on first use that await spans a
+  multi-second platform prompt during which the button still renders enabled — so a second tap
+  reached `listen()` again, which a real engine rejects as busy. Concurrent callers now share one
+  `initialize`, and `start` holds a guard across its awaits.
+- **One declined permission prompt disabled the microphone for the life of the process.**
+  `ensureInitialized` cached `false` as permanently as `true`, leaving the mic disabled even after
+  the user granted access in Settings — stricter than `speech_to_text` itself, which retries. Only
+  success is remembered now, and `SpeechToTextButton` calls the new
+  `SpeechToTextController.invalidateAvailability()` when the app returns to the foreground.
+- **Dictation failures reached nobody.** `SpeechToTextController.start` rethrew what `listen` threw —
+  most realistically another app holding the microphone — into a tap handler, making it an unhandled
+  async error: a console line in debug, silence in release. `SpeechToTextConfig.onError`, added for
+  exactly this, never fired. Failures from `listen`, `stop` and `cancel` now go there instead.
+- **`ComposerAttachmentSheet` reported every failure as "no photo access".** The `catch` spanned the
+  permission request and both `photo_manager` calls, so a genuine platform failure sent the user to
+  Settings, where access was already granted, and back to the same empty strip with no diagnostic
+  anywhere. Only a missing platform implementation is silent now; anything else is reported through
+  `FlutterError.reportError`.
+- **Image-picker failures did the same.** `pickImage`/`pickMultiImage` throw `PlatformException` for
+  an unavailable camera or a permission revoked mid-flight, and neither call site caught it. Both are
+  guarded now, and check that the sheet is still mounted before adding to the controller — the
+  picker is a separate activity on Android, so the host can be recreated behind it.
+- **Runtime changes to `useDollarDelimitersForMath` had no effect.** `MarkdownBody` parses once and
+  re-parses only when `data` or `styleSheet` changes, so rebuilding the syntax lists changed nothing
+  until the text happened to change — the toggle was inert on a message that had finished streaming.
+  The `MarkdownBody` is now re-keyed when the parser configuration changes. (A changed `mathBuilder`
+  is still picked up on the next `data` change, which is the streaming case; the doc comment claiming
+  otherwise has been corrected.)
+- **`TypewriterController.updateText` compared prefixes in the wrong unit.** `startsWith` is a UTF-16
+  test while the reveal index counts grapheme clusters, so a chunk boundary landing inside a cluster
+  — `👨` followed by `👨‍👩‍👦` — was taken for a continuation and froze the view.
 
 - **`CodeBlockView`'s copy button could crash, and repeated taps cleared the confirmation early.** The
   `setState` after `Clipboard.setData` ran unguarded, so a block disposed during that platform
