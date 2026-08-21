@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart' hide XFile;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
@@ -102,13 +103,31 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
         _hasAccess = true;
         _isLoading = false;
       });
-    } catch (_) {
-      // No platform gallery implementation available (e.g. web, desktop
-      // without native setup, or a test environment) — fall back to the
-      // "no access" state so the camera tile and chat options still render.
+    } catch (error, stack) {
+      // Every failure lands in the same "no access" state, so the camera tile
+      // and chat options still render — but only one *kind* of failure is
+      // expected: no platform gallery implementation (web, desktop without
+      // native setup, a test environment). Anything else used to be swallowed
+      // into the same dead end, sending the user to Settings, where access was
+      // already granted, and back to the same empty strip with no diagnostic
+      // anywhere.
+      if (!_isMissingImplementation(error)) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'stream_chat_flutter_ai',
+            context: ErrorDescription('while loading recent photos for the composer attachment sheet'),
+          ),
+        );
+      }
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  /// Whether [error] means "this platform has no gallery plugin" rather than
+  /// "the gallery failed".
+  static bool _isMissingImplementation(Object error) => error is MissingPluginException || error is UnimplementedError;
 
   /// Whether [asset] is currently among the controller's attachments.
   ///
@@ -116,7 +135,10 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
   /// attachments behind the sheet's back, and the sheet is rebuilt from
   /// scratch every time it opens.
   bool _isSelected(AssetEntity asset) {
-    final path = _assetPathCache.get(asset.id);
+    // `peek`, not `get`: this runs from `build`, twice per tile, and marking an
+    // entry most-recently-used from there would make the cache's recency track
+    // paint order rather than use.
+    final path = _assetPathCache.peek(asset.id);
     return path != null && widget.controller.hasAttachmentAt(path);
   }
 
@@ -138,8 +160,11 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
   }
 
   Future<void> _pickFromCamera() async {
-    final photo = await ImagePicker().pickImage(source: ImageSource.camera);
-    if (photo == null) return;
+    // The platform picker is a separate activity on Android, so the host can be
+    // recreated behind it — hence the `mounted` check on the way back, before
+    // touching a controller whose owner may be gone.
+    final photo = await _guardPicker(() => ImagePicker().pickImage(source: ImageSource.camera));
+    if (photo == null || !mounted) return;
     widget.controller.addAttachments([photo]);
   }
 
@@ -149,15 +174,36 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 
     // `pickMultiImage` rejects a limit below 2, so the last free slot has to be
     // filled by the single-image picker instead.
-    final List<XFile> photos;
+    final List<XFile>? photos;
     if (remaining == 1) {
-      final photo = await ImagePicker().pickImage(source: ImageSource.gallery);
+      final photo = await _guardPicker(() => ImagePicker().pickImage(source: ImageSource.gallery));
       photos = photo == null ? const [] : [photo];
     } else {
-      photos = await ImagePicker().pickMultiImage(limit: remaining);
+      photos = await _guardPicker(() => ImagePicker().pickMultiImage(limit: remaining));
     }
-    if (photos.isEmpty) return;
+    if (photos == null || photos.isEmpty || !mounted) return;
     widget.controller.addAttachments(photos);
+  }
+
+  /// Runs a picker call, reporting rather than rethrowing a platform failure.
+  ///
+  /// Both callers are tap handlers, so an escaping `PlatformException` — a
+  /// camera that isn't available, a permission revoked while the picker was up
+  /// — became an unhandled async error: nothing happens, and nothing says why.
+  Future<T?> _guardPicker<T>(Future<T?> Function() pick) async {
+    try {
+      return await pick();
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while picking an image for the composer'),
+        ),
+      );
+      return null;
+    }
   }
 
   void _selectChatOption(ChatOption option) {

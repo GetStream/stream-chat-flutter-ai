@@ -1,6 +1,6 @@
 /// A fixed-capacity cache that evicts the *least recently used* entry.
 ///
-/// Internal to this package, and deliberately minimal: [get], [set] and
+/// Internal to this package, and deliberately minimal: [get], [peek], [set] and
 /// [clear] are all anything here needs.
 ///
 /// Recency rather than insertion order is the whole point. A plain
@@ -38,6 +38,15 @@ class LruCache<K, V> {
     _entries[key] = value;
     return value;
   }
+
+  /// The value cached for [key] *without* marking it as recently used, or
+  /// `null` if there is none.
+  ///
+  /// For readers that aren't really uses — a `build` method deriving something
+  /// from the cache, say. Going through [get] there would make recency track
+  /// paint order rather than access, which is the opposite of what the eviction
+  /// policy is for.
+  V? peek(K key) => _entries[key];
 
   /// Caches [value] under [key] as the most recently used entry, and returns
   /// it for convenient use in an expression.

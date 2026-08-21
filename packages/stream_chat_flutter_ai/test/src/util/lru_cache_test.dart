@@ -75,5 +75,20 @@ void main() {
       expect(cache.containsKey('a'), isFalse);
       expect(cache.debugKeys, isEmpty);
     });
+
+    test('peek returns the value without touching recency', () {
+      final cache = LruCache<String, int>(2)
+        ..set('a', 1)
+        ..set('b', 2);
+
+      // `get` would promote 'a' and evict 'b' instead. Readers that aren't
+      // really uses — a `build` deriving something from the cache — must not
+      // reorder it, or recency ends up tracking paint order.
+      expect(cache.peek('a'), 1);
+      cache.set('c', 3);
+
+      expect(cache.debugKeys, ['b', 'c']);
+      expect(cache.peek('missing'), isNull);
+    });
   });
 }
