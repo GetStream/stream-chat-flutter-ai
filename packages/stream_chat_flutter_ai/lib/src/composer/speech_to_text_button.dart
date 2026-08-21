@@ -92,7 +92,8 @@ class SpeechToTextButton extends StatefulWidget {
   State<SpeechToTextButton> createState() => _SpeechToTextButtonState();
 }
 
-class _SpeechToTextButtonState extends State<SpeechToTextButton> with SingleTickerProviderStateMixin {
+class _SpeechToTextButtonState extends State<SpeechToTextButton>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   SpeechToTextController get _speech => SpeechToTextController.instance;
 
   /// The text already in the field when listening started.
@@ -118,11 +119,21 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton> with SingleTick
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _speech.addListener(_onSpeechChanged);
+    WidgetsBinding.instance.addObserver(this);
     _syncPulse();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back from Settings is how a user who declined the permission
+    // prompt changes their mind, so re-ask the platform rather than leaving the
+    // mic disabled on the strength of that one refusal.
+    if (state == AppLifecycleState.resumed) _speech.invalidateAvailability();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _speech.removeListener(_onSpeechChanged);
     _pulseController.dispose();
     // Deliberately does *not* cancel the session. This widget is swapped out

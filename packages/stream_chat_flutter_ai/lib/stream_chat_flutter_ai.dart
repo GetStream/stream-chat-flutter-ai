@@ -6,6 +6,10 @@ library stream_chat_flutter_ai;
 // type doesn't depend on the picker it happens to arrive from.
 export 'package:cross_file/cross_file.dart' show XFile;
 export 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
+// `SpeechToTextConfig.onError` hands one of these back, so a host that wants to
+// react to a dictation failure would otherwise have to depend on
+// `speech_to_text` directly just to name the parameter's type.
+export 'package:speech_to_text/speech_recognition_error.dart' show SpeechRecognitionError;
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';

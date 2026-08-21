@@ -93,6 +93,19 @@ class SpeechToTextController extends ChangeNotifier {
   bool? _isAvailable;
   bool _isListening = false;
 
+  /// The `initialize()` call currently in flight, so concurrent callers await
+  /// the same one instead of each starting their own.
+  Future<bool>? _initializing;
+
+  /// Set for the whole of [start], including the awaits inside it.
+  ///
+  /// [isListening] can't do this job: it only becomes true once the recognizer
+  /// has been initialized, and on first use that await spans the platform
+  /// permission prompt — seconds during which the mic button still renders as
+  /// enabled. A second tap in that window used to reach `listen()` a second
+  /// time.
+  bool _starting = false;
+
   /// The callbacks belonging to the session currently in flight.
   ///
   /// Deliberately outlive [isListening]: a session's *final* transcript arrives
@@ -132,30 +145,46 @@ class SpeechToTextController extends ChangeNotifier {
   /// Deliberately not resolved eagerly — initializing prompts for microphone
   /// and speech-recognition access, which shouldn't happen merely because a
   /// composer with a mic button rendered.
+  ///
+  /// `false` is a report on the last attempt, not a verdict: see
+  /// [invalidateAvailability].
   bool? get isAvailable => _isAvailable;
 
   /// Initializes the recognizer if it hasn't been already, and reports whether
   /// it is usable.
   ///
   /// Triggers the platform permission prompt on first call.
-  Future<bool> ensureInitialized() async {
-    final known = _isAvailable;
-    if (known != null) return known;
+  ///
+  /// Only *success* is remembered. A failure is worth retrying: the usual cause
+  /// is the user declining the permission prompt, and caching that would leave
+  /// the mic disabled for the life of the process even after they grant access
+  /// in Settings. `speech_to_text` itself retries on the same grounds — caching
+  /// the failure here made this wrapper stricter than the plugin it wraps.
+  Future<bool> ensureInitialized() {
+    if (_isAvailable ?? false) return Future.value(true);
+    // Concurrent callers share one platform call. Without this, two taps during
+    // the permission prompt each ran their own `initialize`.
+    return _initializing ??= _initialize();
+  }
 
-    final available = await _speech.initialize(
-      onError: (error) {
-        _config?.onError?.call(error);
-        _setListening(false);
-      },
-      onStatus: (status) {
-        _config?.onStatus?.call(status);
-        _setListening(status == SpeechToText.listeningStatus);
-      },
-    );
-
-    _isAvailable = available;
-    notifyListeners();
-    return available;
+  Future<bool> _initialize() async {
+    try {
+      final available = await _speech.initialize(
+        onError: (error) {
+          _config?.onError?.call(error);
+          _setListening(false);
+        },
+        onStatus: (status) {
+          _config?.onStatus?.call(status);
+          _setListening(status == SpeechToText.listeningStatus);
+        },
+      );
+      _isAvailable = available;
+      notifyListeners();
+      return available;
+    } finally {
+      _initializing = null;
+    }
   }
 
   /// Starts a dictation session, reporting each recognised transcript to
@@ -167,48 +196,65 @@ class SpeechToTextController extends ChangeNotifier {
     required void Function(String words) onWords,
     SpeechToTextConfig config = const SpeechToTextConfig(),
   }) async {
-    if (_isListening) return false;
-    if (!await ensureInitialized()) return false;
-
-    // Anything still pending from the previous session belongs to a caller that
-    // has moved on; its transcript must not land in this one's field.
-    _detachSession();
-    _onWords = onWords;
-    _config = config;
-    // Set here rather than waiting for the engine's `listening` status: the
-    // trailing control is held in its stop state by this flag, and a status
-    // that arrives late (or not at all) would leave a running session with no
-    // way to end it.
-    _setListening(true);
-
+    if (_isListening || _starting) return false;
+    _starting = true;
     try {
-      await _speech.listen(
-        onResult: _onResult,
-        listenOptions: SpeechListenOptions(
-          partialResults: true,
-          cancelOnError: true,
-          localeId: config.localeId,
-          listenFor: config.listenFor,
-          pauseFor: config.effectivePauseFor,
-        ),
-      );
-    } catch (_) {
-      _setListening(false);
-      rethrow;
+      if (!await ensureInitialized()) return false;
+
+      // Anything still pending from the previous session belongs to a caller
+      // that has moved on; its transcript must not land in this one's field.
+      _detachSession();
+      _onWords = onWords;
+      _config = config;
+      // Set here rather than waiting for the engine's `listening` status: the
+      // trailing control is held in its stop state by this flag, and a status
+      // that arrives late (or not at all) would leave a running session with no
+      // way to end it.
+      _setListening(true);
+
+      try {
+        await _speech.listen(
+          onResult: _onResult,
+          listenOptions: SpeechListenOptions(
+            partialResults: true,
+            cancelOnError: true,
+            localeId: config.localeId,
+            listenFor: config.listenFor,
+            pauseFor: config.effectivePauseFor,
+          ),
+        );
+      } catch (error) {
+        _setListening(false);
+        // Reported rather than rethrown. `speech_to_text` throws from `listen`
+        // for conditions the user can act on — most often another app holding
+        // the microphone — and the only caller is a tap handler, so a throw
+        // became an unhandled async error: a console line in debug, nothing at
+        // all in release, and [SpeechToTextConfig.onError] — the callback that
+        // exists for exactly this — never fired.
+        _reportError(config, error);
+        return false;
+      }
+      return true;
+    } finally {
+      _starting = false;
     }
-    return true;
   }
 
   /// Ends the current session, keeping what has been recognised so far —
   /// including the final transcript that lands after this returns.
   Future<void> stop() async {
     if (!_isListening) return;
+    final config = _config;
     // Flipped before the platform call rather than after it: the trailing
     // control is held in its stop state by this flag, and the round trip is
     // long enough for the button to feel stuck.
     _setListening(false);
     try {
       await _speech.stop();
+    } catch (error) {
+      // Same reasoning as [start]: surfaced through the config rather than
+      // thrown at a tap handler that has nowhere to put it.
+      _reportError(config, error);
     } finally {
       // Re-armed from the moment the recognizer actually stopped, which is when
       // the plugin starts its own final-result timer.
@@ -223,10 +269,38 @@ class SpeechToTextController extends ChangeNotifier {
   /// a transcript delivered after that has nowhere left to go.
   Future<void> cancel() async {
     final wasListening = _isListening;
+    final config = _config;
     _detachSession();
     if (!wasListening) return;
     _setListening(false);
-    await _speech.cancel();
+    try {
+      await _speech.cancel();
+    } catch (error) {
+      _reportError(config, error);
+    }
+  }
+
+  /// Forgets whether the recognizer is usable, so the next [ensureInitialized]
+  /// asks the platform again.
+  ///
+  /// Worth calling when the app returns to the foreground: the common reason
+  /// initialization fails is the user declining the permission prompt, and the
+  /// way they change their mind is to grant it in Settings and come back. Until
+  /// then [isAvailable] reads `false` and the mic renders disabled, which would
+  /// otherwise stay that way for the life of the process. [SpeechToTextButton]
+  /// does this for you.
+  ///
+  /// Ignored while a session is running — there is nothing to re-check.
+  void invalidateAvailability() {
+    if (_isListening || _isAvailable == null) return;
+    _isAvailable = null;
+    notifyListeners();
+  }
+
+  void _reportError(SpeechToTextConfig? config, Object error) {
+    // `permanent: false` — everything routed here is a failure of this attempt,
+    // not of the recognizer as such, and a later attempt may well succeed.
+    config?.onError?.call(SpeechRecognitionError(error.toString(), false));
   }
 
   void _onResult(SpeechRecognitionResult result) => _onWords?.call(result.recognizedWords);
@@ -257,7 +331,23 @@ class SpeechToTextController extends ChangeNotifier {
   @visibleForTesting
   void debugReset() {
     _isAvailable = null;
+    _initializing = null;
+    _starting = false;
     _isListening = false;
     _detachSession();
+  }
+
+  /// Refuses to be disposed.
+  ///
+  /// [instance] is owned by the process, not by whichever widget happens to
+  /// hold a reference to it. A host that disposes its controllers reflexively
+  /// in `State.dispose` would otherwise brick dictation app-wide, and the
+  /// symptom — "A SpeechToTextController was used after being disposed", raised
+  /// from an unrelated screen later on — points nowhere near the cause.
+  // Deliberately does not call `super.dispose()` — refusing is the whole point.
+  @override
+  // ignore: must_call_super
+  void dispose() {
+    assert(false, 'SpeechToTextController.instance is owned by the process and must not be disposed.');
   }
 }

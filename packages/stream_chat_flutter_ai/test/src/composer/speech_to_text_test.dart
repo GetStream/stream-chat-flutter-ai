@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -11,23 +12,44 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 /// A [SpeechToTextPlatform] that records what it was asked to do and lets the
 /// test drive results and status changes back into the plugin.
 class _FakeSpeechPlatform extends SpeechToTextPlatform {
+  int initCalls = 0;
   int listenCalls = 0;
   int stopCalls = 0;
   int cancelCalls = 0;
   SpeechListenOptions? lastOptions;
 
+  /// What the next `initialize` reports. `false` is what the plugin returns
+  /// when the user declines the permission prompt.
+  bool initResult = true;
+
+  /// Held open to keep `initialize` in flight, standing in for the seconds the
+  /// platform permission prompt is on screen.
+  Completer<void>? initGate;
+
+  /// Thrown by the next `listen`, the way the plugin reports a recognizer that
+  /// another app is holding.
+  Exception? listenError;
+
   void reset() {
+    initCalls = 0;
     listenCalls = 0;
     stopCalls = 0;
     cancelCalls = 0;
     lastOptions = null;
+    initResult = true;
+    initGate = null;
+    listenError = null;
   }
 
   @override
   Future<bool> hasPermission() async => true;
 
   @override
-  Future<bool> initialize({Object? debugLogging = false, List<SpeechConfigOption>? options}) async => true;
+  Future<bool> initialize({Object? debugLogging = false, List<SpeechConfigOption>? options}) async {
+    initCalls++;
+    await initGate?.future;
+    return initResult;
+  }
 
   @override
   Future<bool> listen({
@@ -40,6 +62,11 @@ class _FakeSpeechPlatform extends SpeechToTextPlatform {
   }) async {
     listenCalls++;
     lastOptions = options;
+    final error = listenError;
+    if (error != null) {
+      listenError = null;
+      throw error;
+    }
     return true;
   }
 
@@ -176,6 +203,38 @@ void main() {
 
       platform.emitWords('discarded', isFinal: true);
       expect(words, isEmpty);
+    });
+
+    test('a listen failure is reported through onError rather than thrown', () async {
+      // What `speech_to_text` raises when another app holds the microphone. The
+      // only caller is a tap handler, so rethrowing made it an unhandled async
+      // error — a console line in debug, nothing in release — while
+      // `SpeechToTextConfig.onError`, the callback that exists for this, never
+      // fired.
+      platform.listenError = Exception('error_busy');
+
+      final errors = <SpeechRecognitionError>[];
+      final started = await SpeechToTextController.instance.start(
+        onWords: (_) {},
+        config: SpeechToTextConfig(onError: errors.add),
+      );
+
+      expect(started, isFalse);
+      expect(SpeechToTextController.instance.isListening, isFalse, reason: 'no session to stop');
+      expect(errors, hasLength(1));
+      expect(errors.single.errorMsg, contains('error_busy'));
+      expect(errors.single.permanent, isFalse, reason: 'a later attempt may well succeed');
+    });
+
+    test('the process-lived instance refuses to be disposed', () {
+      // Inherited from ChangeNotifier and public, so a host that disposes its
+      // controllers reflexively would otherwise brick dictation app-wide —
+      // surfacing later, on an unrelated screen, as "used after being disposed".
+      expect(SpeechToTextController.instance.dispose, throwsA(isA<AssertionError>()));
+
+      // And it really is still usable.
+      expect(SpeechToTextController.instance.isListening, isFalse);
+      SpeechToTextController.instance.notifyListeners();
     });
 
     test('a transcript owed to a finished session never reaches the next one', () async {
