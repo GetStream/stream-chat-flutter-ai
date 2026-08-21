@@ -125,6 +125,14 @@ class _ChatComposerState extends State<ChatComposer> {
   bool _ownsController = false;
   bool _ownsFocusNode = false;
 
+  /// What the composer rebuilds on.
+  ///
+  /// Held in state rather than merged inside `build`: `Listenable.merge`
+  /// returns a fresh object every call and doesn't define `==`, so building it
+  /// there made `ListenableBuilder` detach from and re-attach to both sources
+  /// on every parent rebuild.
+  late Listenable _listenable;
+
   @override
   void initState() {
     super.initState();
@@ -140,6 +148,16 @@ class _ChatComposerState extends State<ChatComposer> {
     } else {
       _focusNode = widget.focusNode!;
     }
+    _rebuildListenable();
+  }
+
+  /// The speech controller is merged in so the trailing control can hold its
+  /// stop state for the length of a dictation — that state lives there, not in
+  /// `_controller`.
+  void _rebuildListenable() {
+    _listenable = widget.enableSpeechToText
+        ? Listenable.merge([_controller, SpeechToTextController.instance])
+        : _controller;
   }
 
   @override
@@ -168,6 +186,9 @@ class _ChatComposerState extends State<ChatComposer> {
       } else {
         _focusNode = widget.focusNode!;
       }
+    }
+    if (widget.controller != oldWidget.controller || widget.enableSpeechToText != oldWidget.enableSpeechToText) {
+      _rebuildListenable();
     }
   }
 
@@ -205,12 +226,7 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      // The speech controller is merged in so the trailing control can hold its
-      // stop state for the length of a dictation — that state lives there, not
-      // in `_controller`.
-      listenable: widget.enableSpeechToText
-          ? Listenable.merge([_controller, SpeechToTextController.instance])
-          : _controller,
+      listenable: _listenable,
       builder: (context, _) {
         final leading = widget.factory.buildLeading(context, _controller);
         final trailing = widget.factory.buildTrailing(context, _controller);
