@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/markdown/math_syntax.dart';
+import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
 
 /// Callback fired when the user taps a hyperlink in the rendered markdown.
 ///
@@ -37,7 +38,7 @@ const _kFenceCacheCapacity = 32;
 /// each of those ticks (including the throw-and-catch for a fence that isn't
 /// chart data at all) is pure waste. Failures are cached too, for exactly that
 /// reason.
-final _specCache = <String, USpec?>{};
+final _specCache = LruCache<String, USpec?>(_kFenceCacheCapacity);
 
 /// Memoized fence *widgets*, keyed on language + content.
 ///
@@ -47,27 +48,29 @@ final _specCache = <String, USpec?>{};
 /// identical [Widget] instance lets the framework short-circuit the subtree's
 /// rebuild entirely, and the [RepaintBoundary] each entry is wrapped in keeps
 /// its rasterized pixels while only the growing trailing text repaints.
-final _fenceWidgetCache = <String, Widget>{};
+///
+/// [LruCache] rather than a plain map because a fence that is still arriving
+/// keys a new entry on every tick — see that class for why insertion-order
+/// eviction turns those snapshots into a way of evicting the finished fences
+/// above them.
+final _fenceWidgetCache = LruCache<String, Widget>(_kFenceCacheCapacity);
+
+/// Clears the fence caches. Exposed for tests.
+@visibleForTesting
+void debugClearFenceCaches() {
+  _specCache.clear();
+  _fenceWidgetCache.clear();
+}
 
 USpec? _parseSpecCached(String code) {
-  final cached = _specCache[code];
-  if (cached != null || _specCache.containsKey(code)) return cached;
-
-  // Evict in insertion order — a streaming message appends fences, so the
-  // oldest entry is the one least likely to still be on screen.
-  if (_specCache.length >= _kFenceCacheCapacity) _specCache.remove(_specCache.keys.first);
-
-  return _specCache[code] = USpecParser.tryParse(code);
+  if (_specCache.containsKey(code)) return _specCache.get(code);
+  return _specCache.set(code, USpecParser.tryParse(code));
 }
 
 Widget _buildFenceCached(String? language, String source) {
   final key = '${language ?? ''}\n$source';
-  final cached = _fenceWidgetCache[key];
+  final cached = _fenceWidgetCache.get(key);
   if (cached != null) return cached;
-
-  if (_fenceWidgetCache.length >= _kFenceCacheCapacity) {
-    _fenceWidgetCache.remove(_fenceWidgetCache.keys.first);
-  }
 
   final spec = language != null && _kChartLanguages.contains(language.toLowerCase()) ? _parseSpecCached(source) : null;
   final child = spec != null
@@ -77,7 +80,7 @@ Widget _buildFenceCached(String? language, String source) {
           language: (language == null || language.isEmpty) ? null : language,
         );
 
-  return _fenceWidgetCache[key] = RepaintBoundary(child: child);
+  return _fenceWidgetCache.set(key, RepaintBoundary(child: child));
 }
 
 /// A markdown renderer tailored for AI-generated messages.

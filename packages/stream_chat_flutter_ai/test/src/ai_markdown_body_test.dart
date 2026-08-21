@@ -4,6 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _chartFence = '''
+```chartjs
+{
+  "type": "bar",
+  "data": {
+    "labels": ["Jan", "Feb", "Mar"],
+    "datasets": [{"label": "Sales", "data": [10, 25, 18]}]
+  }
+}
+```
+''';
+
 const _mixedContent = '''
 Here's a quick summary of the data, with the code used to compute it:
 
@@ -57,6 +69,31 @@ void main() {
           find.ancestor(of: find.byType(ChartView), matching: find.byType(RepaintBoundary)),
           findsWidgets,
         );
+      });
+
+      // The caches are capacity-bound, and a fence that is still arriving keys
+      // a fresh entry on every tick, because its content has grown. Evicting
+      // the oldest *insertion* to make room for those throwaway snapshots threw
+      // out the finished fences above them — on screen, and so re-parsed and
+      // rebuilt from scratch on every subsequent tick, which is the opposite of
+      // what the cache is for. Evicting the least recently *used* entry instead
+      // keeps anything still being rendered.
+      testWidgets('a streaming fence does not evict the finished fences above it', (tester) async {
+        debugClearFenceCaches();
+
+        const preamble = '$_chartFence\nAnd the code:\n\n```python\n';
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: preamble)));
+        final chart = tester.element(find.byType(ChartView)).widget;
+
+        // Streamed a character at a time, for comfortably more ticks than
+        // either cache holds entries.
+        var data = preamble;
+        for (final char in 'def average(values):\n    return sum(values) / len(values)\n'.split('')) {
+          data += char;
+          await tester.pumpWidget(_wrap(AIMarkdownBody(data: data)));
+        }
+
+        expect(tester.element(find.byType(ChartView)).widget, same(chart));
       });
 
       testWidgets('rebuilds a fence whose content changed', (tester) async {

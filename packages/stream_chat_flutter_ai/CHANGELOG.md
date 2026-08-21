@@ -190,6 +190,16 @@ First release of `stream_chat_flutter_ai`.
 - Fixed doc comments referencing names that don't exist (`AI_STATE_THINKING`,
   `AI_STATE_CHECKING_SOURCES`) or aren't resolvable from their library, which rendered as dead links
   in the generated API docs. `comment_references` is now enabled repo-wide to keep them honest.
+- **Stopping dictation early no longer throws the whole transcript away.** Tapping stop within the
+  first couple of seconds — before the engine had reported a partial — left the text field empty.
+  `speech_to_text` is documented to deliver a final result *because* you stopped it, so it necessarily
+  arrives after the fact, and `SpeechToTextController` was detaching its result callback in the same
+  breath as flipping `isListening`. Those two lifetimes are now separate: the flag still flips
+  immediately (so the button doesn't feel stuck), while the callback stays attached until the final
+  result has had its chance to land. Reproduced on a Galaxy A05s, whose engine reports nothing until
+  the utterance is over, so that final result was the entire dictation. `cancel()` — including the one
+  `ChatComposer` issues on dispose — still discards a pending transcript, and a transcript owed to a
+  finished session can no longer land in the next one's field.
 
 🚀 Performance
 
@@ -206,6 +216,15 @@ First release of `stream_chat_flutter_ai`.
   subtree's rebuild, and each entry is wrapped in a `RepaintBoundary` so the raster cache keeps its
   pixels while only the growing trailing text repaints. A fence whose content is still arriving
   misses the cache and rebuilds as before.
+- **A streaming fence no longer evicts the finished fences above it from those caches.** Both caches
+  are capacity-bound and evicted their oldest *insertion*, while a fence that is still arriving keys a
+  brand-new entry on every tick, because its content has grown — so within a few hundred milliseconds
+  the cache was full of throwaway partial snapshots and what had been evicted to make room was the
+  completed charts and code blocks still on screen. Those then re-parsed and rebuilt from scratch on
+  every subsequent tick, which is the opposite of the point. Both now evict the least recently *used*
+  entry (a small internal `LruCache`): a partial snapshot is never looked up twice, so it ages out on
+  its own, while anything still being rendered stays resident. `ComposerAttachmentSheet`'s
+  asset-id → path cache, which made the same assumption, uses it too.
 - `AIMarkdownBody` renders the whole message with a single `MarkdownBody` rather than a `Column` of
   one per text segment, and its element builders and syntax lists are built once instead of per frame.
 - **Attachment thumbnails are read and decoded once.** The `Future` was created inside `build`, and

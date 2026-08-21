@@ -7,6 +7,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
 
 /// How many asset-id → file-path mappings to remember. Comfortably more than
 /// the strip shows at once, small enough to stay cheap.
@@ -21,16 +22,7 @@ const _kAssetPathCacheCapacity = 128;
 /// download). Cached at library scope rather than in the sheet's state so that
 /// closing and reopening the sheet doesn't forget which photos are still
 /// attached.
-final _assetPathCache = <String, String>{};
-
-void _cacheAssetPath(String id, String path) {
-  // Evict in insertion order — the oldest entry is the one least likely to
-  // still be in the recent-photo strip.
-  if (_assetPathCache.length >= _kAssetPathCacheCapacity) {
-    _assetPathCache.remove(_assetPathCache.keys.first);
-  }
-  _assetPathCache[id] = path;
-}
+final _assetPathCache = LruCache<String, String>(_kAssetPathCacheCapacity);
 
 /// Clears the asset-path cache. Exposed for tests.
 @visibleForTesting
@@ -124,12 +116,12 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
   /// attachments behind the sheet's back, and the sheet is rebuilt from
   /// scratch every time it opens.
   bool _isSelected(AssetEntity asset) {
-    final path = _assetPathCache[asset.id];
+    final path = _assetPathCache.get(asset.id);
     return path != null && widget.controller.hasAttachmentAt(path);
   }
 
   Future<void> _toggleAsset(AssetEntity asset) async {
-    final cachedPath = _assetPathCache[asset.id];
+    final cachedPath = _assetPathCache.get(asset.id);
     if (cachedPath != null && widget.controller.hasAttachmentAt(cachedPath)) {
       widget.controller.removeAttachment(XFile(cachedPath));
       return;
@@ -141,7 +133,7 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
     // lives.
     final path = (await asset.file)?.path;
     if (path == null || !mounted) return;
-    _cacheAssetPath(asset.id, path);
+    _assetPathCache.set(asset.id, path);
     widget.controller.addAttachments([XFile(path)]);
   }
 

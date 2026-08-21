@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text_platform_interface/speech_to_text_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -54,15 +55,19 @@ class _FakeSpeechPlatform extends SpeechToTextPlatform {
     onStatus?.call(SpeechToText.notListeningStatus);
   }
 
-  /// Pushes a recognised transcript through the plugin, the way the engine's
-  /// partial results arrive.
-  void emitWords(String words) {
+  /// Pushes a recognised transcript through the plugin, the way the engine
+  /// delivers its results.
+  ///
+  /// [isFinal] marks it as the session's final transcript — the one the engine
+  /// sends after `stop()`, and on engines that report nothing mid-utterance the
+  /// only one it sends at all.
+  void emitWords(String words, {bool isFinal = false}) {
     onTextRecognition?.call(
       jsonEncode({
         'alternates': [
           {'recognizedWords': words, 'confidence': 1.0},
         ],
-        'resultType': 0,
+        'resultType': isFinal ? ResultType.finalResult.value : ResultType.partial.value,
       }),
     );
   }
@@ -134,7 +139,7 @@ void main() {
       expect(platform.listenCalls, 1);
     });
 
-    test('stop ends the session and detaches the result callback', () async {
+    test('stop keeps the result callback attached for the final transcript', () async {
       final words = <String>[];
       await SpeechToTextController.instance.start(onWords: words.add);
       await SpeechToTextController.instance.stop();
@@ -142,8 +147,48 @@ void main() {
       expect(SpeechToTextController.instance.isListening, isFalse);
       expect(platform.stopCalls, 1);
 
-      platform.emitWords('late result');
+      // Stopping is documented to produce a final result, and it necessarily
+      // arrives after the fact. Detaching the callback along with the listening
+      // flag threw away the entire dictation of anyone who stopped before their
+      // engine had reported a partial.
+      platform.emitWords('the whole utterance', isFinal: true);
+      expect(words, ['the whole utterance']);
+    });
+
+    test('cancel discards the pending final transcript', () async {
+      final words = <String>[];
+      await SpeechToTextController.instance.start(onWords: words.add);
+      await SpeechToTextController.instance.cancel();
+
+      platform.emitWords('discarded', isFinal: true);
       expect(words, isEmpty);
+    });
+
+    test('cancel discards a transcript still in flight from a stopped session', () async {
+      final words = <String>[];
+      await SpeechToTextController.instance.start(onWords: words.add);
+      await SpeechToTextController.instance.stop();
+
+      // What ChatComposer.dispose does: by then nothing is listening, but the
+      // stopped session's transcript is still owed, and the field it would
+      // land in is going away.
+      await SpeechToTextController.instance.cancel();
+
+      platform.emitWords('discarded', isFinal: true);
+      expect(words, isEmpty);
+    });
+
+    test('a transcript owed to a finished session never reaches the next one', () async {
+      final first = <String>[];
+      final second = <String>[];
+
+      await SpeechToTextController.instance.start(onWords: first.add);
+      await SpeechToTextController.instance.stop();
+      await SpeechToTextController.instance.start(onWords: second.add);
+
+      platform.emitWords('for the second session', isFinal: true);
+      expect(first, isEmpty);
+      expect(second, ['for the second session']);
     });
   });
 
@@ -196,6 +241,45 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
 
       expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+    });
+
+    testWidgets('stopping before the engine reports anything still fills the field', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            enableSpeechToText: true,
+            onSendPressed: (_, _, _) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+
+      // Stopped within the first couple of seconds, before any partial — on a
+      // Galaxy A05s the first one takes ~3.3s.
+      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await settle(tester);
+
+      expect(SpeechToTextController.instance.isListening, isFalse);
+      expect(controller.text, isEmpty);
+
+      // The engine's final result, which is the whole dictation.
+      platform.emitWords('hello there', isFinal: true);
+      await settle(tester);
+
+      expect(controller.text, 'hello there');
+
+      // Past the window in which a result is still accepted.
+      await tester.pump(const Duration(seconds: 3));
+      platform.emitWords('too late', isFinal: true);
+      await settle(tester);
+
+      expect(controller.text, 'hello there');
     });
 
     testWidgets('a rebuilt mic button still drives the session', (tester) async {

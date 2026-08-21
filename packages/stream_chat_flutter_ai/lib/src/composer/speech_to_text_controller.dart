@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -93,10 +95,33 @@ class SpeechToTextController extends ChangeNotifier {
 
   /// The callbacks belonging to the session currently in flight.
   ///
-  /// Cleared when it ends, so a status change arriving after the fact isn't
-  /// reported to a caller that has already stopped listening.
+  /// Deliberately outlive [isListening]: a session's *final* transcript arrives
+  /// after it has stopped, so clearing these the moment listening ends threw it
+  /// away. See [_detachTimer].
   void Function(String words)? _onWords;
   SpeechToTextConfig? _config;
+
+  /// Detaches [_onWords] and [_config] once nothing more can arrive for their
+  /// session.
+  ///
+  /// `speech_to_text` guarantees that stopping produces a final result, and it
+  /// arrives strictly after `stop()` — from the engine, or synthesized from the
+  /// last partial by the plugin's own timer. Stopping within the first couple
+  /// of seconds on an Android engine that reports nothing until the utterance
+  /// is over (see [SpeechToTextConfig.pauseFor]) means that final result is the
+  /// *only* one, so detaching eagerly dropped the whole dictation.
+  ///
+  /// Armed whenever listening ends for any reason. [cancel] clears it early —
+  /// it is the one path meant to discard a pending transcript — and so does the
+  /// next [start], whose caller must not receive the previous session's words.
+  Timer? _detachTimer;
+
+  /// How long past the end of a session a result is still delivered.
+  ///
+  /// Derives from the plugin's own final-result timeout — the deadline by which
+  /// it either has the engine's final result or synthesizes one — plus a little
+  /// slack for that synthesized result to come back through [_onResult].
+  static final _detachDelay = SpeechToText.defaultFinalTimeout + const Duration(milliseconds: 500);
 
   /// Whether a recognition session is currently running.
   bool get isListening => _isListening;
@@ -145,6 +170,9 @@ class SpeechToTextController extends ChangeNotifier {
     if (_isListening) return false;
     if (!await ensureInitialized()) return false;
 
+    // Anything still pending from the previous session belongs to a caller that
+    // has moved on; its transcript must not land in this one's field.
+    _detachSession();
     _onWords = onWords;
     _config = config;
     // Set here rather than waiting for the engine's `listening` status: the
@@ -171,18 +199,34 @@ class SpeechToTextController extends ChangeNotifier {
     return true;
   }
 
-  /// Ends the current session, keeping what has been recognised so far.
+  /// Ends the current session, keeping what has been recognised so far —
+  /// including the final transcript that lands after this returns.
   Future<void> stop() async {
     if (!_isListening) return;
-    await _speech.stop();
+    // Flipped before the platform call rather than after it: the trailing
+    // control is held in its stop state by this flag, and the round trip is
+    // long enough for the button to feel stuck.
     _setListening(false);
+    try {
+      await _speech.stop();
+    } finally {
+      // Re-armed from the moment the recognizer actually stopped, which is when
+      // the plugin starts its own final-result timer.
+      _scheduleDetach();
+    }
   }
 
   /// Ends the current session and discards its pending result.
+  ///
+  /// Also discards the pending result of a session already stopped but still
+  /// inside its [_detachDelay] window — [ChatComposer] cancels on dispose, and
+  /// a transcript delivered after that has nowhere left to go.
   Future<void> cancel() async {
-    if (!_isListening) return;
-    await _speech.cancel();
+    final wasListening = _isListening;
+    _detachSession();
+    if (!wasListening) return;
     _setListening(false);
+    await _speech.cancel();
   }
 
   void _onResult(SpeechRecognitionResult result) => _onWords?.call(result.recognizedWords);
@@ -190,11 +234,23 @@ class SpeechToTextController extends ChangeNotifier {
   void _setListening(bool listening) {
     if (listening == _isListening) return;
     _isListening = listening;
-    if (!listening) {
-      _onWords = null;
-      _config = null;
-    }
+    if (!listening) _scheduleDetach();
     notifyListeners();
+  }
+
+  void _scheduleDetach() {
+    // Nothing attached means nothing to wait for — and no timer to leave
+    // pending behind a test.
+    if (_onWords == null) return;
+    _detachTimer?.cancel();
+    _detachTimer = Timer(_detachDelay, _detachSession);
+  }
+
+  void _detachSession() {
+    _detachTimer?.cancel();
+    _detachTimer = null;
+    _onWords = null;
+    _config = null;
   }
 
   /// Resets the initialization state. Exposed for tests.
@@ -202,7 +258,6 @@ class SpeechToTextController extends ChangeNotifier {
   void debugReset() {
     _isAvailable = null;
     _isListening = false;
-    _onWords = null;
-    _config = null;
+    _detachSession();
   }
 }
