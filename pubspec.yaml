@@ -45,6 +45,10 @@ melos:
       dev_dependencies:
         alchemist: ^0.14.0
         mocktail: ^1.0.5
+        # Direct because the speech tests substitute their own
+        # `SpeechToTextPlatform`; it arrives transitively via `speech_to_text`,
+        # but importing it without declaring it fails `melos run lint:pub`.
+        speech_to_text_platform_interface: ^2.4.0
 
   scripts:
     lint:all:
