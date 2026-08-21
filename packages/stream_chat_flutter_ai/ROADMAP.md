@@ -88,9 +88,11 @@ chart** (the `switch` default case, `_ => _buildLineChart()`).
       value range. Axis gutters match the `fl_chart` kinds' reserved sizes so a heatmap lines up
       with a bar/line chart in the same message.
 
-Fence-language routing already exists in `lib/src/ai_markdown_body.dart` — `_kChartLanguages`
-(`json, chart, chartjs, echarts, highcharts, plotly, vega`), consulted by the `pre` element builder.
-Extend the language set as needed, the hook is already there.
+Fence-language routing lives in `lib/src/ai_markdown_body.dart` — `kDefaultChartLanguages`
+(`json, chart, chartjs, echarts, highcharts, plotly, vega`), consulted by the `pre` element builder
+and overridable per widget via `AIMarkdownBody.chartLanguages`. Extend the default set as new
+schemas land; hosts that need a narrower one (keeping plain ```json fences readable, say) pass their
+own.
 
 - **Acceptance:** a unit test per new schema, feeding a representative JSON payload and asserting
   the resulting `USpec.kind`/series; scatter/bubble/histogram render visibly distinct from a plain

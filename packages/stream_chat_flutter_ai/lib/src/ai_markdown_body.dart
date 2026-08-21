@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -23,11 +24,16 @@ typedef MarkdownTapLinkCallback = void Function(String text, String? href, Strin
 /// without one — see [AIMarkdownBody.mathBuilder].
 typedef MathBuilder = Widget Function(BuildContext context, String tex, TextStyle? style, {required bool inline});
 
-/// The set of languages whose fences are treated as chart blocks.
-const _kChartLanguages = {'json', 'chart', 'chartjs', 'echarts', 'highcharts', 'plotly', 'vega'};
+/// The set of languages whose fences are treated as chart blocks, when
+/// [AIMarkdownBody.chartLanguages] isn't given.
+const kDefaultChartLanguages = {'json', 'chart', 'chartjs', 'echarts', 'highcharts', 'plotly', 'vega'};
 
-/// How many code fences to remember the parse and built widget for. Comfortably
-/// more than the number visible at once, small enough to stay cheap.
+/// How many code fences to remember the parse and built widget for.
+///
+/// Sized against the number of fences in a *message*, not the number on screen:
+/// `MarkdownBody` builds every fence in the string it is given, so a message
+/// with more than this many gets no reuse at all. Messages that long are rare
+/// enough not to pay for a bigger cache in every other case.
 const _kFenceCacheCapacity = 32;
 
 /// Memoized [USpecParser.tryParse] results, keyed on the fence's exact content.
@@ -67,12 +73,15 @@ USpec? _parseSpecCached(String code) {
   return _specCache.set(code, USpecParser.tryParse(code));
 }
 
-Widget _buildFenceCached(String? language, String source) {
-  final key = '${language ?? ''}\n$source';
+Widget _buildFenceCached(String? language, String source, Set<String> chartLanguages) {
+  final isChartFence = language != null && chartLanguages.contains(language.toLowerCase());
+  // The chart flag is part of the key: two bodies configured with different
+  // `chartLanguages` must not share one cached widget for the same fence.
+  final key = '${isChartFence ? 'c' : 'x'}\n${language ?? ''}\n$source';
   final cached = _fenceWidgetCache.get(key);
   if (cached != null) return cached;
 
-  final spec = language != null && _kChartLanguages.contains(language.toLowerCase()) ? _parseSpecCached(source) : null;
+  final spec = isChartFence ? _parseSpecCached(source) : null;
   final child = spec != null
       ? ChartView(spec: spec)
       : CodeBlockView(
@@ -114,6 +123,7 @@ class AIMarkdownBody extends StatefulWidget {
     this.styleSheet,
     this.mathBuilder,
     this.useDollarDelimitersForMath = false,
+    this.chartLanguages = kDefaultChartLanguages,
   });
 
   /// The markdown string to render.
@@ -164,6 +174,19 @@ class AIMarkdownBody extends StatefulWidget {
   /// "it costs $5 to $10" would otherwise typeset as math.
   final bool useDollarDelimitersForMath;
 
+  /// The fence languages whose contents are offered to [USpecParser], defaulting
+  /// to [kDefaultChartLanguages].
+  ///
+  /// Worth narrowing when a host renders replies that also carry data payloads:
+  /// `json` is in the default set — models label chart data that way constantly
+  /// — but it means a plain ```json fence that happens to be shaped like a chart
+  /// spec renders as a chart with no way to read the source. Pass a set without
+  /// `json` to keep those as code, or an empty set to turn chart rendering off
+  /// entirely.
+  ///
+  /// Languages are matched lower-case.
+  final Set<String> chartLanguages;
+
   @override
   State<AIMarkdownBody> createState() => _AIMarkdownBodyState();
 }
@@ -172,6 +195,15 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
   late Map<String, MarkdownElementBuilder> _builders;
   late List<md.InlineSyntax> _inlineSyntaxes;
   late List<md.BlockSyntax> _blockSyntaxes;
+
+  /// Bumped whenever the parser configuration changes, and used to key the
+  /// [MarkdownBody].
+  ///
+  /// `MarkdownWidget` parses in `initState` and re-parses only when `data` or
+  /// `styleSheet` changes — new syntax lists alone are never consulted again, so
+  /// without a fresh key a flipped [AIMarkdownBody.useDollarDelimitersForMath]
+  /// did nothing at all until the text happened to change.
+  int _configGeneration = 0;
 
   @override
   void initState() {
@@ -183,19 +215,17 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
   void didUpdateWidget(covariant AIMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     // The syntaxes and builders are independent of `data`, so streaming text
-    // doesn't churn them. Only the delimiter choice feeds into them: a changed
-    // `mathBuilder` is picked up lazily by _MathElementBuilder, deliberately —
-    // hosts typically pass an inline closure, whose identity differs on every
-    // build, and rebuilding here would recompile MathInlineSyntax's RegExp once
-    // per typewriter tick.
-    if (widget.useDollarDelimitersForMath != oldWidget.useDollarDelimitersForMath) {
+    // doesn't churn them. Only the delimiter choice feeds into them.
+    if (widget.useDollarDelimitersForMath != oldWidget.useDollarDelimitersForMath ||
+        !setEquals(widget.chartLanguages, oldWidget.chartLanguages)) {
+      _configGeneration++;
       _rebuildParserConfig();
     }
   }
 
   void _rebuildParserConfig() {
     _builders = <String, MarkdownElementBuilder>{
-      'pre': _CodeFenceBuilder(),
+      'pre': _CodeFenceBuilder(widget.chartLanguages),
       kMathTag: _MathElementBuilder(() => widget.mathBuilder),
     };
     _blockSyntaxes = <md.BlockSyntax>[
@@ -217,6 +247,7 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
     final sheet = widget.styleSheet ?? MarkdownStyleSheet.fromTheme(Theme.of(context));
 
     return MarkdownBody(
+      key: ValueKey(_configGeneration),
       data: widget.data,
       selectable: widget.selectable,
       // `flutter_markdown_plus` wraps a custom `pre` builder's widget in a
@@ -239,6 +270,10 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
 /// Renders a fenced or indented code block as a [CodeBlockView], or as a
 /// [ChartView] when its language and content say it is chart data.
 class _CodeFenceBuilder extends MarkdownElementBuilder {
+  _CodeFenceBuilder(this._chartLanguages);
+
+  final Set<String> _chartLanguages;
+
   // Deliberately NOT `isBlockElement() => true`. `pre` is already in
   // `flutter_markdown_plus`' block-tag list, so the block layout path is taken
   // either way — and returning true would append `'pre'` to that
@@ -264,7 +299,7 @@ class _CodeFenceBuilder extends MarkdownElementBuilder {
     // source. The parser appends a trailing newline to the code element.
     final source = element.textContent.trimRight();
 
-    return _buildFenceCached(language, source);
+    return _buildFenceCached(language, source, _chartLanguages);
   }
 }
 
@@ -273,8 +308,15 @@ class _CodeFenceBuilder extends MarkdownElementBuilder {
 class _MathElementBuilder extends MarkdownElementBuilder {
   _MathElementBuilder(this._builder);
 
-  /// Read lazily so a changed [AIMarkdownBody.mathBuilder] is picked up without
-  /// reconstructing the builder map.
+  /// Read through a closure so the builder map survives a changed
+  /// [AIMarkdownBody.mathBuilder] — hosts typically pass an inline closure whose
+  /// identity differs on every build, and rebuilding the map (and with it
+  /// `MathInlineSyntax`' RegExp) once per typewriter tick would be pure waste.
+  ///
+  /// It is read during a *parse*, not during a build, so swapping the builder on
+  /// a message whose text has stopped changing takes effect on the next change
+  /// to [AIMarkdownBody.data] rather than immediately. That is the streaming
+  /// case, where `data` changes every tick anyway.
   final MathBuilder? Function() _builder;
 
   @override

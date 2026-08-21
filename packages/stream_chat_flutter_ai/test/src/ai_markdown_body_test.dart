@@ -65,10 +65,33 @@ void main() {
       testWidgets('wraps fences in a RepaintBoundary', (tester) async {
         await tester.pumpWidget(_wrap(const AIMarkdownBody(data: _mixedContent)));
 
+        // Asserted against the *immediate* parent. `findsWidgets` over all
+        // ancestors passes either way — MaterialApp's route already supplies
+        // two RepaintBoundary ancestors — so it said nothing about the wrapper
+        // the streaming performance claim rests on.
+        final parent = tester.element(find.byType(ChartView)).findAncestorWidgetOfExactType<RepaintBoundary>();
+        expect(parent, isNotNull);
         expect(
-          find.ancestor(of: find.byType(ChartView), matching: find.byType(RepaintBoundary)),
-          findsWidgets,
+          find.descendant(of: find.byWidget(parent!), matching: find.byType(ChartView)),
+          findsOneWidget,
         );
+        final between = find.descendant(
+          of: find.byWidget(parent),
+          matching: find.byType(RepaintBoundary),
+        );
+        expect(between, findsNothing, reason: 'the boundary wraps the fence itself, nothing further up');
+      });
+
+      testWidgets('a fence language outside chartLanguages stays a code block', (tester) async {
+        // `json` is in the default set, because models label chart data that
+        // way constantly — but a host rendering replies that also carry API
+        // payloads needs a way to keep those readable.
+        await tester.pumpWidget(
+          _wrap(const AIMarkdownBody(data: _mixedContent, chartLanguages: {})),
+        );
+
+        expect(find.byType(ChartView), findsNothing);
+        expect(find.byType(CodeBlockView), findsNWidgets(2));
       });
 
       // The caches are capacity-bound, and a fence that is still arriving keys
@@ -267,6 +290,25 @@ void main() {
 
         expect(find.text('tex:a + b'), findsOneWidget);
         expect(find.textContaining('and then some.'), findsOneWidget);
+      });
+
+      testWidgets('a runtime change to useDollarDelimitersForMath takes effect', (tester) async {
+        // `MarkdownBody` parses once and re-parses only when `data` changes, so
+        // new syntax lists alone were never consulted — the toggle did nothing
+        // at all on a message that had finished streaming.
+        Widget build({required bool dollars}) => _wrap(
+          AIMarkdownBody(
+            data: r'Einstein wrote $$E = mc^2$$ down.',
+            useDollarDelimitersForMath: dollars,
+            mathBuilder: (context, tex, style, {required inline}) => Text('tex:$tex'),
+          ),
+        );
+
+        await tester.pumpWidget(build(dollars: false));
+        expect(find.text('tex:E = mc^2'), findsNothing);
+
+        await tester.pumpWidget(build(dollars: true));
+        expect(find.text('tex:E = mc^2'), findsOneWidget);
       });
 
       testWidgets('renders raw TeX when no mathBuilder is supplied', (tester) async {
