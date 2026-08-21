@@ -238,8 +238,16 @@ class USpecParser {
           points.add(UPoint(x: labels[i], y: y, size: size));
         }
       } else {
-        // No labels: values are objects `{x, y, r}` (scatter/bubble).
-        for (final raw in rawValues) {
+        // No labels. Values are either objects `{x, y, r}` (scatter/bubble), or
+        // plain numbers whose position in the array is the category — the shape
+        // a model emits whenever it leaves `labels` out, which used to parse to
+        // a series holding nothing at all.
+        for (var i = 0; i < rawValues.length; i++) {
+          final raw = rawValues[i];
+          if (raw is num) {
+            points.add(UPoint(x: i.toString(), y: raw.toDouble()));
+            continue;
+          }
           if (raw is! Map<String, dynamic>) continue;
           final x = _asDouble(raw['x']);
           final y = _asDouble(raw['y']);
@@ -247,6 +255,11 @@ class USpecParser {
           points.add(UPoint(x: _numToString(x), y: y, size: _asDouble(raw['r'])));
         }
       }
+      // Skip series that yielded nothing, for the reason spelled out in
+      // [_tryUSpec]: a payload this adapter can't actually decode has to fall
+      // through to one that can — or to a plain code block — rather than being
+      // claimed here and rendered as a chart with bare axes.
+      if (points.isEmpty) continue;
       series.add(USeries(name: ds['label']?.toString() ?? 'Series', points: points));
     }
     if (series.isEmpty) return null;
@@ -386,6 +399,10 @@ class USpecParser {
           }
         }
       }
+      // See [_tryUSpec]: a series that decoded to nothing means this adapter
+      // didn't understand the payload, and claiming it renders bare axes
+      // instead of falling through to one that does.
+      if (points.isEmpty) continue;
       series.add(USeries(name: s['name']?.toString() ?? 'Series', points: points));
     }
     if (series.isEmpty) return null;
@@ -439,6 +456,10 @@ class USpecParser {
           if (yv != null) points.add(UPoint(x: xv != null ? _numToString(xv) : x, y: yv));
         }
       }
+      // See [_tryUSpec]: a series that decoded to nothing means this adapter
+      // didn't understand the payload, and claiming it renders bare axes
+      // instead of falling through to one that does.
+      if (points.isEmpty) continue;
       series.add(USeries(name: s['name']?.toString() ?? 'Series', points: points));
     }
     if (series.isEmpty) return null;

@@ -108,6 +108,52 @@ void main() {
         expect(spec.series.first.points.map((p) => p.x), ['Jan', 'Feb']);
       });
 
+      test('plots plain numbers with no labels at their position in the array', () {
+        // A shape models emit constantly. The no-labels branch used to accept
+        // only `{x, y, r}` objects, so this parsed to a series holding nothing
+        // — and the empty series was still returned, rendering bare axes rather
+        // than falling back to a readable code block.
+        final spec = USpecParser.tryParse('''
+        {"type": "bar", "data": {"datasets": [{"label": "Sales", "data": [10, 25, 18]}]}}
+        ''');
+
+        expect(spec, isNotNull);
+        expect(spec!.kind, USpecKind.bar);
+        expect(spec.series.single.points.map((p) => p.y), [10, 25, 18]);
+        expect(spec.series.single.points.map((p) => p.x), ['0', '1', '2']);
+      });
+
+      test('declines a dataset it cannot decode instead of returning an empty chart', () {
+        final spec = USpecParser.tryParse('''
+        {"type": "bar", "data": {"datasets": [{"label": "Sales", "data": ["a", "b"]}]}}
+        ''');
+
+        expect(spec, isNull, reason: 'so the fence falls through to CodeBlockView');
+      });
+
+      test('keeps a labelled point on its own category across a null gap', () {
+        // `null` is how Chart.js writes a gap. Dropping it produced a dense
+        // list, and points were then plotted by their position in that list —
+        // so everything after the gap was drawn one category to the left, out
+        // of step with the axis and with the other series.
+        final spec = USpecParser.tryParse('''
+        {
+          "type": "line",
+          "data": {
+            "labels": ["Jan", "Feb", "Mar"],
+            "datasets": [
+              {"label": "A", "data": [1, null, 3]},
+              {"label": "B", "data": [4, 5, 6]}
+            ]
+          }
+        }
+        ''');
+
+        expect(spec!.series.first.points.map((p) => p.x), ['Jan', 'Mar']);
+        expect(spec.series.first.points.map((p) => p.y), [1, 3]);
+        expect(spec.series.last.points.map((p) => p.x), ['Jan', 'Feb', 'Mar']);
+      });
+
       test('parses a pie chart', () {
         final spec = USpecParser.tryParse('''
         {
@@ -214,6 +260,14 @@ void main() {
     });
 
     group('ECharts schema', () {
+      test('declines a series it cannot decode instead of returning an empty chart', () {
+        final spec = USpecParser.tryParse('''
+        {"xAxis": {"data": ["a", "b"]}, "series": [{"name": "S", "data": ["x", "y"]}]}
+        ''');
+
+        expect(spec, isNull, reason: 'so the fence falls through to CodeBlockView');
+      });
+
       test('parses a category series', () {
         final spec = USpecParser.tryParse('''
         {
@@ -245,6 +299,14 @@ void main() {
     });
 
     group('Highcharts schema', () {
+      test('declines a series it cannot decode instead of returning an empty chart', () {
+        final spec = USpecParser.tryParse('''
+        {"xAxis": {"categories": ["a", "b"]}, "series": [{"name": "S", "data": ["x", "y"]}]}
+        ''');
+
+        expect(spec, isNull, reason: 'so the fence falls through to CodeBlockView');
+      });
+
       test('maps column to bar', () {
         final spec = USpecParser.tryParse('''
         {
