@@ -210,6 +210,65 @@ void main() {
         expect(seen.last, (tex: 'E = mc^2', inline: false));
       });
 
+      testWidgets('keeps the prose following a display block on the same line', (tester) async {
+        // The block syntax consumed the whole line and kept only what sat
+        // between the delimiters, so the rest of the sentence was dropped
+        // without trace.
+        await tester.pumpWidget(
+          _wrap(
+            AIMarkdownBody(
+              data: r'\[E = mc^2\] where m is mass.',
+              mathBuilder: (context, tex, style, {required inline}) => Text('tex:$tex'),
+            ),
+          ),
+        );
+
+        expect(find.text('tex:E = mc^2'), findsOneWidget);
+        expect(find.textContaining('where m is mass.'), findsOneWidget);
+      });
+
+      testWidgets('keeps the text of a citation-style line', (tester) async {
+        // `\[` at the start of a line is also CommonMark's escape for a literal
+        // `[`, so a numbered reference list reaches the block syntax. Losing
+        // the tail turned it into a column of bare numbers.
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: r'\[1\] First source')));
+
+        expect(find.textContaining('First source'), findsOneWidget);
+      });
+
+      testWidgets('typesets a second expression on the same line', (tester) async {
+        final seen = <String>[];
+
+        await tester.pumpWidget(
+          _wrap(
+            AIMarkdownBody(
+              data: r'\[a\] and \[b\]',
+              mathBuilder: (context, tex, style, {required inline}) {
+                seen.add(tex);
+                return Text('tex:$tex');
+              },
+            ),
+          ),
+        );
+
+        expect(seen, ['a', 'b']);
+        expect(find.textContaining('and'), findsOneWidget);
+      });
+
+      testWidgets('keeps the tail of a multi-line display block', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            AIMarkdownBody(
+              data: '\\[\n  a + b\n\\] and then some.',
+              mathBuilder: (context, tex, style, {required inline}) => Text('tex:$tex'),
+            ),
+          ),
+        );
+
+        expect(find.text('tex:a + b'), findsOneWidget);
+        expect(find.textContaining('and then some.'), findsOneWidget);
+      });
+
       testWidgets('renders raw TeX when no mathBuilder is supplied', (tester) async {
         await tester.pumpWidget(_wrap(const AIMarkdownBody(data: r'Value \(x^2\) here.')));
 

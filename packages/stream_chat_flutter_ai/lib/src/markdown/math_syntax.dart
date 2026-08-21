@@ -28,6 +28,12 @@ const kMathDisplayBlock = 'block';
 /// middle of a sentence still reports itself as display math — LLMs emit that
 /// often, and [MathBlockSyntax] only claims a `\[` that begins a line.
 ///
+/// Note that `\[` and `\]` are also CommonMark's escapes for a literal `[` and
+/// `]`, so `\[TODO\]` typesets as math rather than rendering as `[TODO]`. That
+/// is the deliberate trade: LLM replies emit bracket-delimited LaTeX far more
+/// often than they emit escaped brackets. Nothing is *lost* either way — with no
+/// math builder wired up, the expression renders as its own source text.
+///
 /// **Register this after `md.CodeSyntax()`.** `package:markdown` evaluates
 /// caller-supplied inline syntaxes before its own defaults (see
 /// `inline_parser.dart`, "User specified syntaxes are the first syntaxes to be
@@ -98,7 +104,11 @@ class MathInlineSyntax extends md.InlineSyntax {
 /// ```
 ///
 /// Emits an [kMathTag] element whose `textContent` is the TeX source, with
-/// [kMathDisplayAttribute] set to [kMathDisplayBlock].
+/// [kMathDisplayAttribute] set to [kMathDisplayBlock]. Anything following the
+/// closing delimiter stays in the paragraph as ordinary markdown, so
+/// `\[E = mc^2\] where m is mass.` keeps its sentence — and a line that only
+/// *looks* like an opener, such as the citation `\[1\] First source`, keeps its
+/// text.
 ///
 /// An **unterminated** block still emits an element, mirroring how
 /// `package:markdown` treats an unclosed code fence (CommonMark requires the
@@ -135,35 +145,57 @@ class MathBlockSyntax extends md.BlockSyntax {
     final opening = pattern.firstMatch(parser.current.content)!;
     final closer = opening[0]!.trimLeft() == r'$$' ? r'$$' : r'\]';
 
+    // Every line this syntax consumes, verbatim — used to put the source back
+    // when it turns out to hold no expression.
+    final consumed = <String>[parser.current.content];
     final lines = <String>[];
     // Whatever follows the opening delimiter on the same line.
     final head = parser.current.content.substring(opening.end);
     parser.advance();
 
+    // Whatever follows the *closing* delimiter. Ordinary prose, and dropping it
+    // is silent content loss: `\[` at the start of a line is also how CommonMark
+    // escapes a literal `[`, so a citation line like `\[1\] First source` lands
+    // here and used to lose everything but the number.
+    var trailing = '';
+
     final headClose = head.indexOf(closer);
     if (headClose >= 0) {
       lines.add(head.substring(0, headClose));
+      trailing = head.substring(headClose + closer.length);
     } else {
       lines.add(head);
       while (!parser.isDone) {
         final line = parser.current.content;
+        consumed.add(line);
         parser.advance();
         final close = line.indexOf(closer);
         if (close >= 0) {
           lines.add(line.substring(0, close));
+          trailing = line.substring(close + closer.length);
           break;
         }
         lines.add(line);
       }
     }
 
+    // Only the right-hand side is trimmed: the space separating an expression
+    // from the words after it is part of the sentence.
+    trailing = trailing.trimRight();
+
     final tex = lines.join('\n').trim();
-    // An empty `\[\]` carries nothing to render; the position has already
-    // advanced, so returning null just drops the block.
-    if (tex.isEmpty) return null;
+    // An empty `\[\]` carries nothing to typeset. Hand the source back as text
+    // rather than dropping it — the same choice [MathInlineSyntax] makes.
+    if (tex.isEmpty) {
+      return md.Element('p', [md.UnparsedContent(consumed.join('\n'))]);
+    }
 
     return md.Element('p', [
       md.Element.text(kMathTag, tex)..attributes[kMathDisplayAttribute] = kMathDisplayBlock,
+      // Left unparsed so the block parser's inline pass runs over it — the tail
+      // is ordinary markdown, and may hold a second expression of its own
+      // (`\[a\] and \[b\]`).
+      if (trailing.trim().isNotEmpty) md.UnparsedContent(trailing),
     ]);
   }
 }
