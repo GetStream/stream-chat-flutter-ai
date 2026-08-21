@@ -158,8 +158,14 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   /// is already displayed would leave the previous text on screen indefinitely,
   /// because there would be nothing left for [startTyping] to reveal.
   void updateText(String newText, {bool autoStart = true}) {
-    final isContinuation = newText.startsWith(value.text);
-    _targetText = newText.characters;
+    final target = newText.characters;
+    // Compared in grapheme clusters, the unit [_currentCharIndex] counts. A
+    // plain `startsWith` is a UTF-16 test, and the two disagree when a chunk
+    // boundary lands inside a cluster: "👨" is a prefix of "👨‍👩‍👦" by code unit
+    // but not by grapheme, and treating that as a continuation left the index
+    // past the end of a target one cluster long, freezing the view.
+    final isContinuation = target.length >= _currentCharIndex && target.take(_currentCharIndex).string == value.text;
+    _targetText = target;
 
     if (!isContinuation) {
       _timer?.cancel();
@@ -216,9 +222,23 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   /// index, so a subsequent [startTyping] types the target out from the
   /// beginning rather than jumping from the fully-revealed text back to its
   /// first character.
+  ///
+  /// Note the "resets" — this empties the view. To end a stream while keeping
+  /// what has been revealed, use [pauseTyping]; to end it showing everything
+  /// received so far, use [finishTyping].
   void stopTyping() {
     _timer?.cancel();
     _reveal(0, state: TypewriterState.stopped);
+  }
+
+  /// Stops typing and reveals the whole target text at once.
+  ///
+  /// The natural companion to a "stop generating" control: the user wants the
+  /// reply to stop growing, not to disappear ([stopTyping]) or to freeze
+  /// half-written ([pauseTyping]).
+  void finishTyping() {
+    _timer?.cancel();
+    _reveal(_targetText.length, state: TypewriterState.idle);
   }
 
   @override

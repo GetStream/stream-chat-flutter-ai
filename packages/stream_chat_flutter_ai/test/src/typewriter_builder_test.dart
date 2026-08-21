@@ -133,6 +133,34 @@ void main() {
       expect(revealed, containsAllInOrder(['👍🏽', '👍🏽o', '👍🏽ok']));
       expect(controller.value.text, '👍🏽ok');
     });
+    test('finishTyping reveals everything received so far', () {
+      final controller = TypewriterController()..updateText('a partial reply');
+      addTearDown(controller.dispose);
+
+      controller.finishTyping();
+
+      // The companion to a "stop generating" control: stopTyping empties the
+      // view and pauseTyping freezes it half-written, neither of which is what
+      // the user asked for.
+      expect(controller.value.text, 'a partial reply');
+      expect(controller.value.state, TypewriterState.idle);
+    });
+
+    test('a chunk that extends a grapheme cluster is not treated as a continuation', () {
+      // '\u{1F468}' is a UTF-16 prefix of the family emoji but not a grapheme
+      // one. Comparing by code unit left the index past the end of a target one
+      // cluster long, so nothing was ever revealed and the view froze.
+      final controller = TypewriterController();
+      addTearDown(controller.dispose);
+
+      controller
+        ..updateText('\u{1F468}')
+        ..finishTyping();
+      expect(controller.value.text, '\u{1F468}');
+
+      controller.updateText('\u{1F468}\u200D\u{1F469}\u200D\u{1F466}');
+      expect(controller.value.state, TypewriterState.typing);
+    });
   });
 
   group('TypewriterBuilder', () {
