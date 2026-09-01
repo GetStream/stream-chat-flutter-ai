@@ -14,7 +14,7 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 |---|---|---|---|---|
 | 1.1 | Standalone suggested-prompt chips (`SuggestionsView`) | 1 | S | ✅ |
 | 1.2 | Chart schema & kind breadth (`USpec`) | 1 | M | ✅ |
-| 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ⬜ |
+| 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ✅ |
 | 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
 | 2.3 | Localization scaffolding | 2 | M | ⬜ |
 | 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
@@ -103,55 +103,89 @@ own.
 
 ## Phase 2 — Core parity (medium effort)
 
-### 2.1 Code syntax highlighting (`CodeBlockView`)
+### 2.1 Code syntax highlighting (`CodeBlockView`) ✅
 
-**Gap:** Swift uses `Splash` for tokenized, per-language colored highlighting. Flutter's
-`CodeBlockView` (`lib/src/code_block_view.dart`) shows plain monospace `SelectableText` with a
-decorative language label — no token coloring.
+**Gap:** Flutter's `CodeBlockView` showed plain monospace `SelectableText` with a decorative
+language label — no token coloring.
 
-**Proposed work:** introduce a highlighting dependency and colorize the code body, keeping the
-existing dark theme (`_kBgColor 0xFF1E1E1E`), header, and copy button intact.
+**Correction to the premise, found while doing the work.** This item was written believing Swift had
+"tokenized, per-language colored highlighting" to reach parity with. It doesn't.
+`Sources/StreamChatAI/CodeSyntaxHighlighter.swift` is, in full:
 
-> `CodeBlockView` is now constructed by the `pre` element builder in `ai_markdown_body.dart`
-> (`_CodeFenceBuilder`), which is where the language and raw source arrive. Nothing about this item
-> changes — the highlighting work is still confined to `code_block_view.dart` — but that builder is
-> the seam to look at if a highlighter needs anything the widget isn't currently handed.
+```swift
+func highlightCode(_ content: String, language: String?) -> Text {
+    guard language != nil else { return Text(content) }
+    return self.syntaxHighlighter.highlight(content)
+}
+```
 
-- Evaluate `re_highlight` (actively maintained, highlight.js grammars) vs. `flutter_highlight` +
-  `highlight` (popular but stale) vs. `syntax_highlight` (Dart-team maintained, fewer languages).
-  Recommend `re_highlight` for language breadth. Add it under `melos.command.bootstrap` in the
-  **root `pubspec.yaml`** (this repo is on Melos 8 and has no `melos.yaml`) — **do not** edit the
-  package `pubspec.yaml` version constraint directly.
-- Replace the `SelectableText` body with a highlighted `TextSpan` tree; when `language` is null or
-  unrecognized, fall back to the current plain rendering (must stay selectable and horizontally
-  scrollable).
+and [`Splash`](https://github.com/JohnSundell/Splash) highlights exactly one language: **Swift**. So
+iOS applies the *Swift* grammar to every labelled fence regardless of its label — a ```python block
+gets Swift keyword coloring — and renders unlabelled fences plain (note the inverted `guard`). There
+was no per-language target here; Flutter now covers 31 languages properly. Recorded under
+[Where Flutter already leads](#where-flutter-already-leads).
 
-**Fold in while the file is open** (known issues deliberately left for this work rather than patched
-separately, since the body and its header are being rewritten anyway):
+**Shipped:** `re_highlight` (MIT, highlight.js grammars ported to Dart; no native code, no assets,
+no async init) added under `melos.command.bootstrap` in the root `pubspec.yaml`.
+`lib/src/highlight/code_languages.dart` registers a curated 31-grammar set — `bash c cpp csharp css
+dart diff dockerfile go graphql ini java javascript json kotlin lua markdown objectivec php
+plaintext python r ruby rust scala shell sql swift typescript xml yaml` — plus the aliases each
+grammar declares for itself (`js`, `ts`, `py`, `sh`, `yml`, `c++`, `cs`, `html`, …).
 
-- **`fontFamily: 'monospace'` doesn't resolve on iOS/macOS/web.** Only Android maps that generic
-  family to a real font; elsewhere it silently falls back to the default sans face, so code blocks
-  aren't monospaced at all. Use `fontFamilyFallback: ['monospace', 'Menlo', 'Courier New']` (or
-  whatever the highlighting package wants). Note `test/flutter_test_config.dart` currently registers
-  a system font under the `monospace` family purely to work around this in goldens — revisit that
-  once the family name is real.
+**On the curated set** (the decision most likely to be "simplified" later): every grammar is a
+top-level `final` holding a tree of `Mode` constructor calls, and `builtinAllLanguages` references
+all 197 of them, so naming that map makes 3.1 MB of Dart source reachable with nothing to
+tree-shake it back out of a host app. The curated set is ~870 KB — of which `swift.dart` alone is
+388 KB, kept because it is the one language the iOS package highlights at all. Blocks over 20,000
+characters are left unhighlighted: a fence that is still streaming re-highlights on every frame it
+grows by, which makes the total cost quadratic in the block's length.
+
+**Theming.** `CodeBlockView.theme` takes a `Map<String, TextStyle>` keyed by highlight.js scope name
+— pure Flutter types, so no `re_highlight` type reaches the public API — defaulting to the exported
+`kDefaultCodeBlockTheme` (`vs2015Theme`, whose `root` is `#1E1E1E` on `#DCDCDC`, i.e. exactly the
+background the block already had). The `root` entry now supplies the background and, at 60% opacity,
+the header's label and copy-button color, which is what closes the "label color should come from the
+theme's token set" point below. Kept dark regardless of the ambient `Theme`, deliberately.
+
+`AIMarkdownBody.codeBlockTheme` and `StreamingMessageView.codeBlockTheme` forward it — without that
+the parameter would be unreachable for the main use case, since fences are constructed by
+`ai_markdown_body.dart`'s private `_CodeFenceBuilder`. The fence widget cache keys on the theme's
+*identity*, so a host rebuilding the map every frame costs memoization (not correctness); pass a
+`const` or hoisted map.
+
+**Folded in:**
+
+- ~~**`fontFamily: 'monospace'` doesn't resolve on iOS/macOS/web.**~~ ✅ The style now carries
+  `fontFamilyFallback: ['Menlo', 'Consolas', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New']`.
+  Web turned out to be fine — Flutter hands family names straight to the browser, where `monospace`
+  is a CSS generic — but iOS, macOS and Windows were all rendering code proportionally.
+  `test/flutter_test_config.dart` still registers a system font under the `monospace` family, and
+  still has to: the fallbacks name real fonts, but `flutter test` has none of them either.
 - ~~**The copy button `setState`s after an `await` with no `mounted` guard**, and repeated taps race
   two 2-second reset timers against each other.~~ ✅ Fixed separately — it needed no rewrite of the
   body, so it wasn't worth carrying. `_CopyButtonState` now bails when unmounted and uses one
   restartable `Timer`, cancelled on dispose.
 - ~~**No test coverage at all** for the copy button or the language label.~~ ✅ Covered by
-  `test/src/code_block_view_test.dart` (label shown/omitted, copy + confirm + revert, tap-again does
-  not race, disposal mid-copy). Still to add when 2.1 lands: an assertion that a themed span tree is
-  produced.
-- The block is hardcoded dark (`_kBgColor 0xFF1E1E1E`) regardless of theme. That's a deliberate
-  choice worth keeping — code blocks read as code — but the *header* row's label color should come
-  out of the token set the highlighting theme establishes rather than a bare constant.
+  `test/src/code_block_view_test.dart`, which now also asserts the span tree: multi-color output for
+  a recognised language with every character preserved, alias resolution, plain fallback for an
+  unknown language / no language / an oversized block, re-highlighting on a code or theme change,
+  and chrome colors taken from the theme. Plus a golden, and two tests in
+  `ai_markdown_body_test.dart` covering the markdown path.
+- ~~The block is hardcoded dark regardless of theme … the *header* row's label color should come out
+  of the token set the highlighting theme establishes rather than a bare constant.~~ ✅ See
+  **Theming** above. Still dark by choice; the constants are now fallbacks for a theme with no
+  `root` entry.
 
-- **Files:** `lib/src/code_block_view.dart`; root `pubspec.yaml` (`melos.command.bootstrap`).
-- **Acceptance:** a `dart`/`json`/`python` block renders multi-colored tokens; unknown language
-  still renders plain; copy button + text selection still work (the existing
-  `code_block_view_test.dart` is the guard); monospaced on iOS/macOS/web; widget test asserting a
-  themed span tree is produced.
+- **Files:** `lib/src/code_block_view.dart`, new `lib/src/highlight/code_languages.dart`,
+  `lib/src/ai_markdown_body.dart`, `lib/src/streaming_message_view.dart`; root `pubspec.yaml`
+  (`melos.command.bootstrap`) and the package `pubspec.yaml`.
+- **Rejected dependencies:** `syntax_highlight` (serverpod) — depends on `super_clipboard`, which
+  forces a Rust/cargokit native build on every consuming app, plus asset bundles and an async
+  `Highlighter.initialize()`, all for 15 languages. `flutter_highlight` + `highlight` — five years
+  stale. Hand-rolling — no nested-mode awareness (no template literals, docstrings or regex
+  literals) and we'd own every grammar bug. `re_highlight` is itself stale (0.0.3, last published
+  2024), which the earlier draft of this item got wrong; taken anyway because grammars don't rot the
+  way UI APIs do, and vendoring the 31 MIT files is a mechanical fallback if it is ever abandoned.
 - **Effort:** M (1–2 days including dependency vetting).
 
 ### 2.2 Composer factory slot coverage (`ChatComposerFactory`)
@@ -196,7 +230,7 @@ complete list as of now, so the work can be done in one pass:
 | `'Add photos'` | `chat_composer_factory.dart` — leading "+" tooltip |
 | `'Photos'`, `'All Photos'`, `'Allow photo access'`, `'Take a photo'` | `composer_attachment_sheet.dart` |
 | `'Voice input'`, `'Stop recording'` | `speech_to_text_button.dart` — mic tooltips |
-| `'Copy code'`, `'Copied!'` | `code_block_view.dart` — see 2.1, which rewrites this file |
+| `'Copy code'`, `'Copied!'` | `code_block_view.dart` |
 
 Several of these are tooltips doubling as the only accessible label for an icon-only button, so the
 translations object is also what makes those buttons legible to a screen reader in any locale.
@@ -338,6 +372,9 @@ Swift, not gaps:
   is a more deliberate design than Swift's separately-styled buttons.
 - **Grapheme-cluster-aware typewriter:** `TypewriterController` uses `Characters`, which is safer
   for emoji/multi-byte text during streaming than Swift's raw `Character` array indexing.
+- **Real per-language syntax highlighting:** `CodeBlockView` colors 31 languages from their fence
+  label. Swift's `SplashCodeSyntaxHighlighter` applies the Swift grammar to *every* labelled fence
+  (Splash supports no other language) and leaves unlabelled ones plain — see 2.1.
 
 ## At parity (no work needed)
 

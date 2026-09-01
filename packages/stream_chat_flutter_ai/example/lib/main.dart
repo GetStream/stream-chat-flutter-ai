@@ -53,14 +53,23 @@ Sure — here's a quick tour of what this package renders.
 Regular **bold**, *italic* and `inline code` all work, plus lists:
 
 1. Streaming text with a typewriter effect
-2. Syntax-labelled code blocks
+2. Syntax-highlighted code blocks
 3. Charts from a JSON fence
 
-### A code block
+### Code blocks
 
 ```dart
+// Highlighting follows the fence's language.
 final controller = ChatComposerController();
 controller.isGenerating = true;
+```
+
+…and another language, to show it isn't hardcoded to one grammar:
+
+```python
+def average(values):
+    """Mean of a non-empty sequence."""
+    return sum(values) / len(values)
 ```
 
 ### Some maths

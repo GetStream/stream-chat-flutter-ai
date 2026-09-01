@@ -31,6 +31,27 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **Code fences are syntax-highlighted.** `CodeBlockView` tokenizes its contents and colors them
+  per language, via a new `re_highlight` dependency; `AIMarkdownBody` and `StreamingMessageView`
+  render fences through it as before. A fence with no language, or one whose language isn't
+  recognised, still renders as plain monospace text — and either way the block stays selectable,
+  horizontally scrollable, and keeps its copy button and language label.
+- `CodeBlockView.theme`, plus matching `AIMarkdownBody.codeBlockTheme` and
+  `StreamingMessageView.codeBlockTheme` — a `Map<String, TextStyle>` keyed by highlight.js scope
+  name, defaulting to the exported `kDefaultCodeBlockTheme` (VS Code's Dark+ palette, whose
+  background is the one code blocks already had). Any of `re_highlight`'s `styles/*.dart` maps
+  works, as does a hand-written one. The map's `root` entry now also supplies the block's
+  background and the header's label/copy-button color, which used to be bare constants. The block
+  stays dark regardless of the ambient `Theme`, deliberately — code reads as code.
+- Highlighting covers 31 languages — `bash`, `c`, `cpp`, `csharp`, `css`, `dart`, `diff`,
+  `dockerfile`, `go`, `graphql`, `ini`, `java`, `javascript`, `json`, `kotlin`, `lua`, `markdown`,
+  `objectivec`, `php`, `plaintext`, `python`, `r`, `ruby`, `rust`, `scala`, `shell`, `sql`,
+  `swift`, `typescript`, `xml`, `yaml` — and their usual aliases (`js`, `ts`, `py`, `sh`, `yml`,
+  `c++`, `cs`, `html`, …). Not all 197 grammars `re_highlight` bundles: each is a top-level `final`
+  holding a tree of constructor calls, so naming its `builtinAllLanguages` map would compile 3.1 MB
+  of Dart source into every host app and nothing would tree-shake it back out. The curated set is
+  ~870 KB. Blocks over 20,000 characters are left unhighlighted, because a fence that is still
+  streaming re-highlights on every frame it grows by.
 - `AIMarkdownBody.chartLanguages` — which fence languages are offered to `USpecParser`, defaulting to
   the exported `kDefaultChartLanguages`. `json` is in that set because models label chart data that
   way constantly, which also means a plain ```json fence shaped like a chart spec used to render as a
@@ -94,6 +115,11 @@ First release of `stream_chat_flutter_ai`.
 
 🐞 Fixed
 
+- **Code blocks weren't actually monospaced on iOS, macOS or Windows.** `CodeBlockView` asked for
+  `fontFamily: 'monospace'`, which names a real family only on Android — and, because Flutter hands
+  family names straight to the browser, on web. Everywhere else it silently resolved to the default
+  sans face, so code rendered proportionally. The style now carries a `fontFamilyFallback` of
+  `Menlo`, `Consolas`, `Roboto Mono`, `DejaVu Sans Mono` and `Courier New` behind it.
 - **A dictation session outliving its composer could crash on a disposed `TextEditingController`.**
   `ChatComposer.dispose` cancelled the recognition session only when `enableSpeechToText` was true,
   but disposed its internally-owned controller either way — and the arrangement `SpeechToTextButton`'s
