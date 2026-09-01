@@ -39,6 +39,9 @@ melos:
         image_picker: ^1.2.2
         markdown: ^7.3.1
         photo_manager: ^3.9.0
+        # Only a curated subset of its ~197 grammars is imported — see
+        # `lib/src/highlight/code_languages.dart`.
+        re_highlight: ^0.0.3
         speech_to_text: ^7.0.0
 
       # List of all the dev_dependencies used in the project.
