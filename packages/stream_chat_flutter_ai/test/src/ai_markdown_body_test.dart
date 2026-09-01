@@ -132,6 +132,42 @@ void main() {
       });
     });
 
+    group('code block theming', () {
+      testWidgets('a fence is syntax-highlighted through the markdown path', (tester) async {
+        debugClearFenceCaches();
+
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: '```dart\n// hi\nvar x = 1;\n```')));
+
+        final span = tester.widget<SelectableText>(find.byType(SelectableText)).textSpan;
+        expect(span, isNotNull);
+
+        final colors = <Color>{};
+        span!.visitChildren((child) {
+          final color = child.style?.color;
+          if (color != null) colors.add(color);
+          return true;
+        });
+        expect(colors.length, greaterThan(1));
+      });
+
+      testWidgets('codeBlockTheme reaches the fence and survives a change', (tester) async {
+        debugClearFenceCaches();
+
+        const red = {'root': TextStyle(color: Color(0xFF111111), backgroundColor: Color(0xFF222222))};
+        const blue = {'root': TextStyle(color: Color(0xFF333333), backgroundColor: Color(0xFF444444))};
+        const data = '```dart\nvar x = 1;\n```';
+
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: data, codeBlockTheme: red)));
+        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)).theme, same(red));
+
+        // `MarkdownBody` only re-parses on a `data`/`styleSheet` change, so a
+        // new theme takes effect only because the body bumps its config
+        // generation and re-keys the widget.
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: data, codeBlockTheme: blue)));
+        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)).theme, same(blue));
+      });
+    });
+
     goldenTest(
       'mixed text, code block, and chart',
       fileName: 'ai_markdown_body_mixed_content',

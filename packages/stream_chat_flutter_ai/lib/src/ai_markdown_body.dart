@@ -73,11 +73,20 @@ USpec? _parseSpecCached(String code) {
   return _specCache.set(code, USpecParser.tryParse(code));
 }
 
-Widget _buildFenceCached(String? language, String source, Set<String> chartLanguages) {
+Widget _buildFenceCached(
+  String? language,
+  String source,
+  Set<String> chartLanguages,
+  Map<String, TextStyle> codeBlockTheme,
+) {
   final isChartFence = language != null && chartLanguages.contains(language.toLowerCase());
-  // The chart flag is part of the key: two bodies configured with different
-  // `chartLanguages` must not share one cached widget for the same fence.
-  final key = '${isChartFence ? 'c' : 'x'}\n${language ?? ''}\n$source';
+  // The chart flag and the theme are part of the key: two bodies configured
+  // with different `chartLanguages` or a different code-block theme must not
+  // share one cached widget for the same fence. The theme goes in by identity,
+  // not contents — two equal-but-distinct maps then miss each other's entries,
+  // which costs reuse rather than correctness, and hashing a 40-entry map for
+  // every fence on every typewriter tick would cost more than it saved.
+  final key = '${isChartFence ? 'c' : 'x'}\n${identityHashCode(codeBlockTheme)}\n${language ?? ''}\n$source';
   final cached = _fenceWidgetCache.get(key);
   if (cached != null) return cached;
 
@@ -87,6 +96,7 @@ Widget _buildFenceCached(String? language, String source, Set<String> chartLangu
       : CodeBlockView(
           code: source,
           language: (language == null || language.isEmpty) ? null : language,
+          theme: codeBlockTheme,
         );
 
   return _fenceWidgetCache.set(key, RepaintBoundary(child: child));
@@ -97,8 +107,8 @@ Widget _buildFenceCached(String? language, String source, Set<String> chartLangu
 /// Renders the whole message with a single [MarkdownBody], overriding two
 /// elements:
 ///
-/// - **Code fences** (`pre`) become a [CodeBlockView] — dark box, copy button,
-///   language label.
+/// - **Code fences** (`pre`) become a [CodeBlockView] — dark box, syntax
+///   highlighting, copy button, language label.
 /// - **Code fences whose language suggests chart data** become a [ChartView]
 ///   when the content parses as a [USpec]; otherwise they fall back to
 ///   [CodeBlockView].
@@ -124,6 +134,7 @@ class AIMarkdownBody extends StatefulWidget {
     this.mathBuilder,
     this.useDollarDelimitersForMath = false,
     this.chartLanguages = kDefaultChartLanguages,
+    this.codeBlockTheme = kDefaultCodeBlockTheme,
   });
 
   /// The markdown string to render.
@@ -187,6 +198,10 @@ class AIMarkdownBody extends StatefulWidget {
   /// Languages are matched lower-case.
   final Set<String> chartLanguages;
 
+  /// Syntax-highlighting token colors for code fences, defaulting to
+  /// [kDefaultCodeBlockTheme]. See [CodeBlockView.theme].
+  final Map<String, TextStyle> codeBlockTheme;
+
   @override
   State<AIMarkdownBody> createState() => _AIMarkdownBodyState();
 }
@@ -217,7 +232,8 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
     // The syntaxes and builders are independent of `data`, so streaming text
     // doesn't churn them. Only the delimiter choice feeds into them.
     if (widget.useDollarDelimitersForMath != oldWidget.useDollarDelimitersForMath ||
-        !setEquals(widget.chartLanguages, oldWidget.chartLanguages)) {
+        !setEquals(widget.chartLanguages, oldWidget.chartLanguages) ||
+        !mapEquals(widget.codeBlockTheme, oldWidget.codeBlockTheme)) {
       _configGeneration++;
       _rebuildParserConfig();
     }
@@ -225,7 +241,7 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
 
   void _rebuildParserConfig() {
     _builders = <String, MarkdownElementBuilder>{
-      'pre': _CodeFenceBuilder(widget.chartLanguages),
+      'pre': _CodeFenceBuilder(widget.chartLanguages, widget.codeBlockTheme),
       kMathTag: _MathElementBuilder(() => widget.mathBuilder),
     };
     _blockSyntaxes = <md.BlockSyntax>[
@@ -270,9 +286,10 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
 /// Renders a fenced or indented code block as a [CodeBlockView], or as a
 /// [ChartView] when its language and content say it is chart data.
 class _CodeFenceBuilder extends MarkdownElementBuilder {
-  _CodeFenceBuilder(this._chartLanguages);
+  _CodeFenceBuilder(this._chartLanguages, this._codeBlockTheme);
 
   final Set<String> _chartLanguages;
+  final Map<String, TextStyle> _codeBlockTheme;
 
   // Deliberately NOT `isBlockElement() => true`. `pre` is already in
   // `flutter_markdown_plus`' block-tag list, so the block layout path is taken
@@ -299,7 +316,7 @@ class _CodeFenceBuilder extends MarkdownElementBuilder {
     // source. The parser appends a trailing newline to the code element.
     final source = element.textContent.trimRight();
 
-    return _buildFenceCached(language, source, _chartLanguages);
+    return _buildFenceCached(language, source, _chartLanguages, _codeBlockTheme);
   }
 }
 
