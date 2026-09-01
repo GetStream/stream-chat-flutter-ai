@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() => runApp(const ExampleApp());
@@ -42,7 +44,8 @@ class _Message {
 /// fence ([ChartView]). There is no backend here — the reply is revealed by
 /// [StreamingMessageView]'s typewriter, the same way a real streamed response
 /// would arrive.
-const _cannedReply = '''
+// Raw so the LaTeX backslashes below read the way an LLM would emit them.
+const _cannedReply = r'''
 Sure — here's a quick tour of what this package renders.
 
 ### Markdown
@@ -60,21 +63,30 @@ final controller = ChatComposerController();
 controller.isGenerating = true;
 ```
 
+### Some maths
+
+Inline like \(e^{i\pi} + 1 = 0\), or as its own block:
+
+\[
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+\]
+
 ### A chart
 
 ```chart
 {
-  "type": "bar",
+  "kind": "bar",
   "title": "Messages per day",
+  "beginAtZeroY": true,
   "series": [
     {
-      "label": "Messages",
+      "name": "Messages",
       "points": [
-        {"x": 1, "y": 12},
-        {"x": 2, "y": 19},
-        {"x": 3, "y": 8},
-        {"x": 4, "y": 24},
-        {"x": 5, "y": 17}
+        {"x": "Mon", "y": 12},
+        {"x": "Tue", "y": 19},
+        {"x": "Wed", "y": 8},
+        {"x": "Thu", "y": 24},
+        {"x": "Fri", "y": 17}
       ]
     }
   ]
@@ -106,6 +118,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// be cancelled when the user taps stop.
   Timer? _thinkingTimer;
 
+  /// Non-null while chunks of the reply are still being delivered.
+  Timer? _streamTimer;
+
+  /// Whether the fake backend has finished sending chunks for the current reply.
+  ///
+  /// The typewriter goes briefly idle whenever it catches up with the chunks
+  /// received so far, which is *not* the same as the reply being finished — so
+  /// the composer only leaves its generating state once both are true.
+  bool _streamComplete = true;
+
+  /// How much of the reply each simulated chunk delivers.
+  static const _chunkSize = 40;
+
   @override
   void initState() {
     super.initState();
@@ -130,6 +155,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   @override
   void dispose() {
     _thinkingTimer?.cancel();
+    _streamTimer?.cancel();
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -144,22 +170,53 @@ class _AssistantScreenState extends State<AssistantScreen> {
     setState(() {
       _messages.add(_Message(text: message, isUser: true));
       _composerController.isGenerating = true;
+      _streamComplete = false;
     });
     _composerController.clear();
     _scrollToEnd();
 
-    // Stand in for a real request: pause on the typing indicator, then hand
-    // the reply to StreamingMessageView to type out.
-    _thinkingTimer = Timer(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      setState(() => _messages.add(const _Message(text: _cannedReply, isUser: false)));
+    // Stand in for a real request: pause on the typing indicator, then start
+    // streaming the reply in.
+    _thinkingTimer = Timer(const Duration(milliseconds: 900), _streamReply);
+  }
+
+  /// Stands in for a streaming backend, appending the canned reply to the last
+  /// message a chunk at a time the way server-sent tokens arrive.
+  ///
+  /// `StreamingMessageView` is handed the text received *so far* and types out
+  /// whatever it hasn't shown yet, so the reveal stays smooth even though the
+  /// chunks land in coarse steps.
+  void _streamReply() {
+    if (!mounted) return;
+    setState(() => _messages.add(const _Message(text: '', isUser: false)));
+
+    var delivered = 0;
+    _streamTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
+      if (!mounted) return timer.cancel();
+
+      delivered = min(delivered + _chunkSize, _cannedReply.length);
+      setState(() {
+        _messages[_messages.length - 1] = _Message(
+          text: _cannedReply.substring(0, delivered),
+          isUser: false,
+        );
+      });
       _scrollToEnd();
+
+      if (delivered == _cannedReply.length) {
+        timer.cancel();
+        _streamComplete = true;
+      }
     });
   }
 
   void _stop() {
     _thinkingTimer?.cancel();
-    setState(() => _composerController.isGenerating = false);
+    _streamTimer?.cancel();
+    setState(() {
+      _streamComplete = true;
+      _composerController.isGenerating = false;
+    });
   }
 
   void _scrollToEnd() {
@@ -196,10 +253,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
                         if (message.isUser) return _UserBubble(text: message.text);
                         return StreamingMessageView(
                           text: message.text,
+                          // The package recognises LaTeX but ships no math
+                          // engine; this is the seam where a host supplies one.
+                          mathBuilder: (context, tex, style, {required inline}) => Math.tex(
+                            tex,
+                            textStyle: style,
+                            mathStyle: inline ? MathStyle.text : MathStyle.display,
+                            onErrorFallback: (error) => Text(tex, style: style),
+                          ),
                           onTypewriterStateChanged: (state) {
-                            // Flip the composer back to "send" once the reply
-                            // has finished typing out.
-                            if (state == TypewriterState.idle) {
+                            // Flip the composer back to "send" once the backend
+                            // has stopped sending chunks *and* the typewriter
+                            // has caught up with the last one.
+                            if (state == TypewriterState.idle && _streamComplete) {
                               _composerController.isGenerating = false;
                             }
                           },

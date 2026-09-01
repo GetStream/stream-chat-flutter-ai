@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
+import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
 
 void main() {
   group('StreamingMessageView Tests', () {
@@ -55,6 +57,91 @@ void main() {
         await tester.pump(typingSpeed * updatedText.length);
 
         expect(find.text(updatedText), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'replaces the text when the new message is shorter',
+      (WidgetTester tester) async {
+        // Regression test: a replaced message (regenerate, edit, or an error
+        // swapped in for a partial reply) that is shorter than what is already
+        // on screen used to leave the previous text displayed indefinitely.
+        Widget build(String text) => MaterialApp(
+          home: Scaffold(body: StreamingMessageView(text: text)),
+        );
+
+        await tester.pumpWidget(build('Hello, world! This is a long reply.'));
+        await tester.pumpWidget(build('Bye.'));
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(find.textContaining('Hello, world!'), findsNothing);
+        expect(find.text('Bye.'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'reports the initial typewriter state to onTypewriterStateChanged',
+      (WidgetTester tester) async {
+        // Regression test: a view built with its complete text is already fully
+        // revealed, so the controller never transitioned and this callback never
+        // fired — leaving hosts that flip a "generating" flag off on `idle`
+        // stuck in the generating state forever.
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: StreamingMessageView(
+                text: 'A complete reply.',
+                onTypewriterStateChanged: states.add,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(states, contains(TypewriterState.idle));
+      },
+    );
+
+    testWidgets(
+      'renders a code block while its fence is still streaming',
+      (WidgetTester tester) async {
+        // Regression test: the markdown used to be pre-split on a regex that
+        // required the *closing* fence, so a code block still being typed out
+        // showed its raw ``` markers and unstyled source for the whole time it
+        // was arriving, then snapped into a CodeBlockView once complete.
+        const typingSpeed = Duration(milliseconds: 10);
+        const full =
+            'Here you go:\n\n'
+            '```dart\n'
+            'void main() {\n'
+            '  for (var i = 0; i < 10; i++) {\n'
+            '    print(i);\n'
+            '  }\n'
+            '}\n'
+            '```';
+
+        Widget build(String text) => MaterialApp(
+          home: Scaffold(
+            body: StreamingMessageView(text: text, typingSpeed: typingSpeed),
+          ),
+        );
+
+        await tester.pumpWidget(build('Here you go:'));
+        await tester.pumpWidget(build(full));
+
+        // Enough ticks to clear the opening fence and reveal part of the body,
+        // but well short of the closing fence.
+        await tester.pump(typingSpeed * 30);
+
+        expect(find.byType(CodeBlockView), findsOneWidget);
+        expect(find.textContaining('```'), findsNothing);
+        // The language is known from the opening fence alone.
+        expect(find.text('dart'), findsOneWidget);
+
+        // Still mid-stream: the tail of the body has not arrived yet.
+        expect(find.textContaining('print(i)'), findsNothing);
       },
     );
 

@@ -17,6 +17,7 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 | 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ⬜ |
 | 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
 | 2.3 | Localization scaffolding | 2 | M | ⬜ |
+| 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
 | 3.1 | MCP client-tool / agentic tool-calling | 3 | L | ⬜ |
 | 3.2 | Generic sidebar / split-view (`SidebarView`) | 3 | S–M | 🅾️ |
 
@@ -87,9 +88,11 @@ chart** (the `switch` default case, `_ => _buildLineChart()`).
       value range. Axis gutters match the `fl_chart` kinds' reserved sizes so a heatmap lines up
       with a bar/line chart in the same message.
 
-Fence-language routing already exists in `lib/src/ai_markdown_body.dart`
-(`json, chart, chartjs, echarts, plotly, vega`) — extend the language set as needed, the hook is
-already there.
+Fence-language routing lives in `lib/src/ai_markdown_body.dart` — `kDefaultChartLanguages`
+(`json, chart, chartjs, echarts, highcharts, plotly, vega`), consulted by the `pre` element builder
+and overridable per widget via `AIMarkdownBody.chartLanguages`. Extend the default set as new
+schemas land; hosts that need a narrower one (keeping plain ```json fences readable, say) pass their
+own.
 
 - **Acceptance:** a unit test per new schema, feeding a representative JSON payload and asserting
   the resulting `USpec.kind`/series; scatter/bubble/histogram render visibly distinct from a plain
@@ -109,18 +112,46 @@ decorative language label — no token coloring.
 **Proposed work:** introduce a highlighting dependency and colorize the code body, keeping the
 existing dark theme (`_kBgColor 0xFF1E1E1E`), header, and copy button intact.
 
+> `CodeBlockView` is now constructed by the `pre` element builder in `ai_markdown_body.dart`
+> (`_CodeFenceBuilder`), which is where the language and raw source arrive. Nothing about this item
+> changes — the highlighting work is still confined to `code_block_view.dart` — but that builder is
+> the seam to look at if a highlighter needs anything the widget isn't currently handed.
+
 - Evaluate `re_highlight` (actively maintained, highlight.js grammars) vs. `flutter_highlight` +
   `highlight` (popular but stale) vs. `syntax_highlight` (Dart-team maintained, fewer languages).
-  Recommend `re_highlight` for language breadth. Add it to `melos.yaml`'s bootstrap dependencies
-  per repo convention — **do not** edit the package `pubspec.yaml` version constraint directly.
+  Recommend `re_highlight` for language breadth. Add it under `melos.command.bootstrap` in the
+  **root `pubspec.yaml`** (this repo is on Melos 8 and has no `melos.yaml`) — **do not** edit the
+  package `pubspec.yaml` version constraint directly.
 - Replace the `SelectableText` body with a highlighted `TextSpan` tree; when `language` is null or
   unrecognized, fall back to the current plain rendering (must stay selectable and horizontally
   scrollable).
 
-- **Files:** `lib/src/code_block_view.dart`; `melos.yaml`.
+**Fold in while the file is open** (known issues deliberately left for this work rather than patched
+separately, since the body and its header are being rewritten anyway):
+
+- **`fontFamily: 'monospace'` doesn't resolve on iOS/macOS/web.** Only Android maps that generic
+  family to a real font; elsewhere it silently falls back to the default sans face, so code blocks
+  aren't monospaced at all. Use `fontFamilyFallback: ['monospace', 'Menlo', 'Courier New']` (or
+  whatever the highlighting package wants). Note `test/flutter_test_config.dart` currently registers
+  a system font under the `monospace` family purely to work around this in goldens — revisit that
+  once the family name is real.
+- ~~**The copy button `setState`s after an `await` with no `mounted` guard**, and repeated taps race
+  two 2-second reset timers against each other.~~ ✅ Fixed separately — it needed no rewrite of the
+  body, so it wasn't worth carrying. `_CopyButtonState` now bails when unmounted and uses one
+  restartable `Timer`, cancelled on dispose.
+- ~~**No test coverage at all** for the copy button or the language label.~~ ✅ Covered by
+  `test/src/code_block_view_test.dart` (label shown/omitted, copy + confirm + revert, tap-again does
+  not race, disposal mid-copy). Still to add when 2.1 lands: an assertion that a themed span tree is
+  produced.
+- The block is hardcoded dark (`_kBgColor 0xFF1E1E1E`) regardless of theme. That's a deliberate
+  choice worth keeping — code blocks read as code — but the *header* row's label color should come
+  out of the token set the highlighting theme establishes rather than a bare constant.
+
+- **Files:** `lib/src/code_block_view.dart`; root `pubspec.yaml` (`melos.command.bootstrap`).
 - **Acceptance:** a `dart`/`json`/`python` block renders multi-colored tokens; unknown language
-  still renders plain; copy button + text selection still work; widget test asserting a themed
-  span tree is produced.
+  still renders plain; copy button + text selection still work (the existing
+  `code_block_view_test.dart` is the guard); monospaced on iOS/macOS/web; widget test asserting a
+  themed span tree is produced.
 - **Effort:** M (1–2 days including dependency vetting).
 
 ### 2.2 Composer factory slot coverage (`ChatComposerFactory`)
@@ -152,9 +183,23 @@ text input and the attachment sheet are hardcoded inside `chat_composer.dart` an
 ### 2.3 Localization scaffolding
 
 **Gap:** Swift externalizes strings via an `L10n` enum backed by a `.strings` bundle (English-only
-today, but the seam exists for adding locales). Flutter hardcodes every user-facing string —
-`'Photos'`, `'All Photos'`, `'Copy code'`, `'Send'`, `'Stop generating'`, `'Add photos'`,
-`'Allow photo access'`, the default hint text, etc.
+today, but the seam exists for adding locales). Flutter hardcodes every user-facing string. The
+complete list as of now, so the work can be done in one pass:
+
+| String | Where |
+|---|---|
+| `'Ask anything…'` | `chat_composer.dart` — default `hintText` |
+| `'Send'` | `chat_composer.dart` — trailing button tooltip (enabled and disabled) |
+| `'Stop generating'` | `chat_composer.dart` — stop button tooltip |
+| `'Remove attachment'` | `chat_composer.dart` — thumbnail remove tooltip |
+| `'Clear {option}'` | `chat_composer.dart` — selected-option chip dismiss tooltip |
+| `'Add photos'` | `chat_composer_factory.dart` — leading "+" tooltip |
+| `'Photos'`, `'All Photos'`, `'Allow photo access'`, `'Take a photo'` | `composer_attachment_sheet.dart` |
+| `'Voice input'`, `'Stop recording'` | `speech_to_text_button.dart` — mic tooltips |
+| `'Copy code'`, `'Copied!'` | `code_block_view.dart` — see 2.1, which rewrites this file |
+
+Several of these are tooltips doubling as the only accessible label for an icon-only button, so the
+translations object is also what makes those buttons legible to a screen reader in any locale.
 
 **Proposed work:** introduce a single injectable translations object — a `StreamAiTranslations`
 abstract class plus a `DefaultStreamAiTranslations` implementation holding today's English
@@ -162,13 +207,37 @@ literals — passed via constructor/`InheritedWidget` rather than pulling in
 `flutter_localizations` (keeps the package dependency-light and framework-agnostic, matching its
 standalone design goal). Replace hardcoded literals with lookups against this object.
 
-- **Files:** new `lib/src/localization/stream_ai_translations.dart`; touch every widget currently
-  holding a literal (`code_block_view.dart`, `composer_attachment_sheet.dart`,
-  `chat_composer.dart`, `chat_composer_factory.dart`).
+- **Files:** new `lib/src/localization/stream_ai_translations.dart`; touch every widget listed in the
+  table above.
 - **Acceptance:** all user-facing strings resolve through the translations object; a test injecting
   a custom translations instance observes the overridden strings.
 - **Effort:** M (1 day). Ships no non-English translations yet — just the seam for adding them
   later.
+
+### 2.4 Chart theming & accessibility
+
+**Gap:** `ChartView`'s presentation is entirely fixed. The chrome that was outright broken in dark
+mode has been fixed (grid lines, heatmap cell borders and labels now come from the `ColorScheme`,
+and the heatmap's sequential ramp inverts so higher values stay brighter than the surface), but
+everything else is still a hardcoded constant with no way for a host to intervene:
+
+- `_kSeriesColors` — a fixed six-color categorical palette, so charts can't follow an app's brand.
+- `_kChartHeight` (220), the bubble radius range, and the histogram's 10-bucket count.
+- `PieChartSectionData.titleStyle` is hardcoded white-on-slice.
+- Charts carry **no `Semantics` at all**: to a screen reader a `ChartView` is an empty box. Even a
+  summary label ("bar chart, Messages per day, 5 categories, values 8 to 24") would be a large
+  improvement, and the data for it is all sitting in the `USpec`.
+
+**Proposed work:** a `ChartTheme`-style object (constructor parameter plus optional
+`InheritedWidget`, mirroring whatever shape 2.3 settles on for translations) carrying the palette,
+height, and sizing constants; plus a `Semantics` wrapper deriving a summary from the `USpec`.
+Consider `USpecKind`-aware summaries and per-series labels.
+
+- **Files:** `lib/src/chart/chart_view.dart`, `lib/src/chart/heatmap_chart_view.dart`; new theme
+  class.
+- **Acceptance:** a host palette overrides the series colors; a chart exposes a non-empty semantic
+  label under `SemanticsTester`; goldens regenerated.
+- **Effort:** M.
 
 ---
 
@@ -217,6 +286,46 @@ the `stream_core_flutter` split from the chat-specific packages), not in
 - **Effort:** S–M if pursued.
 
 ---
+
+## Decisions taken
+
+Recorded so they aren't re-litigated. State the counter-evidence if you want to reopen one.
+
+### Markdown renderer: stay on `flutter_markdown_plus` 🅾️
+
+`gpt_markdown` was evaluated as a replacement (July 2026) and **rejected**. It markets itself as the
+LLM-oriented renderer, and it does have real AI-shaped features — built-in LaTeX, `SourceTag`
+citation markers, a `closed` flag on its `codeBuilder`. But:
+
+- **The streaming claim doesn't hold up.** It is the headline reason to switch, and there is no
+  streaming API, no documentation of partial-input behaviour, and
+  [issue #67](https://github.com/Infinitix-LLC/gpt_markdown/issues/67) ("Can AI streaming chat render
+  Markdown in real time?") has been open and unanswered since June 2025. Its inline syntaxes all
+  require paired closers, so a half-typed `**wor` renders as literal asterisks.
+- **It parses with its own regexes**, not `package:markdown`, so it isn't CommonMark/GFM-compliant.
+  Missing what LLMs actually emit: `_italic_` / `__bold__`, reference-style links, autolinks,
+  footnotes, setext headings.
+- **No `selectable` parameter** ([#118](https://github.com/Infinitix-LLC/gpt_markdown/issues/118)),
+  which `StreamingMessageView` relies on for desktop/web.
+- **No built-in syntax highlighting**, despite the docs claiming it (`custom_widgets/code_field.dart`
+  renders plain text) — so 2.1 above would be unaffected either way.
+- Switching would break the public API: `MarkdownStyleSheet` is exported and is the documented seam
+  for matching a host's `stream_chat_flutter` text theme. `GptMarkdownThemeData` is less expressive.
+- It pulls `flutter_svg` + `provider` + `tuple` transitively, against this package's standalone,
+  dependency-light design.
+
+`flutter_markdown_plus` is also the better-supported option: ~3× the downloads, a direct handover
+from Google's discontinued `flutter_markdown` to foresightmobile.com, and `package:markdown`
+underneath.
+
+Crucially, the one genuine architectural win — replacing the hand-rolled fence pre-split with a real
+element builder — needed no dependency change at all; `flutter_markdown_plus`' `builders` API already
+provided it, and taking it fixed four bugs (see the CHANGELOG). LaTeX landed in place too, as
+`src/markdown/math_syntax.dart` plus a `mathBuilder` seam.
+
+**Still worth stealing from `gpt_markdown`:** `SourceTag`-style inline citation markers
+(`【…[1]`) have no equivalent here. If inline citations become a requirement, that is a custom
+`md.InlineSyntax` plus a builder, in the same shape as the math support.
 
 ## Where Flutter already leads
 

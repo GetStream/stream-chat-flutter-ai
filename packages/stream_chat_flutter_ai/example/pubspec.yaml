@@ -15,6 +15,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
+  # The package ships LaTeX *parsing* but no math engine, so that hosts who
+  # don't render math don't pay for one. Supplying it here is what makes
+  # `StreamingMessageView.mathBuilder` able to typeset.
+  flutter_math_fork: ^0.7.4
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace, so it needs no update when the package version is bumped.
   stream_chat_flutter_ai: any

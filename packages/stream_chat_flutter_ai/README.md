@@ -1,7 +1,7 @@
 # Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
 
 > A standalone set of Flutter components for building LLM-driven chat experiences:
-> streaming text, animated typing indicators, syntax-highlighted code blocks, charts,
+> streaming text, animated typing indicators, labelled code blocks, charts,
 > a purpose-built AI composer, and speech-to-text input. This package has **no
 > dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 > package** — every widget operates on plain strings, callbacks, and controllers, so
@@ -27,7 +27,9 @@
 Renders markdown text with a character-by-character typewriter animation — ideal for
 displaying streaming AI responses as they arrive. Markdown is fully parsed: code fences
 get a dark-themed `CodeBlockView` (with copy button), and JSON/chart fences are rendered
-as interactive charts via `ChartView`.
+as interactive charts via `ChartView`. A code fence is styled from its opening line
+onwards, so a block still being streamed doesn't show raw ` ``` ` markers while it
+arrives.
 
 ```dart
 StreamingMessageView(
@@ -72,8 +74,8 @@ TypewriterBuilder(
 
 ### `AIMarkdownBody`
 
-Segment-based markdown renderer used internally by `StreamingMessageView`. Use it
-directly when you need markdown rendering without the typewriter animation.
+The markdown renderer used internally by `StreamingMessageView`. Use it directly when you
+need markdown rendering without the typewriter animation.
 
 ```dart
 AIMarkdownBody(
@@ -82,6 +84,28 @@ AIMarkdownBody(
   onTapLink: (text, href, title) { /* handle link tap */ },
 );
 ```
+
+#### LaTeX
+
+`\(…\)` and `\[…\]` are recognised out of the box, but typesetting them is left to you —
+every Flutter TeX renderer brings a sizeable dependency tree, and this package stays
+standalone. Supply a `mathBuilder` and math renders; leave it off and the TeX source shows
+as plain text. Both `AIMarkdownBody` and `StreamingMessageView` accept it.
+
+```dart
+// with `flutter_math_fork` in your pubspec
+StreamingMessageView(
+  text: markdownText,
+  mathBuilder: (context, tex, style, {required inline}) => Math.tex(
+    tex,
+    textStyle: style,
+    mathStyle: inline ? MathStyle.text : MathStyle.display,
+  ),
+);
+```
+
+Pass `useDollarDelimitersForMath: true` to also accept `$…$` and `$$…$$`. It is off by
+default because `$` collides with currency in ordinary prose.
 
 ### `CodeBlockView`
 

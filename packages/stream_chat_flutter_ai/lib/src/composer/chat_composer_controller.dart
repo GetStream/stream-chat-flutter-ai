@@ -1,6 +1,14 @@
-import 'package:flutter/widgets.dart';
+// `material` (rather than just `widgets`), `chat_composer` and
+// `composer_attachment_sheet` are here for the [TextField], [ChatComposer] and
+// [ComposerAttachmentSheet] doc links below — nothing in this file's code needs
+// any of them. Dart is fine with the resulting import cycle, and
+// `comment_references` fails the build if the links ever stop resolving, so an
+// over-eager import cleanup can't silently rot them back into plain text.
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 
 /// Controller for [ChatComposer] that holds all mutable UI state.
 ///
@@ -27,10 +35,19 @@ class ChatComposerController extends ChangeNotifier {
   ChatComposerController({
     String initialText = '',
     List<ChatOption> chatOptions = const [],
-  }) : _chatOptions = chatOptions,
+    this.maxAttachments = 3,
+  }) : assert(maxAttachments > 0, 'maxAttachments must be at least 1'),
+       _chatOptions = chatOptions,
        _textController = TextEditingController(text: initialText) {
     _textController.addListener(_onTextChanged);
   }
+
+  /// The most attachments the composer will hold at once.
+  ///
+  /// Enforced by [addAttachments], which is the only way in — every picker in
+  /// [ComposerAttachmentSheet] funnels through it, so the cap holds regardless
+  /// of which one the user reached for.
+  final int maxAttachments;
 
   final TextEditingController _textController;
   List<ChatOption> _chatOptions;
@@ -56,16 +73,47 @@ class ChatComposerController extends ChangeNotifier {
   /// The images the user has picked to send alongside the message.
   List<XFile> get attachments => List.unmodifiable(_attachments);
 
-  /// Adds [files] to the pending attachments.
-  void addAttachments(Iterable<XFile> files) {
-    _attachments.addAll(files);
-    notifyListeners();
+  /// How many more attachments [addAttachments] will accept.
+  ///
+  /// Pickers use this to disable themselves at the cap rather than letting the
+  /// user pick images that would be silently dropped.
+  int get remainingAttachmentSlots => maxAttachments - _attachments.length;
+
+  /// Adds [files] to the pending attachments, and returns those it accepted.
+  ///
+  /// Files are skipped once [maxAttachments] is reached, and a file whose path
+  /// is already attached is skipped too — the sheet's recent-photo strip and
+  /// its "All Photos" picker don't know about each other, so the same image
+  /// arriving twice is ordinary rather than exceptional, and it used to produce
+  /// two identical thumbnails.
+  List<XFile> addAttachments(Iterable<XFile> files) {
+    final added = <XFile>[];
+    for (final file in files) {
+      if (_attachments.length >= maxAttachments) break;
+      if (_indexOfPath(file.path) >= 0) continue;
+      _attachments.add(file);
+      added.add(file);
+    }
+    if (added.isNotEmpty) notifyListeners();
+    return added;
   }
 
   /// Removes a single pending attachment.
+  ///
+  /// Matched by path rather than by identity: [XFile] doesn't override `==`, so
+  /// a caller holding a freshly-constructed [XFile] for an image it can see
+  /// attached would otherwise fail to remove it.
   void removeAttachment(XFile file) {
-    if (_attachments.remove(file)) notifyListeners();
+    final index = _indexOfPath(file.path);
+    if (index < 0) return;
+    _attachments.removeAt(index);
+    notifyListeners();
   }
+
+  /// Whether [path] is among the pending attachments.
+  bool hasAttachmentAt(String path) => _indexOfPath(path) >= 0;
+
+  int _indexOfPath(String path) => _attachments.indexWhere((it) => it.path == path);
 
   /// Whether the AI is currently generating a response.
   ///

@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 /// {@template aiTypingIndicatorView}
 /// A widget that displays a typing indicator for the AI.
 ///
-/// This widget is used to indicate the various states of the AI such as
-/// [AI_STATE_THINKING], [AI_STATE_CHECKING_SOURCES] etc.
-///
-/// The widget displays a text and a series of animated dots.
+/// Use it to surface whatever state the AI is in — "Thinking", "Checking
+/// sources", "Generating" — as a caption next to a row of animated dots. The
+/// state itself is just a string supplied by the host; this package has no
+/// opinion on the set of states.
 ///
 /// ```dart
 /// AITypingIndicatorView(
@@ -112,19 +112,17 @@ class AnimatedDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      spacing: 4,
+      spacing: spacing,
       mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        ...List.generate(
-          count,
-          (index) => _AnimatedDot(
-            key: ValueKey(index),
-            index: index,
-            size: size,
-            color: color,
-          ),
+      children: List.generate(
+        count,
+        (index) => _AnimatedDot(
+          key: ValueKey(index),
+          index: index,
+          size: size,
+          color: color,
         ),
-      ],
+      ),
     );
   }
 }
@@ -148,6 +146,13 @@ class _AnimatedDot extends StatefulWidget {
 class _AnimatedDotState extends State<_AnimatedDot> with SingleTickerProviderStateMixin<_AnimatedDot> {
   late final AnimationController _repeatingController;
 
+  // Built once, rather than per build: a `CurvedAnimation` registers a listener
+  // on its parent and needs disposing, so allocating a fresh one (plus two
+  // tweens) on every frame of the animation both churns and leaks.
+  late final CurvedAnimation _curve;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
+
   @override
   void initState() {
     super.initState();
@@ -165,6 +170,10 @@ class _AnimatedDotState extends State<_AnimatedDot> with SingleTickerProviderSta
           },
         );
 
+    _curve = CurvedAnimation(parent: _repeatingController, curve: Curves.easeInOut);
+    _scale = Tween<double>(begin: 0.5, end: 1).animate(_curve);
+    _opacity = Tween<double>(begin: 0.3, end: 1).animate(_curve);
+
     Future.delayed(
       Duration(milliseconds: 200 * widget.index),
       () {
@@ -175,21 +184,17 @@ class _AnimatedDotState extends State<_AnimatedDot> with SingleTickerProviderSta
 
   @override
   void dispose() {
+    _curve.dispose();
     _repeatingController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final animation = CurvedAnimation(
-      parent: _repeatingController,
-      curve: Curves.easeInOut,
-    );
-
     return ScaleTransition(
-      scale: Tween<double>(begin: 0.5, end: 1).animate(animation),
+      scale: _scale,
       child: FadeTransition(
-        opacity: Tween<double>(begin: 0.3, end: 1).animate(animation),
+        opacity: _opacity,
         child: Container(
           width: widget.size,
           height: widget.size,

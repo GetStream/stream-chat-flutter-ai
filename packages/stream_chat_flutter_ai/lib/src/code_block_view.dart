@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -89,12 +91,28 @@ class _CopyButton extends StatefulWidget {
 
 class _CopyButtonState extends State<_CopyButton> {
   bool _copied = false;
+  Timer? _resetTimer;
 
   Future<void> _onTap() async {
     await Clipboard.setData(ClipboardData(text: widget.code));
+    // The clipboard write is a platform round-trip, so the block may have been
+    // scrolled out of the list (or the message replaced) before it completes.
+    if (!mounted) return;
+
     setState(() => _copied = true);
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (mounted) setState(() => _copied = false);
+    // A single restartable timer, rather than a `Future.delayed` per tap: two
+    // overlapping delays would race, and the first to resolve would clear the
+    // confirmation while the later tap still expected it shown.
+    _resetTimer?.cancel();
+    _resetTimer = Timer(const Duration(seconds: 2), () {
+      setState(() => _copied = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
   }
 
   @override

@@ -25,11 +25,19 @@ environment:
 resolution: workspace
 
 dependencies:
+  # Depended on directly, not just via image_picker: `XFile` appears in this
+  # package's own public API (`ChatComposerSendCallback`, and
+  # `ChatComposerController.attachments`) and is re-exported from the barrel file.
+  cross_file: ^0.3.5
   fl_chart: ^1.2.0
   flutter:
     sdk: flutter
   flutter_markdown_plus: ^1.0.7
   image_picker: ^1.2.2
+  # Depended on directly, not just via flutter_markdown_plus: the `pre` element
+  # builder and the LaTeX syntaxes in `src/markdown/` work against `md.Element`,
+  # `md.BlockSyntax` and `md.InlineSyntax`.
+  markdown: ^7.3.1
   photo_manager: ^3.9.0
   speech_to_text: ^7.0.0
 
@@ -38,6 +46,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.5
+  speech_to_text_platform_interface: ^2.4.0
 
 # This package supports all platforms listed below.
 flutter:

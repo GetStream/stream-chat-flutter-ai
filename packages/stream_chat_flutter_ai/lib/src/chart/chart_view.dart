@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/chart/heatmap_chart_view.dart';
@@ -31,6 +33,9 @@ Color _seriesColor(int index) => _kSeriesColors[index % _kSeriesColors.length];
 /// [USpecKind.pie], [USpecKind.scatter], [USpecKind.bubble],
 /// [USpecKind.histogram], and [USpecKind.heatmap] — the last of which is drawn
 /// by [HeatmapChartView] rather than `fl_chart`, which has no heatmap widget.
+///
+/// [USpec.title], when the spec carries one, is rendered as a heading above the
+/// plot, matching the reference Android/iOS AI packages.
 class ChartView extends StatelessWidget {
   /// Creates a [ChartView].
   const ChartView({super.key, required this.spec});
@@ -40,18 +45,37 @@ class ChartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final colorScheme = Theme.of(context).colorScheme;
+    final plot = Container(
       height: _kChartHeight,
       padding: const EdgeInsets.only(top: 8, right: 16, bottom: 8),
       child: switch (spec.kind) {
         USpecKind.pie => _buildPieChart(),
-        USpecKind.bar => _buildBarChart(),
-        USpecKind.scatter => _buildScatterChart(bubble: false),
-        USpecKind.bubble => _buildScatterChart(bubble: true),
-        USpecKind.histogram => _buildHistogramChart(),
+        USpecKind.bar => _buildBarChart(colorScheme),
+        USpecKind.scatter => _buildScatterChart(colorScheme, bubble: false),
+        USpecKind.bubble => _buildScatterChart(colorScheme, bubble: true),
+        USpecKind.histogram => _buildHistogramChart(colorScheme),
         USpecKind.heatmap => HeatmapChartView(spec: spec),
-        _ => _buildLineChart(),
+        _ => _buildLineChart(colorScheme),
       },
+    );
+
+    final title = spec.title?.trim();
+    if (title == null || title.isEmpty) return plot;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: colorScheme.onSurface),
+          ),
+        ),
+        plot,
+      ],
     );
   }
 
@@ -59,25 +83,24 @@ class ChartView extends StatelessWidget {
   // Line / area chart
   // ---------------------------------------------------------------------------
 
-  Widget _buildLineChart() {
+  Widget _buildLineChart(ColorScheme colorScheme) {
     final filled = spec.kind == USpecKind.area;
+    final labels = _categoryLabels();
     final lineBarsData = spec.series.asMap().entries.map((e) {
       final color = _seriesColor(e.key);
       return LineChartBarData(
-        spots: _toSpots(e.value),
+        spots: _toSpots(e.value, labels),
         color: color,
         dotData: const FlDotData(show: false),
         belowBarData: filled ? BarAreaData(show: true, color: color.withValues(alpha: 0.15)) : BarAreaData(show: false),
       );
     }).toList();
 
-    final labels = spec.series.isNotEmpty ? spec.series.first.points.map((p) => p.x).toList() : <String>[];
-
     return LineChart(
       LineChartData(
         lineBarsData: lineBarsData,
-        titlesData: _titlesData(labels),
-        gridData: _gridData(),
+        titlesData: _titlesData(labels, colorScheme),
+        gridData: _gridData(colorScheme),
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
       ),
@@ -88,25 +111,27 @@ class ChartView extends StatelessWidget {
   // Bar chart
   // ---------------------------------------------------------------------------
 
-  Widget _buildBarChart() {
-    final labels = spec.series.isNotEmpty ? spec.series.first.points.map((p) => p.x).toList() : <String>[];
-    final pointCount = labels.length;
-    final seriesCount = spec.series.length;
+  Widget _buildBarChart(ColorScheme colorScheme) {
+    final labels = _categoryLabels();
 
-    final groups = List.generate(pointCount, (xi) {
-      final rods = List.generate(seriesCount, (si) {
-        final points = spec.series[si].points;
-        final y = xi < points.length ? points[xi].y : 0.0;
-        return BarChartRodData(toY: y, color: _seriesColor(si), width: 10);
-      });
+    final groups = List.generate(labels.length, (xi) {
+      final rods = <BarChartRodData>[];
+      for (var si = 0; si < spec.series.length; si++) {
+        // Omit the rod where a series has no point in this category. Falling
+        // back to zero drew a bar for data that doesn't exist, which reads as a
+        // real measurement of nothing rather than as absent.
+        final point = _pointAt(spec.series[si], labels[xi], xi);
+        if (point == null) continue;
+        rods.add(BarChartRodData(toY: point.y, color: _seriesColor(si), width: 10));
+      }
       return BarChartGroupData(x: xi, barRods: rods, barsSpace: 4);
     });
 
     return BarChart(
       BarChartData(
         barGroups: groups,
-        titlesData: _titlesData(labels),
-        gridData: _gridData(),
+        titlesData: _titlesData(labels, colorScheme),
+        gridData: _gridData(colorScheme),
         borderData: FlBorderData(show: false),
         barTouchData: const BarTouchData(enabled: false),
       ),
@@ -137,13 +162,24 @@ class ChartView extends StatelessWidget {
   // Scatter / bubble chart
   // ---------------------------------------------------------------------------
 
-  Widget _buildScatterChart({required bool bubble}) {
+  Widget _buildScatterChart(ColorScheme colorScheme, {required bool bubble}) {
+    // Categorical x values ('Jan', 'Feb') have no numeric position, so they're
+    // placed on the shared category axis and labelled along the bottom.
+    // Previously the fallback used the running total of spots across *all*
+    // series, so every series after the first was pushed off to the right of the
+    // one before it instead of sharing the same categories.
+    final numericX = _hasNumericX();
+    final labels = numericX ? const <String>[] : _categoryLabels();
+    final sizeRange = bubble ? _sizeRange() : null;
+
     final spots = <ScatterSpot>[];
     for (final entry in spec.series.asMap().entries) {
       final color = _seriesColor(entry.key);
-      for (final point in entry.value.points) {
-        final x = double.tryParse(point.x) ?? spots.length.toDouble();
-        final radius = bubble ? _bubbleRadius(point.size) : _kScatterRadius;
+      final points = entry.value.points;
+      for (var i = 0; i < points.length; i++) {
+        final point = points[i];
+        final x = numericX ? (double.tryParse(point.x) ?? i.toDouble()) : _categoryX(point, i, labels);
+        final radius = bubble ? _bubbleRadius(point.size, sizeRange) : _kScatterRadius;
         spots.add(
           ScatterSpot(
             x,
@@ -157,26 +193,53 @@ class ChartView extends StatelessWidget {
     return ScatterChart(
       ScatterChartData(
         scatterSpots: spots,
-        titlesData: _titlesData(const []),
-        gridData: _gridData(),
+        // An empty label list means "show the raw numeric x values".
+        titlesData: _titlesData(labels, colorScheme),
+        gridData: _gridData(colorScheme),
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
       ),
     );
   }
 
-  /// Clamps a bubble's [UPoint.size] into a sane pixel radius range, falling
-  /// back to the fixed scatter radius when no size is provided.
-  double _bubbleRadius(double? size) {
-    if (size == null) return _kScatterRadius;
-    return size.clamp(_kBubbleRadiusRange.min, _kBubbleRadiusRange.max).toDouble();
+  /// Whether every point's [UPoint.x] parses as a number, meaning the x axis is
+  /// a real numeric scale rather than a list of categories.
+  bool _hasNumericX() =>
+      spec.series.isNotEmpty &&
+      spec.series.every((s) => s.points.isNotEmpty && s.points.every((p) => double.tryParse(p.x) != null));
+
+  /// The span of [UPoint.size] values across every point that has one, or `null`
+  /// when no point does.
+  ({double min, double max})? _sizeRange() {
+    final sizes = spec.series.expand((s) => s.points).map((p) => p.size).whereType<double>();
+    if (sizes.isEmpty) return null;
+    return (min: sizes.reduce(min), max: sizes.reduce(max));
+  }
+
+  /// Maps a bubble's [UPoint.size] onto a pixel radius.
+  ///
+  /// Sizes are normalized across every bubble in the chart first, because they
+  /// arrive in the data's own units — Chart.js's `r` is already pixels, but a
+  /// USpec `size` is just as likely to be a population or a revenue figure.
+  /// Clamping the raw value instead pinned every bubble past the maximum to the
+  /// same radius, flattening the very encoding the chart exists to show.
+  double _bubbleRadius(double? size, ({double min, double max})? range) {
+    if (size == null || range == null) return _kScatterRadius;
+
+    final span = range.max - range.min;
+    // Every bubble the same size: use the middle of the range rather than
+    // collapsing them all to the minimum.
+    if (span <= 0) return (_kBubbleRadiusRange.min + _kBubbleRadiusRange.max) / 2;
+
+    final t = ((size - range.min) / span).clamp(0.0, 1.0);
+    return _kBubbleRadiusRange.min + t * (_kBubbleRadiusRange.max - _kBubbleRadiusRange.min);
   }
 
   // ---------------------------------------------------------------------------
   // Histogram
   // ---------------------------------------------------------------------------
 
-  Widget _buildHistogramChart() {
+  Widget _buildHistogramChart(ColorScheme colorScheme) {
     final values = spec.series.isNotEmpty ? spec.series.first.points.map((p) => p.y).toList() : <double>[];
     final bins = _makeBins(values, _kHistogramBinCount);
 
@@ -190,8 +253,8 @@ class ChartView extends StatelessWidget {
     return BarChart(
       BarChartData(
         barGroups: groups,
-        titlesData: _titlesData(bins.map((b) => b.label).toList()),
-        gridData: _gridData(),
+        titlesData: _titlesData(bins.map((b) => b.label).toList(), colorScheme),
+        gridData: _gridData(colorScheme),
         borderData: FlBorderData(show: false),
         barTouchData: const BarTouchData(enabled: false),
       ),
@@ -204,7 +267,11 @@ class ChartView extends StatelessWidget {
     if (values.isEmpty) return const [];
     final minV = values.reduce((a, b) => a < b ? a : b);
     final maxV = values.reduce((a, b) => a > b ? a : b);
-    if (maxV <= minV) return const [];
+    // Every value identical: one bin holding all of them. Returning nothing
+    // rendered a blank chart for data that does have a perfectly good story.
+    if (maxV <= minV) {
+      return [_HistogramBin(label: minV.toStringAsFixed(1), count: values.length)];
+    }
 
     final bins = targetBins < 1 ? 1 : targetBins;
     final step = (maxV - minV) / bins;
@@ -225,37 +292,126 @@ class ChartView extends StatelessWidget {
   // Shared helpers
   // ---------------------------------------------------------------------------
 
-  List<FlSpot> _toSpots(USeries series) =>
-      series.points.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.y)).toList();
+  List<FlSpot> _toSpots(USeries series, List<String> labels) =>
+      series.points.asMap().entries.map((e) => FlSpot(_categoryX(e.value, e.key, labels), e.value.y)).toList();
 
-  FlTitlesData _titlesData(List<String> labels) => FlTitlesData(
-    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
-    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-    bottomTitles: AxisTitles(
-      sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 28,
-        getTitlesWidget: (value, meta) {
-          final i = value.toInt();
-          if (i < 0 || i >= labels.length) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              labels[i],
-              style: const TextStyle(fontSize: 10),
-              overflow: TextOverflow.ellipsis,
-            ),
-          );
-        },
+  /// Where [point] — the [index]-th in its series — sits on the shared category
+  /// axis [labels].
+  ///
+  /// Falls back to the position within its own series when the point's label
+  /// isn't on the axis, or when labels aren't usable as keys at all.
+  double _categoryX(UPoint point, int index, List<String> labels) {
+    if (!_hasCategoryKeys) return index.toDouble();
+    final at = labels.indexOf(point.x);
+    return (at >= 0 ? at : index).toDouble();
+  }
+
+  /// Whether a point can be located on the x axis by its [UPoint.x] label.
+  ///
+  /// True when no series repeats a label. One that does carries no usable
+  /// category key — a histogram's raw samples all share an empty `x` — so those
+  /// charts keep plotting each point at its position within its own series.
+  bool get _hasCategoryKeys => spec.series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
+
+  /// The x-axis categories, in axis order.
+  ///
+  /// Every series' labels are merged rather than read off the longest one
+  /// alone, and points are then placed by *label* rather than by their position
+  /// within their own list. Position was wrong for any series with a hole in it:
+  /// a Chart.js `null` — the documented way to write a gap — parses to a series
+  /// that is simply shorter, so every point after the gap was drawn one category
+  /// to the left, out of step with both the axis and the other series.
+  ///
+  /// Longest series first, so the fullest one sets the order and the rest only
+  /// contribute categories it is missing.
+  List<String> _categoryLabels() {
+    if (!_hasCategoryKeys) {
+      var labels = const <String>[];
+      for (final series in spec.series) {
+        if (series.points.length <= labels.length) continue;
+        labels = series.points.map((p) => p.x).toList();
+      }
+      return labels;
+    }
+
+    final ordered = <String>[];
+    final bySize = [...spec.series]..sort((a, b) => b.points.length.compareTo(a.points.length));
+    for (final series in bySize) {
+      // Where the previous point of *this* series landed, so a category no
+      // other series carried is inserted next to its neighbours rather than
+      // appended to the end.
+      var cursor = -1;
+      for (final point in series.points) {
+        final at = ordered.indexOf(point.x);
+        if (at >= 0) {
+          cursor = at;
+          continue;
+        }
+        ordered.insert(++cursor, point.x);
+      }
+    }
+    return ordered;
+  }
+
+  /// The point [series] holds for the category [label], or `null` if it has
+  /// none — a gap, or a series that doesn't reach this far.
+  UPoint? _pointAt(USeries series, String label, int index) {
+    if (!_hasCategoryKeys) return index < series.points.length ? series.points[index] : null;
+    for (final point in series.points) {
+      if (point.x == label) return point;
+    }
+    return null;
+  }
+
+  /// Builds the axis titles.
+  ///
+  /// An empty [labels] list means the x axis is numeric, and the raw values are
+  /// shown instead of category names.
+  FlTitlesData _titlesData(List<String> labels, ColorScheme colorScheme) {
+    final labelStyle = TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant);
+    return FlTitlesData(
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 40,
+          getTitlesWidget: (value, meta) => Text(meta.formattedValue, style: labelStyle),
+        ),
       ),
-    ),
-  );
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 28,
+          getTitlesWidget: (value, meta) {
+            final String text;
+            if (labels.isEmpty) {
+              text = meta.formattedValue;
+            } else {
+              // Only label whole positions — fl_chart also asks for the
+              // fractional values in between. Compared with a tolerance rather
+              // than exactly, since the values it derives from its interval
+              // aren't guaranteed to land precisely on the integer.
+              final i = value.round();
+              if (i < 0 || i >= labels.length || (value - i).abs() > 0.01) return const SizedBox.shrink();
+              text = labels[i];
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(text, style: labelStyle, overflow: TextOverflow.ellipsis),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-  FlGridData _gridData() => FlGridData(
+  FlGridData _gridData(ColorScheme colorScheme) => FlGridData(
     drawVerticalLine: false,
     horizontalInterval: null,
-    getDrawingHorizontalLine: (_) => const FlLine(color: Color(0x1A000000), strokeWidth: 1),
+    // Theme-derived: the grid line used to be a hardcoded translucent black,
+    // which is invisible against a dark surface.
+    getDrawingHorizontalLine: (_) => FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
   );
 }
 

@@ -1,5 +1,9 @@
 import 'dart:convert';
 
+// Here for the [ChartView] doc link only — this library is otherwise pure Dart
+// with no Flutter dependency, and nothing below uses the widget.
+import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
+
 /// Supported chart types.
 enum USpecKind {
   /// Line chart.
@@ -129,7 +133,11 @@ class USpecParser {
   // ---------------------------------------------------------------------------
 
   static USpec? _tryUSpec(Map<String, dynamic> json) {
-    final rawKind = json['kind'];
+    // `type`/`label` are accepted alongside `kind`/`name`: models asked for a
+    // USpec routinely reach for the Chart.js vocabulary they have seen far more
+    // of during training, and a spec that is otherwise perfectly well-formed
+    // shouldn't degrade to a raw code block over that.
+    final rawKind = json['kind'] ?? json['type'];
     final rawSeries = json['series'];
     if (rawKind == null || rawSeries is! List) return null;
 
@@ -142,19 +150,24 @@ class USpecParser {
       if (rawPoints is List) {
         for (final p in rawPoints) {
           if (p is! Map<String, dynamic>) continue;
-          final y = (p['y'] as num?)?.toDouble();
+          final y = _asDouble(p['y']);
           if (y == null) continue;
           points.add(
             UPoint(
               x: p['x']?.toString() ?? '',
               y: y,
-              size: (p['size'] as num?)?.toDouble(),
-              z: (p['z'] as num?)?.toDouble(),
+              size: _asDouble(p['size']),
+              z: _asDouble(p['z']),
             ),
           );
         }
       }
-      series.add(USeries(name: s['name']?.toString() ?? '', points: points));
+      // Skip series that yielded nothing. Without this, a payload that merely
+      // *looks* like a USpec (a `kind`/`type` plus a `series` list keying its
+      // values under something other than `points`) would be claimed here and
+      // rendered as an empty chart, instead of falling through to the adapter
+      // that does understand it.
+      if (points.isNotEmpty) series.add(USeries(name: (s['name'] ?? s['label'])?.toString() ?? '', points: points));
     }
     if (series.isEmpty) return null;
 
@@ -218,6 +231,12 @@ class USpecParser {
       if (labels != null) {
         // Arrays aligned with labels — each value may be a number or an
         // object `{x, y, r}` (scatter/bubble encoded with labels present).
+        //
+        // A `null` here is Chart.js's documented way to write a gap. The label
+        // still has to travel with each surviving point, because the renderer
+        // places points by category: dropping the gap silently and leaving the
+        // rest to be plotted by their position in this list drew every later
+        // point one category to the left of where it belongs.
         for (var i = 0; i < labels.length; i++) {
           final raw = i < rawValues.length ? rawValues[i] : null;
           final (y, size) = _asPointValue(raw);
@@ -225,8 +244,16 @@ class USpecParser {
           points.add(UPoint(x: labels[i], y: y, size: size));
         }
       } else {
-        // No labels: values are objects `{x, y, r}` (scatter/bubble).
-        for (final raw in rawValues) {
+        // No labels. Values are either objects `{x, y, r}` (scatter/bubble), or
+        // plain numbers whose position in the array is the category — the shape
+        // a model emits whenever it leaves `labels` out, which used to parse to
+        // a series holding nothing at all.
+        for (var i = 0; i < rawValues.length; i++) {
+          final raw = rawValues[i];
+          if (raw is num) {
+            points.add(UPoint(x: i.toString(), y: raw.toDouble()));
+            continue;
+          }
           if (raw is! Map<String, dynamic>) continue;
           final x = _asDouble(raw['x']);
           final y = _asDouble(raw['y']);
@@ -234,6 +261,11 @@ class USpecParser {
           points.add(UPoint(x: _numToString(x), y: y, size: _asDouble(raw['r'])));
         }
       }
+      // Skip series that yielded nothing, for the reason spelled out in
+      // [_tryUSpec]: a payload this adapter can't actually decode has to fall
+      // through to one that can — or to a plain code block — rather than being
+      // claimed here and rendered as a chart with bare axes.
+      if (points.isEmpty) continue;
       series.add(USeries(name: ds['label']?.toString() ?? 'Series', points: points));
     }
     if (series.isEmpty) return null;
@@ -373,6 +405,10 @@ class USpecParser {
           }
         }
       }
+      // See [_tryUSpec]: a series that decoded to nothing means this adapter
+      // didn't understand the payload, and claiming it renders bare axes
+      // instead of falling through to one that does.
+      if (points.isEmpty) continue;
       series.add(USeries(name: s['name']?.toString() ?? 'Series', points: points));
     }
     if (series.isEmpty) return null;
@@ -426,6 +462,10 @@ class USpecParser {
           if (yv != null) points.add(UPoint(x: xv != null ? _numToString(xv) : x, y: yv));
         }
       }
+      // See [_tryUSpec]: a series that decoded to nothing means this adapter
+      // didn't understand the payload, and claiming it renders bare axes
+      // instead of falling through to one that does.
+      if (points.isEmpty) continue;
       series.add(USeries(name: s['name']?.toString() ?? 'Series', points: points));
     }
     if (series.isEmpty) return null;
@@ -459,21 +499,6 @@ class USpecParser {
     final colorField = (encoding['color'] as Map<String, dynamic>?)?['field']?.toString();
     final sizeField = (encoding['size'] as Map<String, dynamic>?)?['field']?.toString();
 
-    final groups = <String, List<UPoint>>{};
-    for (final r in rows) {
-      if (r is! Map<String, dynamic>) continue;
-      final xRaw = r[xField];
-      final xDouble = xRaw is String ? null : _asDouble(xRaw);
-      final xStr = xRaw is String ? xRaw : (xDouble != null ? _numToString(xDouble) : '');
-      final y = _asDouble(r[yField]) ?? 0;
-      final key = colorField != null ? (r[colorField]?.toString() ?? 'Series') : 'Series';
-      final size = sizeField != null ? _asDouble(r[sizeField]) : null;
-      (groups[key] ??= []).add(UPoint(x: xStr, y: y, size: size));
-    }
-    if (groups.isEmpty) return null;
-
-    final series = groups.entries.map((e) => USeries(name: e.key, points: e.value)).toList();
-
     final markStr = mark is String ? mark : (mark is Map<String, dynamic> ? mark['type']?.toString() : null);
     final kind = switch (markStr?.toLowerCase()) {
       'line' => USpecKind.line,
@@ -484,7 +509,60 @@ class USpecParser {
       _ => USpecKind.line,
     };
 
+    if (kind == USpecKind.heatmap) return _vegaLiteHeatmap(rows, xField, yField, colorField);
+
+    final groups = <String, List<UPoint>>{};
+    for (final r in rows) {
+      if (r is! Map<String, dynamic>) continue;
+      final xRaw = r[xField];
+      final xDouble = xRaw is String ? null : _asDouble(xRaw);
+      final xStr = xRaw is String ? xRaw : (xDouble != null ? _numToString(xDouble) : '');
+      // Skip rows with no usable y rather than substituting zero: when the
+      // encoding's field names don't match the data, coercing produced a chart
+      // of flat zeroes that looked like real data instead of falling through to
+      // a plain code block.
+      final y = _asDouble(r[yField]);
+      if (y == null) continue;
+      final key = colorField != null ? (r[colorField]?.toString() ?? 'Series') : 'Series';
+      final size = sizeField != null ? _asDouble(r[sizeField]) : null;
+      (groups[key] ??= []).add(UPoint(x: xStr, y: y, size: size));
+    }
+    if (groups.isEmpty) return null;
+
+    final series = groups.entries.map((e) => USeries(name: e.key, points: e.value)).toList();
+
     return USpec(kind: kind, series: series);
+  }
+
+  /// Builds the grid for a Vega-Lite `mark: "rect"` heatmap.
+  ///
+  /// Kept apart from the other marks because the encoding means something
+  /// different here: `x` and `y` are the two *axes* and `color` carries the cell
+  /// value. Running it through the shared path — colour as the series key, `y`
+  /// as the value — inverted every axis, producing one row per distinct value
+  /// with the y field painted as the intensity.
+  static USpec? _vegaLiteHeatmap(List<dynamic> rows, String xField, String yField, String? colorField) {
+    // Without a colour encoding there is no cell value to shade by, and
+    // guessing one would draw a plausible-looking grid out of nothing.
+    if (colorField == null) return null;
+
+    final grid = <String, List<UPoint>>{};
+    for (final r in rows) {
+      if (r is! Map<String, dynamic>) continue;
+      final z = _asDouble(r[colorField]);
+      if (z == null) continue;
+      final row = r[yField];
+      if (row == null) continue;
+      // `y: 0` throughout: a heatmap cell's value lives in `z`, and the row it
+      // belongs to is the series name.
+      (grid[row.toString()] ??= []).add(UPoint(x: r[xField]?.toString() ?? '', y: 0, z: z));
+    }
+    if (grid.isEmpty) return null;
+
+    return USpec(
+      kind: USpecKind.heatmap,
+      series: [for (final e in grid.entries) USeries(name: e.key, points: e.value)],
+    );
   }
 
   // ---------------------------------------------------------------------------

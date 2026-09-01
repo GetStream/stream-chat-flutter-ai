@@ -40,19 +40,25 @@ class ComposerActionButton extends StatelessWidget {
     final enabled = onPressed != null;
     return Tooltip(
       message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(size / 2),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: enabled ? color : color.withValues(alpha: 0.3),
-            shape: BoxShape.circle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: enabled ? color : color.withValues(alpha: 0.3),
+          shape: BoxShape.circle,
+        ),
+        // The Material sits *above* the fill so the ink splash is visible — an
+        // InkWell wrapped around an opaque decoration paints its ripple behind
+        // it, leaving the tap with no feedback.
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Center(child: Icon(icon, color: Colors.white, size: 22)),
           ),
-          alignment: Alignment.center,
-          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );
