@@ -49,6 +49,11 @@ const _kMonoFontFamilyFallback = ['Menlo', 'Consolas', 'Roboto Mono', 'DejaVu Sa
 /// aliases — `js`, `py`, `sh`, `yml`, …). A fence with no language, or one
 /// outside that set, renders as plain monospace text; it stays selectable and
 /// horizontally scrollable either way.
+///
+/// Highlighting never costs the reader the code: if a grammar fails on its
+/// input, the block falls back to that same plain rendering and the failure is
+/// reported through [FlutterError.onError], so a host can tell a broken grammar
+/// from a language that was simply never covered.
 class CodeBlockView extends StatefulWidget {
   /// Creates a [CodeBlockView].
   const CodeBlockView({
@@ -96,6 +101,10 @@ class _CodeBlockViewState extends State<CodeBlockView> {
   /// is still arriving.
   TextSpan? _span;
 
+  /// The language a highlighting failure has already been reported for, so a
+  /// still-streaming fence reports once rather than on every rebuild.
+  String? _failureReportedFor;
+
   @override
   void initState() {
     super.initState();
@@ -119,20 +128,74 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     final language = widget.language;
     if (language == null || language.isEmpty) return null;
     if (widget.code.length > _kMaxHighlightChars) return null;
-    // `highlight` throws on a language it doesn't know rather than degrading,
-    // and an LLM will happily label a fence `pseudocode`.
-    if (kCodeHighlight.getLanguage(language) == null) return null;
 
     try {
+      // `highlight` throws on a language it doesn't know rather than degrading,
+      // and an LLM will happily label a fence `pseudocode`.
+      if (kCodeHighlight.getLanguage(language) == null) return null;
+
       final result = kCodeHighlight.highlight(code: widget.code, language: language);
+
+      // `Highlight` runs in safe mode, so a grammar or engine failure part-way
+      // through the parse is reported on the result rather than thrown — and
+      // the emitter it hands back holds only the tokens produced before the
+      // failure, with neither the tail of the source nor `finalize()` applied.
+      // Rendering that drops the rest of the block, or all of it.
+      final errorRaised = result.errorRaised;
+      if (errorRaised != null) {
+        _reportHighlightFailure(errorRaised, null, language);
+        return null;
+      }
+
       final renderer = TextSpanRenderer(_codeTextStyle, widget.theme);
       result.render(renderer);
-      return renderer.span;
-    } on Object {
-      // A grammar that trips over its input must not cost the user the code.
-      // `ignoreIllegals` defaults to true, so this is the belt to that braces.
+      final span = renderer.span;
+
+      // One linear pass next to the tokenizing just done, guarding the only
+      // property of this widget that actually matters: token colors are a
+      // nicety, the user's code is not. Catches any future variant of the
+      // truncation above without having to predict its shape.
+      if (span == null || span.toPlainText(includeSemanticsLabels: false, includePlaceholders: false) != widget.code) {
+        _reportHighlightFailure(StateError('the highlighter altered the code text'), null, language);
+        return null;
+      }
+
+      return span;
+    } catch (error, stack) {
+      // Safe mode guards the parse, but not grammar *compilation* — a bad
+      // regex in a grammar still throws from here, and would break one
+      // language for every user of the host app. Degrading to plain text is
+      // right either way; a code block must not take down a message list.
+      _reportHighlightFailure(error, stack, language);
       return null;
     }
+  }
+
+  /// Hands a highlighting failure to the host's [FlutterError.onError] before
+  /// the block falls back to plain text.
+  ///
+  /// Degrading silently would be indistinguishable from the documented
+  /// "unrecognised language" path, so a host app integrating this package would
+  /// have no way to tell a broken grammar from a feature that was never
+  /// implemented — and nobody files that bug.
+  void _reportHighlightFailure(Object error, StackTrace? stack, String language) {
+    // A fence that fails while it is still streaming rebuilds on every
+    // typewriter tick. Report the first failure, not a few hundred copies of
+    // it.
+    if (_failureReportedFor == language) return;
+    _failureReportedFor = language;
+
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'stream_chat_flutter_ai',
+        context: ErrorDescription(
+          'while syntax-highlighting a $language code block of '
+          '${widget.code.length} characters; it will render as plain text',
+        ),
+      ),
+    );
   }
 
   Color get _foreground => widget.theme['root']?.color ?? _kFgColor;

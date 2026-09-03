@@ -4,7 +4,9 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:re_highlight/re_highlight.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
+import 'package:stream_chat_flutter_ai/src/highlight/code_languages.dart';
 
 /// A short Dart snippet with a keyword, a string, a comment and a number, so
 /// any reasonable grammar has to emit several distinct scopes for it.
@@ -14,6 +16,38 @@ void main() {
   const times = 3;
   print('hello' * times);
 }''';
+
+/// A language name registered only for the duration of a test, for a grammar
+/// built to fail part-way through its input.
+const _bombLanguage = 'bomb';
+
+/// A grammar that throws part-way through its input, for the safe-mode path.
+///
+/// `re_highlight` swallows the throw and hands back a `HighlightResult` holding
+/// only the tokens parsed before it, so this is what a real grammar bug looks
+/// like to `CodeBlockView`.
+Mode _bombGrammar() => Mode(
+  name: _bombLanguage,
+  contains: [Mode(begin: '"', end: '"', onBegin: (m, resp) => throw StateError('grammar blew up'))],
+);
+
+/// Runs [body] with [FlutterError.onError] collecting instead of failing, and
+/// returns what it collected.
+///
+/// The override is lifted before returning, deliberately: left in place for the
+/// rest of the test it would also intercept the test framework's own failure
+/// reporting, turning a failed expectation below into a ten-minute hang.
+Future<List<FlutterErrorDetails>> _collectingErrors(Future<void> Function() body) async {
+  final reported = <FlutterErrorDetails>[];
+  final previousOnError = FlutterError.onError;
+  FlutterError.onError = reported.add;
+  try {
+    await body();
+  } finally {
+    FlutterError.onError = previousOnError;
+  }
+  return reported;
+}
 
 /// Every distinct color the span tree paints, ignoring spans that inherit.
 Set<Color> _colorsOf(InlineSpan span) {
@@ -263,12 +297,157 @@ void main() {
         expect(_colorsOf(spanOf(tester)!), contains(const Color(0xFF0000FF)));
       });
 
+      testWidgets('uses the default theme when none is given', (tester) async {
+        // Every other theme assertion injects a custom map, so without this the
+        // colors essentially every user actually sees are pinned nowhere.
+        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')));
+
+        final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+        final decoration = tester.widget<Container>(container.first).decoration! as BoxDecoration;
+        expect(decoration.color, const Color(0xFF1E1E1E));
+        expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, const Color(0xFFDCDCDC));
+      });
+
+      testWidgets('falls back to its own colors for a theme with no root', (tester) async {
+        // A hand-written theme is documented as supported, and needn't mention
+        // `root` — the only path that reaches `_kBgColor` / `_kFgColor`.
+        const rootless = {'keyword': TextStyle(color: Color(0xFFFF0000))};
+
+        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', theme: rootless)));
+
+        final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+        final decoration = tester.widget<Container>(container.first).decoration! as BoxDecoration;
+        expect(decoration.color, const Color(0xFF1E1E1E));
+        expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, const Color(0xFFD4D4D4));
+      });
+
+      testWidgets('keeps a monospace stack that resolves off Android', (tester) async {
+        // `flutter_test_config.dart` registers a real font under `monospace`,
+        // so the fallbacks are never consulted in tests and a revert here would
+        // be invisible in every golden. Assert the property directly.
+        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')));
+
+        final body = tester.widget<SelectableText>(find.byType(SelectableText)).style!;
+        expect(body.fontFamily, 'monospace');
+        expect(body.fontFamilyFallback, contains('Menlo'));
+
+        // The header label carries its own copy of the stack.
+        final label = tester.widget<Text>(find.text('dart')).style!;
+        expect(label.fontFamily, 'monospace');
+        expect(label.fontFamilyFallback, contains('Menlo'));
+      });
+
+      testWidgets('reports and falls back when a grammar fails mid-parse', (tester) async {
+        // `Highlight` runs in safe mode: a grammar that throws part-way through
+        // does not propagate, it comes back as a `HighlightResult` carrying
+        // only the tokens parsed so far. Rendering that silently drops the rest
+        // of the user's code — here, all of it.
+        kCodeHighlight.registerLanguage(_bombLanguage, _bombGrammar());
+        addTearDown(() => kCodeHighlight.unregisterLanguage(_bombLanguage));
+
+        const code = 'alpha "beta" gamma delta epsilon';
+        final reported = await _collectingErrors(
+          () => tester.pumpWidget(wrap(const CodeBlockView(code: code, language: _bombLanguage))),
+        );
+
+        // Plain text, in the same code block, with every character intact —
+        // not an empty box where the code was.
+        expect(spanOf(tester), isNull);
+        expect(tester.widget<SelectableText>(find.byType(SelectableText)).data, code);
+        expect(find.byType(CodeBlockView), findsOneWidget);
+        expect(find.byIcon(Icons.content_copy), findsOneWidget);
+
+        // And the host hears about it, rather than the block looking like a
+        // language that was simply never supported.
+        expect(reported, hasLength(1));
+        expect(reported.single.library, 'stream_chat_flutter_ai');
+        expect(reported.single.exception, isStateError);
+      });
+
+      testWidgets('reports a failing grammar once, not once per rebuild', (tester) async {
+        // A fence that fails while it is still streaming rebuilds on every
+        // typewriter tick; a report per tick would flood the host's crash
+        // reporter with hundreds of copies.
+        kCodeHighlight.registerLanguage(_bombLanguage, _bombGrammar());
+        addTearDown(() => kCodeHighlight.unregisterLanguage(_bombLanguage));
+
+        final reported = await _collectingErrors(() async {
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'alpha "b', language: _bombLanguage)));
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'alpha "be', language: _bombLanguage)));
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'alpha "beta" gamma', language: _bombLanguage)));
+        });
+
+        expect(reported, hasLength(1));
+      });
+
       goldenTest(
         'highlighted dart block',
         fileName: 'code_block_view_dart',
         constraints: const BoxConstraints(maxWidth: 400, maxHeight: 200),
         builder: () => wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')),
       );
+    });
+
+    group('language registration', () {
+      test('registers every curated grammar', () {
+        // Pins the deliberate curation: `builtinAllLanguages` would drag 2.6 MB
+        // of grammar source into every host app, so this set is hand-picked and
+        // a change to it should be a decision, not a drive-by.
+        expect(kCodeBlockLanguages, hasLength(31));
+
+        for (final name in kCodeBlockLanguages.keys) {
+          expect(kCodeHighlight.getLanguage(name), isNotNull, reason: 'unregistered: $name');
+        }
+      });
+
+      test('resolves every alias the docs promise', () {
+        // These come from each grammar's own `aliases`, not from the curated
+        // map, so a `re_highlight` upgrade could drop one and silently demote
+        // that language to plain text.
+        const aliases = {
+          'js': 'javascript',
+          'jsx': 'javascript',
+          'mjs': 'javascript',
+          'ts': 'typescript',
+          'tsx': 'typescript',
+          'py': 'python',
+          'sh': 'bash',
+          'yml': 'yaml',
+          'c++': 'cpp',
+          'hpp': 'cpp',
+          'cxx': 'cpp',
+          'cs': 'csharp',
+          'c#': 'csharp',
+          'rb': 'ruby',
+          'kt': 'kotlin',
+          'rs': 'rust',
+          'md': 'markdown',
+          'objc': 'objectivec',
+          'gql': 'graphql',
+          'docker': 'dockerfile',
+          'html': 'xml',
+          'svg': 'xml',
+          'xhtml': 'xml',
+          'text': 'plaintext',
+          'txt': 'plaintext',
+          'console': 'shell',
+        };
+
+        aliases.forEach((alias, language) {
+          expect(
+            kCodeHighlight.getLanguage(alias),
+            same(kCodeBlockLanguages[language]),
+            reason: '$alias should resolve to $language',
+          );
+        });
+      });
+
+      test('matches a language name case-insensitively', () {
+        // Documented on `CodeBlockView.language`, but delivered by
+        // `re_highlight` rather than by anything in this package.
+        expect(kCodeHighlight.getLanguage('DART'), same(kCodeBlockLanguages['dart']));
+        expect(kCodeHighlight.getLanguage('Python'), same(kCodeBlockLanguages['python']));
+      });
     });
   });
 }

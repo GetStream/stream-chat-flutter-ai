@@ -146,6 +146,36 @@ void main() {
     );
 
     testWidgets(
+      'forwards codeBlockTheme to the fences it renders',
+      (WidgetTester tester) async {
+        // Without the forwarding, `codeBlockTheme` is unreachable for the main
+        // use case: fences are built by `AIMarkdownBody`'s private fence
+        // builder, so a host never constructs the `CodeBlockView` itself.
+        const theme = {
+          'root': TextStyle(color: Color(0xFFAABBCC), backgroundColor: Color(0xFF102030)),
+          'keyword': TextStyle(color: Color(0xFFFF0000)),
+        };
+        const typingSpeed = Duration(milliseconds: 10);
+        const text = '```dart\nvar x = 1;\n```';
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: StreamingMessageView(
+                text: text,
+                typingSpeed: typingSpeed,
+                codeBlockTheme: theme,
+              ),
+            ),
+          ),
+        );
+        await tester.pump(typingSpeed * text.length);
+
+        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)).theme, same(theme));
+      },
+    );
+
+    testWidgets(
       'handles links correctly',
       (WidgetTester tester) async {
         const testText = '[Click me](https://example.com)';
