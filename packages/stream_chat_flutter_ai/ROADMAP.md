@@ -15,7 +15,7 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 | 1.1 | Standalone suggested-prompt chips (`SuggestionsView`) | 1 | S | ✅ |
 | 1.2 | Chart schema & kind breadth (`USpec`) | 1 | M | ✅ |
 | 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ✅ |
-| 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
+| 2.2 | Composer factory slot coverage | 2 | M | ✅ |
 | 2.3 | Localization scaffolding | 2 | M | ⬜ |
 | 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
 | 3.1 | MCP client-tool / agentic tool-calling | 3 | L | ⬜ |
@@ -228,31 +228,82 @@ regardless of the ambient `Theme`, deliberately.
   APIs do, and a host is free to pick something else.
 - **Effort:** M (1–2 days including dependency vetting).
 
-### 2.2 Composer factory slot coverage (`ChatComposerFactory`)
+### 2.2 Composer factory slot coverage (`ChatComposerFactory`) ✅
 
 **Gap:** Swift's `ComposerViewFactory` exposes **4** overridable slots (leading, trailing, input
-view, picker sheet). Flutter's `ChatComposerFactory`
-(`lib/src/composer/chat_composer_factory.dart`) exposes only **2** (leading, trailing) — the
-text input and the attachment sheet are hardcoded inside `chat_composer.dart` and
-`_AttachmentButton`.
+view, picker sheet). Flutter's `ChatComposerFactory` exposed only **2** (leading, trailing) — the
+text input was the private `_InputContainer` inside `chat_composer.dart`, and
+`ComposerAttachmentSheet` was constructed directly inside `_AttachmentButton`.
 
-**Proposed work:** add two nullable slot methods mirroring the existing pattern:
+**Shipped API.** Every slot now takes a props object instead of a bare controller:
 
-- `Widget? buildInput(BuildContext, ChatComposerController)` — defaults to the current
-  `_InputContainer` (promote it out of private, or wrap it). Lets hosts fully replace the input
-  field.
-- `Widget buildAttachmentSheet(BuildContext, ChatComposerController)` — defaults to
-  `ComposerAttachmentSheet`; `_AttachmentButton` calls the factory instead of constructing the
-  sheet directly.
+```dart
+class ChatComposerFactory {
+  Widget? buildLeading(BuildContext context, ChatComposerLeadingProps props);              // "+" button
+  Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props);            // null
+  Widget buildInput(BuildContext context, ChatComposerInputProps props);                   // ChatComposerInput
+  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props); // ComposerAttachmentSheet
+}
+```
 
-- **Files:** `chat_composer_factory.dart`, `chat_composer.dart` (wire
-  `_InputContainer`/`_TrailingControl` through the factory).
-- **Constraint:** keep the established `Widget?`-null-to-opt-out convention — no
-  `SizedBox.shrink()` sentinels (two separately-constructed instances aren't `identical`/`==`,
-  which is exactly the bug the existing `buildLeading`/`buildTrailing` nullability fix addressed).
-- **Acceptance:** a custom factory can swap both the input and the sheet; existing default
-  behavior is unchanged; extend `chat_composer_test.dart` with an override test.
-- **Effort:** M (1 day).
+`lib/src/composer/chat_composer_props.dart` holds `ChatComposerSlotProps` (just `controller`) and
+one subclass per slot. `ChatComposerInputProps` adds the nine values the input needs and a factory
+cannot otherwise see: `focusNode`, `onSend`, `onStop`, `hintText`, `minLines`, `maxLines`,
+`textInputAction`, `enableSpeechToText`, `speechToTextConfig`.
+
+**Correction to the proposed API, found while doing the work.** The signature this item proposed,
+`buildInput(BuildContext, ChatComposerController)`, cannot work. `_InputContainer` needed ten
+values and the controller is one of them; the other nine are owned by `_ChatComposerState`, and
+`ChatComposerFactory` is a `const`-constructible plain class with no path to the widget or its
+state. `onSend` is the load-bearing one — it is the only route to `ChatComposer.onSendPressed` plus
+the `controller.clear()` + `focusNode.requestFocus()` that follows a send. A slot with the proposed
+signature would have existed and silently not sent.
+
+**Decisions taken:**
+
+- **Props objects, for all four slots.** Named and shaped after `stream_chat_flutter`'s
+  `MessageComposerComponentProps` / `MessageComposerLeadingProps` / `MessageComposerInputProps`
+  family (`packages/stream_chat_flutter/lib/src/components/message_composer/`). Converting
+  `buildLeading`/`buildTrailing` too is a breaking change, taken deliberately: the package is
+  unpublished, no factory subclass existed outside one test and two doc snippets, and both 2.3 and
+  2.4 will want to push more values through these slots. One convention beats two.
+- **Two simplifications versus the sibling:** public `const` constructors rather than `._` plus
+  `.from(...)` factories (the base carries a single field, so `.from` would be pure ceremony, and a
+  public constructor lets a test build props to drive a custom input directly), and no `Default…`
+  twin widget — the factory *is* the override seam here, so the sibling's builder-registry
+  indirection buys nothing.
+- **Both new slots are non-nullable**, against this item's own "keep the `Widget?` convention"
+  constraint. That convention exists for *optional* slots, where `null` is how the composer knows
+  not to reserve its 8px gap, and where the `SizedBox.shrink()` sentinel doubled the margin.
+  Neither new slot has an absent state: `buildInput`'s result goes straight into an `Expanded`
+  (there is no layout for "no input", and the base implementation can never return `null`), and
+  `buildAttachmentSheet` is called only once the button has decided to open a modal. Nothing is
+  compared against a sentinel in either case, so the original bug cannot recur. A host wanting no
+  picker overrides `buildLeading`, which is still nullable.
+- **`_InputContainer` moved to its own file** as public `ChatComposerInput`
+  (`lib/src/composer/chat_composer_input.dart`), taking its private collaborators
+  (`_TrailingControl`, `_AttachmentThumbnails`, `_SelectedOptionChip`, `_trailingState`) with it.
+  Not promoted in place: `chat_composer_factory.dart` has to name it in code, and it imports
+  `chat_composer.dart` for doc links only. The separate file keeps the dependency direction
+  one-way — props ← input ← factory ← composer.
+- **The sheet slot supplies content, not presentation.** `showModalBottomSheet`'s options
+  (`isScrollControlled`, `showDragHandle`) stay in `_AttachmentButton`, so a replacement sheet must
+  not draw its own drag handle; `buildLeading` is the seam for changing how, or whether, a picker
+  is presented. `buildLeading`'s default passes `this` to the button, which is what makes a
+  sheet-only override take effect — the button previously constructed the sheet itself.
+
+- **Files:** new `chat_composer_props.dart` and `chat_composer_input.dart`;
+  `chat_composer_factory.dart`, `chat_composer.dart`, the barrel, and the `buildLeading` snippet in
+  `speech_to_text_button.dart`'s dartdoc.
+- **Acceptance:** ✅ `chat_composer_test.dart` gained a `ChatComposerFactory` group — the default
+  input is a `ChatComposerInput`; `buildInput` can wrap the default and keep its send button
+  working; a full replacement wired to `props.onSend` fires `onSendPressed` **and** leaves the
+  field cleared (the assertion that proves it got the composer's real handler, not a lookalike);
+  the props carry the composer's controller, focus node and text-field config; the default sheet is
+  a `ComposerAttachmentSheet`; and a sheet-only override replaces it while still opening from the
+  default "+" button. Plus a companion to the existing gap-spacer regression test, pinning the
+  other half of that invariant (both slots rendering ⇒ two spacers).
+- **Effort:** M (1 day) — as estimated.
 
 ### 2.3 Localization scaffolding
 
@@ -262,11 +313,11 @@ complete list as of now, so the work can be done in one pass:
 
 | String | Where |
 |---|---|
-| `'Ask anything…'` | `chat_composer.dart` — default `hintText` |
-| `'Send'` | `chat_composer.dart` — trailing button tooltip (enabled and disabled) |
-| `'Stop generating'` | `chat_composer.dart` — stop button tooltip |
-| `'Remove attachment'` | `chat_composer.dart` — thumbnail remove tooltip |
-| `'Clear {option}'` | `chat_composer.dart` — selected-option chip dismiss tooltip |
+| `'Ask anything…'` | `chat_composer_input.dart` — default `hintText` |
+| `'Send'` | `chat_composer_input.dart` — trailing button tooltip (enabled and disabled) |
+| `'Stop generating'` | `chat_composer_input.dart` — stop button tooltip |
+| `'Remove attachment'` | `chat_composer_input.dart` — thumbnail remove tooltip |
+| `'Clear {option}'` | `chat_composer_input.dart` — selected-option chip dismiss tooltip |
 | `'Add photos'` | `chat_composer_factory.dart` — leading "+" tooltip |
 | `'Photos'`, `'All Photos'`, `'Allow photo access'`, `'Take a photo'` | `composer_attachment_sheet.dart` |
 | `'Voice input'`, `'Stop recording'` | `speech_to_text_button.dart` — mic tooltips |

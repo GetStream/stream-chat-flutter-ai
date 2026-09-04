@@ -20,6 +20,7 @@ First release of `stream_chat_flutter_ai`.
 - `ChatComposerSendCallback` (the type of `ChatComposer.onSendPressed`) now takes a third `List<XFile> attachments` parameter — **breaking change** for existing callers.
 - `ChatComposerFactory.buildLeading`/`buildTrailing` now return `Widget?` instead of `Widget`, and default to the "+" attachment button / `null` respectively — **breaking change** for factory subclasses overriding either method. Returning `null` (rather than an empty `SizedBox.shrink()`) is also how a slot now opts out of the composer's 8px gap; passing an empty widget no longer works for that, since two separately-constructed `SizedBox.shrink()`s aren't guaranteed `identical`/`==` and using one as an "empty" sentinel silently doubled the composer's trailing-edge margin.
 - `ChatComposerFactory.buildLeading` now defaults to an outlined circular "+" button that opens `ComposerAttachmentSheet` (see below), instead of an empty `SizedBox.shrink()`.
+- `ChatComposerFactory.buildLeading`/`buildTrailing` now take a `ChatComposerLeadingProps`/`ChatComposerTrailingProps` instead of a bare `ChatComposerController` — **breaking change** for factory subclasses overriding either method; the old argument is `props.controller`. Every slot now takes a props object off a shared `ChatComposerSlotProps`, mirroring `stream_chat_flutter`'s `MessageComposerComponentProps` family, so a slot can be handed values it has no other way to reach (`ChatComposerInputProps` is the case that forced this — see ✅ Added) and so later work can extend a slot's inputs without breaking its signature again.
 - Removed the always-visible row of `ChatOption` chips that used to render above the input whenever `ChatComposerController.chatOptions` was non-empty — **breaking change in behavior** (no API removed, but the row no longer renders). Confirmed against `stream-chat-swift-ai`: chat options aren't shown as a standalone chip row there either — they're listed inside the composer's attachment sheet (`ComposerPickerView` in `ComposerView.swift`), alongside the photo picker. `ChatComposer`'s inline selected-option chip (shown inside the input box once an option is chosen) is unaffected and still matches iOS.
 - Fixed vertical alignment of the leading/trailing circles against the input pill: both Rows now use `CrossAxisAlignment.center` instead of `.end`. The pill is naturally taller than the fixed-size 40x40 circles, so bottom-aligning them dumped 100% of that extra height above the circles as a lopsided gap — visually different from the reference Android layout, where the "+" and mic sit evenly inset within the pill's height. Centering fixes this without needing to change either the pill's or the circles' size.
 - The input pill and the default "+" attachment button now use the same, lighter `colorScheme.surfaceContainerHigh` fill and `outlineVariant` border (previously the pill used the darker/more-tinted `surfaceContainerHighest` while the button used plain `surface`, so the two visibly didn't match). The text field's hint text now uses `onSurfaceVariant` at 60% opacity instead of the theme's default (near-black) hint color, matching the muted placeholder look of the reference Android/iOS composers.
@@ -31,6 +32,25 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **`ChatComposerFactory` now covers all four composer regions**, not two.
+  `ChatComposerFactory.buildInput` supplies the input field and
+  `ChatComposerFactory.buildAttachmentSheet` supplies the contents of the sheet the default
+  leading "+" button opens; they default to the new public `ChatComposerInput` (previously the
+  private `_InputContainer`, now `lib/src/composer/chat_composer_input.dart` and exported) and to
+  `ComposerAttachmentSheet` respectively, so the default composer is unchanged. Reaching parity
+  with `stream-chat-swift-ai`'s `ComposerViewFactory`, which has had all four slots.
+- Overriding `buildInput` no longer means giving up the composer's send behaviour.
+  `ChatComposerInputProps` carries `onSend`, `onStop` and `focusNode` alongside the controller and
+  the text-field configuration, so a fully custom input still fires `ChatComposer.onSendPressed`,
+  and still clears the field and refocuses it afterwards — none of which a factory could reach
+  before, since all of it lives in `ChatComposer`'s state. `ChatComposerInput(props: props)` keeps
+  the default pill while decorating around it.
+- Both new slots return a non-nullable `Widget`, unlike `buildLeading`/`buildTrailing`. Neither has
+  an absent state to express: `buildInput`'s result goes into an `Expanded`, where "no input" has
+  no layout, and `buildAttachmentSheet` is only called once the button has decided to open a modal
+  (override `buildLeading` — still nullable — for no picker at all). Nothing is compared against a
+  sentinel either, so the `SizedBox.shrink()` hazard that made the other two nullable can't recur
+  here.
 - **Code fences can be syntax-highlighted, by a highlighter the host supplies.**
   `CodeBlockView.highlighter`, plus matching `AIMarkdownBody.codeHighlighter` and
   `StreamingMessageView.codeHighlighter`, take a `CodeHighlighter` —
@@ -93,7 +113,7 @@ First release of `stream_chat_flutter_ai`.
   - `ChatComposer` — AI-aware message composer with a selected-option chip, send/stop toggle, attachment thumbnails, and factory-based slot overrides.
   - `ChatComposerController` — `ChangeNotifier` that manages input text, AI generating state, chat option selection, and pending image attachments.
   - `ChatOption` — data class for the selectable options shown in `ComposerAttachmentSheet`.
-  - `ChatComposerFactory` — subclass to override the leading and trailing regions of the composer.
+  - `ChatComposerFactory` — subclass to override the composer's leading, trailing, input and attachment-sheet slots.
   - `SpeechToTextButton` — microphone button that streams partial speech-to-text results into the composer's text field; hidden while AI is generating or text is non-empty.
 - `ChartView` now renders `USpecKind.scatter` as a real scatter plot (via `fl_chart`'s `ScatterChart`) instead of silently falling back to a line chart, plus new `USpecKind.bubble` (scatter with point size driven by `UPoint.size`) and `USpecKind.histogram` (auto-binned into 10 buckets, mirroring `stream-chat-swift-ai`'s `makeBins`) renders. `USpecKind.heatmap` renders as a real grid — one row per series, one column per distinct point, cell color from `UPoint.z` (falling back to `UPoint.y`) on a sequential blue scale, plus a gradient scale bar labelled with the value range. `fl_chart` has no heatmap widget, so the grid is drawn with plain Material widgets by `HeatmapChartView`.
 - `USpecParser` recognises five additional chart schemas, matching `stream-chat-swift-ai`'s `parseUSpec` breadth: Plotly (single-spec and figure heatmaps), ECharts, Highcharts, a Vega-Lite subset (mark + encoding), and a flat pie schema (`{type: "pie", data: [{label, value}]}`). Its existing Chart.js adapter now also recognises pie/doughnut, scatter/bubble point objects (`{x, y, r}`), the `radar`/`polarArea` fallback mappings, and `options.scales.y.beginAtZero`.

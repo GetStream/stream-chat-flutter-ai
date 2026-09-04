@@ -69,8 +69,8 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 /// ```dart
 /// class MyFactory extends ChatComposerFactory {
 ///   @override
-///   Widget buildLeading(BuildContext context, ChatComposerController controller) {
-///     return SpeechToTextButton(controller: controller);
+///   Widget buildLeading(BuildContext context, ChatComposerLeadingProps props) {
+///     return SpeechToTextButton(controller: props.controller);
 ///   }
 /// }
 /// ```

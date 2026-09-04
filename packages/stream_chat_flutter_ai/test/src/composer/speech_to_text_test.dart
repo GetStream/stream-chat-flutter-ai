@@ -447,6 +447,6 @@ void main() {
 /// documentation shows.
 class _MicFactory extends ChatComposerFactory {
   @override
-  Widget buildLeading(BuildContext context, ChatComposerController controller) =>
-      SpeechToTextButton(controller: controller);
+  Widget buildLeading(BuildContext context, ChatComposerLeadingProps props) =>
+      SpeechToTextButton(controller: props.controller);
 }

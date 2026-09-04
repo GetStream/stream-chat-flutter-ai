@@ -415,6 +415,27 @@ void main() {
       );
       expect(gapSpacers, findsOneWidget);
     });
+
+    testWidgets('reserves a spacer on each side when both factory slots render', (tester) async {
+      // The other half of the invariant the test above pins: the gap is
+      // inserted for a slot that renders, and only for a slot that renders.
+      // Asserted with the same predicate, so if a refactor ever adds an
+      // unrelated 8px-wide SizedBox to the default tree, both tests move
+      // together instead of one silently starting to measure something else.
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            factory: _TrailingSlotFactory(),
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      final gapSpacers = find.byWidgetPredicate(
+        (widget) => widget is SizedBox && widget.width == 8 && widget.height == null,
+      );
+      expect(gapSpacers, findsNWidgets(2));
+    });
   });
 
   group('ComposerAttachmentSheet', () {
@@ -499,4 +520,217 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('ChatComposerFactory', () {
+    testWidgets('default input slot renders a ChatComposerInput', (tester) async {
+      await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {})));
+
+      expect(find.byType(ChatComposerInput), findsOneWidget);
+    });
+
+    testWidgets('buildInput can wrap the default input', (tester) async {
+      var sent = false;
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            factory: _WrappingInputFactory(),
+            onSendPressed: (_, __, ___) => sent = true,
+          ),
+        ),
+      );
+
+      expect(find.byType(ChatComposerInput), findsOneWidget);
+      expect(find.byType(_InputWrapper), findsOneWidget);
+
+      // Decoration must not cost the wiring: the wrapped default still owns
+      // the composer's send button.
+      await tester.enterText(find.byType(TextField), 'Hello');
+      // Settled, not a single pump: the trailing control's AnimatedSwitcher
+      // has both the disabled and the enabled send button on screen while it
+      // cross-fades, and `tap` needs one target.
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.pump();
+
+      expect(sent, isTrue);
+    });
+
+    testWidgets('buildInput can replace the input and reuse the send wiring', (tester) async {
+      final controller = ChatComposerController();
+      String? sentText;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _ReplacementInputFactory(),
+            onSendPressed: (text, _, __) => sentText = text,
+          ),
+        ),
+      );
+
+      expect(find.byType(ChatComposerInput), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await tester.pump();
+      await tester.tap(find.text('go'));
+      await tester.pump();
+
+      expect(sentText, equals('Hello'));
+      // The point of this test: `props.onSend` is the composer's own handler,
+      // not just a hook that fires `onSendPressed`. Only the real one clears
+      // the controller afterwards, so an empty field here proves a fully
+      // custom input inherits the whole send behaviour.
+      expect(controller.text, isEmpty);
+      controller.dispose();
+    });
+
+    testWidgets('buildInput receives the composer controller, focus node and config', (tester) async {
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            focusNode: focusNode,
+            factory: factory,
+            hintText: 'Ask me',
+            minLines: 2,
+            maxLines: 4,
+            textInputAction: TextInputAction.send,
+            enableSpeechToText: true,
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      final props = factory.captured!;
+      expect(identical(props.controller, controller), isTrue);
+      expect(identical(props.focusNode, focusNode), isTrue);
+      expect(props.hintText, equals('Ask me'));
+      expect(props.minLines, equals(2));
+      expect(props.maxLines, equals(4));
+      expect(props.textInputAction, equals(TextInputAction.send));
+      expect(props.enableSpeechToText, isTrue);
+
+      controller.dispose();
+      focusNode.dispose();
+    });
+
+    testWidgets('default attachment sheet is a ComposerAttachmentSheet', (tester) async {
+      final controller = ChatComposerController();
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.add));
+      // Not `pumpAndSettle` — the default sheet shows an indeterminate
+      // `CircularProgressIndicator` while its (unmocked,
+      // platform-channel-based) photo permission/gallery check is in flight,
+      // which never "settles" on its own.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(ComposerAttachmentSheet), findsOneWidget);
+      controller.dispose();
+    });
+
+    testWidgets('buildAttachmentSheet replaces the sheet the default "+" button opens', (tester) async {
+      // Regression test for the plumbing that makes a sheet-only override
+      // work: `_AttachmentButton` used to construct `ComposerAttachmentSheet`
+      // itself, so a factory overriding just the sheet was silently ignored.
+      // The default `buildLeading` now hands the button the factory instance,
+      // and this factory leaves `buildLeading` alone — so the "+" below is
+      // still the default button.
+      final controller = ChatComposerController();
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _CustomSheetFactory(),
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.add), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.add));
+      // `pumpAndSettle` is safe here, unlike in the test above: the
+      // replacement sheet makes no platform-channel call, so there is nothing
+      // left spinning once the modal's entrance animation finishes.
+      await tester.pumpAndSettle();
+
+      expect(find.text('custom sheet'), findsOneWidget);
+      expect(find.byType(ComposerAttachmentSheet), findsNothing);
+      controller.dispose();
+    });
+  });
+}
+
+/// Renders something in the otherwise-empty trailing slot, so the composer's
+/// gap handling can be observed on both sides of the input.
+class _TrailingSlotFactory extends ChatComposerFactory {
+  @override
+  Widget buildTrailing(BuildContext context, ChatComposerTrailingProps props) => const Icon(Icons.tune);
+}
+
+/// Keeps the default input and decorates around it.
+class _WrappingInputFactory extends ChatComposerFactory {
+  @override
+  Widget buildInput(BuildContext context, ChatComposerInputProps props) =>
+      _InputWrapper(child: ChatComposerInput(props: props));
+}
+
+/// A distinguishable wrapper, so the test can assert the decoration rendered
+/// rather than inferring it from the default input's presence.
+class _InputWrapper extends StatelessWidget {
+  const _InputWrapper({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+/// Discards the default input entirely, wiring a bare field and button to the
+/// composer's own send handler.
+class _ReplacementInputFactory extends ChatComposerFactory {
+  @override
+  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: props.controller.textEditingController,
+          focusNode: props.focusNode,
+        ),
+        TextButton(onPressed: props.onSend, child: const Text('go')),
+      ],
+    );
+  }
+}
+
+/// Records the props the composer passes to the input slot.
+class _CapturingInputFactory extends ChatComposerFactory {
+  ChatComposerInputProps? captured;
+
+  @override
+  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+    captured = props;
+    return ChatComposerInput(props: props);
+  }
+}
+
+/// Swaps the sheet's contents without touching [ChatComposerFactory.buildLeading].
+class _CustomSheetFactory extends ChatComposerFactory {
+  @override
+  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) =>
+      const Text('custom sheet');
 }
