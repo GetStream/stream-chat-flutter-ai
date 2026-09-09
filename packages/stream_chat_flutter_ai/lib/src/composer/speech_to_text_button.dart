@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dar
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// A microphone button that feeds speech-to-text results directly into an
 /// [ChatComposerController]'s text field.
@@ -222,10 +223,12 @@ class _MicButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final translations = AITranslations.of(context);
+
     return ComposerActionButton(
       icon: recording ? Icons.stop_rounded : Icons.mic_none_rounded,
       onPressed: onTap,
-      tooltip: recording ? 'Stop recording' : 'Voice input',
+      tooltip: recording ? translations.stopRecording : translations.voiceInput,
       color: color,
     );
   }

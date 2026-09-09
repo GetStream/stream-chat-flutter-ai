@@ -441,6 +441,51 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('SpeechToTextButton localization', () {
+    Future<void> settle(WidgetTester tester) => tester.pump(const Duration(milliseconds: 200));
+
+    testWidgets('the mic tooltip is translated in both states', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          AITranslationsScope(
+            translations: const _TestTranslations(),
+            child: ChatComposer(
+              controller: controller,
+              enableSpeechToText: true,
+              onSendPressed: (_, _, _) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('SPREEK'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+
+      expect(find.byTooltip('KOP DICHT'), findsOneWidget);
+
+      // Drain the session and the plugin's post-stop "final result" timer,
+      // which the binding would otherwise flag as still pending.
+      await SpeechToTextController.instance.stop();
+      await tester.pump(const Duration(seconds: 3));
+    });
+  });
+}
+
+/// Overrides only the two mic strings.
+class _TestTranslations extends DefaultAITranslations {
+  const _TestTranslations();
+
+  @override
+  String get voiceInput => 'SPREEK';
+
+  @override
+  String get stopRecording => 'KOP DICHT';
 }
 
 /// Places the mic in the leading slot, exactly as [SpeechToTextButton]'s class

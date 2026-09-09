@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// Factory that produces the composable regions of [ChatComposer].
 ///
@@ -60,11 +61,22 @@ class _AttachmentButton extends StatelessWidget {
   final ChatComposerController controller;
 
   Future<void> _openAttachmentSheet(BuildContext context) {
+    // Read here, from this button's context, and re-provide inside the sheet.
+    // The sheet is pushed as its own route, so it sits under the Navigator
+    // rather than under whatever wraps this button — a translations scope
+    // placed directly above the composer would otherwise be invisible to it,
+    // and the sheet's four strings would fall back to English while
+    // everything around them was translated.
+    final translations = AITranslations.of(context);
+
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => ComposerAttachmentSheet(controller: controller),
+      builder: (context) => AITranslationsScope(
+        translations: translations,
+        child: ComposerAttachmentSheet(controller: controller),
+      ),
     );
   }
 
@@ -75,7 +87,7 @@ class _AttachmentButton extends StatelessWidget {
     final iconColor = enabled ? colorScheme.onSurface : colorScheme.onSurface.withValues(alpha: 0.3);
 
     return Tooltip(
-      message: 'Add photos',
+      message: AITranslations.of(context).addPhotos,
       child: Container(
         width: 40,
         height: 40,

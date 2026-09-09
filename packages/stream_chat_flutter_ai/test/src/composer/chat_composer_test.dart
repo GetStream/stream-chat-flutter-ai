@@ -499,4 +499,152 @@ void main() {
       controller.dispose();
     });
   });
+
+  group('ChatComposer localization', () {
+    testWidgets('the hint comes from the scope when hintText is null', (tester) async {
+      await tester.pumpWidget(
+        _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+    });
+
+    testWidgets('an explicit hintText wins over the scope', (tester) async {
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(hintText: 'Per-composer hint', onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(find.text('Per-composer hint'), findsOneWidget);
+      expect(find.text('VRAAG MAAR'), findsNothing);
+    });
+
+    testWidgets('the send tooltip is translated in both its enabled and disabled state', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      // Disabled arm: no content yet.
+      expect(find.byTooltip('VERSTUUR'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      // Settled, or the AnimatedSwitcher still holds the outgoing disabled
+      // button alongside the incoming enabled one.
+      await tester.pumpAndSettle();
+
+      // Enabled arm — a separate literal before this change.
+      expect(find.byTooltip('VERSTUUR'), findsOneWidget);
+    });
+
+    testWidgets('the stop tooltip is translated', (tester) async {
+      final controller = ChatComposerController()..isGenerating = true;
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(find.byTooltip('STOP MAAR'), findsOneWidget);
+    });
+
+    testWidgets('the attachment-thumbnail dismiss tooltip is translated', (tester) async {
+      final controller = ChatComposerController()..addAttachments([XFile('a.png')]);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byTooltip('WEG ERMEE'), findsOneWidget);
+    });
+
+    testWidgets('the selected-option chip dismiss tooltip is translated, with the option interpolated', (tester) async {
+      final controller = ChatComposerController()..selectChatOption(const ChatOption(id: 'a', text: 'Weather'));
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(find.byTooltip('Weather WISSEN'), findsOneWidget);
+    });
+
+    testWidgets('the leading attachment-button tooltip is translated', (tester) async {
+      await tester.pumpWidget(
+        _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(find.byTooltip('FOTO ERBIJ'), findsOneWidget);
+    });
+
+    testWidgets('the attachment sheet is translated across its own route', (tester) async {
+      // The sheet is pushed with `showModalBottomSheet`, so it sits under the
+      // Navigator rather than under the scope this test wraps the composer in.
+      // It only reads these strings because the leading button re-provides the
+      // scope inside the sheet's route.
+      await tester.pumpWidget(
+        _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
+      );
+
+      await tester.tap(find.byIcon(Icons.add));
+      // Bounded pump rather than `pumpAndSettle` — see the note in the
+      // ComposerAttachmentSheet group above.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('FOTOS'), findsOneWidget);
+      expect(find.text('ALLE FOTOS'), findsOneWidget);
+      expect(find.byTooltip('LACH EENS'), findsOneWidget);
+    });
+  });
+}
+
+Widget _wrapTranslated(Widget child) => _wrap(
+  AITranslationsScope(translations: const _TestTranslations(), child: child),
+);
+
+/// Overrides every string [ChatComposer] and its attachment sheet render, so a
+/// leaked English literal fails rather than merely looking the same.
+class _TestTranslations extends DefaultAITranslations {
+  const _TestTranslations();
+
+  @override
+  String get composerHint => 'VRAAG MAAR';
+
+  @override
+  String get send => 'VERSTUUR';
+
+  @override
+  String get stopGenerating => 'STOP MAAR';
+
+  @override
+  String get removeAttachment => 'WEG ERMEE';
+
+  @override
+  String clearOption(String option) => '$option WISSEN';
+
+  @override
+  String get addPhotos => 'FOTO ERBIJ';
+
+  @override
+  String get photos => 'FOTOS';
+
+  @override
+  String get allPhotos => 'ALLE FOTOS';
+
+  @override
+  String get takePhoto => 'LACH EENS';
 }

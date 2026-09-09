@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// Callback fired when the user taps the send button.
 ///
@@ -84,6 +85,11 @@ class ChatComposer extends StatefulWidget {
   final FocusNode? focusNode;
 
   /// Placeholder text shown when the text field is empty.
+  ///
+  /// Defaults to [AITranslations.composerHint] — the localized placeholder —
+  /// when `null`. Passing a value here wins over any [AITranslationsScope],
+  /// since a hint written for one composer is more specific than an app-wide
+  /// string.
   final String? hintText;
 
   /// Minimum number of lines in the text field.
@@ -341,7 +347,7 @@ class _InputContainer extends StatelessWidget {
                   maxLines: maxLines,
                   textInputAction: textInputAction,
                   decoration: InputDecoration(
-                    hintText: hintText ?? 'Ask anything…',
+                    hintText: hintText ?? AITranslations.of(context).composerHint,
                     hintStyle: TextStyle(
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.6,
@@ -419,12 +425,13 @@ class _TrailingControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final translations = AITranslations.of(context);
 
     if (controller.isGenerating) {
       return ComposerActionButton(
         icon: Icons.stop_rounded,
         onPressed: onStop,
-        tooltip: 'Stop generating',
+        tooltip: translations.stopGenerating,
         color: colorScheme.error,
       );
     }
@@ -439,7 +446,7 @@ class _TrailingControl extends StatelessWidget {
       return ComposerActionButton(
         icon: Icons.arrow_upward_rounded,
         onPressed: onSend,
-        tooltip: 'Send',
+        tooltip: translations.send,
         color: colorScheme.primary,
       );
     }
@@ -447,7 +454,7 @@ class _TrailingControl extends StatelessWidget {
     return ComposerActionButton(
       icon: Icons.arrow_upward_rounded,
       onPressed: null,
-      tooltip: 'Send',
+      tooltip: translations.send,
       color: colorScheme.primary,
     );
   }
@@ -578,7 +585,7 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
                 child: InkWell(
                   onTap: widget.onRemove,
                   child: Tooltip(
-                    message: 'Remove attachment',
+                    message: AITranslations.of(context).removeAttachment,
                     child: Icon(
                       Icons.close,
                       size: 14,
@@ -641,7 +648,7 @@ class _SelectedOptionChip extends StatelessWidget {
                   child: InkWell(
                     onTap: onDismiss,
                     child: Tooltip(
-                      message: 'Clear ${option.text}',
+                      message: AITranslations.of(context).clearOption(option.text),
                       child: Icon(Icons.close, size: 18, color: colorScheme.onPrimaryContainer),
                     ),
                   ),

@@ -16,7 +16,7 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 | 1.2 | Chart schema & kind breadth (`USpec`) | 1 | M | ✅ |
 | 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ✅ |
 | 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
-| 2.3 | Localization scaffolding | 2 | M | ⬜ |
+| 2.3 | Localization scaffolding | 2 | M | ✅ |
 | 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
 | 3.1 | MCP client-tool / agentic tool-calling | 3 | L | ⬜ |
 | 3.2 | Generic sidebar / split-view (`SidebarView`) | 3 | S–M | 🅾️ |
@@ -254,39 +254,99 @@ text input and the attachment sheet are hardcoded inside `chat_composer.dart` an
   behavior is unchanged; extend `chat_composer_test.dart` with an override test.
 - **Effort:** M (1 day).
 
-### 2.3 Localization scaffolding
+### 2.3 Localization scaffolding ✅
 
 **Gap:** Swift externalizes strings via an `L10n` enum backed by a `.strings` bundle (English-only
-today, but the seam exists for adding locales). Flutter hardcodes every user-facing string. The
-complete list as of now, so the work can be done in one pass:
+today, but the seam exists for adding locales). Flutter hardcoded every user-facing string.
 
-| String | Where |
-|---|---|
-| `'Ask anything…'` | `chat_composer.dart` — default `hintText` |
-| `'Send'` | `chat_composer.dart` — trailing button tooltip (enabled and disabled) |
-| `'Stop generating'` | `chat_composer.dart` — stop button tooltip |
-| `'Remove attachment'` | `chat_composer.dart` — thumbnail remove tooltip |
-| `'Clear {option}'` | `chat_composer.dart` — selected-option chip dismiss tooltip |
-| `'Add photos'` | `chat_composer_factory.dart` — leading "+" tooltip |
-| `'Photos'`, `'All Photos'`, `'Allow photo access'`, `'Take a photo'` | `composer_attachment_sheet.dart` |
-| `'Voice input'`, `'Stop recording'` | `speech_to_text_button.dart` — mic tooltips |
-| `'Copy code'`, `'Copied!'` | `code_block_view.dart` |
+**Shipped:** `lib/src/localization/ai_translations.dart` — `AITranslations` (abstract, `const`
+constructor, one getter per string), `DefaultAITranslations` (the English literals the widgets
+already rendered) and `AITranslationsScope` (an `InheritedWidget`). Fourteen members cover the
+fifteen literals that were there: the enabled and disabled send tooltips were separate literals for
+the same button and collapsed into one `send`. `clearOption(String option)` is a method rather than
+a getter, being the one interpolated string.
 
-Several of these are tooltips doubling as the only accessible label for an icon-only button, so the
-translations object is also what makes those buttons legible to a screen reader in any locale.
+A host subclasses `DefaultAITranslations` and overrides only what it is changing — the same
+subclass-and-override idiom `ChatComposerFactory` already established:
 
-**Proposed work:** introduce a single injectable translations object — a `StreamAiTranslations`
-abstract class plus a `DefaultStreamAiTranslations` implementation holding today's English
-literals — passed via constructor/`InheritedWidget` rather than pulling in
-`flutter_localizations` (keeps the package dependency-light and framework-agnostic, matching its
-standalone design goal). Replace hardcoded literals with lookups against this object.
+```dart
+class DutchTranslations extends DefaultAITranslations {
+  const DutchTranslations();
 
-- **Files:** new `lib/src/localization/stream_ai_translations.dart`; touch every widget listed in the
-  table above.
-- **Acceptance:** all user-facing strings resolve through the translations object; a test injecting
-  a custom translations instance observes the overridden strings.
-- **Effort:** M (1 day). Ships no non-English translations yet — just the seam for adding them
-  later.
+  @override
+  String get send => 'Verstuur';
+}
+
+AITranslationsScope(translations: const DutchTranslations(), child: ChatComposer(...))
+```
+
+`AITranslations.of(context)` falls back to `const DefaultAITranslations()` rather than asserting, so
+a scope is optional everywhere and a host that adds none sees no change at all. English only — no
+locales ship.
+
+**Naming.** `AITranslations`, not the `StreamAiTranslations` this item originally drafted. The
+package dropped the `Stream` prefix when it dropped the `stream_chat` dependency, and its
+AI-specific types carry a capital `AI` token (`AIMarkdownBody`, `AISuggestionsView`,
+`AITypingIndicatorView`).
+
+**Why a scope rather than constructor threading** (this is the decision to re-read before
+"simplifying" it into parameters). Twelve of the fifteen literals live in *private* leaf widgets two
+to four layers below a public one — `_TrailingControl`, `_AttachmentThumbnail`,
+`_SelectedOptionChip`, `_AttachmentButton`, `_CameraTile`, `_MicButton`, `_CopyButtonState`. And
+`CodeBlockView`'s two are constructed inside the top-level `_buildFenceCached`
+(`lib/src/ai_markdown_body.dart`), which has no `BuildContext` at all. Threading would have meant
+about ten new parameters and a new component in the fence cache key. A lookup in `build` costs
+nothing and needs neither.
+
+**The fence cache, which the scope survives.** `_fenceWidgetCache` returns the *identical* `Widget`
+instance for a given fence source, and translations deliberately are **not** part of its key —
+unlike `codeBackgroundColor`/`codeForegroundColor`, which must be, because they are constructor
+arguments baked into the cached instance. That looks wrong and isn't: the cached object is an
+unbuilt widget *configuration*, the string is resolved later in `_CopyButtonState.build` from that
+element's own context, and the inherited-dependency mechanism marks the element dirty on a scope
+change regardless of widget identity. One cached fence renders correctly under two different scopes,
+and `ai_markdown_body_test.dart` asserts exactly that — same instance, different string.
+
+**The modal route, which it doesn't survive unaided.** `ComposerAttachmentSheet` is pushed with
+`showModalBottomSheet`, so it sits under the `Navigator` rather than under whatever wraps the
+composer. `_AttachmentButton` therefore reads the translations from its own context *before*
+pushing and re-provides them inside the sheet's route, so a scope placed directly above a
+`ChatComposer` still reaches the sheet's four strings. A host presenting the sheet itself owns that
+re-provision, which its class doc says.
+
+**The `const` requirement.** `AITranslationsScope.updateShouldNotify` compares instances, so a
+non-`const` subclass instance built inside a `build` that runs on every typewriter tick would notify
+every dependent every ~10ms. `const` instances are canonicalized to one object. Documented on
+`AITranslations`, on `AITranslationsScope.translations`, and in the README; asserted in
+`ai_translations_test.dart`.
+
+**Accessibility, which is the larger half of this.** Ten of the fourteen are `Tooltip` messages on
+icon-only buttons, so they are also the only accessible label those buttons expose. Before this, a
+screen reader outside English read English or nothing.
+
+**Precedence.** `ChatComposer.hintText` still wins over `AITranslations.composerHint` — a hint
+written for one composer is more specific than an app-wide string.
+
+**Why subclass `DefaultAITranslations` and not implement `AITranslations`.** Both work, but a string
+added in a later version arrives as an untranslated default for the former and a compile error for
+the latter. The docs point at the former.
+
+**No `flutter_localizations`, no `intl`, no `.arb`.** Fourteen strings do not justify putting every
+host onto Flutter's localization delegates, and the package's dependency list stays as short as its
+README claims. A host already using `flutter_localizations` bridges the two in a few lines by
+reading its own `AppLocalizations` inside a `DefaultAITranslations` subclass.
+
+- **Files:** new `lib/src/localization/ai_translations.dart`, exported from
+  `lib/stream_chat_flutter_ai.dart`; `chat_composer.dart`, `chat_composer_factory.dart`,
+  `composer_attachment_sheet.dart`, `speech_to_text_button.dart`, `code_block_view.dart`; new
+  `test/src/localization/ai_translations_test.dart`, plus cases in `chat_composer_test.dart`,
+  `speech_to_text_test.dart`, `code_block_view_test.dart` and `ai_markdown_body_test.dart`; a
+  `### Localization` section in the README.
+- **Not done here:** `lib/src/chart/uspec.dart`'s `'Series'` (×4) and `'Pie'` (×2) fallbacks. They
+  are *parser* defaults assigned to `USeries.name`, and the parser has no `BuildContext`; only
+  `'Series'` is visible today, as a heatmap row label. Folded into 2.4, which already owns chart
+  presentation and would resolve them at render time.
+- **Effort:** M (1 day), as estimated.
 
 ### 2.4 Chart theming & accessibility
 
@@ -298,13 +358,21 @@ everything else is still a hardcoded constant with no way for a host to interven
 - `_kSeriesColors` — a fixed six-color categorical palette, so charts can't follow an app's brand.
 - `_kChartHeight` (220), the bubble radius range, and the histogram's 10-bucket count.
 - `PieChartSectionData.titleStyle` is hardcoded white-on-slice.
+- The `'Series'` / `'Pie'` fallback names `USpecParser` assigns to `USeries.name`
+  (`lib/src/chart/uspec.dart`) are hardcoded English. `'Series'` reaches the screen as a heatmap row
+  label. Left out of 2.3 because they are parser defaults with no `BuildContext` — resolving them
+  means deferring the fallback to render time, where `AITranslations.of` is available.
 - Charts carry **no `Semantics` at all**: to a screen reader a `ChartView` is an empty box. Even a
   summary label ("bar chart, Messages per day, 5 categories, values 8 to 24") would be a large
   improvement, and the data for it is all sitting in the `USpec`.
 
-**Proposed work:** a `ChartTheme`-style object (constructor parameter plus optional
-`InheritedWidget`, mirroring whatever shape 2.3 settles on for translations) carrying the palette,
-height, and sizing constants; plus a `Semantics` wrapper deriving a summary from the `USpec`.
+**Proposed work:** a `ChartTheme`-style object carrying the palette, height, and sizing constants,
+plus a `Semantics` wrapper deriving a summary from the `USpec`. 2.3 settled the shape to mirror: an
+abstract class with a `const` constructor, a concrete default holding today's values, and an
+`InheritedWidget` scope read through a static `of(context)` that falls back to that default rather
+than asserting — see `lib/src/localization/ai_translations.dart`. Unlike translations, a theme has a
+real case for a per-widget constructor parameter too, since a host may want one chart styled
+differently from the rest.
 Consider `USpecKind`-aware summaries and per-series labels.
 
 - **Files:** `lib/src/chart/chart_view.dart`, `lib/src/chart/heatmap_chart_view.dart`; new theme

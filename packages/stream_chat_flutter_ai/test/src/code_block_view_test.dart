@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// A short Dart snippet with a keyword, a string, a comment and a number, so
 /// any highlighter has to emit several distinct runs for it.
@@ -135,6 +136,26 @@ void main() {
 
       await tester.pump(const Duration(seconds: 2));
       expect(find.byIcon(Icons.content_copy), findsOneWidget);
+    });
+
+    testWidgets('the copy tooltip is translated in both states', (tester) async {
+      mockClipboard();
+
+      await tester.pumpWidget(
+        wrap(
+          const AITranslationsScope(
+            translations: _TestTranslations(),
+            child: CodeBlockView(code: 'var x = 1;', language: 'dart'),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('KOPIEER'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.pump();
+
+      expect(find.byTooltip('GEKOPIEERD'), findsOneWidget);
     });
 
     testWidgets('a second tap extends the confirmation instead of racing it', (tester) async {
@@ -573,4 +594,15 @@ TextStyle? _capturedStyle;
 TextSpan? _captureStyle(String code, String language, TextStyle baseStyle) {
   _capturedStyle = baseStyle;
   return null;
+}
+
+/// Overrides only the two copy-button strings.
+class _TestTranslations extends DefaultAITranslations {
+  const _TestTranslations();
+
+  @override
+  String get copyCode => 'KOPIEER';
+
+  @override
+  String get codeCopied => 'GEKOPIEERD';
 }
