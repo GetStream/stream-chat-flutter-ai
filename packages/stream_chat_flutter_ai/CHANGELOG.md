@@ -47,8 +47,8 @@ First release of `stream_chat_flutter_ai`.
   `dockerfile`, `go`, `graphql`, `ini`, `java`, `javascript`, `json`, `kotlin`, `lua`, `markdown`,
   `objectivec`, `php`, `plaintext`, `python`, `r`, `ruby`, `rust`, `scala`, `shell`, `sql`,
   `swift`, `typescript`, `xml`, `yaml` — and their usual aliases (`js`, `ts`, `py`, `sh`, `yml`,
-  `c++`, `cs`, `html`, …). Not all 197 grammars `re_highlight` bundles: each is a top-level `final`
-  holding a tree of constructor calls, so naming its `builtinAllLanguages` map would compile 3.1 MB
+  `c++`, `cs`, `html`, …). Not all 194 grammars `re_highlight` bundles: each is a top-level `final`
+  holding a tree of constructor calls, so naming its `builtinAllLanguages` map would compile 2.7 MB
   of Dart source into every host app and nothing would tree-shake it back out. The curated set is
   ~870 KB. Blocks over 20,000 characters are left unhighlighted, because a fence that is still
   streaming re-highlights on every frame it grows by.

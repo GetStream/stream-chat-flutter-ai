@@ -40,8 +40,8 @@ dependencies:
   markdown: ^7.3.1
   photo_manager: ^3.9.0
   # Syntax highlighting for `CodeBlockView`. Only a curated subset of its
-  # ~197 grammars is imported — referencing `builtinAllLanguages` would compile
-  # 3.1 MB of Dart source into every host app. See
+  # ~194 grammars is imported — referencing `builtinAllLanguages` would compile
+  # 2.7 MB of Dart source into every host app. See
   # `lib/src/highlight/code_languages.dart`.
   re_highlight: ^0.0.3
   speech_to_text: ^7.0.0

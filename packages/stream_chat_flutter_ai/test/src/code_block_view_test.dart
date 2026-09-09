@@ -390,7 +390,7 @@ void main() {
 
     group('language registration', () {
       test('registers every curated grammar', () {
-        // Pins the deliberate curation: `builtinAllLanguages` would drag 2.6 MB
+        // Pins the deliberate curation: `builtinAllLanguages` would drag 2.7 MB
         // of grammar source into every host app, so this set is hand-picked and
         // a change to it should be a decision, not a drive-by.
         expect(kCodeBlockLanguages, hasLength(31));

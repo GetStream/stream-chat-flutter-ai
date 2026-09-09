@@ -34,12 +34,13 @@ import 'package:re_highlight/re_highlight.dart';
 /// The grammars `CodeBlockView` can highlight, keyed by fence language.
 ///
 /// Curated rather than `re_highlight`'s own `builtinAllLanguages`, and
-/// deliberately so. That map is a top-level `final` that references all 197
-/// bundled grammars, and each grammar is itself a top-level `final` holding a
-/// tree of `Mode` constructor calls — so naming it makes 3.1 MB of Dart source
-/// reachable, and nothing tree-shakes it back out of a host app. This set is
-/// ~870 KB and covers what LLMs actually emit. Anything outside it falls back
-/// to plain monospace text, which is the documented behaviour, not a failure.
+/// deliberately so. That map is a top-level `final` that references all 194 of
+/// the bundled grammars, and each grammar is itself a top-level `final` holding
+/// a tree of `Mode` constructor calls — so naming it makes 2.7 MB of Dart
+/// source reachable, and nothing tree-shakes it back out of a host app. This
+/// set is ~870 KB and covers what LLMs actually emit. Anything outside it falls
+/// back to plain monospace text, which is the documented behaviour, not a
+/// failure.
 ///
 /// `swift` alone is 388 KB of that total — its grammar carries an enormous
 /// built-in-identifier list. It stays in because it is the one language the

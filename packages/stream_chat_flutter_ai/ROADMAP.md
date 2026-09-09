@@ -134,7 +134,7 @@ grammar declares for itself (`js`, `ts`, `py`, `sh`, `yml`, `c++`, `cs`, `html`,
 
 **On the curated set** (the decision most likely to be "simplified" later): every grammar is a
 top-level `final` holding a tree of `Mode` constructor calls, and `builtinAllLanguages` references
-all 197 of them, so naming that map makes 3.1 MB of Dart source reachable with nothing to
+all 194 of them, so naming that map makes 2.7 MB of Dart source reachable with nothing to
 tree-shake it back out of a host app. The curated set is ~870 KB — of which `swift.dart` alone is
 388 KB, kept because it is the one language the iOS package highlights at all. Blocks over 20,000
 characters are left unhighlighted: a fence that is still streaming re-highlights on every frame it
