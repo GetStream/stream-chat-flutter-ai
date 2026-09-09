@@ -17,7 +17,8 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 | 2.1 | Code syntax highlighting (`CodeBlockView`) | 2 | M | ✅ |
 | 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
 | 2.3 | Localization scaffolding | 2 | M | ✅ |
-| 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
+| 2.4 | Chart theming & accessibility | 2 | M | ✅ |
+| 2.5 | Theming for the remaining components | 2 | M | ⬜ |
 | 3.1 | MCP client-tool / agentic tool-calling | 3 | L | ⬜ |
 | 3.2 | Generic sidebar / split-view (`SidebarView`) | 3 | S–M | 🅾️ |
 
@@ -344,41 +345,163 @@ reading its own `AppLocalizations` inside a `DefaultAITranslations` subclass.
   `### Localization` section in the README.
 - **Not done here:** `lib/src/chart/uspec.dart`'s `'Series'` (×4) and `'Pie'` (×2) fallbacks. They
   are *parser* defaults assigned to `USeries.name`, and the parser has no `BuildContext`; only
-  `'Series'` is visible today, as a heatmap row label. Folded into 2.4, which already owns chart
-  presentation and would resolve them at render time.
+  `'Series'` was visible, as a heatmap row label. Folded into 2.4, which owns chart presentation and
+  resolved them at render time — the parser now leaves the name empty and the widgets substitute
+  `AITranslations.unnamedChartSeries`.
 - **Effort:** M (1 day), as estimated.
 
-### 2.4 Chart theming & accessibility
+### 2.4 Chart theming & accessibility ✅
 
-**Gap:** `ChartView`'s presentation is entirely fixed. The chrome that was outright broken in dark
-mode has been fixed (grid lines, heatmap cell borders and labels now come from the `ColorScheme`,
-and the heatmap's sequential ramp inverts so higher values stay brighter than the surface), but
-everything else is still a hardcoded constant with no way for a host to intervene:
+**Gap:** `ChartView`'s presentation was entirely fixed. The chrome that was outright broken in dark
+mode had already been fixed (grid lines, heatmap cell borders and labels from the `ColorScheme`, and
+a sequential ramp that inverts so higher values stay brighter than the surface), but everything else
+was a hardcoded constant with no way for a host to intervene: `_kSeriesColors`, `_kChartHeight`, the
+bubble radius range, the histogram's bucket count, a white-on-slice pie label, and `USpecParser`'s
+English `'Series'` / `'Pie'` fallback names, which 2.3 deferred here because a parser has no
+`BuildContext`. And charts carried **no `Semantics` at all** — to a screen reader a `ChartView` was
+an empty box.
 
-- `_kSeriesColors` — a fixed six-color categorical palette, so charts can't follow an app's brand.
-- `_kChartHeight` (220), the bubble radius range, and the histogram's 10-bucket count.
-- `PieChartSectionData.titleStyle` is hardcoded white-on-slice.
-- The `'Series'` / `'Pie'` fallback names `USpecParser` assigns to `USeries.name`
-  (`lib/src/chart/uspec.dart`) are hardcoded English. `'Series'` reaches the screen as a heatmap row
-  label. Left out of 2.3 because they are parser defaults with no `BuildContext` — resolving them
-  means deferring the fallback to render time, where `AITranslations.of` is available.
-- Charts carry **no `Semantics` at all**: to a screen reader a `ChartView` is an empty box. Even a
-  summary label ("bar chart, Messages per day, 5 categories, values 8 to 24") would be a large
-  improvement, and the data for it is all sitting in the `USpec`.
+**Shipped API.** A package-level theme, because there was nothing to hang a chart theme on: no
+`ThemeExtension` and no `InheritedWidget` existed here outside 2.3's translations scope.
 
-**Proposed work:** a `ChartTheme`-style object carrying the palette, height, and sizing constants,
-plus a `Semantics` wrapper deriving a summary from the `USpec`. 2.3 settled the shape to mirror: an
-abstract class with a `const` constructor, a concrete default holding today's values, and an
-`InheritedWidget` scope read through a static `of(context)` that falls back to that default rather
-than asserting — see `lib/src/localization/ai_translations.dart`. Unlike translations, a theme has a
-real case for a per-widget constructor parameter too, since a host may want one chart styled
-differently from the rest.
-Consider `USpecKind`-aware summaries and per-series labels.
+- `lib/src/theme/ai_theme.dart` — `AITheme`, a `ThemeExtension` a host registers on
+  `ThemeData.extensions`, read through a never-throwing `AITheme.of`.
+- `lib/src/theme/components/chart_theme.dart` — `ChartThemeData` (thirteen nullable fields:
+  `seriesColors`, `height`, `scatterRadius`, `bubbleMinRadius`/`bubbleMaxRadius`,
+  `histogramBinCount`, `axisLabelStyle`, `pieLabelStyle`, `titleTextStyle`, `gridLineColor`, and the
+  three `heatmap*Color` ramp stops) plus `ChartTheme`, an `InheritedTheme` whose `of` merges a
+  subtree's overrides over `AITheme`'s. `kDefaultChartSeriesColors` is the old six-color palette,
+  exported so a host can extend rather than replace it.
+- `ChartView.theme` / `HeatmapChartView.theme` override it for one chart. The three compose, most
+  specific first, and `lib/src/chart/resolved_chart_theme.dart` (unexported) fills in every default
+  in one place.
+- `ChartView.semanticsLabel`, `ChartSemantics.fromSpec`, and two new `AITranslations` members —
+  `unnamedChartSeries` and `chartSemanticsLabel(ChartSemantics)`.
 
-- **Files:** `lib/src/chart/chart_view.dart`, `lib/src/chart/heatmap_chart_view.dart`; new theme
-  class.
-- **Acceptance:** a host palette overrides the series colors; a chart exposes a non-empty semantic
-  label under `SemanticsTester`; goldens regenerated.
+**Every field nullable, defaults resolved in `build`.** An unset field means "derive it from the
+ambient `ThemeData`", so a host overriding the palette leaves the grid line, the axis labels and the
+heatmap ramp following the app in both brightnesses. This is the shape `stream_core_flutter`'s
+`StreamTheme` uses (`<Component>ThemeData` + an `InheritedTheme` + defaults in the widget), which is
+what a host of both SDKs will expect.
+
+**Divergences from that reference, and from what this item originally sketched:**
+
+- **Not the translations shape.** 2.3's draft of this item said to mirror `AITranslations` — an
+  abstract class with a concrete default subclass. Only the `of`-falls-back-to-a-default third
+  carried over. Translations are *behaviour you subclass*; a theme is *data that interpolates*, so
+  `ChartThemeData` is a concrete value class with `lerp`, reached through a `ThemeExtension` so it
+  composes with Material and animates across a light/dark switch.
+- **`AITheme` carries no brightness, color scheme, typography or token layer.** `stream_core_flutter`
+  needs those because it *is* a design system; every widget here already resolves from the ambient
+  `ColorScheme`, and a second brightness would be a second source of truth able to disagree with
+  `Theme.of`. So there are no `.light()`/`.dark()` factories either — one instance covers both.
+- **Hand-written `copyWith`/`merge`/`lerp`/`==`, not `theme_extensions_builder`.** One component
+  theme does not justify a codegen dependency in a package whose premise is a short dependency list.
+  Revisit if 2.5 brings the count to six.
+- **No `BuildContext` extension getters.** `stream_core_flutter` has `context.streamAvatarTheme` and
+  friends, but its names are all `Stream`-prefixed; unprefixed getters on `BuildContext` would leak
+  into every host file that imports this barrel. `ChartTheme.of(context)` is the whole API.
+
+**`lerp` swaps unset fields rather than interpolating them** (the detail to re-read before
+"simplifying" it). `null` means "derive from the theme", not "transparent" and not "zero":
+`Color.lerp(null, c, t)` fades in from transparent and would make a grid line vanish halfway through
+a light/dark transition, `lerpDouble(null, 220, t)` reads the null as 0 and would grow a chart up
+from nothing, and `TextStyle.lerp` with a null side fades colors out of transparent. So a field set
+on only one side snaps at `t == 0.5`, which lands at the right value at both ends. Palettes of
+different lengths interpolate by *wrapping* the shorter one, the same way it is cycled at paint time,
+so no series loses its color mid-animation.
+
+**No new parameter on `AIMarkdownBody` or `StreamingMessageView`,** and so nothing added to
+`_fenceWidgetCache`'s key or to `didUpdateWidget`. Both lookups reach a chart through its own
+`BuildContext`, and the inherited-dependency mechanism marks the cached element dirty on a change
+regardless of widget identity — the same call 2.3 made for translations, asserted the same way in
+`ai_markdown_body_test.dart` ("a chart theme reaches a cached fence": one identical widget instance,
+two palettes). A `chartTheme` constructor argument left out of that global key would instead let two
+differently-themed bodies share one palette.
+
+**Accessibility: one node, and it excludes its subtree.** `Semantics(container: true,
+excludeSemantics: true, label: …)`. `container` is load-bearing — without it the annotation is not a
+semantic boundary and the label gets merged into an ancestor or dropped. Excluding is the judgement
+call: `fl_chart` contributes nothing, but the axis tick labels and a heatmap's row, column and legend
+labels *are* real `Text` widgets, and letting a reader walk them yields a run of bare numbers with
+nothing saying which axis they belong to. The summary already carries the range, the counts and the
+axis names. A host can only undo this by passing `semanticsLabel: ''` and wrapping the chart itself.
+
+The summary is split in two so only the half that needs translating is translatable:
+`ChartSemantics.fromSpec` gathers the facts (and formats the numbers for speech — `10.0` reads as
+"10"), `AITranslations.chartSemanticsLabel` composes the sentence. That is one method rather than a
+dozen phrase-sized ones because a whole sentence's word order varies far more between languages than
+a tooltip's does. Sentences are `USpecKind`-aware; the heatmap's omits the series clause, since its
+series *are* the rows it already counts. Per-point or per-series child nodes were not built — there
+is no geometry to attach them to in a canvas-painted chart, and the summary is the large win.
+
+This is also the first thing in the package to read `USpec.xLabel` / `USpec.yLabel`, which the
+parsers had been filling in for nobody.
+
+**Pie labels changed appearance.** White-on-slice is a contrast bug the moment a host supplies a pale
+color, so the label now picks black or white per slice via
+`ThemeData.estimateBrightnessForColor`. Under the shipped palette that flips every default pie label
+from white to dark — a deliberate behaviour change, recorded in the CHANGELOG. The committed CI
+goldens don't move: alchemist blocks `fl_chart`'s canvas-painted slice titles with an opaque paint
+that ignores the text color.
+
+**The parser's fallback names** are gone: `USpecParser` now leaves an unnamed series' `name` empty
+and the render side substitutes `AITranslations.unnamedChartSeries`. The `'Pie'` variant was dropped
+rather than given its own translation — a pie's slices are labelled from `UPoint.x` and its summary
+has no series clause, so that string reached the screen nowhere.
+
+**Left as private constants,** deliberately, and said so in `ChartThemeData`'s doc so the omissions
+don't read as oversights: the area fill opacity, the bar rod width and spacing, the pie radius and
+slice gap, the grid stroke width, the plot padding, and the axis gutter sizes — those last because
+they exist only to match the `reservedSize` values handed to `fl_chart`, so making one themeable
+without the other would silently stop a heatmap lining up with the bar chart above it. One known
+consequence: `height` is settable while the pie's radius is not, so a much taller chart leaves the
+pie undersized.
+
+- **Files:** new `lib/src/theme/ai_theme.dart`, `lib/src/theme/components/chart_theme.dart`,
+  `lib/src/chart/resolved_chart_theme.dart`, `lib/src/chart/chart_semantics.dart`;
+  `lib/src/chart/chart_view.dart`, `lib/src/chart/heatmap_chart_view.dart`,
+  `lib/src/chart/uspec.dart`, `lib/src/localization/ai_translations.dart`, the barrel; new
+  `test/src/theme/ai_theme_test.dart`, `test/src/theme/chart_theme_test.dart`,
+  `test/src/chart/chart_semantics_test.dart`, plus cases in `chart_view_test.dart`,
+  `uspec_test.dart` and `ai_markdown_body_test.dart`; `example/lib/main.dart` (a brand palette, and
+  pie and heatmap fences so the label contrast and the row-name fallback are visible); README.
+- **Acceptance:** met — a host palette reaches `LineChartBarData.color`, `BarChartRodData.color` and
+  `PieChartSectionData.color`; each kind exposes its summary under `tester.getSemantics`; all ten
+  committed CI goldens are unchanged, defaults having been preserved verbatim.
+- **Effort:** M, as estimated.
+
+### 2.5 Theming for the remaining components
+
+**Gap:** 2.4 built the `AITheme` machinery but gave it one component. Every other widget still
+resolves its colors straight from the ambient `ColorScheme` with no seam for a host to intervene:
+
+| Surface | Where |
+|---|---|
+| Input pill fill/border, hint color, selected-option chip, send/stop/mic colors | `chat_composer.dart` |
+| The leading "+" button | `chat_composer_factory.dart` |
+| Suggestion chip fill/border/text | `suggestions_view.dart` |
+| Sheet tiles, the photo-grid selection ring | `composer_attachment_sheet.dart` |
+| Dot color, count and size | `ai_typing_indicator_view.dart` (already constructor parameters) |
+| Code block background/foreground | `code_block_view.dart` (already constructor parameters, and deliberately theme-independent — code reads as code) |
+
+Swift's equivalent is its `Colors` struct, whose sub-structs are `composer` (`attachmentButtonIcon`,
+`selectedOptionForeground`), `suggestions` (`background`) and `transcription` (`icon`) — a much
+smaller surface than the list above, and injected per view rather than through a theme.
+
+**Proposed work:** a `ChartThemeData`-shaped sibling per component — all-nullable fields, defaults
+resolved in the widget's `build`, an `InheritedTheme` for subtree overrides, a new field on
+`AITheme` — taking the composer and suggestions first, since those are what Swift covers. Whether
+`CodeBlockView`'s two colors move onto the theme is a real question: they are deliberately
+independent of the ambient `Theme`, and a `codeTheme` that a `ThemeData` change could reach would
+undo that on purpose.
+
+- **Reconsider then:** at five or six component themes the hand-written
+  `copyWith`/`merge`/`lerp`/`==` stops being cheaper than `theme_extensions_builder`, which is what
+  `stream_core_flutter` uses. Also a `BuildContext` extension, which 2.4 skipped because unprefixed
+  getters would leak into a host's namespace for the sake of one component.
+- **Acceptance:** a host theme overrides the composer and suggestion colors; existing appearance is
+  unchanged with no theme registered; goldens re-baked on CI for whatever does move.
 - **Effort:** M.
 
 ---

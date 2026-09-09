@@ -9,6 +9,23 @@ import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
 
 void main() => runApp(const ExampleApp());
 
+/// Charts follow the host app rather than the package's own constants.
+///
+/// One instance covers light and dark: everything this leaves unset — the grid
+/// line, the axis labels, the heatmap ramp — still derives from the ambient
+/// `ColorScheme`. Delete the `extensions:` lines below to get the defaults back.
+const _chartTheme = ChartThemeData(seriesColors: _brandChartPalette);
+
+/// A six-hue palette seeded on the same blue as the color scheme.
+const _brandChartPalette = [
+  Color(0xFF005FFF),
+  Color(0xFF00C1FF),
+  Color(0xFF7A5CFF),
+  Color(0xFF00D4A0),
+  Color(0xFFFFB000),
+  Color(0xFFFF5A5F),
+];
+
 class ExampleApp extends StatelessWidget {
   const ExampleApp({super.key});
 
@@ -19,10 +36,12 @@ class ExampleApp extends StatelessWidget {
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.light,
+        extensions: const [AITheme(chartTheme: _chartTheme)],
       ),
       darkTheme: ThemeData(
         colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.dark,
+        extensions: const [AITheme(chartTheme: _chartTheme)],
       ),
       home: const AssistantScreen(),
     );
@@ -98,6 +117,57 @@ Inline like \(e^{i\pi} + 1 = 0\), or as its own block:
         {"x": "Wed", "y": 8},
         {"x": "Thu", "y": 24},
         {"x": "Fri", "y": 17}
+      ]
+    }
+  ]
+}
+```
+
+A pie, where each slice's label picks black or white for contrast — note the
+amber slice:
+
+```chart
+{
+  "kind": "pie",
+  "title": "Where the time went",
+  "series": [
+    {
+      "name": "Share",
+      "points": [
+        {"x": "Writing", "y": 42},
+        {"x": "Reviewing", "y": 28},
+        {"x": "Meetings", "y": 18},
+        {"x": "Waiting on CI", "y": 12}
+      ]
+    }
+  ]
+}
+```
+
+And a heatmap, whose ramp inverts between light and dark so the busiest cells
+stay the brightest:
+
+```chart
+{
+  "kind": "heatmap",
+  "title": "Messages by hour",
+  "series": [
+    {
+      "name": "Mon",
+      "points": [
+        {"x": "9", "y": 0, "z": 3},
+        {"x": "12", "y": 0, "z": 9},
+        {"x": "15", "y": 0, "z": 6},
+        {"x": "18", "y": 0, "z": 2}
+      ]
+    },
+    {
+      "name": "Tue",
+      "points": [
+        {"x": "9", "y": 0, "z": 5},
+        {"x": "12", "y": 0, "z": 14},
+        {"x": "15", "y": 0, "z": 11},
+        {"x": "18", "y": 0, "z": 4}
       ]
     }
   ]
