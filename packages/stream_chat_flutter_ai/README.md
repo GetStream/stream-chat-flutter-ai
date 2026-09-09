@@ -184,24 +184,32 @@ if (spec != null) ChartView(spec: spec);
 
 A message composer designed for AI-powered conversations. Features:
 
-- **Suggestion chips** (`ChatOption`) shown above the input when no option is selected.
+- An **attachment sheet** on the leading "+" button — camera, recent photos, the full photo
+  library, and the controller's `ChatOption`s listed alongside them.
 - An **inline selected-option badge** (with dismiss button) inside the input box.
 - A **send / stop toggle** — the send button (↑) becomes a stop button (⏹) while the
   AI is generating a response.
 - An optional **voice / send toggle** (`enableSpeechToText: true`) — a single control that
   shows a microphone while the field is empty and swaps to send as soon as you type.
-- Factory-based slot customisation via `ChatComposerFactory`.
+- Factory-based slot customisation via `ChatComposerFactory` — leading, trailing, the input
+  field, and the attachment sheet.
 
 ```dart
 ChatComposer(
   controller: controller,
   enableSpeechToText: true, // requires the platform permissions documented below
-  onSendPressed: (text, selectedOption) async {
-    await myBackend.sendMessage(text);
+  onSendPressed: (text, selectedOption, attachments) async {
+    await myBackend.sendMessage(text, attachments);
   },
   onStopPressed: () => myBackend.stopGenerating(),
 );
 ```
+
+`onSendPressed` may return a `Future` — a send is usually a network call. The composer does not
+wait for it: the field is cleared **as soon as the callback is invoked**, not when it completes, so
+the composer never sits unresponsive for a round trip. A host whose send can fail owns surfacing
+that and re-seeding the composer; a rejected future is at least reported through
+`FlutterError.onError` rather than lost as an unhandled asynchronous error.
 
 ### `ChatComposerController`
 
@@ -224,14 +232,41 @@ controller.isGenerating = false;
 
 ### `ChatComposerFactory`
 
-Subclass to override the leading and/or trailing regions of the composer — for slots other
-than the send button itself (e.g. an attachment picker):
+Subclass to override any of the composer's four slots. Each slot receives a props object — a
+`ChatComposerSlotProps` subclass — rather than a bare controller, which is what lets a slot be
+handed values `ChatComposer` itself owns:
+
+| Slot | Props | Default | Returns |
+|---|---|---|---|
+| `buildLeading` | `ChatComposerLeadingProps` | outlined circular "+" button | `Widget?` — `null` hides it |
+| `buildTrailing` | `ChatComposerTrailingProps` | `null` (nothing) | `Widget?` — `null` hides it |
+| `buildInput` | `ChatComposerInputProps` | `ChatComposerInput` | `Widget` |
+| `buildAttachmentSheet` | `ChatComposerAttachmentSheetProps` | `ComposerAttachmentSheet` | `Widget` |
 
 ```dart
 class MyComposerFactory extends ChatComposerFactory {
+  // Replace the leading "+" button.
   @override
-  Widget buildLeading(BuildContext context, ChatComposerController controller) {
+  Widget? buildLeading(BuildContext context, ChatComposerLeadingProps props) {
     return IconButton(icon: const Icon(Icons.attach_file), onPressed: () { ... });
+  }
+
+  // Keep the default input pill, but decorate around it.
+  @override
+  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: ChatComposerInput(props: props),
+    );
+  }
+
+  // Swap the contents of the sheet the leading button opens. Presentation
+  // (`showModalBottomSheet`, drag handle) stays with the button, so don't draw
+  // a drag handle of your own — override `buildLeading` to change how the
+  // sheet is presented, or whether it is at all.
+  @override
+  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) {
+    return MyPicker(controller: props.controller);
   }
 }
 
@@ -240,6 +275,53 @@ ChatComposer(
   factory: MyComposerFactory(),
   ...
 );
+```
+
+Only `buildInput`'s result is rebuilt by the composer. `buildAttachmentSheet` runs inside a modal
+route, outside that rebuild — a replacement sheet rendering controller state (a selection count,
+tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
+`ComposerAttachmentSheet` does.
+
+To replace the input field outright rather than decorate it, build from `props`:
+`props.onSend` and `props.onStop` are the only route to `ChatComposer.onSendPressed` /
+`onStopPressed` — `onSend` also clears the controller and returns focus to `props.focusNode`
+afterwards, so calling it beats reimplementing the send path. `props.onStop` is `null` when the
+host passed no `onStopPressed`, so a custom input can hide its stop control instead of offering a
+dead one.
+
+```dart
+class MyInputFactory extends ChatComposerFactory {
+  @override
+  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: props.controller.textEditingController,
+            focusNode: props.focusNode,
+            decoration: InputDecoration(hintText: props.hintText),
+          ),
+        ),
+        IconButton(icon: const Icon(Icons.send), onPressed: props.onSend),
+      ],
+    );
+  }
+}
+```
+
+`buildInput`'s result is placed in an `Expanded` by the composer, so don't return an `Expanded`
+yourself (a debug assert catches it). Unlike the leading and trailing slots it is non-nullable —
+there is no layout for "no input field"; return `const SizedBox.shrink()` if you really want an
+empty one.
+
+To change one value and keep everything else the host configured, use `props.copyWith` rather than
+re-listing the fields — a field you forget silently reverts to its default:
+
+```dart
+@override
+Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+  return ChatComposerInput(props: props.copyWith(hintText: 'Ask the docs…'));
+}
 ```
 
 ---
@@ -361,7 +443,7 @@ Send the composer's text as a new message:
 ```dart
 ChatComposer(
   controller: controller,
-  onSendPressed: (text, selectedOption) => channel.sendMessage(Message(text: text)),
+  onSendPressed: (text, selectedOption, attachments) => channel.sendMessage(Message(text: text)),
   onStopPressed: () => channel.stopAIResponse(),
 );
 ```

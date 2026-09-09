@@ -1,12 +1,14 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
-import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
+// Here for the [SpeechToTextButton] doc link on `enableSpeechToText` only;
+// nothing in this file's code uses it.
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 
@@ -15,12 +17,30 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 /// [text] is the current message text. [selectedOption] is the active
 /// [ChatOption], or `null` if the user did not select one. [attachments] is
 /// the list of images the user picked via the composer's attachment button.
+///
+/// Returning a [Future] is supported and expected — a send is usually a
+/// network call. The composer does not wait for it before clearing the field
+/// (see [ChatComposerInputProps.onSend]), but it does watch it: a rejected
+/// future is reported through [FlutterError.onError] instead of being
+/// swallowed as an unhandled asynchronous error.
 typedef ChatComposerSendCallback =
-    void Function(
+    FutureOr<void> Function(
       String text,
       ChatOption? selectedOption,
       List<XFile> attachments,
     );
+
+/// Marks the 8px gaps the composer inserts between a rendered leading or
+/// trailing slot and the input container.
+///
+/// Keyed only so the gap-handling regression tests can identify exactly these
+/// spacers, and which side each belongs to. Matching on width alone also
+/// catches the attachment thumbnails' own 8px separator, which would quietly
+/// turn those tests into a measurement of something else the first time one
+/// rendered an attachment. Two keys rather than one because siblings in a
+/// single [Row] may not share a key.
+const _leadingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.leading');
+const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing');
 
 /// An AI-aware message composer.
 ///
@@ -29,13 +49,17 @@ typedef ChatComposerSendCallback =
 ///   box once a [ChatOption] is selected — see `ComposerAttachmentSheet`,
 ///   which lists [ChatComposerController.chatOptions] alongside the photo
 ///   picker, opened from the composer's leading "+" button by default.
-/// - A row of image thumbnails above the input when the user has picked
-///   attachments (see [ChatComposerFactory.buildLeading]).
+/// - A row of image thumbnails inside the input box, above the text field,
+///   once the user has picked attachments — through the leading "+" button by
+///   default (see [ChatComposerFactory.buildLeading]).
 /// - A single circular trailing control that morphs between voice input
 ///   (empty field), send (field has content), and stop (while
 ///   [ChatComposerController.isGenerating] is `true`).
 ///
-/// All layout regions are customisable via [ChatComposerFactory].
+/// The chip, the thumbnails and the trailing control all live in
+/// [ChatComposerInput], the default occupant of the input slot.
+///
+/// All four regions are customisable via [ChatComposerFactory].
 ///
 /// Example:
 /// ```dart
@@ -62,7 +86,8 @@ class ChatComposer extends StatefulWidget {
     this.textInputAction = TextInputAction.newline,
     this.enableSpeechToText = false,
     this.speechToTextConfig = const SpeechToTextConfig(),
-  });
+  }) : assert(minLines >= 1, 'minLines must be at least 1'),
+       assert(maxLines >= minLines, "maxLines can't be less than minLines");
 
   /// The controller that manages input text, chat options, attachments, and
   /// generating state.
@@ -77,7 +102,8 @@ class ChatComposer extends StatefulWidget {
   /// Called when the user taps the stop button while the AI is generating.
   final VoidCallback? onStopPressed;
 
-  /// Factory used to build the leading and trailing slots.
+  /// Factory used to build the composer's slots — leading, trailing, the
+  /// input field, and the attachment sheet the default leading button opens.
   final ChatComposerFactory factory;
 
   /// Focus node for the text field.
@@ -209,17 +235,65 @@ class _ChatComposerState extends State<ChatComposer> {
   }
 
   void _onSend() {
+    // Handed to arbitrary host code through `ChatComposerInputProps.onSend`,
+    // which a custom input may call across an async gap (a confirm dialog, a
+    // debounce) long after the composer left the tree. Clearing a disposed
+    // controller only asserts in debug, so without this the same call sends a
+    // message from a screen the user has already navigated away from and then
+    // fails silently in release.
+    if (!mounted) {
+      assert(
+        false,
+        'ChatComposerInputProps.onSend was called after the ChatComposer was '
+        'disposed. A custom buildInput must not call it across an async gap '
+        'without checking that its own State is still mounted.',
+      );
+      return;
+    }
     if (!_controller.hasContent) return;
-    widget.onSendPressed(
+    final send = widget.onSendPressed(
       _controller.text,
       _controller.selectedChatOption,
       _controller.attachments,
     );
+    // Optimistic, and documented as such on `ChatComposerInputProps.onSend`:
+    // the field empties on invocation, not on completion. Awaiting first would
+    // leave the composer looking unresponsive for the length of a round trip.
     _controller.clear();
     _focusNode.requestFocus();
+    if (send is Future<void>) unawaited(_reportSendFailure(send));
+  }
+
+  /// Surfaces a rejected [ChatComposer.onSendPressed] future.
+  ///
+  /// Reported rather than rethrown: the message has already been handed off
+  /// and the composer has no way to recover it. Without this the rejection
+  /// reaches the enclosing [Zone] as an unhandled asynchronous error — one
+  /// console line in debug, nothing at all in release.
+  Future<void> _reportSendFailure(Future<void> send) async {
+    try {
+      await send;
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while sending a composer message'),
+        ),
+      );
+    }
   }
 
   void _onStop() {
+    if (!mounted) {
+      assert(
+        false,
+        'ChatComposerInputProps.onStop was called after the ChatComposer was '
+        'disposed.',
+      );
+      return;
+    }
     widget.onStopPressed?.call();
   }
 
@@ -228,8 +302,42 @@ class _ChatComposerState extends State<ChatComposer> {
     return ListenableBuilder(
       listenable: _listenable,
       builder: (context, _) {
-        final leading = widget.factory.buildLeading(context, _controller);
-        final trailing = widget.factory.buildTrailing(context, _controller);
+        final leading = widget.factory.buildLeading(
+          context,
+          ChatComposerLeadingProps(controller: _controller),
+        );
+        final trailing = widget.factory.buildTrailing(
+          context,
+          ChatComposerTrailingProps(controller: _controller),
+        );
+        final input = widget.factory.buildInput(
+          context,
+          ChatComposerInputProps(
+            controller: _controller,
+            focusNode: _focusNode,
+            hintText: widget.hintText ?? ChatComposerInputProps.defaultHintText,
+            minLines: widget.minLines,
+            maxLines: widget.maxLines,
+            textInputAction: widget.textInputAction,
+            enableSpeechToText: widget.enableSpeechToText,
+            speechToTextConfig: widget.speechToTextConfig,
+            onSend: _onSend,
+            // `null`, not a callback that quietly does nothing, so a custom
+            // input can tell that stopping is unsupported and hide its own
+            // stop affordance.
+            onStop: widget.onStopPressed == null ? null : _onStop,
+          ),
+        );
+
+        // The layout contract `buildInput`'s dartdoc states, enforced: an
+        // `Expanded` returned here lands inside the one below, which throws
+        // from a debug-only `ParentDataWidget` assert and mis-applies parent
+        // data in release.
+        assert(
+          input is! Expanded && input is! Flexible,
+          'ChatComposerFactory.buildInput must not return an Expanded or '
+          'Flexible — ChatComposer already wraps the result in one.',
+        );
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -247,410 +355,15 @@ class _ChatComposerState extends State<ChatComposer> {
                 // pill's height rather than flush to its bottom edge.
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (leading != null) ...[leading, const SizedBox(width: 8)],
-                  Expanded(
-                    child: _InputContainer(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      hintText: widget.hintText,
-                      minLines: widget.minLines,
-                      maxLines: widget.maxLines,
-                      textInputAction: widget.textInputAction,
-                      enableSpeechToText: widget.enableSpeechToText,
-                      speechToTextConfig: widget.speechToTextConfig,
-                      onSend: _onSend,
-                      onStop: _onStop,
-                    ),
-                  ),
-                  if (trailing != null) ...[const SizedBox(width: 8), trailing],
+                  if (leading != null) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
+                  Expanded(child: input),
+                  if (trailing != null) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
                 ],
               ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Input container
-// ---------------------------------------------------------------------------
-
-class _InputContainer extends StatelessWidget {
-  const _InputContainer({
-    required this.controller,
-    required this.focusNode,
-    required this.onSend,
-    required this.onStop,
-    this.hintText,
-    this.minLines = 1,
-    this.maxLines = 8,
-    this.textInputAction = TextInputAction.newline,
-    this.enableSpeechToText = false,
-    this.speechToTextConfig = const SpeechToTextConfig(),
-  });
-
-  final ChatComposerController controller;
-  final FocusNode focusNode;
-  final VoidCallback onSend;
-  final VoidCallback onStop;
-  final String? hintText;
-  final int minLines;
-  final int maxLines;
-  final TextInputAction textInputAction;
-  final bool enableSpeechToText;
-  final SpeechToTextConfig speechToTextConfig;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = colorScheme.outlineVariant;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (controller.selectedChatOption != null)
-            _SelectedOptionChip(
-              option: controller.selectedChatOption!,
-              onDismiss: controller.clearSelectedChatOption,
-            ),
-          if (controller.attachments.isNotEmpty)
-            _AttachmentThumbnails(
-              attachments: controller.attachments,
-              onRemove: controller.removeAttachment,
-            ),
-          Row(
-            // Centered so the trailing mic/send/stop circle sits evenly
-            // inset within the pill instead of flush to one edge — see the
-            // comment on the outer Row in `_ChatComposerState.build`.
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller.textEditingController,
-                  focusNode: focusNode,
-                  minLines: minLines,
-                  maxLines: maxLines,
-                  textInputAction: textInputAction,
-                  decoration: InputDecoration(
-                    hintText: hintText ?? 'Ask anything…',
-                    hintStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.6,
-                      ),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-                  ),
-                  onSubmitted: (_) {
-                    if (textInputAction == TextInputAction.send) onSend();
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-                  child: _TrailingControl(
-                    key: ValueKey(
-                      _trailingState(controller, enableSpeechToText),
-                    ),
-                    controller: controller,
-                    onSend: onSend,
-                    onStop: onStop,
-                    enableSpeechToText: enableSpeechToText,
-                    speechToTextConfig: speechToTextConfig,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Identifies which of the trailing control's states is currently active, so
-/// [AnimatedSwitcher] can key on it and animate transitions between them.
-String _trailingState(
-  ChatComposerController controller,
-  bool enableSpeechToText,
-) {
-  if (controller.isGenerating) return 'stop';
-  // Ahead of the content check: dictation puts its first recognised word in the
-  // field, and morphing to send there took away the only control that could
-  // stop the session.
-  if (enableSpeechToText && SpeechToTextController.instance.isListening) return 'mic';
-  if (controller.hasContent) return 'send';
-  if (enableSpeechToText) return 'mic';
-  return 'send-disabled';
-}
-
-// ---------------------------------------------------------------------------
-// Trailing control (mic / send / stop — one morphing button)
-// ---------------------------------------------------------------------------
-
-class _TrailingControl extends StatelessWidget {
-  const _TrailingControl({
-    super.key,
-    required this.controller,
-    required this.onSend,
-    required this.onStop,
-    required this.enableSpeechToText,
-    required this.speechToTextConfig,
-  });
-
-  final ChatComposerController controller;
-  final VoidCallback onSend;
-  final VoidCallback onStop;
-  final bool enableSpeechToText;
-  final SpeechToTextConfig speechToTextConfig;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    if (controller.isGenerating) {
-      return ComposerActionButton(
-        icon: Icons.stop_rounded,
-        onPressed: onStop,
-        tooltip: 'Stop generating',
-        color: colorScheme.error,
-      );
-    }
-
-    // Checked before `hasContent` — see `_trailingState`, which keys the
-    // AnimatedSwitcher on the same ordering.
-    if (enableSpeechToText && (SpeechToTextController.instance.isListening || !controller.hasContent)) {
-      return SpeechToTextButton(controller: controller, config: speechToTextConfig);
-    }
-
-    if (controller.hasContent) {
-      return ComposerActionButton(
-        icon: Icons.arrow_upward_rounded,
-        onPressed: onSend,
-        tooltip: 'Send',
-        color: colorScheme.primary,
-      );
-    }
-
-    return ComposerActionButton(
-      icon: Icons.arrow_upward_rounded,
-      onPressed: null,
-      tooltip: 'Send',
-      color: colorScheme.primary,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Attachment thumbnails
-// ---------------------------------------------------------------------------
-
-class _AttachmentThumbnails extends StatelessWidget {
-  const _AttachmentThumbnails({
-    required this.attachments,
-    required this.onRemove,
-  });
-
-  final List<XFile> attachments;
-  final ValueChanged<XFile> onRemove;
-
-  static const double _size = 64;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SizedBox(
-        height: _size,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: attachments.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            final file = attachments[index];
-            return _AttachmentThumbnail(
-              key: ValueKey(file.path),
-              file: file,
-              onRemove: () => onRemove(file),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _AttachmentThumbnail extends StatefulWidget {
-  const _AttachmentThumbnail({
-    super.key,
-    required this.file,
-    required this.onRemove,
-  });
-
-  final XFile file;
-  final VoidCallback onRemove;
-
-  @override
-  State<_AttachmentThumbnail> createState() => _AttachmentThumbnailState();
-}
-
-class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
-  static const double _size = 64;
-
-  /// Held in state rather than started inside `build`.
-  ///
-  /// The controller notifies on every keystroke, so a future created in `build`
-  /// meant re-reading every attachment off disk in full — and re-decoding it —
-  /// for each character the user typed.
-  late Future<Uint8List> _bytes;
-
-  @override
-  void initState() {
-    super.initState();
-    _bytes = widget.file.readAsBytes();
-  }
-
-  @override
-  void didUpdateWidget(covariant _AttachmentThumbnail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.file.path != oldWidget.file.path) _bytes = widget.file.readAsBytes();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Decode at thumbnail resolution instead of full camera resolution.
-    final cacheWidth = (_size * MediaQuery.devicePixelRatioOf(context)).round();
-
-    return SizedBox(
-      width: _size,
-      height: _size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: _size,
-              height: _size,
-              child: FutureBuilder<Uint8List>(
-                future: _bytes,
-                builder: (context, snapshot) {
-                  final bytes = snapshot.data;
-                  if (bytes == null) {
-                    return ColoredBox(color: colorScheme.surface);
-                  }
-                  return Image.memory(bytes, fit: BoxFit.cover, cacheWidth: cacheWidth);
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            top: -6,
-            right: -6,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              // The Material sits *above* the fill so the ink splash is
-              // visible — an InkWell wrapped around an opaque decoration
-              // paints its ripple behind it, leaving the tap with no feedback.
-              child: Material(
-                type: MaterialType.transparency,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: widget.onRemove,
-                  child: Tooltip(
-                    message: 'Remove attachment',
-                    child: Icon(
-                      Icons.close,
-                      size: 14,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Selected option chip (inline in input box)
-// ---------------------------------------------------------------------------
-
-class _SelectedOptionChip extends StatelessWidget {
-  const _SelectedOptionChip({required this.option, required this.onDismiss});
-
-  final ChatOption option;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (option.icon != null) ...[
-                  Icon(option.icon, size: 18, color: colorScheme.onPrimaryContainer),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  option.text,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Material(
-                  type: MaterialType.transparency,
-                  shape: const CircleBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: onDismiss,
-                    child: Tooltip(
-                      message: 'Clear ${option.text}',
-                      child: Icon(Icons.close, size: 18, color: colorScheme.onPrimaryContainer),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

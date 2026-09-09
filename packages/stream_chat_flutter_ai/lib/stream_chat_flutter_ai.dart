@@ -20,6 +20,8 @@ export 'src/code_block_view.dart';
 export 'src/composer/chat_composer.dart';
 export 'src/composer/chat_composer_controller.dart';
 export 'src/composer/chat_composer_factory.dart';
+export 'src/composer/chat_composer_input.dart';
+export 'src/composer/chat_composer_props.dart';
 export 'src/composer/chat_option.dart';
 export 'src/composer/composer_action_button.dart';
 export 'src/composer/composer_attachment_sheet.dart';
