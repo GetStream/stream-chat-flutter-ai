@@ -19,6 +19,11 @@ dependencies:
   # don't render math don't pay for one. Supplying it here is what makes
   # `StreamingMessageView.mathBuilder` able to typeset.
   flutter_math_fork: ^0.7.4
+  # Likewise: the package recognises code fences but ships no grammars, because
+  # they are several times its own size. Supplying them here is what makes
+  # `StreamingMessageView.codeHighlighter` able to colorize. See
+  # `lib/code_highlighter.dart`.
+  re_highlight: ^0.0.3
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace, so it needs no update when the package version is bumped.
   stream_chat_flutter_ai: any

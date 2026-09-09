@@ -4,32 +4,50 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:re_highlight/re_highlight.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
-import 'package:stream_chat_flutter_ai/src/highlight/code_languages.dart';
 
 /// A short Dart snippet with a keyword, a string, a comment and a number, so
-/// any reasonable grammar has to emit several distinct scopes for it.
+/// any highlighter has to emit several distinct runs for it.
 const _dartSnippet = '''
 // Greets the world.
-void main() {
+void greet() {
   const times = 3;
-  print('hello' * times);
+  const message = 'hello';
 }''';
 
-/// A language name registered only for the duration of a test, for a grammar
-/// built to fail part-way through its input.
-const _bombLanguage = 'bomb';
+/// The color [_wordHighlighter] paints word runs.
+const _tokenColor = Color(0xFFFF0000);
 
-/// A grammar that throws part-way through its input, for the safe-mode path.
+/// A stand-in [CodeHighlighter]: colors every run of word characters and leaves
+/// the punctuation between them to inherit.
 ///
-/// `re_highlight` swallows the throw and hands back a `HighlightResult` holding
-/// only the tokens parsed before it, so this is what a real grammar bug looks
-/// like to `CodeBlockView`.
-Mode _bombGrammar() => Mode(
-  name: _bombLanguage,
-  contains: [Mode(begin: '"', end: '"', onBegin: (m, resp) => throw StateError('grammar blew up'))],
-);
+/// Deliberately not a real grammar — these tests are about the seam, not about
+/// anyone's tokenizer. It reproduces the two properties that matter: the text
+/// comes back intact, and more than one color is used.
+TextSpan _wordHighlighter(String code, String language, TextStyle baseStyle) {
+  final children = <TextSpan>[];
+  for (final match in RegExp(r'\w+|\W+').allMatches(code)) {
+    final text = match[0]!;
+    final isWord = RegExp(r'^\w').hasMatch(text);
+    children.add(
+      TextSpan(
+        text: text,
+        style: isWord ? const TextStyle(color: _tokenColor) : null,
+      ),
+    );
+  }
+  return TextSpan(style: baseStyle, children: children);
+}
+
+/// Records every call, so a test can assert the highlighter was *not* reached.
+class _RecordingHighlighter {
+  final calls = <({String code, String language})>[];
+
+  TextSpan? call(String code, String language, TextStyle baseStyle) {
+    calls.add((code: code, language: language));
+    return _wordHighlighter(code, language, baseStyle);
+  }
+}
 
 /// Runs [body] with [FlutterError.onError] collecting instead of failing, and
 /// returns what it collected.
@@ -63,7 +81,6 @@ Set<Color> _colorsOf(InlineSpan span) {
 /// The concatenated text of a span tree, so highlighting can be checked not to
 /// have dropped or reordered any of the code.
 String _textOf(InlineSpan span) => span.toPlainText(includeSemanticsLabels: false, includePlaceholders: false);
-
 void main() {
   group('CodeBlockView', () {
     /// Captures what the widget writes to the clipboard, since the real platform
@@ -184,141 +201,203 @@ void main() {
         return tester.widget<SelectableText>(find.byType(SelectableText)).textSpan;
       }
 
-      testWidgets('colors a recognised language, keeping every character', (tester) async {
+      String? plainOf(WidgetTester tester) => tester.widget<SelectableText>(find.byType(SelectableText)).data;
+
+      testWidgets('renders plain text when no highlighter is given', (tester) async {
+        // The package ships no grammars, so this is what a host gets until it
+        // supplies one.
         await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')));
+
+        expect(spanOf(tester), isNull);
+        expect(plainOf(tester), _dartSnippet);
+      });
+
+      testWidgets('renders the highlighter output, keeping every character', (tester) async {
+        await tester.pumpWidget(
+          wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', highlighter: _wordHighlighter)),
+        );
 
         final span = spanOf(tester);
         expect(span, isNotNull);
-        expect(_colorsOf(span!).length, greaterThanOrEqualTo(3));
+        expect(_colorsOf(span!), contains(_tokenColor));
         expect(_textOf(span), _dartSnippet);
       });
 
-      testWidgets('resolves language aliases', (tester) async {
-        // `js`, `py`, `yml` and `c++` are aliases the grammars declare
-        // themselves rather than entries in the curated language map, so this
-        // is really asserting that `registerLanguage` picked them up.
-        const cases = {
-          'js': "const greeting = 'hello'; // comment",
-          'py': "greeting = 'hello'  # comment",
-          'yml': 'greeting: hello # comment',
-          'c++': '// comment\nint main() { return 0; }',
-        };
+      testWidgets('passes the code and language through verbatim', (tester) async {
+        // Case folding and alias resolution are the highlighter's business, so
+        // the label must arrive exactly as the fence wrote it.
+        final highlighter = _RecordingHighlighter();
 
-        for (final entry in cases.entries) {
-          await tester.pumpWidget(wrap(CodeBlockView(code: entry.value, language: entry.key)));
+        await tester.pumpWidget(
+          wrap(CodeBlockView(code: 'var x = 1;', language: 'DarT', highlighter: highlighter.call)),
+        );
 
-          final span = spanOf(tester);
-          expect(span, isNotNull, reason: 'no span for ${entry.key}');
-          expect(_colorsOf(span!).length, greaterThan(1), reason: 'not highlighted: ${entry.key}');
-          expect(_textOf(span), entry.value, reason: 'text altered for ${entry.key}');
-        }
+        expect(highlighter.calls, [(code: 'var x = 1;', language: 'DarT')]);
       });
 
-      testWidgets('falls back to plain text for an unknown language', (tester) async {
-        // Not merely unhighlighted: `Highlight.highlight` throws on a language
-        // it has no grammar for, and models label fences with anything.
-        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'pseudocode')));
+      testWidgets('falls back to plain text when the highlighter declines', (tester) async {
+        // A null return is the documented "I don't know this one" answer.
+        await tester.pumpWidget(
+          wrap(CodeBlockView(code: _dartSnippet, language: 'pseudocode', highlighter: (_, _, _) => null)),
+        );
 
         expect(tester.takeException(), isNull);
         expect(spanOf(tester), isNull);
-        expect(tester.widget<SelectableText>(find.byType(SelectableText)).data, _dartSnippet);
+        expect(plainOf(tester), _dartSnippet);
       });
 
-      testWidgets('falls back to plain text with no language', (tester) async {
-        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet)));
+      testWidgets('does not call the highlighter without a language', (tester) async {
+        final highlighter = _RecordingHighlighter();
 
-        expect(spanOf(tester), isNull);
-        expect(tester.widget<SelectableText>(find.byType(SelectableText)).data, _dartSnippet);
+        await tester.pumpWidget(wrap(CodeBlockView(code: _dartSnippet, highlighter: highlighter.call)));
+
+        expect(highlighter.calls, isEmpty);
+        expect(plainOf(tester), _dartSnippet);
       });
 
-      testWidgets('skips highlighting past the length cap', (tester) async {
+      testWidgets('does not call the highlighter past the length cap', (tester) async {
         // Highlighting re-runs for every frame a streaming fence grows by, so
         // the cost is quadratic in the block's length; past the cap the code is
         // shown plain rather than paying it.
         final huge = '$_dartSnippet\n' * 1000;
         expect(huge.length, greaterThan(20000));
+        final highlighter = _RecordingHighlighter();
 
-        // Scrollable, as a message list would be: 5000 lines don't fit the
-        // test viewport, and an overflow here would be the harness's, not the
+        // Scrollable, as a message list would be: 5000 lines don't fit the test
+        // viewport, and an overflow here would be the harness's, not the
         // widget's.
         await tester.pumpWidget(
           wrap(
             SingleChildScrollView(
-              child: CodeBlockView(code: huge, language: 'dart'),
+              child: CodeBlockView(code: huge, language: 'dart', highlighter: highlighter.call),
+            ),
+          ),
+        );
+
+        expect(highlighter.calls, isEmpty);
+        expect(spanOf(tester), isNull);
+      });
+
+      testWidgets('re-highlights when the code changes', (tester) async {
+        await tester.pumpWidget(
+          wrap(const CodeBlockView(code: 'var x = 1;', language: 'dart', highlighter: _wordHighlighter)),
+        );
+        expect(_textOf(spanOf(tester)!), 'var x = 1;');
+
+        // The streaming case: the same widget position, more code.
+        await tester.pumpWidget(
+          wrap(const CodeBlockView(code: 'var x = 1;\nvar y = 2;', language: 'dart', highlighter: _wordHighlighter)),
+        );
+        expect(_textOf(spanOf(tester)!), 'var x = 1;\nvar y = 2;');
+      });
+
+      testWidgets('reports and falls back when the highlighter throws', (tester) async {
+        // Third-party code, called once per fence per tick. A code block must
+        // not take down a message list, but nor should it fail invisibly.
+        final reported = await _collectingErrors(
+          () => tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: _dartSnippet,
+                language: 'dart',
+                highlighter: (_, _, _) => throw StateError('highlighter blew up'),
+              ),
             ),
           ),
         );
 
         expect(spanOf(tester), isNull);
+        expect(plainOf(tester), _dartSnippet);
+        expect(find.byType(CodeBlockView), findsOneWidget);
+        expect(find.byIcon(Icons.content_copy), findsOneWidget);
+
+        expect(reported, hasLength(1));
+        expect(reported.single.library, 'stream_chat_flutter_ai');
+        expect(reported.single.exception, isStateError);
       });
 
-      testWidgets('re-highlights when the code changes', (tester) async {
-        await tester.pumpWidget(wrap(const CodeBlockView(code: 'var x = 1;', language: 'dart')));
-        expect(_textOf(spanOf(tester)!), 'var x = 1;');
+      testWidgets('reports and falls back when the highlighter drops text', (tester) async {
+        // The failure mode a real highlighter is most likely to hit:
+        // `re_highlight` reports a mid-parse grammar failure on its result
+        // rather than throwing, and hands back only the tokens it managed to
+        // produce. Rendering that loses the reader their code.
+        final reported = await _collectingErrors(
+          () => tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: _dartSnippet,
+                language: 'dart',
+                highlighter: (code, _, style) => TextSpan(text: code.substring(0, 4), style: style),
+              ),
+            ),
+          ),
+        );
 
-        // The streaming case: the same widget position, more code.
-        await tester.pumpWidget(wrap(const CodeBlockView(code: 'var x = 1;\nvar y = 2;', language: 'dart')));
-        expect(_textOf(spanOf(tester)!), 'var x = 1;\nvar y = 2;');
+        expect(spanOf(tester), isNull);
+        expect(plainOf(tester), _dartSnippet);
+        expect(reported, hasLength(1));
+        expect(reported.single.library, 'stream_chat_flutter_ai');
       });
 
-      testWidgets('takes its chrome from the theme, not from constants', (tester) async {
+      testWidgets('reports a failing highlighter once, not once per rebuild', (tester) async {
+        // A fence that fails while it is still streaming rebuilds on every
+        // typewriter tick; a report per tick would flood the host's crash
+        // reporter with hundreds of copies.
+        final reported = await _collectingErrors(() async {
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'var', language: 'dart', highlighter: _boom)));
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'var x', language: 'dart', highlighter: _boom)));
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'var x = 1;', language: 'dart', highlighter: _boom)));
+        });
+
+        expect(reported, hasLength(1));
+      });
+
+      testWidgets('uses its default colors when none are given', (tester) async {
+        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')));
+
+        final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+        final decoration = tester.widget<Container>(container.first).decoration! as BoxDecoration;
+        expect(decoration.color, kDefaultCodeBackgroundColor);
+        expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, kDefaultCodeForegroundColor);
+      });
+
+      testWidgets('takes its chrome from the given colors', (tester) async {
         const background = Color(0xFF102030);
         const foreground = Color(0xFFAABBCC);
-        const theme = {
-          'root': TextStyle(color: foreground, backgroundColor: background),
-          'keyword': TextStyle(color: Color(0xFFFF0000)),
-        };
 
         await tester.pumpWidget(
-          wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', theme: theme)),
+          wrap(
+            const CodeBlockView(
+              code: _dartSnippet,
+              language: 'dart',
+              backgroundColor: background,
+              foregroundColor: foreground,
+            ),
+          ),
         );
 
         final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
         final decoration = tester.widget<Container>(container.first).decoration! as BoxDecoration;
         expect(decoration.color, background);
+        expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, foreground);
 
-        // The label and copy icon follow the theme's foreground at reduced
-        // opacity rather than a hardcoded grey.
+        // The label and copy icon follow the foreground at reduced opacity
+        // rather than a hardcoded grey.
         final expectedLabel = foreground.withValues(alpha: 0.6);
         expect(tester.widget<Text>(find.text('dart')).style?.color, expectedLabel);
         expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, expectedLabel);
-
-        expect(_colorsOf(spanOf(tester)!), contains(const Color(0xFFFF0000)));
       });
 
-      testWidgets('re-highlights when the theme changes', (tester) async {
-        const red = {'root': TextStyle(color: Color(0xFF000000)), 'keyword': TextStyle(color: Color(0xFFFF0000))};
-        const blue = {'root': TextStyle(color: Color(0xFF000000)), 'keyword': TextStyle(color: Color(0xFF0000FF))};
+      testWidgets('hands the highlighter the block base style', (tester) async {
+        // So a highlighter that only sets per-token colors still inherits the
+        // block's font, size and foreground.
+        await tester.pumpWidget(
+          wrap(const CodeBlockView(code: 'var x = 1;', language: 'dart', highlighter: _captureStyle)),
+        );
 
-        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', theme: red)));
-        expect(_colorsOf(spanOf(tester)!), contains(const Color(0xFFFF0000)));
-
-        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', theme: blue)));
-        expect(_colorsOf(spanOf(tester)!), contains(const Color(0xFF0000FF)));
-      });
-
-      testWidgets('uses the default theme when none is given', (tester) async {
-        // Every other theme assertion injects a custom map, so without this the
-        // colors essentially every user actually sees are pinned nowhere.
-        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')));
-
-        final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
-        final decoration = tester.widget<Container>(container.first).decoration! as BoxDecoration;
-        expect(decoration.color, const Color(0xFF1E1E1E));
-        expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, const Color(0xFFDCDCDC));
-      });
-
-      testWidgets('falls back to its own colors for a theme with no root', (tester) async {
-        // A hand-written theme is documented as supported, and needn't mention
-        // `root` — the only path that reaches `_kBgColor` / `_kFgColor`.
-        const rootless = {'keyword': TextStyle(color: Color(0xFFFF0000))};
-
-        await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', theme: rootless)));
-
-        final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
-        final decoration = tester.widget<Container>(container.first).decoration! as BoxDecoration;
-        expect(decoration.color, const Color(0xFF1E1E1E));
-        expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, const Color(0xFFD4D4D4));
+        expect(_capturedStyle?.color, kDefaultCodeForegroundColor);
+        expect(_capturedStyle?.fontFamily, 'monospace');
+        expect(_capturedStyle?.fontFamilyFallback, contains('Menlo'));
       });
 
       testWidgets('keeps a monospace stack that resolves off Android', (tester) async {
@@ -337,117 +416,24 @@ void main() {
         expect(label.fontFamilyFallback, contains('Menlo'));
       });
 
-      testWidgets('reports and falls back when a grammar fails mid-parse', (tester) async {
-        // `Highlight` runs in safe mode: a grammar that throws part-way through
-        // does not propagate, it comes back as a `HighlightResult` carrying
-        // only the tokens parsed so far. Rendering that silently drops the rest
-        // of the user's code — here, all of it.
-        kCodeHighlight.registerLanguage(_bombLanguage, _bombGrammar());
-        addTearDown(() => kCodeHighlight.unregisterLanguage(_bombLanguage));
-
-        const code = 'alpha "beta" gamma delta epsilon';
-        final reported = await _collectingErrors(
-          () => tester.pumpWidget(wrap(const CodeBlockView(code: code, language: _bombLanguage))),
-        );
-
-        // Plain text, in the same code block, with every character intact —
-        // not an empty box where the code was.
-        expect(spanOf(tester), isNull);
-        expect(tester.widget<SelectableText>(find.byType(SelectableText)).data, code);
-        expect(find.byType(CodeBlockView), findsOneWidget);
-        expect(find.byIcon(Icons.content_copy), findsOneWidget);
-
-        // And the host hears about it, rather than the block looking like a
-        // language that was simply never supported.
-        expect(reported, hasLength(1));
-        expect(reported.single.library, 'stream_chat_flutter_ai');
-        expect(reported.single.exception, isStateError);
-      });
-
-      testWidgets('reports a failing grammar once, not once per rebuild', (tester) async {
-        // A fence that fails while it is still streaming rebuilds on every
-        // typewriter tick; a report per tick would flood the host's crash
-        // reporter with hundreds of copies.
-        kCodeHighlight.registerLanguage(_bombLanguage, _bombGrammar());
-        addTearDown(() => kCodeHighlight.unregisterLanguage(_bombLanguage));
-
-        final reported = await _collectingErrors(() async {
-          await tester.pumpWidget(wrap(const CodeBlockView(code: 'alpha "b', language: _bombLanguage)));
-          await tester.pumpWidget(wrap(const CodeBlockView(code: 'alpha "be', language: _bombLanguage)));
-          await tester.pumpWidget(wrap(const CodeBlockView(code: 'alpha "beta" gamma', language: _bombLanguage)));
-        });
-
-        expect(reported, hasLength(1));
-      });
-
       goldenTest(
         'highlighted dart block',
         fileName: 'code_block_view_dart',
         constraints: const BoxConstraints(maxWidth: 400, maxHeight: 200),
-        builder: () => wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')),
+        builder: () => wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', highlighter: _wordHighlighter)),
       );
     });
-
-    group('language registration', () {
-      test('registers every curated grammar', () {
-        // Pins the deliberate curation: `builtinAllLanguages` would drag 2.7 MB
-        // of grammar source into every host app, so this set is hand-picked and
-        // a change to it should be a decision, not a drive-by.
-        expect(kCodeBlockLanguages, hasLength(31));
-
-        for (final name in kCodeBlockLanguages.keys) {
-          expect(kCodeHighlight.getLanguage(name), isNotNull, reason: 'unregistered: $name');
-        }
-      });
-
-      test('resolves every alias the docs promise', () {
-        // These come from each grammar's own `aliases`, not from the curated
-        // map, so a `re_highlight` upgrade could drop one and silently demote
-        // that language to plain text.
-        const aliases = {
-          'js': 'javascript',
-          'jsx': 'javascript',
-          'mjs': 'javascript',
-          'ts': 'typescript',
-          'tsx': 'typescript',
-          'py': 'python',
-          'sh': 'bash',
-          'yml': 'yaml',
-          'c++': 'cpp',
-          'hpp': 'cpp',
-          'cxx': 'cpp',
-          'cs': 'csharp',
-          'c#': 'csharp',
-          'rb': 'ruby',
-          'kt': 'kotlin',
-          'rs': 'rust',
-          'md': 'markdown',
-          'objc': 'objectivec',
-          'gql': 'graphql',
-          'docker': 'dockerfile',
-          'html': 'xml',
-          'svg': 'xml',
-          'xhtml': 'xml',
-          'text': 'plaintext',
-          'txt': 'plaintext',
-          'console': 'shell',
-        };
-
-        aliases.forEach((alias, language) {
-          expect(
-            kCodeHighlight.getLanguage(alias),
-            same(kCodeBlockLanguages[language]),
-            reason: '$alias should resolve to $language',
-          );
-        });
-      });
-
-      test('matches a language name case-insensitively', () {
-        // Documented on `CodeBlockView.language`, but delivered by
-        // `re_highlight` rather than by anything in this package.
-        expect(kCodeHighlight.getLanguage('DART'), same(kCodeBlockLanguages['dart']));
-        expect(kCodeHighlight.getLanguage('Python'), same(kCodeBlockLanguages['python']));
-      });
-    });
   });
+}
+
+/// Always throws, for the report-once test — a top-level function so the widget
+/// can stay `const` across pumps.
+TextSpan? _boom(String code, String language, TextStyle baseStyle) => throw StateError('boom');
+
+TextStyle? _capturedStyle;
+
+/// Records the base style it is handed, then declines.
+TextSpan? _captureStyle(String code, String language, TextStyle baseStyle) {
+  _capturedStyle = baseStyle;
+  return null;
 }

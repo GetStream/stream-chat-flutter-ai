@@ -146,15 +146,11 @@ void main() {
     );
 
     testWidgets(
-      'forwards codeBlockTheme to the fences it renders',
+      'forwards codeHighlighter to the fences it renders',
       (WidgetTester tester) async {
-        // Without the forwarding, `codeBlockTheme` is unreachable for the main
+        // Without the forwarding, `codeHighlighter` is unreachable for the main
         // use case: fences are built by `AIMarkdownBody`'s private fence
         // builder, so a host never constructs the `CodeBlockView` itself.
-        const theme = {
-          'root': TextStyle(color: Color(0xFFAABBCC), backgroundColor: Color(0xFF102030)),
-          'keyword': TextStyle(color: Color(0xFFFF0000)),
-        };
         const typingSpeed = Duration(milliseconds: 10);
         const text = '```dart\nvar x = 1;\n```';
 
@@ -164,14 +160,17 @@ void main() {
               body: StreamingMessageView(
                 text: text,
                 typingSpeed: typingSpeed,
-                codeBlockTheme: theme,
+                codeHighlighter: _plainSpan,
+                codeBackgroundColor: Color(0xFF102030),
               ),
             ),
           ),
         );
         await tester.pump(typingSpeed * text.length);
 
-        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)).theme, same(theme));
+        final fence = tester.widget<CodeBlockView>(find.byType(CodeBlockView));
+        expect(fence.highlighter, same(_plainSpan));
+        expect(fence.backgroundColor, const Color(0xFF102030));
       },
     );
 
@@ -207,3 +206,6 @@ void main() {
     );
   });
 }
+
+/// A minimal [CodeHighlighter]: one span, text intact.
+TextSpan _plainSpan(String code, String language, TextStyle baseStyle) => TextSpan(text: code, style: baseStyle);

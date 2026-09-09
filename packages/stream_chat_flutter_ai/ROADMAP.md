@@ -122,70 +122,101 @@ func highlightCode(_ content: String, language: String?) -> Text {
 and [`Splash`](https://github.com/JohnSundell/Splash) highlights exactly one language: **Swift**. So
 iOS applies the *Swift* grammar to every labelled fence regardless of its label — a ```python block
 gets Swift keyword coloring — and renders unlabelled fences plain (note the inverted `guard`). There
-was no per-language target here; Flutter now covers 31 languages properly. Recorded under
+was no per-language target here. Recorded under
 [Where Flutter already leads](#where-flutter-already-leads).
 
-**Shipped:** `re_highlight` (MIT, highlight.js grammars ported to Dart; no native code, no assets,
-no async init) added under `melos.command.bootstrap` in the root `pubspec.yaml`.
-`lib/src/highlight/code_languages.dart` registers a curated 31-grammar set — `bash c cpp csharp css
-dart diff dockerfile go graphql ini java javascript json kotlin lua markdown objectivec php
-plaintext python r ruby rust scala shell sql swift typescript xml yaml` — plus the aliases each
-grammar declares for itself (`js`, `ts`, `py`, `sh`, `yml`, `c++`, `cs`, `html`, …).
+> Unverified from this repository: the Swift package is not vendored here, so the quote above
+> reflects what that file said when this was written and no CI check here can re-verify it.
 
-**On the curated set** (the decision most likely to be "simplified" later): every grammar is a
-top-level `final` holding a tree of `Mode` constructor calls, and `builtinAllLanguages` references
-all 194 of them, so naming that map makes 2.7 MB of Dart source reachable with nothing to
-tree-shake it back out of a host app. The curated set is ~870 KB — of which `swift.dart` alone is
-388 KB, kept because it is the one language the iOS package highlights at all. Blocks over 20,000
-characters are left unhighlighted: a fence that is still streaming re-highlights on every frame it
-grows by, which makes the total cost quadratic in the block's length.
+**Shipped, as a seam rather than a dependency.** `CodeHighlighter` —
+`TextSpan? Function(String code, String language, TextStyle baseStyle)` — wired through
+`CodeBlockView.highlighter`, `AIMarkdownBody.codeHighlighter` and
+`StreamingMessageView.codeHighlighter`. The package recognises fences, frames them, caps them and
+renders the spans; it holds no grammars and no highlighting dependency. This mirrors `mathBuilder`
+exactly, and for the same reason.
 
-**Theming.** `CodeBlockView.theme` takes a `Map<String, TextStyle>` keyed by highlight.js scope name
-— pure Flutter types, so no `re_highlight` type reaches the public API — defaulting to the exported
-`kDefaultCodeBlockTheme` (`vs2015Theme`, whose `root` is `#1E1E1E` on `#DCDCDC`, i.e. exactly the
-background the block already had). The `root` entry now supplies the background and, at 60% opacity,
-the header's label and copy-button color, which is what closes the "label color should come from the
-theme's token set" point below. Kept dark regardless of the ambient `Theme`, deliberately.
+**Why the seam and not the dependency** (this is the decision to re-read before "simplifying" it
+back). Measured on a release web build of the example app:
 
-`AIMarkdownBody.codeBlockTheme` and `StreamingMessageView.codeBlockTheme` forward it — without that
-the parameter would be unreachable for the main use case, since fences are constructed by
-`ai_markdown_body.dart`'s private `_CodeFenceBuilder`. The fence widget cache keys on the theme's
-*identity*, so a host rebuilding the map every frame costs memoization (not correctness); pass a
-`const` or hoisted map.
+| | |
+|---|---|
+| the whole package's own `lib/` | 198 KB of source |
+| a curated 31-grammar `re_highlight` set | 872 KB of source — **4.4× the package** |
+| `re_highlight`'s full `builtinAllLanguages` (194 grammars) | 2.7 MB of source |
+| compiled cost of the curated set | +636 KB of `main.dart.js`, +56 KB gzipped |
+
+Every grammar is a top-level `final` holding a tree of `Mode` constructor calls, so 73% of that
+source survives into the bundle — nothing tree-shakes an unused grammar back out. Baking it in
+would have meant every host paying for 31 languages whether they render code or not, and `swift`
+alone is 388 KB of the 872 KB. As a seam, a host picks its own language set, its own theme, or no
+highlighting at all, and the package's dependency list stays as short as its README claims.
+
+**The host's side.** `example/lib/code_highlighter.dart` is the reference implementation: the
+curated 31-grammar set — `bash c cpp csharp css dart diff dockerfile go graphql ini java javascript
+json kotlin lua markdown objectivec php plaintext python r ruby rust scala shell sql swift
+typescript xml yaml` — plus the aliases each grammar declares for itself (`js`, `ts`, `py`, `sh`,
+`yml`, `c++`, `cs`, `html`, …), `vs2015Theme` for token colors, and `re_highlight` declared in
+`example/pubspec.yaml`. `example/lib/main.dart` passes it as `codeHighlighter:` next to
+`mathBuilder:`. Copy the file, drop the languages you don't need.
+
+**Degradation, which the package still owns.** No highlighter, no language, a highlighter returning
+null, or a body over 20,000 characters all render plain monospace text — selectable and
+horizontally scrollable, with the copy button and language label intact. The cap is the package's,
+not the host's: a fence that is still streaming re-highlights on every tick it grows by, so the
+total cost is quadratic in the block's length.
+
+A highlighter that throws, or that returns spans whose text doesn't match the source, gets the same
+plain fallback *and* a `FlutterError.reportError` (once per block, not once per tick — a failing
+fence rebuilds every tick while streaming). The text check is not paranoia: `re_highlight` runs in
+safe mode by default, so a mid-parse grammar failure comes back on `HighlightResult.errorRaised`
+rather than as a throw, with an emitter holding only the tokens produced before the failure. A
+`try`/`catch` never sees it, and rendering it silently drops the tail of the block or all of it.
+The reference implementation checks `errorRaised` too, so both sides of the seam are covered.
+
+**Theming.** `CodeBlockView.backgroundColor` / `.foregroundColor` (and
+`codeBackgroundColor`/`codeForegroundColor` on the two wrappers) default to
+`kDefaultCodeBackgroundColor` `#1E1E1E` and `kDefaultCodeForegroundColor` `#D4D4D4` — the colors
+the block already had. The foreground drives the header's label and copy-button color at 60%
+opacity, closing the "label color should come from the theme's token set" point below, and is
+handed to the highlighter as its base style so tokens land on the same palette. Two `Color`s rather
+than the scope map an earlier draft of this used: the map made `root` a magic key, exposed ~25
+`TextStyle` fields of which two were read, and could be mutated behind the widget's back. Kept dark
+regardless of the ambient `Theme`, deliberately.
 
 **Folded in:**
 
 - ~~**`fontFamily: 'monospace'` doesn't resolve on iOS/macOS/web.**~~ ✅ The style now carries
   `fontFamilyFallback: ['Menlo', 'Consolas', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New']`.
-  Web turned out to be fine — Flutter hands family names straight to the browser, where `monospace`
-  is a CSS generic — but iOS, macOS and Windows were all rendering code proportionally.
-  `test/flutter_test_config.dart` still registers a system font under the `monospace` family, and
-  still has to: the fallbacks name real fonts, but `flutter test` has none of them either.
+  iOS, macOS and Windows were all rendering code proportionally. `test/flutter_test_config.dart`
+  still registers a system font under the `monospace` family, and still has to: `flutter test`
+  resolves only families registered through `FontLoader`, never system fonts by name, so the
+  fallback list is inert there.
 - ~~**The copy button `setState`s after an `await` with no `mounted` guard**, and repeated taps race
-  two 2-second reset timers against each other.~~ ✅ Fixed separately — it needed no rewrite of the
-  body, so it wasn't worth carrying. `_CopyButtonState` now bails when unmounted and uses one
-  restartable `Timer`, cancelled on dispose.
+  two 2-second reset timers against each other.~~ ✅ Fixed separately. `_CopyButtonState` now bails
+  when unmounted and uses one restartable `Timer`, cancelled on dispose.
 - ~~**No test coverage at all** for the copy button or the language label.~~ ✅ Covered by
-  `test/src/code_block_view_test.dart`, which now also asserts the span tree: multi-color output for
-  a recognised language with every character preserved, alias resolution, plain fallback for an
-  unknown language / no language / an oversized block, re-highlighting on a code or theme change,
-  and chrome colors taken from the theme. Plus a golden, and two tests in
-  `ai_markdown_body_test.dart` covering the markdown path.
+  `test/src/code_block_view_test.dart`, which now also covers the seam: spans rendered with every
+  character preserved, the language passed through verbatim, plain fallback for no highlighter / no
+  language / a declining highlighter / an oversized block, the highlighter *not* called in the last
+  two cases, report-and-fall-back for a highlighter that throws or drops text, reporting once
+  across rebuilds, the base style handed to the highlighter, default and explicit chrome colors,
+  and the monospace stack. Plus a golden, and three tests in `ai_markdown_body_test.dart` and one
+  in `streaming_message_view_test.dart` covering the forwarding.
 - ~~The block is hardcoded dark regardless of theme … the *header* row's label color should come out
   of the token set the highlighting theme establishes rather than a bare constant.~~ ✅ See
-  **Theming** above. Still dark by choice; the constants are now fallbacks for a theme with no
-  `root` entry.
+  **Theming** above. Still dark by choice; the label now derives from `foregroundColor`.
 
-- **Files:** `lib/src/code_block_view.dart`, new `lib/src/highlight/code_languages.dart`,
-  `lib/src/ai_markdown_body.dart`, `lib/src/streaming_message_view.dart`; root `pubspec.yaml`
-  (`melos.command.bootstrap`) and the package `pubspec.yaml`.
-- **Rejected dependencies:** `syntax_highlight` (serverpod) — depends on `super_clipboard`, which
-  forces a Rust/cargokit native build on every consuming app, plus asset bundles and an async
-  `Highlighter.initialize()`, all for 15 languages. `flutter_highlight` + `highlight` — five years
-  stale. Hand-rolling — no nested-mode awareness (no template literals, docstrings or regex
-  literals) and we'd own every grammar bug. `re_highlight` is itself stale (0.0.3, last published
-  2024), which the earlier draft of this item got wrong; taken anyway because grammars don't rot the
-  way UI APIs do, and vendoring the 31 MIT files is a mechanical fallback if it is ever abandoned.
+- **Files:** `lib/src/code_block_view.dart`, `lib/src/ai_markdown_body.dart`,
+  `lib/src/streaming_message_view.dart`; new `example/lib/code_highlighter.dart`;
+  `example/pubspec.yaml` and root `pubspec.yaml` (`melos.command.bootstrap`).
+- **Rejected dependencies** (as a package dependency — all still open to a host):
+  `syntax_highlight` (serverpod) — depends on `super_clipboard`, which forces a Rust/cargokit
+  native build on every consuming app, plus asset bundles and an async `Highlighter.initialize()`,
+  all for 15 languages. `flutter_highlight` + `highlight` — five years stale. Hand-rolling — no
+  nested-mode awareness (no template literals, docstrings or regex literals) and we'd own every
+  grammar bug. `re_highlight` is itself stale (0.0.3, last published 2024), which the earlier draft
+  of this item got wrong; it is what the example uses anyway, because grammars don't rot the way UI
+  APIs do, and a host is free to pick something else.
 - **Effort:** M (1–2 days including dependency vetting).
 
 ### 2.2 Composer factory slot coverage (`ChatComposerFactory`)
@@ -372,9 +403,11 @@ Swift, not gaps:
   is a more deliberate design than Swift's separately-styled buttons.
 - **Grapheme-cluster-aware typewriter:** `TypewriterController` uses `Characters`, which is safer
   for emoji/multi-byte text during streaming than Swift's raw `Character` array indexing.
-- **Real per-language syntax highlighting:** `CodeBlockView` colors 31 languages from their fence
-  label. Swift's `SplashCodeSyntaxHighlighter` applies the Swift grammar to *every* labelled fence
-  (Splash supports no other language) and leaves unlabelled ones plain — see 2.1.
+- **Per-language syntax highlighting, without the dependency:** `CodeBlockView` takes a
+  `CodeHighlighter` from the host, so a fence is colored by its own language — the example wires up
+  31 of them — while the package itself ships no grammars. Swift's `SplashCodeSyntaxHighlighter`
+  applies the Swift grammar to *every* labelled fence (Splash supports no other language) and
+  leaves unlabelled ones plain — see 2.1.
 
 ## At parity (no work needed)
 

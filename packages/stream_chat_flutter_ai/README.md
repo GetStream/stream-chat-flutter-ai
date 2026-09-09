@@ -1,7 +1,7 @@
 # Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
 
 > A standalone set of Flutter components for building LLM-driven chat experiences:
-> streaming text, animated typing indicators, syntax-highlighted code blocks, charts,
+> streaming text, animated typing indicators, labelled code blocks, charts,
 > a purpose-built AI composer, and speech-to-text input. This package has **no
 > dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 > package** — every widget operates on plain strings, callbacks, and controllers, so
@@ -26,10 +26,10 @@
 
 Renders markdown text with a character-by-character typewriter animation — ideal for
 displaying streaming AI responses as they arrive. Markdown is fully parsed: code fences
-get a syntax-highlighted `CodeBlockView` (with copy button), and JSON/chart fences are
-rendered as interactive charts via `ChartView`. A code fence is styled from its opening
-line onwards, so a block still being streamed doesn't show raw ` ``` ` markers while it
-arrives.
+get a `CodeBlockView` (with copy button, and syntax highlighting when you supply a
+`codeHighlighter`), and JSON/chart fences are rendered as interactive charts via
+`ChartView`. A code fence is styled from its opening line onwards, so a block still
+being streamed doesn't show raw ` ``` ` markers while it arrives.
 
 ```dart
 StreamingMessageView(
@@ -109,8 +109,8 @@ default because `$` collides with currency in ordinary prose.
 
 ### `CodeBlockView`
 
-Renders a fenced code block with a dark background, syntax-highlighted monospace text,
-an optional language label, and a copy-to-clipboard button.
+Renders a fenced code block with a dark background, monospace text, an optional
+language label, and a copy-to-clipboard button.
 
 ```dart
 CodeBlockView(
@@ -119,28 +119,46 @@ CodeBlockView(
 );
 ```
 
-Highlighting covers the languages LLMs commonly emit — `bash`, `c`, `cpp`, `csharp`,
-`css`, `dart`, `diff`, `dockerfile`, `go`, `graphql`, `ini`, `java`, `javascript`,
-`json`, `kotlin`, `lua`, `markdown`, `objectivec`, `php`, `plaintext`, `python`, `r`,
-`ruby`, `rust`, `scala`, `shell`, `sql`, `swift`, `typescript`, `xml` and `yaml` —
-along with their usual aliases (`js`, `ts`, `py`, `sh`, `yml`, `c++`, `cs`, `html`, …).
-A fence with no language, or one outside that set, renders as plain monospace text.
-It stays selectable and horizontally scrollable either way.
+Syntax highlighting is opt-in through `highlighter`, for the same reason `mathBuilder`
+exists: a grammar set is several times the size of this whole package — `re_highlight`'s
+194 grammars are ~2.7 MB of Dart source, and because each is a top-level `final` holding
+a tree of constructor calls, nothing tree-shakes the unused ones back out of a host app.
+So the package frames and chromes code fences, and takes the tokenizer from you.
 
-Token colors come from `theme`, a `Map<String, TextStyle>` keyed by highlight.js scope
-name and defaulting to `kDefaultCodeBlockTheme` (VS Code's Dark+ palette). Its `root`
-entry supplies the block's background and default text color. Any of `re_highlight`'s
-`styles/*.dart` maps works, as does a hand-written one:
+`example/lib/code_highlighter.dart` is a complete implementation over `re_highlight`,
+covering the 31 languages LLMs actually emit (plus the aliases each grammar declares —
+`js`, `ts`, `py`, `sh`, `yml`, `c++`, `cs`, `html`, …). Copy it, trim the language list
+to taste, and pass it in:
 
 ```dart
 StreamingMessageView(
   text: message,
-  codeBlockTheme: githubDarkTheme, // package:re_highlight/styles/github-dark.dart
+  codeHighlighter: highlightCode, // example/lib/code_highlighter.dart
 );
 ```
 
-`AIMarkdownBody` takes the same `codeBlockTheme` parameter. The block stays dark
-regardless of the ambient `Theme` — code reads as code.
+`AIMarkdownBody` and `CodeBlockView` take the same callback, as `codeHighlighter` and
+`highlighter` respectively. Its contract is small:
+
+```dart
+TextSpan? highlightCode(String code, String language, TextStyle baseStyle);
+```
+
+`language` arrives exactly as the fence wrote it — case folding and alias resolution are
+yours. Return `null` for a language you don't cover and the block renders plain
+monospace text; that is a normal outcome, not a failure. A highlighter that throws, or
+that returns spans whose text doesn't match `code`, is reported through
+`FlutterError.onError` and the block falls back to the same plain rendering — so a
+grammar bug costs the reader colors, never their code.
+
+Without a highlighter, every fence renders as plain monospace text. It stays selectable
+and horizontally scrollable in all cases.
+
+`backgroundColor` and `foregroundColor` set the box and the code color, defaulting to
+`kDefaultCodeBackgroundColor` (`#1E1E1E`) and `kDefaultCodeForegroundColor` (`#D4D4D4`);
+the label and copy button follow the foreground at reduced opacity. `AIMarkdownBody` and
+`StreamingMessageView` forward them as `codeBackgroundColor` / `codeForegroundColor`.
+The block stays dark regardless of the ambient `Theme` — code reads as code.
 
 ### `ChartView` + `USpec`
 
