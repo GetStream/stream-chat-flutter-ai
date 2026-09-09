@@ -9,6 +9,8 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+// Doc links only.
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// What every [ChatComposerFactory] slot receives.
 ///
@@ -215,12 +217,18 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
        // several frames deep with no mention of the composer.
        assert(maxLines >= minLines, "maxLines can't be less than minLines");
 
-  /// The placeholder [hintText] falls back to, and [ChatComposer]'s own
-  /// default when [ChatComposer.hintText] is `null`.
+  /// The placeholder [hintText] falls back to, and the English
+  /// [AITranslations.composerHint] returns.
   ///
   /// Lives here, not in [ChatComposerInput], so a custom input forwarding
   /// `props.hintText` renders the same placeholder the default one does
   /// instead of no placeholder at all.
+  ///
+  /// [ChatComposer] does not use this constant directly: with a
+  /// [BuildContext] in hand it passes [AITranslations.composerHint] — the same
+  /// string unless an [AITranslationsScope] translated it — so a props object
+  /// built by the composer is already localized. This is the fallback for one
+  /// constructed by hand, outside any scope.
   static const defaultHintText = 'Ask anything…';
 
   /// Placeholder text shown when the text field is empty.

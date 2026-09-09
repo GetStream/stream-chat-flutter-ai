@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// Builds the highlighted span tree for a fenced code block.
 ///
@@ -357,6 +358,8 @@ class _CopyButtonState extends State<_CopyButton> {
 
   @override
   Widget build(BuildContext context) {
+    final translations = AITranslations.of(context);
+
     return IconButton(
       onPressed: _onTap,
       icon: Icon(
@@ -364,7 +367,7 @@ class _CopyButtonState extends State<_CopyButton> {
         size: 16,
         color: _copied ? Colors.greenAccent : widget.color,
       ),
-      tooltip: _copied ? 'Copied!' : 'Copy code',
+      tooltip: _copied ? translations.codeCopied : translations.copyCode,
       style: IconButton.styleFrom(
         minimumSize: const Size(32, 32),
         padding: EdgeInsets.zero,
