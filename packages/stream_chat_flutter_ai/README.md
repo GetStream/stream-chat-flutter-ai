@@ -317,6 +317,55 @@ SpeechToTextButton(
 <true/>
 ```
 
+### Localization
+
+Every string the package renders itself resolves through an `AITranslations` instance. With no
+scope in the tree the widgets use `DefaultAITranslations` and render the English they always have,
+so this is opt-in.
+
+Subclass `DefaultAITranslations` and override only what you're changing:
+
+```dart
+class DutchTranslations extends DefaultAITranslations {
+  const DutchTranslations();
+
+  @override
+  String get composerHint => 'Vraag maar';
+
+  @override
+  String get send => 'Verstuur';
+
+  @override
+  String clearOption(String option) => '$option wissen';
+}
+
+AITranslationsScope(
+  translations: const DutchTranslations(),
+  child: ChatComposer(onSendPressed: ...),
+)
+```
+
+Most of these strings are `Tooltip` messages on icon-only buttons — the send, stop, mic, "+", copy
+and dismiss controls — which makes them the only accessible label those buttons expose. Translating
+them is what makes the composer legible to a screen reader in another locale.
+
+Three things worth knowing:
+
+- **Give your subclass a `const` constructor** and construct it as `const DutchTranslations()`.
+  `AITranslationsScope` compares instances to decide whether to notify, and a non-`const` instance
+  built inside a `build` method is a new object every time — which, in a subtree that rebuilds on
+  every typewriter tick, notifies every dependent every ~10ms. `const` instances are canonicalized
+  to one object.
+- **`ChatComposer.hintText` wins over `AITranslations.composerHint`.** A hint written for one
+  composer is more specific than an app-wide string.
+- **A scope above your `MaterialApp` covers everything**, including routes the package pushes.
+  Placed lower — directly above a `ChatComposer` — it still reaches that composer's attachment
+  sheet, because the composer re-provides it inside the sheet's route. If you present a
+  `ComposerAttachmentSheet` yourself, you own that re-provision.
+
+Subclassing `DefaultAITranslations` rather than implementing `AITranslations` directly means a
+string added in a later version arrives as an untranslated default rather than a compile error.
+
 ---
 
 ## Installation

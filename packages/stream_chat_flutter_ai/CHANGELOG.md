@@ -31,6 +31,34 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **Every string the package renders itself is now translatable.** `AITranslations` (abstract),
+  `DefaultAITranslations` (the English it has always rendered) and `AITranslationsScope` (an
+  `InheritedWidget`) replace the fourteen literals that were hardcoded across `ChatComposer`, its
+  attachment sheet, the voice-input button and `CodeBlockView`. Subclass `DefaultAITranslations`,
+  override only what you are changing, and provide it with a scope; with no scope in the tree every
+  widget renders exactly what it did before, so nothing changes for a host that adds none.
+  `ChatComposer.hintText` still wins over `AITranslations.composerHint`, being the more specific of
+  the two.
+
+  Ten of those fourteen are `Tooltip` messages on icon-only buttons — send, stop, mic, "+", copy,
+  and the two dismiss controls — so they are also the only accessible label those buttons expose.
+  Translating them is what makes the composer legible to a screen reader outside English, which is
+  the larger half of why this exists.
+
+  A scope resolves through the widget's own `BuildContext` rather than being threaded as a
+  constructor argument, for two reasons. Twelve of the literals live in private leaf widgets two to
+  four layers below a public one, and `CodeBlockView`'s two are constructed inside a top-level
+  function behind the process-global fence widget cache, which has no `BuildContext` at all —
+  threading would have meant ten new parameters plus a new component in that cache key. Translations
+  deliberately are *not* part of it: the cached object is an unbuilt widget configuration, and the
+  string is resolved later, from the element's own context.
+
+  Give your subclass a `const` constructor and construct it as `const MyTranslations()`.
+  `AITranslationsScope.updateShouldNotify` compares instances, and a non-`const` instance built
+  inside a `build` that runs on every typewriter tick would notify every dependent every ~10ms.
+
+  Ships English only — this is the seam, not a set of translations.
+
 - **Code fences can be syntax-highlighted, by a highlighter the host supplies.**
   `CodeBlockView.highlighter`, plus matching `AIMarkdownBody.codeHighlighter` and
   `StreamingMessageView.codeHighlighter`, take a `CodeHighlighter` —

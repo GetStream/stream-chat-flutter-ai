@@ -152,6 +152,37 @@ void main() {
         expect(colors, contains(const Color(0xFFFF0000)));
       });
 
+      testWidgets('translations reach a cached fence', (tester) async {
+        // The fence widget cache returns the *identical* Widget instance for a
+        // given source, and translations deliberately are not part of its key
+        // (unlike the code colors, which are baked in as constructor
+        // arguments). That is only safe because the copy button resolves its
+        // tooltip from its own context at build time, and the inherited
+        // dependency marks it dirty on a scope change regardless of widget
+        // identity. This test is that claim.
+        debugClearFenceCaches();
+
+        const data = '```dart\nvar x = 1;\n```';
+
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: data)));
+        final fence = tester.widget<CodeBlockView>(find.byType(CodeBlockView));
+        expect(find.byTooltip('Copy code'), findsOneWidget);
+
+        await tester.pumpWidget(
+          _wrap(
+            const AITranslationsScope(
+              translations: _TestTranslations(),
+              child: AIMarkdownBody(data: data),
+            ),
+          ),
+        );
+
+        // Same cached widget instance, different rendered string.
+        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)), same(fence));
+        expect(find.byTooltip('KOPIEER'), findsOneWidget);
+        expect(find.byTooltip('Copy code'), findsNothing);
+      });
+
       testWidgets('codeHighlighter reaches the fence', (tester) async {
         // The fence is built by a private builder, so without the forwarding
         // this parameter would be unreachable for the main use case.
@@ -501,4 +532,12 @@ TextSpan _redWords(String code, String language, TextStyle baseStyle) {
     );
   }
   return TextSpan(style: baseStyle, children: children);
+}
+
+/// Overrides only the copy tooltip, for the cached-fence test.
+class _TestTranslations extends DefaultAITranslations {
+  const _TestTranslations();
+
+  @override
+  String get copyCode => 'KOPIEER';
 }
