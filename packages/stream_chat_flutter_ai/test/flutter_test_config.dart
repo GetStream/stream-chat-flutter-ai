@@ -29,14 +29,16 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   );
 }
 
-/// Registers a real monospace font under the `monospace` family name, which
-/// `CodeBlockView` uses via `fontFamily: 'monospace'`.
+/// Registers a real monospace font under the `monospace` family name, which is
+/// first in `CodeBlockView`'s font stack.
 ///
-/// Flutter resolves that generic family name to a real font in an actual app
-/// run (via the platform's own font fallback), but `flutter test`'s font
-/// resolution doesn't perform that same fallback for an unregistered family —
-/// so, without this, `monospace` text renders as missing-glyph placeholder
-/// boxes in golden tests even though the widget renders correctly on-device.
+/// `flutter test` performs no platform font fallback, so an unregistered family
+/// renders as missing-glyph placeholder boxes. On-device the widget's own
+/// `fontFamilyFallback` (`Menlo`, `Consolas`, `Roboto Mono`, …) covers the
+/// platforms where `monospace` isn't a real family — which is all of them bar
+/// Android and web — but that list can't help here, because the test
+/// environment has none of those fonts either. Hence a system font, registered
+/// under the name at the head of the stack.
 Future<void> _loadSystemMonospaceFont() async {
   for (final path in _kSystemMonospaceFontPaths) {
     final file = File(path);

@@ -132,6 +132,64 @@ void main() {
       });
     });
 
+    group('code blocks', () {
+      testWidgets('a fence is highlighted through the markdown path', (tester) async {
+        debugClearFenceCaches();
+
+        await tester.pumpWidget(
+          _wrap(const AIMarkdownBody(data: '```dart\n// hi\nvar x = 1;\n```', codeHighlighter: _redWords)),
+        );
+
+        final span = tester.widget<SelectableText>(find.byType(SelectableText)).textSpan;
+        expect(span, isNotNull);
+
+        final colors = <Color>{};
+        span!.visitChildren((child) {
+          final color = child.style?.color;
+          if (color != null) colors.add(color);
+          return true;
+        });
+        expect(colors, contains(const Color(0xFFFF0000)));
+      });
+
+      testWidgets('codeHighlighter reaches the fence', (tester) async {
+        // The fence is built by a private builder, so without the forwarding
+        // this parameter would be unreachable for the main use case.
+        debugClearFenceCaches();
+
+        await tester.pumpWidget(
+          _wrap(const AIMarkdownBody(data: '```dart\nvar x = 1;\n```', codeHighlighter: _redWords)),
+        );
+
+        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)).highlighter, same(_redWords));
+      });
+
+      testWidgets('code colors reach the fence and survive a change', (tester) async {
+        debugClearFenceCaches();
+
+        const data = '```dart\nvar x = 1;\n```';
+
+        await tester.pumpWidget(
+          _wrap(const AIMarkdownBody(data: data, codeBackgroundColor: Color(0xFF222222))),
+        );
+        expect(
+          tester.widget<CodeBlockView>(find.byType(CodeBlockView)).backgroundColor,
+          const Color(0xFF222222),
+        );
+
+        // `MarkdownBody` only re-parses on a `data`/`styleSheet` change, so a
+        // new color takes effect only because the body bumps its config
+        // generation and re-keys the widget.
+        await tester.pumpWidget(
+          _wrap(const AIMarkdownBody(data: data, codeBackgroundColor: Color(0xFF444444))),
+        );
+        expect(
+          tester.widget<CodeBlockView>(find.byType(CodeBlockView)).backgroundColor,
+          const Color(0xFF444444),
+        );
+      });
+    });
+
     goldenTest(
       'mixed text, code block, and chart',
       fileName: 'ai_markdown_body_mixed_content',
@@ -426,4 +484,21 @@ Widget _wrap(Widget child) {
       body: Align(alignment: Alignment.topLeft, child: child),
     ),
   );
+}
+
+/// Colors word runs red, preserving the text — enough to prove the highlighter
+/// reached the fence.
+TextSpan _redWords(String code, String language, TextStyle baseStyle) {
+  final children = <TextSpan>[];
+  for (final match in RegExp(r'\w+|\W+').allMatches(code)) {
+    final text = match[0]!;
+    final isWord = RegExp(r'^\w').hasMatch(text);
+    children.add(
+      TextSpan(
+        text: text,
+        style: isWord ? const TextStyle(color: Color(0xFFFF0000)) : null,
+      ),
+    );
+  }
+  return TextSpan(style: baseStyle, children: children);
 }

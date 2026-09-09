@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
 import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
+import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
 
 bool get _isDesktopDeviceOrWeb =>
@@ -15,9 +16,10 @@ bool get _isDesktopDeviceOrWeb =>
 /// displayed as if it is being typed out by a typewriter.
 ///
 /// Markdown in the message is fully rendered, including:
-/// - Fenced code blocks (with a copy-to-clipboard button and language label),
-///   which appear as soon as the opening fence arrives rather than waiting for
-///   the block to close.
+/// - Fenced code blocks (with a copy-to-clipboard button and language label,
+///   syntax-highlighted when a [codeHighlighter] is supplied), which appear as
+///   soon as the opening fence arrives rather than waiting for the block to
+///   close.
 /// - JSON / chart blocks rendered as interactive charts.
 /// - LaTeX, when a [mathBuilder] is supplied.
 /// {@endtemplate}
@@ -32,6 +34,9 @@ class StreamingMessageView extends StatefulWidget {
     this.styleSheet,
     this.mathBuilder,
     this.useDollarDelimitersForMath = false,
+    this.codeHighlighter,
+    this.codeBackgroundColor = kDefaultCodeBackgroundColor,
+    this.codeForegroundColor = kDefaultCodeForegroundColor,
   });
 
   /// The text to display in the widget.
@@ -47,6 +52,15 @@ class StreamingMessageView extends StatefulWidget {
   /// Whether `$…$` is also treated as a LaTeX delimiter. See
   /// [AIMarkdownBody.useDollarDelimitersForMath].
   final bool useDollarDelimitersForMath;
+
+  /// Syntax-highlights code fences. See [AIMarkdownBody.codeHighlighter].
+  final CodeHighlighter? codeHighlighter;
+
+  /// Fills code fences. See [CodeBlockView.backgroundColor].
+  final Color codeBackgroundColor;
+
+  /// Colors the text in code fences. See [CodeBlockView.foregroundColor].
+  final Color codeForegroundColor;
 
   /// The speed at which the text is typed out.
   ///
@@ -122,6 +136,9 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
       styleSheet: widget.styleSheet,
       mathBuilder: widget.mathBuilder,
       useDollarDelimitersForMath: widget.useDollarDelimitersForMath,
+      codeHighlighter: widget.codeHighlighter,
+      codeBackgroundColor: widget.codeBackgroundColor,
+      codeForegroundColor: widget.codeForegroundColor,
     );
   }
 }

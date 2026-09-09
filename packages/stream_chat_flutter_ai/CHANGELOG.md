@@ -31,6 +31,36 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **Code fences can be syntax-highlighted, by a highlighter the host supplies.**
+  `CodeBlockView.highlighter`, plus matching `AIMarkdownBody.codeHighlighter` and
+  `StreamingMessageView.codeHighlighter`, take a `CodeHighlighter` —
+  `TextSpan? Function(String code, String language, TextStyle baseStyle)`. The package recognises
+  fences, frames them, and renders the spans; it ships no grammars, because a grammar set is
+  several times its own size. `re_highlight`'s 194 grammars are ~2.7 MB of Dart source, and since
+  each is a top-level `final` holding a tree of constructor calls, nothing tree-shakes the unused
+  ones back out of a host app — so this follows `mathBuilder`'s arrangement rather than making
+  every host pay for a tokenizer. `example/lib/code_highlighter.dart` is a complete implementation
+  over `re_highlight` covering 31 languages plus each grammar's own aliases (`js`, `ts`, `py`,
+  `sh`, `yml`, `c++`, `cs`, `html`, …), ready to copy and trim.
+- Without a highlighter — and for a fence with no language, or one the highlighter declines by
+  returning null — code renders as plain monospace text. Either way the block stays selectable,
+  horizontally scrollable, and keeps its copy button and language label. Blocks over 20,000
+  characters skip highlighting entirely, because a fence that is still streaming re-highlights on
+  every tick it grows by, making the total cost quadratic in its length.
+- Highlighting never costs the reader the code. A highlighter that throws, or that returns spans
+  whose text doesn't match the source, is reported through `FlutterError.onError` (once per block,
+  not once per tick) and the block falls back to plain text. The text check earns its keep:
+  `re_highlight` reports a mid-parse grammar failure on its *result* rather than throwing, and
+  hands back only the tokens it managed to produce — rendering that silently drops the tail of a
+  block, or all of it.
+- `CodeBlockView.backgroundColor` and `.foregroundColor`, plus matching
+  `AIMarkdownBody`/`StreamingMessageView` `codeBackgroundColor` and `codeForegroundColor`,
+  defaulting to the exported `kDefaultCodeBackgroundColor` (`#1E1E1E`) and
+  `kDefaultCodeForegroundColor` (`#D4D4D4`) — the colors code blocks already had. The foreground
+  now also drives the header's label and copy-button color at 60% opacity, which used to be a
+  hardcoded grey, and is handed to the highlighter as its base style so tokens land on the same
+  palette. The block stays dark regardless of the ambient `Theme`, deliberately — code reads as
+  code.
 - `AIMarkdownBody.chartLanguages` — which fence languages are offered to `USpecParser`, defaulting to
   the exported `kDefaultChartLanguages`. `json` is in that set because models label chart data that
   way constantly, which also means a plain ```json fence shaped like a chart spec used to render as a
@@ -94,6 +124,11 @@ First release of `stream_chat_flutter_ai`.
 
 🐞 Fixed
 
+- **Code blocks weren't actually monospaced on iOS, macOS or Windows.** `CodeBlockView` asked for
+  `fontFamily: 'monospace'`, which names a real family only on Android. Everywhere else it
+  silently resolved to the default sans face, so code rendered proportionally. The style now
+  carries a `fontFamilyFallback` of `Menlo`, `Consolas`, `Roboto Mono`, `DejaVu Sans Mono` and
+  `Courier New` behind it.
 - **A dictation session outliving its composer could crash on a disposed `TextEditingController`.**
   `ChatComposer.dispose` cancelled the recognition session only when `enableSpeechToText` was true,
   but disposed its internally-owned controller either way — and the arrangement `SpeechToTextButton`'s
@@ -280,6 +315,22 @@ First release of `stream_chat_flutter_ai`.
   finished session can no longer land in the next one's field.
 
 🚀 Performance
+
+- **A streaming code fence no longer re-highlights on every typewriter tick.** Highlighting a
+  prefix is linear, but a growing fence produces a longer prefix every tick, so tokenizing each one
+  made the total quadratic in the block's length. Measured on a 1839-character Dart fence streamed
+  through `StreamingMessageView`: **1487 highlighter calls tokenizing 1.37 M characters — 746× the
+  block**, roughly a second of CPU on a fast desktop for one code block, and multiples of that on a
+  phone. `CodeBlockView` now re-highlights only once the code has gained 64 characters, plus once
+  more after 120 ms without a change so a stream that stops mid-threshold still ends up fully
+  colored. Same fence, throttled: **33 calls tokenizing 27.9 K characters, 15× the block** — a 45×
+  reduction, with the final pass covering the whole block.
+
+  The characters gained since the last pass are appended unhighlighted rather than withheld, so the
+  reader never sees a truncated block — at most about a line of uncolored text trailing the newest
+  characters, settling as it arrives, the way coloring lags the cursor in an editor. The 20,000-
+  character cap above which highlighting is skipped entirely still applies; it bounds a single pass,
+  and this bounds how many passes there are.
 
 - **`AIMarkdownBody` no longer re-parses every chart fence on every build.** While streaming, a
   `jsonDecode` plus a full schema walk ran for each chart fence once per typewriter tick — roughly

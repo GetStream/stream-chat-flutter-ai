@@ -146,6 +146,35 @@ void main() {
     );
 
     testWidgets(
+      'forwards codeHighlighter to the fences it renders',
+      (WidgetTester tester) async {
+        // Without the forwarding, `codeHighlighter` is unreachable for the main
+        // use case: fences are built by `AIMarkdownBody`'s private fence
+        // builder, so a host never constructs the `CodeBlockView` itself.
+        const typingSpeed = Duration(milliseconds: 10);
+        const text = '```dart\nvar x = 1;\n```';
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: StreamingMessageView(
+                text: text,
+                typingSpeed: typingSpeed,
+                codeHighlighter: _plainSpan,
+                codeBackgroundColor: Color(0xFF102030),
+              ),
+            ),
+          ),
+        );
+        await tester.pump(typingSpeed * text.length);
+
+        final fence = tester.widget<CodeBlockView>(find.byType(CodeBlockView));
+        expect(fence.highlighter, same(_plainSpan));
+        expect(fence.backgroundColor, const Color(0xFF102030));
+      },
+    );
+
+    testWidgets(
       'handles links correctly',
       (WidgetTester tester) async {
         const testText = '[Click me](https://example.com)';
@@ -177,3 +206,6 @@ void main() {
     );
   });
 }
+
+/// A minimal [CodeHighlighter]: one span, text intact.
+TextSpan _plainSpan(String code, String language, TextStyle baseStyle) => TextSpan(text: code, style: baseStyle);

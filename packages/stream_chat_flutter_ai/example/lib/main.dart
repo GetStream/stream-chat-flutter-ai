@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
+
 void main() => runApp(const ExampleApp());
 
 class ExampleApp extends StatelessWidget {
@@ -53,14 +55,23 @@ Sure — here's a quick tour of what this package renders.
 Regular **bold**, *italic* and `inline code` all work, plus lists:
 
 1. Streaming text with a typewriter effect
-2. Syntax-labelled code blocks
+2. Syntax-highlighted code blocks
 3. Charts from a JSON fence
 
-### A code block
+### Code blocks
 
 ```dart
+// Highlighting follows the fence's language.
 final controller = ChatComposerController();
 controller.isGenerating = true;
+```
+
+…and another language, to show it isn't hardcoded to one grammar:
+
+```python
+def average(values):
+    """Mean of a non-empty sequence."""
+    return sum(values) / len(values)
 ```
 
 ### Some maths
@@ -261,6 +272,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
                             mathStyle: inline ? MathStyle.text : MathStyle.display,
                             onErrorFallback: (error) => Text(tex, style: style),
                           ),
+                          // Same arrangement for code: fences are recognised
+                          // and framed by the package, but the grammars that
+                          // color them live here. See `code_highlighter.dart`.
+                          codeHighlighter: highlightCode,
                           onTypewriterStateChanged: (state) {
                             // Flip the composer back to "send" once the backend
                             // has stopped sending chunks *and* the typewriter

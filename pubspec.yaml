@@ -39,6 +39,10 @@ melos:
         image_picker: ^1.2.2
         markdown: ^7.3.1
         photo_manager: ^3.9.0
+        # Used only by the example, which supplies the grammars that
+        # `CodeBlockView.highlighter` needs. See
+        # `example/lib/code_highlighter.dart`.
+        re_highlight: ^0.0.3
         speech_to_text: ^7.0.0
 
       # List of all the dev_dependencies used in the project.
