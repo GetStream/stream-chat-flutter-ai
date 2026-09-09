@@ -154,6 +154,14 @@ grammar bug costs the reader colors, never their code.
 Without a highlighter, every fence renders as plain monospace text. It stays selectable
 and horizontally scrollable in all cases.
 
+Your highlighter is not called on every frame of a streaming fence: a re-highlight waits
+for the code to gain 64 characters, plus one final pass once it stops changing. The
+characters in between render unhighlighted rather than being withheld, so the block is
+never truncated — coloring simply trails the newest text by up to about a line. Blocks
+over 20,000 characters skip highlighting altogether. Prefer a top-level or otherwise
+hoisted function over an inline closure, so the widget can tell a genuinely new
+highlighter from a new closure over the same one.
+
 `backgroundColor` and `foregroundColor` set the box and the code color, defaulting to
 `kDefaultCodeBackgroundColor` (`#1E1E1E`) and `kDefaultCodeForegroundColor` (`#D4D4D4`);
 the label and copy button follow the foreground at reduced opacity. `AIMarkdownBody` and

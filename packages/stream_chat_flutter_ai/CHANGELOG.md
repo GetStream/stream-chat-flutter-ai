@@ -316,6 +316,22 @@ First release of `stream_chat_flutter_ai`.
 
 🚀 Performance
 
+- **A streaming code fence no longer re-highlights on every typewriter tick.** Highlighting a
+  prefix is linear, but a growing fence produces a longer prefix every tick, so tokenizing each one
+  made the total quadratic in the block's length. Measured on a 1839-character Dart fence streamed
+  through `StreamingMessageView`: **1487 highlighter calls tokenizing 1.37 M characters — 746× the
+  block**, roughly a second of CPU on a fast desktop for one code block, and multiples of that on a
+  phone. `CodeBlockView` now re-highlights only once the code has gained 64 characters, plus once
+  more after 120 ms without a change so a stream that stops mid-threshold still ends up fully
+  colored. Same fence, throttled: **33 calls tokenizing 27.9 K characters, 15× the block** — a 45×
+  reduction, with the final pass covering the whole block.
+
+  The characters gained since the last pass are appended unhighlighted rather than withheld, so the
+  reader never sees a truncated block — at most about a line of uncolored text trailing the newest
+  characters, settling as it arrives, the way coloring lags the cursor in an editor. The 20,000-
+  character cap above which highlighting is skipped entirely still applies; it bounds a single pass,
+  and this bounds how many passes there are.
+
 - **`AIMarkdownBody` no longer re-parses every chart fence on every build.** While streaming, a
   `jsonDecode` plus a full schema walk ran for each chart fence once per typewriter tick — roughly
   every 10ms — including the throw-and-catch for a fence that holds no chart data at all. Those parses

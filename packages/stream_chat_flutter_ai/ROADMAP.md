@@ -161,9 +161,18 @@ typescript xml yaml` — plus the aliases each grammar declares for itself (`js`
 
 **Degradation, which the package still owns.** No highlighter, no language, a highlighter returning
 null, or a body over 20,000 characters all render plain monospace text — selectable and
-horizontally scrollable, with the copy button and language label intact. The cap is the package's,
-not the host's: a fence that is still streaming re-highlights on every tick it grows by, so the
-total cost is quadratic in the block's length.
+horizontally scrollable, with the copy button and language label intact.
+
+**Throttling, which the package also owns.** A growing fence produces a longer prefix every
+typewriter tick, and tokenizing each one makes the total quadratic in the block's length. Measured
+on a 1839-character Dart fence: 1487 calls tokenizing 1.37 M characters, 746× the block. So a
+re-highlight waits for a 64-character gain, plus one settling pass 120 ms after the last change so a
+stream stopping mid-threshold still ends fully colored — 33 calls and 27.9 K characters for the same
+fence, a 45× reduction. The gained characters are appended unhighlighted rather than withheld, so
+the block is never truncated; the visible cost is about a line of uncolored text trailing the newest
+characters. The 20,000-character cap bounds a single pass; this bounds how many there are. Both are
+the package's business rather than the host's, because both are consequences of how it drives the
+highlighter, not of what the highlighter does.
 
 A highlighter that throws, or that returns spans whose text doesn't match the source, gets the same
 plain fallback *and* a `FlutterError.reportError` (once per block, not once per tick — a failing

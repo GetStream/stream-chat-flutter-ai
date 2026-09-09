@@ -37,6 +37,26 @@ const _kLabelOpacity = 0.6;
 /// code anyway.
 const _kMaxHighlightChars = 20000;
 
+/// How many characters a growing fence must gain before it is re-highlighted.
+///
+/// Highlighting a prefix is linear, but a streaming fence produces a longer
+/// prefix on every typewriter tick, so re-highlighting each one makes the total
+/// quadratic in the block's length. Measured on a 1839-character Dart fence,
+/// unthrottled: 1487 calls tokenizing 1.37 M characters — 746x the block, and
+/// most of a second of CPU for one code block.
+///
+/// The characters gained since the last pass render unhighlighted until the
+/// next one, so this is also the longest uncolored tail a reader can see: about
+/// a line, trailing the newest text and settling as it arrives. Coloring lags
+/// the cursor slightly, the way it does in an editor.
+const _kHighlightGrowthThreshold = 64;
+
+/// How long a fence must go unchanged before a pending tail is highlighted.
+///
+/// Without this, a stream that stops mid-threshold would leave its last few
+/// characters uncolored for good.
+const _kHighlightSettleDelay = Duration(milliseconds: 120);
+
 /// The font stack for code text.
 ///
 /// `monospace` is a real family only on Android. Everywhere else it silently
@@ -115,6 +135,16 @@ class _CodeBlockViewState extends State<CodeBlockView> {
   /// is still arriving.
   TextSpan? _span;
 
+  /// The exact code [_span] was built from.
+  ///
+  /// [CodeBlockView.code] grows past it while a fence streams, and the
+  /// difference is rendered unhighlighted until the next pass — see
+  /// [_kHighlightGrowthThreshold].
+  String _highlightedCode = '';
+
+  /// Fires the pass that picks up a tail too short to have triggered one.
+  Timer? _settleTimer;
+
   /// The language a highlighting failure has already been reported for, so a
   /// still-streaming fence reports once rather than on every rebuild.
   String? _failureReportedFor;
@@ -122,24 +152,54 @@ class _CodeBlockViewState extends State<CodeBlockView> {
   @override
   void initState() {
     super.initState();
-    _span = _buildSpan();
+    _highlight();
   }
 
   @override
   void didUpdateWidget(covariant CodeBlockView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.code != oldWidget.code ||
-        widget.language != oldWidget.language ||
+
+    // Anything but more of the same code invalidates the span outright: there
+    // is no colored prefix left to keep.
+    //
+    // The highlighter is compared by identity, and hosts that pass an inline
+    // closure hand over a new one on every build of theirs. That is why
+    // `AIMarkdownBody` keys its fence cache on the source rather than on the
+    // highlighter — it returns an identical widget for an unchanged fence, so a
+    // host rebuilding for unrelated reasons never reaches this at all — and why
+    // a host driving `CodeBlockView` directly should hoist the function.
+    if (widget.language != oldWidget.language ||
         widget.foregroundColor != oldWidget.foregroundColor ||
-        // Hosts pass an inline closure, so this differs on almost every build
-        // of theirs. It costs nothing in the case that matters — a streaming
-        // fence re-highlights anyway, because its `code` grew — and
-        // `AIMarkdownBody` hands back an identical cached widget for an
-        // unchanged fence, so a host rebuilding for unrelated reasons doesn't
-        // reach this at all.
-        widget.highlighter != oldWidget.highlighter) {
-      _span = _buildSpan();
+        widget.highlighter != oldWidget.highlighter ||
+        !widget.code.startsWith(_highlightedCode)) {
+      _highlight();
+      return;
     }
+
+    if (widget.code.length - _highlightedCode.length >= _kHighlightGrowthThreshold) {
+      _highlight();
+    } else if (widget.code.length != _highlightedCode.length) {
+      // Too small a gain to pay for a pass. Render the tail plain and come back
+      // to it once the fence stops growing.
+      _settleTimer?.cancel();
+      _settleTimer = Timer(_kHighlightSettleDelay, () {
+        if (mounted) setState(_highlight);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Re-runs the highlighter over the whole of [CodeBlockView.code].
+  void _highlight() {
+    _settleTimer?.cancel();
+    _settleTimer = null;
+    _span = _buildSpan();
+    _highlightedCode = widget.code;
   }
 
   TextSpan? _buildSpan() {
@@ -206,6 +266,28 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
   Color get _labelColor => widget.foregroundColor.withValues(alpha: _kLabelOpacity);
 
+  /// [_span] extended with whatever arrived after it, unhighlighted.
+  ///
+  /// [_span] only covers [_highlightedCode], so it cannot be rendered on its
+  /// own while a fence is still growing — that would show the reader a
+  /// truncated block. Appending the remainder as one plain run keeps the code
+  /// whole and costs nothing per build: two children, no re-tokenizing.
+  TextSpan? get _displaySpan {
+    final span = _span;
+    if (span == null) return null;
+
+    final pending = widget.code.substring(_highlightedCode.length);
+    if (pending.isEmpty) return span;
+
+    return TextSpan(
+      style: _codeTextStyle,
+      children: [
+        span,
+        TextSpan(text: pending),
+      ],
+    );
+  }
+
   TextStyle get _codeTextStyle => TextStyle(
     fontFamily: _kMonoFontFamily,
     fontFamilyFallback: _kMonoFontFamilyFallback,
@@ -217,7 +299,7 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
   @override
   Widget build(BuildContext context) {
-    final span = _span;
+    final span = _displaySpan;
     final style = _codeTextStyle;
 
     return Container(

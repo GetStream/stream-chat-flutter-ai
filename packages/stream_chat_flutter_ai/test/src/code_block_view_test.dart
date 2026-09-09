@@ -416,6 +416,143 @@ void main() {
         expect(label.fontFamilyFallback, contains('Menlo'));
       });
 
+      group('throttling a growing fence', () {
+        /// A fence body of exactly [n] characters, all word characters so
+        /// `_wordHighlighter` colors the lot.
+        String code(int n) => 'a' * n;
+
+        testWidgets('a small gain reuses the last pass and renders the tail plain', (tester) async {
+          final highlighter = _RecordingHighlighter();
+
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(100), language: 'dart', highlighter: highlighter.call)),
+          );
+          expect(highlighter.calls, hasLength(1));
+
+          // Ten more characters is far too little to pay for another pass.
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(110), language: 'dart', highlighter: highlighter.call)),
+          );
+
+          expect(highlighter.calls, hasLength(1), reason: 'should not have re-highlighted');
+
+          // But the reader must still see all 110 characters: the tail is
+          // appended unhighlighted rather than dropped.
+          final span = tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!;
+          expect(_textOf(span), code(110));
+          // The prefix keeps its colors while the tail waits.
+          expect(_colorsOf(span), contains(_tokenColor));
+        });
+
+        testWidgets('a gain past the threshold re-highlights at once', (tester) async {
+          final highlighter = _RecordingHighlighter();
+
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(100), language: 'dart', highlighter: highlighter.call)),
+          );
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(164), language: 'dart', highlighter: highlighter.call)),
+          );
+
+          expect(highlighter.calls, hasLength(2));
+          expect(highlighter.calls.last.code, code(164));
+        });
+
+        testWidgets('a fence that stops growing gets its tail highlighted', (tester) async {
+          // Without the settle pass, a stream ending mid-threshold would leave
+          // its last characters uncolored for good.
+          final highlighter = _RecordingHighlighter();
+
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(100), language: 'dart', highlighter: highlighter.call)),
+          );
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(110), language: 'dart', highlighter: highlighter.call)),
+          );
+          expect(highlighter.calls, hasLength(1));
+
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(highlighter.calls, hasLength(2));
+          expect(highlighter.calls.last.code, code(110));
+          // Fully colored now, with nothing appended plain.
+          final span = tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!;
+          expect(_textOf(span), code(110));
+        });
+
+        testWidgets('each further gain restarts the settle delay', (tester) async {
+          final highlighter = _RecordingHighlighter();
+
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(100), language: 'dart', highlighter: highlighter.call)),
+          );
+          for (var i = 1; i <= 5; i++) {
+            await tester.pumpWidget(
+              wrap(CodeBlockView(code: code(100 + i * 5), language: 'dart', highlighter: highlighter.call)),
+            );
+            // Short of the settle delay, so the pass keeps being deferred.
+            await tester.pump(const Duration(milliseconds: 60));
+          }
+
+          expect(highlighter.calls, hasLength(1), reason: 'a still-growing fence should not settle');
+
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(highlighter.calls, hasLength(2));
+          expect(highlighter.calls.last.code, code(125));
+        });
+
+        testWidgets('replaced, non-extending code re-highlights immediately', (tester) async {
+          // A regenerated or edited message can be shorter than what is on
+          // screen. The pending-tail arithmetic assumes the new code extends the
+          // old, so this has to invalidate rather than throttle.
+          final highlighter = _RecordingHighlighter();
+
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(200), language: 'dart', highlighter: highlighter.call)),
+          );
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: 'totally different', language: 'dart', highlighter: highlighter.call)),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(highlighter.calls, hasLength(2));
+          expect(highlighter.calls.last.code, 'totally different');
+          expect(_textOf(tester.widget<SelectableText>(find.byType(SelectableText)).textSpan!), 'totally different');
+        });
+
+        testWidgets('disposal with a pending settle pass does not throw', (tester) async {
+          final highlighter = _RecordingHighlighter();
+
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(100), language: 'dart', highlighter: highlighter.call)),
+          );
+          await tester.pumpWidget(
+            wrap(CodeBlockView(code: code(110), language: 'dart', highlighter: highlighter.call)),
+          );
+
+          // Tear the block down while the settle timer is still armed.
+          await tester.pumpWidget(wrap(const SizedBox()));
+          await tester.pump(const Duration(milliseconds: 200));
+
+          expect(tester.takeException(), isNull);
+          expect(highlighter.calls, hasLength(1));
+        });
+
+        testWidgets('the pending tail never costs the reader a character', (tester) async {
+          // The property that matters most, across the whole growth range.
+          final highlighter = _RecordingHighlighter();
+
+          for (var n = 1; n <= 300; n += 7) {
+            await tester.pumpWidget(
+              wrap(CodeBlockView(code: code(n), language: 'dart', highlighter: highlighter.call)),
+            );
+            final selectable = tester.widget<SelectableText>(find.byType(SelectableText));
+            final shown = selectable.textSpan != null ? _textOf(selectable.textSpan!) : selectable.data!;
+            expect(shown, code(n), reason: 'lost text at $n characters');
+          }
+        });
+      });
+
       goldenTest(
         'highlighted dart block',
         fileName: 'code_block_view_dart',
