@@ -108,6 +108,23 @@ void main() {
         expect(spec.series.first.points.map((p) => p.x), ['Jan', 'Feb']);
       });
 
+      test('leaves an unlabelled dataset unnamed rather than calling it "Series"', () {
+        // The parser has no BuildContext, so it can't translate a fallback
+        // name. It leaves the name empty and the widgets fill it in at render
+        // time from AITranslations.unnamedChartSeries.
+        final spec = USpecParser.tryParse('''
+        {
+          "type": "line",
+          "data": {
+            "labels": ["Jan", "Feb"],
+            "datasets": [{"data": [10, 20]}]
+          }
+        }
+        ''');
+
+        expect(spec!.series.single.name, isEmpty);
+      });
+
       test('plots plain numbers with no labels at their position in the array', () {
         // A shape models emit constantly. The no-labels branch used to accept
         // only `{x, y, r}` objects, so this parsed to a series holding nothing

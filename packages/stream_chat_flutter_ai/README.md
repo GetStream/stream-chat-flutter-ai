@@ -178,6 +178,42 @@ final spec = USpecParser.tryParse(jsonString);   // supports USpec and Chart.js 
 if (spec != null) ChartView(spec: spec);
 ```
 
+**Theming.** Colors and sizes come from `ChartThemeData`, registered app-wide as part of the
+package's `AITheme` extension:
+
+```dart
+MaterialApp(
+  theme: ThemeData(
+    colorSchemeSeed: brandBlue,
+    extensions: const [
+      AITheme(chartTheme: ChartThemeData(seriesColors: [Color(0xFF005FFF), Color(0xFF00C1FF)])),
+    ],
+  ),
+  ...
+)
+```
+
+Every field is nullable, and leaving one unset means "derive it from the ambient `ColorScheme`" —
+so overriding the palette leaves the grid lines, axis labels and heatmap ramp following your app,
+in light and dark alike. Override it for a subtree with `ChartTheme(data: ..., child: ...)`, or for
+one chart with `ChartView(theme: ...)`; the three compose, most specific first.
+
+Two things worth knowing:
+
+- **`ThemeData.copyWith(extensions:)` replaces the whole extension set.** If your app already
+  registers others, re-list them:
+  `theme.copyWith(extensions: [...theme.extensions.values, const AITheme()])`.
+- **Pie slice labels pick black or white per slice**, for contrast against that slice's own fill.
+  Set a color on `ChartThemeData.pieLabelStyle` to take that choice back.
+
+**Accessibility.** `fl_chart` paints to a canvas and exposes nothing, so each chart describes
+itself: one semantics node whose label summarises the kind, the title, the axes, the series and the
+value range — "Bar chart, Messages per day, 5 categories, values 8 to 24". The node deliberately
+excludes the subtree, because letting a screen reader walk the tick labels gives a run of bare
+numbers with nothing saying which axis they belong to. The sentence is composed by
+`AITranslations.chartSemanticsLabel` (see [Localization](#localization)); pass
+`ChartView(semanticsLabel: ...)` to replace it, or an empty string to describe the chart yourself.
+
 ---
 
 ### `ChatComposer`
@@ -362,6 +398,17 @@ Three things worth knowing:
   Placed lower — directly above a `ChatComposer` — it still reaches that composer's attachment
   sheet, because the composer re-provides it inside the sheet's route. If you present a
   `ComposerAttachmentSheet` yourself, you own that re-provision.
+
+`chartSemanticsLabel` is the odd one out: it takes a `ChartSemantics` — the facts about a chart,
+with their numbers already formatted — and composes a whole sentence, rather than being one short
+label. A sentence's word order varies far more between languages than a tooltip's does, so
+composing it is the point:
+
+```dart
+@override
+String chartSemanticsLabel(ChartSemantics chart) =>
+    'Staafdiagram, ${chart.categoryCount} categorieën';
+```
 
 Subclassing `DefaultAITranslations` rather than implementing `AITranslations` directly means a
 string added in a later version arrives as an untranslated default rather than a compile error.
