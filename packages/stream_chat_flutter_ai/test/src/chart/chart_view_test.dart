@@ -2,9 +2,13 @@ import 'package:alchemist/alchemist.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/src/chart/chart_semantics.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/heatmap_chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 
 void main() {
   group('ChartView', () {
@@ -283,6 +287,380 @@ void main() {
       });
     });
 
+    group('theming', () {
+      testWidgets('a host palette overrides the line series color', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _lineSpec),
+            const ChartThemeData(seriesColors: [Color(0xFFFF0000)]),
+          ),
+        );
+
+        final data = tester.widget<LineChart>(find.byType(LineChart)).data;
+        expect(data.lineBarsData.single.color, const Color(0xFFFF0000));
+      });
+
+      testWidgets('the area fill follows the palette', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _areaSpec),
+            const ChartThemeData(seriesColors: [Color(0xFFFF0000)]),
+          ),
+        );
+
+        final data = tester.widget<LineChart>(find.byType(LineChart)).data;
+        expect(data.lineBarsData.single.belowBarData.color, const Color(0xFFFF0000).withValues(alpha: 0.15));
+      });
+
+      testWidgets('a host palette overrides the bar rod colors', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _barSpec),
+            const ChartThemeData(seriesColors: [Color(0xFF00FF00)]),
+          ),
+        );
+
+        final groups = tester.widget<BarChart>(find.byType(BarChart)).data.barGroups;
+        expect(groups.first.barRods.first.color, const Color(0xFF00FF00));
+      });
+
+      testWidgets('the palette cycles when it is shorter than the data', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _pieSpec),
+            const ChartThemeData(seriesColors: [Color(0xFFFF0000), Color(0xFF00FF00)]),
+          ),
+        );
+
+        final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+        expect(sections.map((s) => s.color), [
+          const Color(0xFFFF0000),
+          const Color(0xFF00FF00),
+          const Color(0xFFFF0000),
+        ]);
+      });
+
+      testWidgets('an empty palette falls back to the default one', (tester) async {
+        // Cycling an empty palette has no answer, and `index % 0` throws.
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _lineSpec), const ChartThemeData(seriesColors: [])),
+        );
+
+        final data = tester.widget<LineChart>(find.byType(LineChart)).data;
+        expect(data.lineBarsData.single.color, kDefaultChartSeriesColors.first);
+      });
+
+      testWidgets('the chart height follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _lineSpec), const ChartThemeData(height: 320)),
+        );
+
+        final plot = find.descendant(of: find.byType(ChartView), matching: find.byType(Container));
+        expect(tester.getSize(plot.first).height, 320);
+      });
+
+      testWidgets('the histogram bucket count follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _histogramSpec), const ChartThemeData(histogramBinCount: 4)),
+        );
+
+        expect(tester.widget<BarChart>(find.byType(BarChart)).data.barGroups, hasLength(4));
+      });
+
+      testWidgets('the scatter marker radius follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _scatterSpec), const ChartThemeData(scatterRadius: 12)),
+        );
+
+        final spots = tester.widget<ScatterChart>(find.byType(ScatterChart)).data.scatterSpots;
+        expect(spots.map((s) => (s.dotPainter as FlDotCirclePainter).radius), everyElement(12.0));
+      });
+
+      testWidgets('the bubble radius range follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _bubbleSpec),
+            const ChartThemeData(bubbleMinRadius: 4, bubbleMaxRadius: 10),
+          ),
+        );
+
+        final spots = tester.widget<ScatterChart>(find.byType(ScatterChart)).data.scatterSpots;
+        final radii = spots.map((s) => (s.dotPainter as FlDotCirclePainter).radius).toList();
+        expect(radii.first, 4, reason: 'the smallest size sits at the bottom of the range');
+        expect(radii.last, 10, reason: 'the largest at the top');
+      });
+
+      testWidgets('the grid line color follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _lineSpec), const ChartThemeData(gridLineColor: Color(0xFF123456))),
+        );
+
+        final grid = tester.widget<LineChart>(find.byType(LineChart)).data.gridData;
+        expect(grid.getDrawingHorizontalLine(0).color, const Color(0xFF123456));
+      });
+
+      testWidgets('the axis label style follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _barSpec),
+            const ChartThemeData(axisLabelStyle: TextStyle(color: Color(0xFF654321), fontSize: 14)),
+          ),
+        );
+
+        final label = tester.widget<Text>(find.text('Jan'));
+        expect(label.style?.color, const Color(0xFF654321));
+        expect(label.style?.fontSize, 14);
+      });
+
+      testWidgets('the title style follows the theme', (tester) async {
+        const spec = USpec(
+          title: 'Titled',
+          kind: USpecKind.bar,
+          series: [
+            USeries(
+              name: 'A',
+              points: [UPoint(x: 'Jan', y: 1)],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: spec),
+            const ChartThemeData(titleTextStyle: TextStyle(color: Color(0xFFABCDEF))),
+          ),
+        );
+
+        expect(tester.widget<Text>(find.text('Titled')).style?.color, const Color(0xFFABCDEF));
+      });
+
+      testWidgets('the heatmap ramp follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _heatmapSpec),
+            const ChartThemeData(
+              heatmapLowColor: Color(0xFFFF0000),
+              heatmapMidColor: Color(0xFF00FF00),
+              heatmapHighColor: Color(0xFF0000FF),
+            ),
+          ),
+        );
+
+        final fills = tester
+            .widgetList<Container>(
+              find.descendant(of: find.byType(HeatmapChartView), matching: find.byType(Container)),
+            )
+            .map((c) => c.decoration)
+            .whereType<BoxDecoration>()
+            .map((d) => d.color)
+            .whereType<Color>();
+
+        expect(fills, contains(const Color(0xFFFF0000)), reason: 'the minimum cell sits at the low stop');
+        expect(fills, contains(const Color(0xFF0000FF)), reason: 'the maximum at the high stop');
+      });
+
+      group('precedence', () {
+        testWidgets('the theme parameter wins over the ambient extension', (tester) async {
+          await tester.pumpWidget(
+            _wrapThemed(
+              const ChartView(
+                spec: _lineSpec,
+                theme: ChartThemeData(seriesColors: [Color(0xFF0000FF)]),
+              ),
+              const ChartThemeData(seriesColors: [Color(0xFFFF0000)]),
+            ),
+          );
+
+          final data = tester.widget<LineChart>(find.byType(LineChart)).data;
+          expect(data.lineBarsData.single.color, const Color(0xFF0000FF));
+        });
+
+        testWidgets('a ChartTheme scope wins over the ambient extension', (tester) async {
+          await tester.pumpWidget(
+            _wrapThemed(
+              const ChartTheme(
+                data: ChartThemeData(seriesColors: [Color(0xFF0000FF)]),
+                child: ChartView(spec: _lineSpec),
+              ),
+              const ChartThemeData(seriesColors: [Color(0xFFFF0000)], height: 320),
+            ),
+          );
+
+          final data = tester.widget<LineChart>(find.byType(LineChart)).data;
+          expect(data.lineBarsData.single.color, const Color(0xFF0000FF));
+
+          final plot = find.descendant(of: find.byType(ChartView), matching: find.byType(Container));
+          expect(
+            tester.getSize(plot.first).height,
+            320,
+            reason: 'what the scope leaves unset still comes from AITheme',
+          );
+        });
+      });
+
+      group('pie slice labels', () {
+        // The label was hardcoded white, which disappears on a light slice —
+        // and a host palette is free to contain one.
+        testWidgets('are chosen for contrast against their own slice', (tester) async {
+          await tester.pumpWidget(
+            _wrapThemed(
+              const ChartView(spec: _pieSpec),
+              const ChartThemeData(
+                seriesColors: [Color(0xFF000080), Color(0xFFFFFF00), Color(0xFF000080)],
+              ),
+            ),
+          );
+
+          final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+          expect(sections[0].titleStyle?.color, Colors.white, reason: 'navy slice');
+          expect(sections[1].titleStyle?.color, Colors.black87, reason: 'yellow slice');
+        });
+
+        testWidgets('take a color the host set outright', (tester) async {
+          await tester.pumpWidget(
+            _wrapThemed(
+              const ChartView(spec: _pieSpec),
+              const ChartThemeData(
+                seriesColors: [Color(0xFFFFFF00)],
+                pieLabelStyle: TextStyle(color: Color(0xFF112233)),
+              ),
+            ),
+          );
+
+          final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+          expect(sections.first.titleStyle?.color, const Color(0xFF112233));
+        });
+      });
+    });
+
+    group('semantics', () {
+      // ensureSemantics' handle has to be disposed inside the test body: the
+      // framework checks for live handles before addTearDown callbacks run.
+      testWidgets('summarises the chart in one node', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        const spec = USpec(
+          title: 'Messages per day',
+          kind: USpecKind.bar,
+          series: [
+            USeries(
+              name: 'Messages',
+              points: [
+                UPoint(x: 'Mon', y: 8),
+                UPoint(x: 'Tue', y: 24),
+              ],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(
+          tester.getSemantics(find.byType(ChartView)).label,
+          'Bar chart, Messages per day, 2 categories, values 8 to 24',
+        );
+        handle.dispose();
+      });
+
+      testWidgets('excludes the axis labels from the semantics tree', (tester) async {
+        // Deliberate: fl_chart contributes nothing, but the tick labels are
+        // real Text widgets, and walking them gives a reader a run of bare
+        // numbers with nothing saying which axis they belong to.
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _barSpec)));
+
+        expect(find.text('Jan'), findsOneWidget);
+        expect(find.bySemanticsLabel('Jan'), findsNothing);
+        handle.dispose();
+      });
+
+      testWidgets('semanticsLabel replaces the derived summary', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _barSpec, semanticsLabel: 'Sales by month')));
+
+        expect(tester.getSemantics(find.byType(ChartView)).label, 'Sales by month');
+        handle.dispose();
+      });
+
+      testWidgets('an empty semanticsLabel adds no node at all', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _barSpec, semanticsLabel: '')));
+
+        expect(find.bySemanticsLabel(RegExp('Bar chart')), findsNothing);
+        expect(find.bySemanticsLabel('Jan'), findsOneWidget, reason: 'nothing excludes the tick labels now');
+        handle.dispose();
+      });
+
+      testWidgets('a heatmap gets one node rather than two', (tester) async {
+        // ChartView wraps the whole thing, so the delegated grid must not add
+        // a nested node of its own.
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _heatmapSpec)));
+
+        expect(tester.getSemantics(find.byType(ChartView)).label, 'Heatmap, 2 rows by 2 columns, values 1 to 9');
+        expect(find.bySemanticsLabel('Row 1'), findsNothing);
+        handle.dispose();
+      });
+
+      testWidgets('a standalone heatmap describes itself', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const HeatmapChartView(spec: _heatmapSpec)));
+
+        expect(
+          tester.getSemantics(find.byType(HeatmapChartView)).label,
+          'Heatmap, 2 rows by 2 columns, values 1 to 9',
+        );
+        handle.dispose();
+      });
+
+      testWidgets('the summary follows the translations', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          _wrap(
+            const AITranslationsScope(
+              translations: _TestTranslations(),
+              child: ChartView(spec: _barSpec),
+            ),
+          ),
+        );
+
+        expect(tester.getSemantics(find.byType(ChartView)).label, 'STAAFDIAGRAM');
+        handle.dispose();
+      });
+
+      testWidgets('a heatmap row the data did not name gets the translated fallback', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.heatmap,
+          series: [
+            USeries(
+              name: '',
+              points: [UPoint(x: 'A', y: 0, z: 1)],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        expect(find.text('Series'), findsOneWidget);
+
+        await tester.pumpWidget(
+          _wrap(
+            const AITranslationsScope(
+              translations: _TestTranslations(),
+              child: ChartView(spec: spec),
+            ),
+          ),
+        );
+        expect(find.text('Reeks'), findsOneWidget);
+        expect(find.text('Series'), findsNothing);
+      });
+    });
+
     group('golden', () {
       for (final entry in _goldenCases.entries) {
         goldenTest(
@@ -486,4 +864,23 @@ Widget _wrap(Widget child) {
     debugShowCheckedModeBanner: false,
     home: Scaffold(body: Center(child: child)),
   );
+}
+
+/// [_wrap] with [chartTheme] registered the way a host app would register it.
+Widget _wrapThemed(Widget child, ChartThemeData chartTheme) {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(extensions: [AITheme(chartTheme: chartTheme)]),
+    home: Scaffold(body: Center(child: child)),
+  );
+}
+
+class _TestTranslations extends DefaultAITranslations {
+  const _TestTranslations();
+
+  @override
+  String get unnamedChartSeries => 'Reeks';
+
+  @override
+  String chartSemanticsLabel(ChartSemantics chart) => 'STAAFDIAGRAM';
 }
