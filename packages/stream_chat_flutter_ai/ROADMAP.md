@@ -282,10 +282,13 @@ signature would have existed and silently not sent.
   picker overrides `buildLeading`, which is still nullable.
 - **`_InputContainer` moved to its own file** as public `ChatComposerInput`
   (`lib/src/composer/chat_composer_input.dart`), taking its private collaborators
-  (`_TrailingControl`, `_AttachmentThumbnails`, `_SelectedOptionChip`, `_trailingState`) with it.
+  (`_TrailingControl`, `_AttachmentThumbnails`, `_AttachmentThumbnail` and its `State`,
+  `_SelectedOptionChip`, `_trailingState`) with it.
   Not promoted in place: `chat_composer_factory.dart` has to name it in code, and it imports
   `chat_composer.dart` for doc links only. The separate file keeps the dependency direction
-  one-way — props ← input ← factory ← composer.
+  one-way *in code* — props ← input ← factory ← composer. At the import level the graph is still
+  cyclic: props and input both import the composer, for doc links only, as their own header
+  comments say.
 - **The sheet slot supplies content, not presentation.** `showModalBottomSheet`'s options
   (`isScrollControlled`, `showDragHandle`) stay in `_AttachmentButton`, so a replacement sheet must
   not draw its own drag handle; `buildLeading` is the seam for changing how, or whether, a picker
@@ -305,6 +308,33 @@ signature would have existed and silently not sent.
   other half of that invariant (both slots rendering ⇒ two spacers).
 - **Effort:** M (1 day) — as estimated.
 
+**Follow-up pass (post-review).** Six things the slot work exposed, all fixed before merge:
+
+- **`ChatComposerInput` drives its own rebuilds.** As private `_InputContainer` its only
+  construction site sat inside `_ChatComposerState`'s `ListenableBuilder`; public, it read
+  controller state and `SpeechToTextController.instance` while subscribing to neither, so
+  standalone use rendered once and froze — worst case a live dictation session whose only stop
+  control never appeared. It now nests its own listeners (not `Listenable.merge`, for the reason
+  recorded on `_ChatComposerState._listenable`).
+- **`hintText`'s default moved into the props** as `ChatComposerInputProps.defaultHintText`. It
+  lived in the widget as `props.hintText ?? 'Ask anything…'`, so a custom input forwarding
+  `props.hintText` — the pattern the README recommends — rendered no placeholder at all.
+- **`onStop` is nullable.** `_onStop` wrapped `onStopPressed?.call()` unconditionally, so props
+  always handed over a callable and a custom input could not tell that stopping was unsupported.
+- **A rejected send is reported.** `ChatComposerSendCallback` now returns `FutureOr<void>`,
+  matching the `async` callback the docs have always shown; the future was previously discarded,
+  so a failed send was silent in release. The clear stays optimistic, now documented as such.
+- **`onSend`/`onStop` guard `mounted`.** They are handed to host code that may call them across
+  an async gap, which previously notified a disposed controller.
+- **Asserts where the docs were the only defence:** `minLines`/`maxLines` ordering (on both the
+  props and `ChatComposer`), and `buildInput` not returning an `Expanded`/`Flexible`.
+
+Plus `copyWith` on `ChatComposerInputProps` (ten fields; hand-listing them silently reverts any
+you forget), an `abstract` base for `ChatComposerSlotProps`, and twelve tests — the composer group
+went from 65 to 77 — closing gaps a mutation pass found, including refocus-after-send, the
+`hasContent` guard, and the text-field configuration actually reaching the field rather than just
+echoing back off the props.
+
 ### 2.3 Localization scaffolding
 
 **Gap:** Swift externalizes strings via an `L10n` enum backed by a `.strings` bundle (English-only
@@ -313,7 +343,7 @@ complete list as of now, so the work can be done in one pass:
 
 | String | Where |
 |---|---|
-| `'Ask anything…'` | `chat_composer_input.dart` — default `hintText` |
+| `'Ask anything…'` | `chat_composer_props.dart` — `ChatComposerInputProps.defaultHintText` |
 | `'Send'` | `chat_composer_input.dart` — trailing button tooltip (enabled and disabled) |
 | `'Stop generating'` | `chat_composer_input.dart` — stop button tooltip |
 | `'Remove attachment'` | `chat_composer_input.dart` — thumbnail remove tooltip |

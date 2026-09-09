@@ -81,7 +81,9 @@ class ChatComposerFactory {
   ///
   /// Unlike [buildLeading] and [buildTrailing] this is non-nullable: the
   /// result goes into an [Expanded], and there is no layout for "no input".
-  /// Return `const SizedBox.shrink()` if you really want an empty one.
+  /// Return `const SizedBox.shrink()` if you really want an empty one — safe
+  /// here, unlike in the nullable slots, because nothing compares this result
+  /// against an empty-widget sentinel.
   ///
   /// Whatever is returned must not be an [Expanded] itself — [ChatComposer]
   /// already supplies one.
@@ -100,6 +102,18 @@ class ChatComposerFactory {
   ///
   /// Non-nullable: this is only called once the button has decided to open a
   /// sheet, and an empty sheet is worse than no sheet.
+  ///
+  /// Unlike [buildInput], the result is **not** rebuilt by the composer: this
+  /// runs inside a pushed modal route, outside the [ListenableBuilder] that
+  /// drives the composer's own subtree. A sheet that renders controller state
+  /// — a selection count, tiles disabled at
+  /// [ChatComposerController.maxAttachments] — must listen to
+  /// [ChatComposerAttachmentSheetProps.controller] itself, as
+  /// [ComposerAttachmentSheet] does, or it will freeze at its open-time state.
+  ///
+  /// A replacement also inherits none of [ComposerAttachmentSheet]'s photo
+  /// permission handling or its error reporting; see that widget for what
+  /// those cover.
   Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) {
     return ComposerAttachmentSheet(controller: props.controller);
   }

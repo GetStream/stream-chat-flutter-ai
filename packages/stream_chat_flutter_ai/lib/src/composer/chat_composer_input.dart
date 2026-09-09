@@ -17,8 +17,15 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 ///
 /// A rounded, outlined surface containing, top to bottom: the inline selected
 /// [ChatOption] chip, a row of attachment thumbnails, and the text field with
-/// the morphing mic/send/stop control at its right edge. Everything it renders
-/// comes out of [props].
+/// the morphing mic/send/stop control at its right edge. Its content and
+/// wiring come out of [props]; its colors come from the ambient [Theme], and
+/// the mic's listening state from the process-wide
+/// [SpeechToTextController.instance].
+///
+/// Rebuilds itself on [ChatComposerInputProps.controller] — and, when
+/// [ChatComposerInputProps.enableSpeechToText] is set, on
+/// [SpeechToTextController.instance] too — so it renders correctly standalone
+/// as well as inside [ChatComposer], where the nesting is a harmless no-op.
 ///
 /// This is what [ChatComposerFactory.buildInput] returns by default. Construct
 /// it with the props that slot hands you to keep the default input while
@@ -45,9 +52,35 @@ class ChatComposerInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!props.enableSpeechToText) {
+      return ListenableBuilder(
+        listenable: props.controller,
+        builder: (context, _) => _buildPill(context),
+      );
+    }
+    // Nested rather than `Listenable.merge`d: merge returns a fresh object
+    // with no `==` on every call, so building it here would make
+    // `ListenableBuilder` detach from and re-attach to both sources on every
+    // rebuild (the same reason `_ChatComposerState` holds its merge in
+    // state). The inner builder is constructed fresh each time on purpose —
+    // handing back an identical widget instance would short-circuit the
+    // rebuild the outer listener exists to trigger.
+    return ListenableBuilder(
+      listenable: SpeechToTextController.instance,
+      builder: (context, _) => ListenableBuilder(
+        listenable: props.controller,
+        builder: (context, _) => _buildPill(context),
+      ),
+    );
+  }
+
+  Widget _buildPill(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final borderColor = colorScheme.outlineVariant;
     final controller = props.controller;
+    // Hoisted: the getter hands back a fresh `List.unmodifiable` copy on every
+    // call, and this build runs per keystroke.
+    final attachments = controller.attachments;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -64,9 +97,9 @@ class ChatComposerInput extends StatelessWidget {
               option: controller.selectedChatOption!,
               onDismiss: controller.clearSelectedChatOption,
             ),
-          if (controller.attachments.isNotEmpty)
+          if (attachments.isNotEmpty)
             _AttachmentThumbnails(
-              attachments: controller.attachments,
+              attachments: attachments,
               onRemove: controller.removeAttachment,
             ),
           Row(
@@ -84,7 +117,7 @@ class ChatComposerInput extends StatelessWidget {
                   maxLines: props.maxLines,
                   textInputAction: props.textInputAction,
                   decoration: InputDecoration(
-                    hintText: props.hintText ?? 'Ask anything…',
+                    hintText: props.hintText,
                     hintStyle: TextStyle(
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.6,
@@ -155,7 +188,10 @@ class _TrailingControl extends StatelessWidget {
 
   final ChatComposerController controller;
   final VoidCallback onSend;
-  final VoidCallback onStop;
+
+  /// `null` when the host passed no `onStopPressed` — the stop button renders
+  /// disabled rather than offering an action that does nothing.
+  final VoidCallback? onStop;
   final bool enableSpeechToText;
   final SpeechToTextConfig speechToTextConfig;
 

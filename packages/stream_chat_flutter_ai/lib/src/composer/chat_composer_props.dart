@@ -16,8 +16,11 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 /// grow its own fields without disturbing the others — see
 /// [ChatComposerInputProps], which carries the input field's configuration and
 /// the composer's send/stop wiring.
-class ChatComposerSlotProps {
+abstract class ChatComposerSlotProps {
   /// Creates a [ChatComposerSlotProps].
+  ///
+  /// Abstract: every slot passes one of the subclasses below, and a bare
+  /// `ChatComposerSlotProps` belongs to no slot.
   const ChatComposerSlotProps({required this.controller});
 
   /// The composer's controller — input text, chat options, attachments, and
@@ -41,6 +44,10 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
 }
 
 /// Props for [ChatComposerFactory.buildAttachmentSheet].
+///
+/// The sheet is built inside a modal route, so — unlike the other three slots
+/// — it is not rebuilt by the composer. A sheet that renders [controller]
+/// state has to listen to it itself.
 class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerAttachmentSheetProps].
   const ChatComposerAttachmentSheetProps({required super.controller});
@@ -59,14 +66,25 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     required super.controller,
     required this.focusNode,
     required this.onSend,
-    required this.onStop,
-    this.hintText,
+    this.onStop,
+    this.hintText = defaultHintText,
     this.minLines = 1,
     this.maxLines = 8,
     this.textInputAction = TextInputAction.newline,
     this.enableSpeechToText = false,
     this.speechToTextConfig = const SpeechToTextConfig(),
-  });
+  }) : assert(minLines >= 1, 'minLines must be at least 1'),
+       // Checked here rather than left to TextField's own assert, which trips
+       // several frames deep with no mention of the composer.
+       assert(maxLines >= minLines, "maxLines can't be less than minLines");
+
+  /// The placeholder [hintText] falls back to, and [ChatComposer]'s own
+  /// default when [ChatComposer.hintText] is `null`.
+  ///
+  /// Lives here, not in [ChatComposerInput], so a custom input forwarding
+  /// `props.hintText` renders the same placeholder the default one does
+  /// instead of no placeholder at all.
+  static const defaultHintText = 'Ask anything…';
 
   /// The composer's focus node for the text field.
   ///
@@ -83,6 +101,16 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
   /// the attachments, then clears [controller] and returns focus to
   /// [focusNode].
   ///
+  /// The clear is **optimistic**: it happens as soon as
+  /// [ChatComposer.onSendPressed] is invoked, not when the future it returns
+  /// completes. A host whose send can fail owns surfacing that failure and
+  /// re-seeding the composer — though a rejected future is at least reported
+  /// through [FlutterError.onError] rather than swallowed.
+  ///
+  /// Only safe to call while the [ChatComposer] is still mounted. Calling it
+  /// across an async gap (a confirmation dialog, a debounce) after the
+  /// composer has left the tree asserts in debug and returns without sending.
+  ///
   /// A custom input built from [ChatComposerFactory.buildInput] should call
   /// this rather than reimplement it — [ChatComposer.onSendPressed] is not
   /// otherwise reachable from a factory.
@@ -90,12 +118,18 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
 
   /// Stops the in-flight response, by calling [ChatComposer.onStopPressed].
   ///
-  /// A no-op if the host passed no `onStopPressed`. Only meaningful while
-  /// [ChatComposerController.isGenerating] is `true`.
-  final VoidCallback onStop;
+  /// `null` when the host passed no `onStopPressed`, so a custom input can
+  /// hide or disable its stop affordance rather than offer one that does
+  /// nothing. Only meaningful while [ChatComposerController.isGenerating] is
+  /// `true`.
+  ///
+  /// Carries the same mounted caveat as [onSend].
+  final VoidCallback? onStop;
 
   /// Placeholder text shown when the text field is empty.
-  final String? hintText;
+  ///
+  /// Defaults to [defaultHintText].
+  final String hintText;
 
   /// Minimum number of lines in the text field.
   final int minLines;
@@ -111,10 +145,51 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
   ///
   /// See [ChatComposer.enableSpeechToText], which this mirrors, for the morph
   /// behaviour and the platform permissions [SpeechToTextButton] needs.
+  ///
+  /// A custom input that renders its own mic state should read
+  /// [SpeechToTextController.instance] and rebuild on it — the listening flag
+  /// lives on that process-wide controller, not here. [ChatComposerInput]
+  /// already does.
   final bool enableSpeechToText;
 
   /// Locale, timeouts and callbacks for voice input.
   ///
   /// Only consulted when [enableSpeechToText] is `true`.
   final SpeechToTextConfig speechToTextConfig;
+
+  /// A copy of these props with the given fields replaced.
+  ///
+  /// The way to tweak one value while keeping the rest of what [ChatComposer]
+  /// passed down — hand-listing all ten fields instead silently reverts any
+  /// you forget to a constructor default, discarding the host's own
+  /// configuration.
+  ///
+  /// Passing `null` for [onStop] leaves the existing callback in place; use
+  /// `clearOnStop: true` to drop it.
+  ChatComposerInputProps copyWith({
+    ChatComposerController? controller,
+    FocusNode? focusNode,
+    VoidCallback? onSend,
+    VoidCallback? onStop,
+    bool clearOnStop = false,
+    String? hintText,
+    int? minLines,
+    int? maxLines,
+    TextInputAction? textInputAction,
+    bool? enableSpeechToText,
+    SpeechToTextConfig? speechToTextConfig,
+  }) {
+    return ChatComposerInputProps(
+      controller: controller ?? this.controller,
+      focusNode: focusNode ?? this.focusNode,
+      onSend: onSend ?? this.onSend,
+      onStop: clearOnStop ? null : (onStop ?? this.onStop),
+      hintText: hintText ?? this.hintText,
+      minLines: minLines ?? this.minLines,
+      maxLines: maxLines ?? this.maxLines,
+      textInputAction: textInputAction ?? this.textInputAction,
+      enableSpeechToText: enableSpeechToText ?? this.enableSpeechToText,
+      speechToTextConfig: speechToTextConfig ?? this.speechToTextConfig,
+    );
+  }
 }

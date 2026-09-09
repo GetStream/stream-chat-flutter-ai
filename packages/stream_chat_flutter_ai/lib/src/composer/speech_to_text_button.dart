@@ -65,11 +65,14 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 /// by side.
 ///
 /// To place it elsewhere instead (e.g. always visible in a custom slot), use
-/// it directly via [ChatComposerFactory]:
+/// it directly via [ChatComposerFactory]. The trailing slot is the one to
+/// reach for: it is empty by default, whereas overriding
+/// [ChatComposerFactory.buildLeading] would replace the "+" button and take
+/// the attachment sheet with it.
 /// ```dart
 /// class MyFactory extends ChatComposerFactory {
 ///   @override
-///   Widget buildLeading(BuildContext context, ChatComposerLeadingProps props) {
+///   Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
 ///     return SpeechToTextButton(controller: props.controller);
 ///   }
 /// }

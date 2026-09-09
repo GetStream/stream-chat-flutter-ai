@@ -5,6 +5,13 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
+/// Mirror the private keys `ChatComposer` stamps on the 8px gaps it inserts
+/// beside a rendered leading/trailing slot, so the gap-handling tests name
+/// exactly those spacers — and which side each is on — rather than matching
+/// any 8px `SizedBox` in the subtree.
+const _leadingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.leading');
+const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing');
+
 void main() {
   group('ChatComposerController', () {
     test('hasContent is false when text is empty', () {
@@ -410,18 +417,17 @@ void main() {
         ),
       );
 
-      final gapSpacers = find.byWidgetPredicate(
-        (widget) => widget is SizedBox && widget.width == 8 && widget.height == null,
-      );
-      expect(gapSpacers, findsOneWidget);
+      expect(find.byKey(_leadingGapKey), findsOneWidget);
+      expect(find.byKey(_trailingGapKey), findsNothing);
     });
 
     testWidgets('reserves a spacer on each side when both factory slots render', (tester) async {
       // The other half of the invariant the test above pins: the gap is
       // inserted for a slot that renders, and only for a slot that renders.
-      // Asserted with the same predicate, so if a refactor ever adds an
-      // unrelated 8px-wide SizedBox to the default tree, both tests move
-      // together instead of one silently starting to measure something else.
+      // Found by key, not by width: the attachment thumbnails carry an 8px
+      // separator of their own, so a width-only predicate would silently
+      // start measuring that too the first time a test rendered an
+      // attachment.
       await tester.pumpWidget(
         _wrap(
           ChatComposer(
@@ -431,10 +437,8 @@ void main() {
         ),
       );
 
-      final gapSpacers = find.byWidgetPredicate(
-        (widget) => widget is SizedBox && widget.width == 8 && widget.height == null,
-      );
-      expect(gapSpacers, findsNWidgets(2));
+      expect(find.byKey(_leadingGapKey), findsOneWidget);
+      expect(find.byKey(_trailingGapKey), findsOneWidget);
     });
   });
 
@@ -557,12 +561,14 @@ void main() {
 
     testWidgets('buildInput can replace the input and reuse the send wiring', (tester) async {
       final controller = ChatComposerController();
+      final focusNode = FocusNode();
       String? sentText;
 
       await tester.pumpWidget(
         _wrap(
           ChatComposer(
             controller: controller,
+            focusNode: focusNode,
             factory: _ReplacementInputFactory(),
             onSendPressed: (text, _, __) => sentText = text,
           ),
@@ -579,9 +585,112 @@ void main() {
       expect(sentText, equals('Hello'));
       // The point of this test: `props.onSend` is the composer's own handler,
       // not just a hook that fires `onSendPressed`. Only the real one clears
-      // the controller afterwards, so an empty field here proves a fully
-      // custom input inherits the whole send behaviour.
+      // the controller and returns focus afterwards, so these two assertions
+      // are what prove a fully custom input inherits the whole send
+      // behaviour rather than a lookalike that merely fires the callback.
       expect(controller.text, isEmpty);
+      expect(focusNode.hasFocus, isTrue);
+      controller.dispose();
+      focusNode.dispose();
+    });
+
+    testWidgets('props.onSend does nothing when there is no content', (tester) async {
+      // The `hasContent` guard in `_onSend` was near-unreachable while the
+      // input was private — the default send button is disabled on an empty
+      // field. `props.onSend` is now handed to host code under no obligation
+      // to gate on it, so an always-enabled custom button would otherwise
+      // fire `onSendPressed('', null, [])` at the backend.
+      var sends = 0;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            factory: _ReplacementInputFactory(),
+            onSendPressed: (_, __, ___) => sends++,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('go'));
+      await tester.pump();
+
+      expect(sends, isZero);
+    });
+
+    testWidgets('props.onStop reaches onStopPressed from a replacement input', (tester) async {
+      final controller = ChatComposerController()..isGenerating = true;
+      var stopped = false;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _ReplacementInputFactory(),
+            onSendPressed: (_, __, ___) {},
+            onStopPressed: () => stopped = true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('stop'));
+      await tester.pump();
+
+      expect(stopped, isTrue);
+      controller.dispose();
+    });
+
+    testWidgets('props.onStop is null when the host passed no onStopPressed', (tester) async {
+      // So a custom input can tell that stopping is unsupported instead of
+      // rendering a control that silently does nothing.
+      final controller = ChatComposerController()..isGenerating = true;
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: factory,
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      expect(factory.captured!.onStop, isNull);
+
+      // And the default input disables its stop button rather than offering
+      // a dead one.
+      final stopButton = tester.widget<ComposerActionButton>(find.byType(ComposerActionButton));
+      expect(stopButton.icon, equals(Icons.stop_rounded));
+      expect(stopButton.onPressed, isNull);
+      controller.dispose();
+    });
+
+    testWidgets('a rejected onSendPressed future is reported, not swallowed', (tester) async {
+      // `ChatComposerSendCallback` returns `FutureOr<void>`, and the docs and
+      // README both show an `async` callback. A rejection used to reach the
+      // enclosing Zone as an unhandled async error: one console line in
+      // debug, nothing in release.
+      final controller = ChatComposerController(initialText: 'Hello');
+      final errors = <Object>[];
+      final previousOnError = FlutterError.onError;
+      FlutterError.onError = (details) => errors.add(details.exception);
+      addTearDown(() => FlutterError.onError = previousOnError);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _ReplacementInputFactory(),
+            onSendPressed: (_, __, ___) async => throw StateError('send failed'),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('go'));
+      await tester.pump();
+
+      expect(errors, hasLength(1));
+      expect(errors.single, isStateError);
       controller.dispose();
     });
 
@@ -609,14 +718,72 @@ void main() {
       final props = factory.captured!;
       expect(identical(props.controller, controller), isTrue);
       expect(identical(props.focusNode, focusNode), isTrue);
-      expect(props.hintText, equals('Ask me'));
-      expect(props.minLines, equals(2));
-      expect(props.maxLines, equals(4));
-      expect(props.textInputAction, equals(TextInputAction.send));
-      expect(props.enableSpeechToText, isTrue);
+
+      // Asserted on the rendered TextField, not on the props object: an echo
+      // test (`props.minLines == 2`) passes just as happily when the default
+      // input ignores the value entirely, which is the failure worth
+      // catching.
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.decoration!.hintText, equals('Ask me'));
+      expect(field.minLines, equals(2));
+      expect(field.maxLines, equals(4));
+      expect(field.textInputAction, equals(TextInputAction.send));
+      expect(identical(field.focusNode, focusNode), isTrue);
 
       controller.dispose();
       focusNode.dispose();
+    });
+
+    testWidgets('a custom input forwarding props.hintText gets the default placeholder', (tester) async {
+      // The default used to live in `ChatComposerInput` as
+      // `props.hintText ?? 'Ask anything…'`, so a custom input forwarding
+      // `props.hintText` — exactly what the README shows — rendered no
+      // placeholder at all.
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrap(ChatComposer(factory: factory, onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(factory.captured!.hintText, equals(ChatComposerInputProps.defaultHintText));
+      expect(find.text(ChatComposerInputProps.defaultHintText), findsOneWidget);
+    });
+
+    testWidgets('a send-action submit sends through props.onSend', (tester) async {
+      var sent = false;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            textInputAction: TextInputAction.send,
+            onSendPressed: (_, __, ___) => sent = true,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await tester.pump();
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await tester.pump();
+
+      expect(sent, isTrue);
+    });
+
+    testWidgets('speechToTextConfig reaches the mic button', (tester) async {
+      const config = SpeechToTextConfig(localeId: 'nl_NL');
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            enableSpeechToText: true,
+            speechToTextConfig: config,
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      final button = tester.widget<SpeechToTextButton>(find.byType(SpeechToTextButton));
+      expect(button.config, same(config));
     });
 
     testWidgets('default attachment sheet is a ComposerAttachmentSheet', (tester) async {
@@ -648,12 +815,13 @@ void main() {
       // and this factory leaves `buildLeading` alone — so the "+" below is
       // still the default button.
       final controller = ChatComposerController();
+      final factory = _CustomSheetFactory();
 
       await tester.pumpWidget(
         _wrap(
           ChatComposer(
             controller: controller,
-            factory: _CustomSheetFactory(),
+            factory: factory,
             onSendPressed: (_, __, ___) {},
           ),
         ),
@@ -669,7 +837,147 @@ void main() {
 
       expect(find.text('custom sheet'), findsOneWidget);
       expect(find.byType(ComposerAttachmentSheet), findsNothing);
+      // Pinned here rather than left to the default sheet's use of
+      // `chatOptions`, so the custom-sheet path stands on its own.
+      expect(identical(factory.captured!.controller, controller), isTrue);
       controller.dispose();
+    });
+
+    testWidgets('buildTrailing receives the composer controller', (tester) async {
+      final controller = ChatComposerController();
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _TrailingSlotFactory(),
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      // Rendered from the props rather than asserted on them, so a factory
+      // handing the trailing slot the wrong controller fails here.
+      controller.selectChatOption(const ChatOption(id: 'a', text: 'Deep research', icon: Icons.search));
+      await tester.pump();
+
+      expect(find.text('trailing:Deep research'), findsOneWidget);
+      controller.dispose();
+    });
+  });
+
+  group('ChatComposerInput', () {
+    testWidgets('rebuilds standalone, without a ChatComposer above it', (tester) async {
+      // It is public API now, so it has to drive its own rebuilds: as the
+      // private `_InputContainer` its only construction site sat inside the
+      // composer's ListenableBuilder. Without this, standalone use rendered
+      // once and then froze — typing never enabled send, a dismissed chip
+      // stayed on screen.
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Deep research'), findsNothing);
+
+      controller.selectChatOption(const ChatOption(id: 'a', text: 'Deep research', icon: Icons.search));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Deep research'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await tester.pumpAndSettle();
+
+      final sendButton = tester.widget<ComposerActionButton>(find.byType(ComposerActionButton));
+      expect(sendButton.icon, equals(Icons.arrow_upward_rounded));
+      expect(sendButton.onPressed, isNotNull);
+
+      controller.dispose();
+      focusNode.dispose();
+    });
+  });
+
+  group('ChatComposerInputProps', () {
+    test('copyWith replaces only the named fields', () {
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+      void onSend() {}
+      void onStop() {}
+      final props = ChatComposerInputProps(
+        controller: controller,
+        focusNode: focusNode,
+        onSend: onSend,
+        onStop: onStop,
+        hintText: 'Ask me',
+        minLines: 2,
+        maxLines: 4,
+        textInputAction: TextInputAction.send,
+        enableSpeechToText: true,
+      );
+
+      final copy = props.copyWith(hintText: 'Ask the docs');
+
+      expect(copy.hintText, equals('Ask the docs'));
+      // The point of copyWith: everything the host configured survives a
+      // one-field tweak, where hand-listing all ten silently reverts any
+      // field you forget to a constructor default.
+      expect(identical(copy.controller, controller), isTrue);
+      expect(identical(copy.focusNode, focusNode), isTrue);
+      expect(copy.onSend, equals(onSend));
+      expect(copy.onStop, equals(onStop));
+      expect(copy.minLines, equals(2));
+      expect(copy.maxLines, equals(4));
+      expect(copy.textInputAction, equals(TextInputAction.send));
+      expect(copy.enableSpeechToText, isTrue);
+
+      controller.dispose();
+      focusNode.dispose();
+    });
+
+    test('copyWith drops onStop only when asked', () {
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+      final props = ChatComposerInputProps(
+        controller: controller,
+        focusNode: focusNode,
+        onSend: () {},
+        onStop: () {},
+      );
+
+      expect(props.copyWith().onStop, isNotNull);
+      expect(props.copyWith(clearOnStop: true).onStop, isNull);
+
+      controller.dispose();
+      focusNode.dispose();
+    });
+
+    test('rejects a maxLines below minLines', () {
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+
+      expect(
+        () => ChatComposerInputProps(
+          controller: controller,
+          focusNode: focusNode,
+          onSend: () {},
+          minLines: 4,
+          maxLines: 2,
+        ),
+        throwsAssertionError,
+      );
+
+      controller.dispose();
+      focusNode.dispose();
     });
   });
 }
@@ -678,7 +986,9 @@ void main() {
 /// gap handling can be observed on both sides of the input.
 class _TrailingSlotFactory extends ChatComposerFactory {
   @override
-  Widget buildTrailing(BuildContext context, ChatComposerTrailingProps props) => const Icon(Icons.tune);
+  Widget buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
+    return Text('trailing:${props.controller.selectedChatOption?.text ?? ''}');
+  }
 }
 
 /// Keeps the default input and decorates around it.
@@ -711,7 +1021,10 @@ class _ReplacementInputFactory extends ChatComposerFactory {
           controller: props.controller.textEditingController,
           focusNode: props.focusNode,
         ),
+        // Deliberately always enabled, unlike the default input's send
+        // button: that is what exercises `_onSend`'s own `hasContent` guard.
         TextButton(onPressed: props.onSend, child: const Text('go')),
+        TextButton(onPressed: props.onStop, child: const Text('stop')),
       ],
     );
   }
@@ -730,7 +1043,11 @@ class _CapturingInputFactory extends ChatComposerFactory {
 
 /// Swaps the sheet's contents without touching [ChatComposerFactory.buildLeading].
 class _CustomSheetFactory extends ChatComposerFactory {
+  ChatComposerAttachmentSheetProps? captured;
+
   @override
-  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) =>
-      const Text('custom sheet');
+  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) {
+    captured = props;
+    return const Text('custom sheet');
+  }
 }

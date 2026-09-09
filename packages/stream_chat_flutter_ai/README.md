@@ -205,6 +205,12 @@ ChatComposer(
 );
 ```
 
+`onSendPressed` may return a `Future` — a send is usually a network call. The composer does not
+wait for it: the field is cleared **as soon as the callback is invoked**, not when it completes, so
+the composer never sits unresponsive for a round trip. A host whose send can fail owns surfacing
+that and re-seeding the composer; a rejected future is at least reported through
+`FlutterError.onError` rather than lost as an unhandled asynchronous error.
+
 ### `ChatComposerController`
 
 `ChangeNotifier` that manages all mutable state for `ChatComposer`.
@@ -271,10 +277,17 @@ ChatComposer(
 );
 ```
 
+Only `buildInput`'s result is rebuilt by the composer. `buildAttachmentSheet` runs inside a modal
+route, outside that rebuild — a replacement sheet rendering controller state (a selection count,
+tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
+`ComposerAttachmentSheet` does.
+
 To replace the input field outright rather than decorate it, build from `props`:
 `props.onSend` and `props.onStop` are the only route to `ChatComposer.onSendPressed` /
 `onStopPressed` — `onSend` also clears the controller and returns focus to `props.focusNode`
-afterwards, so calling it beats reimplementing the send path.
+afterwards, so calling it beats reimplementing the send path. `props.onStop` is `null` when the
+host passed no `onStopPressed`, so a custom input can hide its stop control instead of offering a
+dead one.
 
 ```dart
 class MyInputFactory extends ChatComposerFactory {
@@ -297,8 +310,19 @@ class MyInputFactory extends ChatComposerFactory {
 ```
 
 `buildInput`'s result is placed in an `Expanded` by the composer, so don't return an `Expanded`
-yourself. Unlike the leading and trailing slots it is non-nullable — there is no layout for "no
-input field"; return `const SizedBox.shrink()` if you really want an empty one.
+yourself (a debug assert catches it). Unlike the leading and trailing slots it is non-nullable —
+there is no layout for "no input field"; return `const SizedBox.shrink()` if you really want an
+empty one.
+
+To change one value and keep everything else the host configured, use `props.copyWith` rather than
+re-listing the fields — a field you forget silently reverts to its default:
+
+```dart
+@override
+Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+  return ChatComposerInput(props: props.copyWith(hintText: 'Ask the docs…'));
+}
+```
 
 ---
 
@@ -419,7 +443,7 @@ Send the composer's text as a new message:
 ```dart
 ChatComposer(
   controller: controller,
-  onSendPressed: (text, selectedOption) => channel.sendMessage(Message(text: text)),
+  onSendPressed: (text, selectedOption, attachments) => channel.sendMessage(Message(text: text)),
   onStopPressed: () => channel.stopAIResponse(),
 );
 ```
