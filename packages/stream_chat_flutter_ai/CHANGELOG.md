@@ -122,6 +122,44 @@ First release of `stream_chat_flutter_ai`.
 - `HeatmapChartView` and `ComposerActionButton` are exported from the library. Both are public,
   documented types that were only reachable through a `src/` import.
 
+- **Client-side tool calling, so the AI agent can reach into the host app.** `AIToolRegistry` holds
+  `AIClientTool` implementations keyed by name; each supplies an `AIToolDefinition` (name,
+  description, agent instructions, a JSON Schema for its arguments) and returns `AIToolAction`s for
+  an `AIToolInvocation`. `registrationPayloads()` produces the JSON a host POSTs to its own backend,
+  and `AIToolInvocation.tryParse` turns a `custom_client_tool_invocation` event into a typed
+  invocation with decoded arguments. Zero new dependencies: despite the "MCP" framing this subsystem
+  was scoped under, the wire protocol is not MCP-over-JSON-RPC — plain JSON Schema goes out over the
+  host's own endpoint, and a Stream Chat custom event comes back — so there is no transport to
+  depend on. The iOS library links the whole MCP SDK to borrow two of its types, one of which is a
+  JSON-value enum that `Map<String, Object?>` already is in Dart.
+
+- Nothing is returned to the model. A client tool is a side effect — present an alert, navigate, read
+  a sensor — and the protocol carries no result back, so the API doesn't pretend otherwise. A tool
+  returns its work as deferred actions rather than performing it, which is what lets a host run them
+  where a `BuildContext` exists, or queue them, or drop them because the user has left that channel.
+
+- `AIToolRegistry.resolve` returns `null` for a name no tool is registered under, distinct from `[]`
+  for a tool that produced no actions — and that `null` is deliberately **not** reported through
+  `FlutterError`. Registrations persist server-side and are re-applied when the channel's agent
+  restarts, so a build that has dropped a tool still receives invocations for it from a channel an
+  older build registered. Reporting it would red-screen a debug build over something outside the
+  app's control. `FlutterError` stays this package's channel for bugs: a tool that throws, or whose
+  actions throw, is reported there, while `dispatch`'s `bool` answers only whether a tool was
+  registered.
+
+- Deviations from the Swift library's shape, recorded so they aren't read as oversights. There is no
+  `ToolRegistrationPayload`: it exists there because MCP's `Tool.description` is optional, forcing a
+  fallback to `instructions`, and once `AIToolDefinition.description` is required the payload is the
+  same five fields — so it is `AIToolDefinition.toJson()` instead. There is no
+  `ClientToolActionHandling`, which exists there to hold an `AnyObject`; Dart has function types.
+  And the registry's single `handleInvocation` is split into `resolve` (pure) and `dispatch` (runs
+  and guards), because one name for both would read as a synonym.
+
+- `registrationPayloads()` emits camelCase keys, matching what the iOS library's encoder produces,
+  and omits a null `instructions` rather than sending it. Worth verifying against your own backend:
+  the endpoint consuming it is the host's, so the casing is ultimately the host's to decide, and a
+  mismatch fails quietly as a tool that never fires.
+
 🐞 Fixed
 
 - **Code blocks weren't actually monospaced on iOS, macOS or Windows.** `CodeBlockView` asked for

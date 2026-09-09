@@ -28,4 +28,7 @@ export 'src/composer/speech_to_text_controller.dart';
 export 'src/composer/suggestions_view.dart';
 export 'src/markdown/math_syntax.dart';
 export 'src/streaming_message_view.dart';
+export 'src/tools/ai_tool_definition.dart';
+export 'src/tools/ai_tool_invocation.dart';
+export 'src/tools/ai_tool_registry.dart';
 export 'src/typewriter_builder.dart';

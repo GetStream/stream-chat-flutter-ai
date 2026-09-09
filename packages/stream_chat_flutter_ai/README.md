@@ -2,7 +2,8 @@
 
 > A standalone set of Flutter components for building LLM-driven chat experiences:
 > streaming text, animated typing indicators, labelled code blocks, charts,
-> a purpose-built AI composer, and speech-to-text input. This package has **no
+> a purpose-built AI composer, speech-to-text input, and client-side tool calling.
+> This package has **no
 > dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 > package** — every widget operates on plain strings, callbacks, and controllers, so
 > it can be dropped into any Flutter app or paired with any backend/LLM provider. See
@@ -317,6 +318,84 @@ SpeechToTextButton(
 <true/>
 ```
 
+### `AIToolRegistry`
+
+Client-side tools let the AI agent reach into your app: open a screen, present a
+native alert, read a sensor. You declare each one as an `AIClientTool`, register it,
+and hand the registrations to your backend; the agent then invokes them by name.
+
+**Nothing is returned to the model.** A client tool is a side effect, not a function
+call with a result — the protocol has no channel for reporting one back, so neither
+does this API.
+
+Declare a tool:
+
+```dart
+class GreetUserTool implements AIClientTool {
+  GreetUserTool({required this.onGreet});
+
+  final void Function(String message) onGreet;
+
+  @override
+  AIToolDefinition get definition => const AIToolDefinition(
+    name: 'greetUser',
+    description: 'Show the user a native greeting',
+    instructions: 'Use greetUser when the user asks to be greeted.',
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'name': {'type': 'string'},
+      },
+    },
+  );
+
+  @override
+  List<AIToolAction> handleInvocation(AIToolInvocation invocation) {
+    final name = invocation.args['name'] as String? ?? 'there';
+    return [() => onGreet('Hello, $name!')];
+  }
+}
+```
+
+A tool returns its work as `AIToolAction`s rather than performing it, so you decide
+when and where it runs — the decision lives in the tool, the effect in your widget
+tree. Omit `parameters` entirely for a tool that takes no arguments.
+
+Register it, and tell your backend:
+
+```dart
+final registry = AIToolRegistry()
+  ..register(GreetUserTool(onGreet: (message) => showSnackBar(message)));
+
+await http.post(
+  Uri.parse('$myBackend/register-tools'),
+  headers: {'content-type': 'application/json'},
+  body: jsonEncode({'channel_id': channel.cid, 'tools': registry.registrationPayloads()}),
+);
+```
+
+That endpoint is **yours**, not Stream's — this package ships no HTTP client. Its job
+is to call the agent SDK's `registerClientTools(channelId, tools)`, which *persists*
+the definitions server-side and re-applies them the next time the channel's agent
+starts.
+
+> **Unverified from this repository:** `registrationPayloads()` emits camelCase keys
+> (`showExternalSourcesIndicator`), matching what the iOS library's encoder produces.
+> Since the endpoint consuming them is your own, check the casing your backend
+> expects — a mismatch fails quietly, as a tool that simply never fires. The payloads
+> are plain maps, so remapping keys is a couple of lines.
+
+Then route invocations. `dispatch` runs the tool's actions in order, guarding each
+one; `resolve` returns them unrun if you want to schedule them yourself. `dispatch`
+reports whether *a tool was registered* under the invoked name — not whether it
+succeeded. A `false` is normal rather than an error: because registrations outlive
+the build that made them, an older version of your app can register a tool this build
+no longer has. Failures inside a tool go to `FlutterError.onError` instead.
+
+Set `showExternalSourcesIndicator: true` on a tool that consults something remote and
+the agent will report a "checking external sources" state while it runs, which you can
+surface with [`AITypingIndicatorView`](#aitypingindicatorview).
+
 ---
 
 ## Installation
@@ -349,6 +428,20 @@ channel.on(EventType.aiIndicatorClear).listen((_) {
   // hide the indicator, show the final message
 });
 ```
+
+Route client-tool invocations to your `AIToolRegistry`:
+
+```dart
+channel.on(kClientToolInvocationEventType).listen((event) {
+  final invocation = AIToolInvocation.tryParse({...event.extraData, 'cid': event.cid});
+  if (invocation != null) registry.dispatch(invocation);
+});
+```
+
+`tryParse` takes a flat map so the event's own fields can be merged in: `cid` is a
+first-class field on `Event` rather than part of `extraData`. It tolerates an absent
+`type` for the same reason — when you filter with `channel.on(...)`, the type is on the
+event object, not in the payload you forward.
 
 Stop an in-progress AI response:
 

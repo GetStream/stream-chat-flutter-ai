@@ -18,7 +18,7 @@ Status legend: ⬜ Not started · 🚧 In progress · ✅ Done · 🅾️ Option
 | 2.2 | Composer factory slot coverage | 2 | M | ⬜ |
 | 2.3 | Localization scaffolding | 2 | M | ⬜ |
 | 2.4 | Chart theming & accessibility | 2 | M | ⬜ |
-| 3.1 | MCP client-tool / agentic tool-calling | 3 | L | ⬜ |
+| 3.1 | Client-side tool-calling (`AIToolRegistry`) | 3 | L | ✅ |
 | 3.2 | Generic sidebar / split-view (`SidebarView`) | 3 | S–M | 🅾️ |
 
 ---
@@ -317,32 +317,114 @@ Consider `USpecKind`-aware summaries and per-series labels.
 
 ## Phase 3 — Large / optional
 
-### 3.1 MCP client-tool / agentic tool-calling — largest effort, needs a design spike
+### 3.1 Client-side tool-calling (`AIToolRegistry`) ✅
 
-**Gap:** Swift ships `Tools/ClientToolRegistry.swift` (`ClientTool` protocol, `ClientToolRegistry`,
-`ClientToolInvocation`, `ClientToolAction`, `ToolRegistrationPayload`) built on Anthropic's official
-MCP `swift-sdk`, letting a host app register client-side tools the AI can invoke. Flutter has
-nothing in this space.
+**Gap:** Swift ships `Tools/ClientToolRegistry.swift` (`ClientTool`, `ClientToolRegistry`,
+`ClientToolInvocation`, `ClientToolAction`, `ToolRegistrationPayload`), letting a host app register
+client-side tools the AI can invoke. Flutter had nothing in this space.
 
-**Proposed work** (spike first, then build):
+**Correction to the premise, found during the design spike.** This item was written as "MCP
+client-tool", with the spike expected to choose between `dart_mcp`, `mcp_dart`, and a hand-rolled
+registry. The protocol turns out not to be MCP at all:
 
-1. **Design spike** — decide the Dart MCP surface. Options: adopt an existing Dart MCP client
-   package (e.g. `dart_mcp` / `mcp_dart`), or build a minimal hand-rolled registry mirroring
-   Swift's shape (`StreamAiClientTool` interface with a tool schema + `handleInvocation`, a
-   registry keyed by tool name, a `registrationPayloads()` serializer). **Recommendation:** start
-   with the minimal registry to stay decoupled and avoid a heavy transport dependency; wire it to
-   a real MCP transport in a follow-up once the shape is validated.
-2. Define types: `StreamAiClientTool`, `StreamAiToolRegistry`, `ClientToolInvocation`,
-   `ToolRegistrationPayload`.
-3. Provide a worked example + README section showing registration and invocation routing.
+- Tool definitions are plain JSON Schema. The host POSTs them to its **own** backend (the reference
+  Node sample exposes `/register-tools` taking `{channel_id, tools}`), which calls the agent SDK's
+  `registerClientTools(channelId, tools)`. That **persists the definitions server-side and
+  re-applies them the next time the channel's agent starts** — the single fact that shaped this API
+  most.
+- The AI invokes a tool by emitting a Stream Chat custom event `custom_client_tool_invocation`
+  carrying `{cid, message_id, tool, args}`.
+- **Nothing is returned to the model.** Actions are fire-and-forget side effects; there is no
+  tool-result loop to build.
 
-- **Files:** new `lib/src/tools/` directory; barrel export from
-  `lib/stream_chat_flutter_ai.dart`.
-- **Acceptance:** register a sample tool, feed a synthetic invocation, assert the tool's handler
-  runs and produces the expected action; documented example in the README.
-- **Effort:** L (multi-day; blocked on the design spike landing first). This is the highest-value
-  strategic gap if the AI story is meant to cover agentic/tool-use scenarios, but also the biggest
-  lift — schedule accordingly.
+`Package.swift` does declare `modelcontextprotocol/swift-sdk`, but the entire use of it in `Tools/`
+is two type references: `Tool` (a five-field struct) and `Value` (MCP's JSON-value enum, which is
+why iOS spells an empty schema `.object(["type": .string("object"), …])`). No JSON-RPC, no
+transport, no client, no session. The one thing MCP buys Swift is a type-safe JSON value, which in
+Dart is `Map<String, Object?>` — so **no dependency was adopted**, and none is needed.
+
+> Unverified from this repository: neither the Swift package nor `chat-ai-samples` is vendored here,
+> so the claims above reflect what those sources said when this was written, and no CI check here
+> can re-verify them.
+
+**Shipped** — `lib/src/tools/`, pure Dart, no widgets:
+
+```dart
+class AIToolDefinition {
+  const AIToolDefinition({
+    required String name,
+    required String description,
+    String? instructions,
+    Map<String, Object?> parameters = /* empty object schema */,
+    bool showExternalSourcesIndicator = false,
+  });
+  Map<String, Object?> toJson();
+}
+
+typedef AIToolAction = FutureOr<void> Function();
+
+abstract class AIClientTool {
+  AIToolDefinition get definition;
+  List<AIToolAction> handleInvocation(AIToolInvocation invocation);
+}
+
+class AIToolRegistry {
+  List<String> get toolNames;
+  void register(AIClientTool tool);
+  bool unregister(String name);
+  List<Map<String, Object?>> registrationPayloads();
+  List<AIToolAction>? resolve(AIToolInvocation invocation);   // null = no such tool
+  Future<bool> dispatch(AIToolInvocation invocation);         // bool = coverage, not success
+}
+
+// Plus AIToolInvocation.tryParse(Map<String, Object?>), AIInvokedTool, and
+// kClientToolInvocationEventType.
+```
+
+**Where the seam sits.** The same place iOS puts it: the package holds the types and the name→tool
+routing, and the host keeps everything that touches the network or the chat SDK. In
+`chat-ai-samples/ios/AIComponents/` that is `TypingIndicatorHandler.swift` (event → invocation),
+`AgentService.swift` (the `/register-tools` POST) and `ClientToolActionHandler.swift` (running the
+closures). Here it is a `channel.on(...)` listener and an HTTP call, both shown in the README. No
+`stream_chat` dependency was added, and none is implied.
+
+**Decisions worth not re-litigating:**
+
+- **Tools return deferred `AIToolAction`s** rather than acting, as in Swift. Not for testability — an
+  opaque closure isn't much more testable — but because a host needs the actions *as values*: to run
+  them where a `BuildContext` exists, queue them until the app is foregrounded, or drop them because
+  the user left that channel. A `List` rather than one closure buys per-action error isolation.
+  `FutureOr<void>` rather than `VoidCallback` so `dispatch` can catch a throw *after* an action's
+  first `await`, which a `void` return would leak to the zone.
+- **`resolve` returns `null` for an unregistered name, and that is not a `FlutterError`.** Because
+  registrations outlive the build that made them, an old build receiving an invocation for a tool it
+  dropped is expected and outside the app's control. `FlutterError` stays the bug channel; a tool
+  that throws is reported there and `dispatch` still returns `true`, keeping coverage and success on
+  separate axes.
+- **`register` overwrites silently.** An assert can't distinguish a benign re-register (a
+  `State.initState` running again, a hot reload) from two features colliding on one name, so it
+  would only fire on the harmless case.
+- **No `ToolRegistrationPayload` and no `ClientToolActionHandling`.** The first is a duplicate of
+  `AIToolDefinition` once `description` is required (Swift needs it because MCP's is optional and
+  falls back to `instructions`); the second exists to hold an `AnyObject`, which Dart doesn't need.
+- **Names follow 1.1's convention** (`AIToolRegistry`, `AIClientTool`), not this item's draft
+  `StreamAiClientTool` — the package dropped the `Stream` prefix from every public type in 0.0.1.
+- **No widget work.** `showExternalSourcesIndicator` makes the *server* emit its "checking external
+  sources" state, which `AITypingIndicatorView` already renders from a plain string.
+
+- **Files:** new `lib/src/tools/ai_tool_definition.dart`, `ai_tool_invocation.dart`,
+  `ai_tool_registry.dart`; exported from `lib/stream_chat_flutter_ai.dart`; README section plus the
+  `channel.on` glue under **Using with Stream Chat**.
+- **Acceptance:** met by `test/src/tools/` — the documented event payload, parsed by `tryParse`,
+  routed through `dispatch`, asserting the tool's action ran; plus the `null`-vs-`[]` distinction,
+  action ordering, and every failure path. The worked example lives in the README rather than the
+  example app.
+- **Follow-ups, deliberately not in scope:** wire the example app with a synthetic invocation
+  trigger; wire `chat-ai-samples/flutter` end-to-end the way the iOS sample is (separate repo); and
+  a real MCP client transport, if talking to MCP servers directly ever becomes a requirement — it is
+  unrelated to this protocol.
+- **Effort:** L as estimated, though the spike removed most of the risk by deleting the dependency
+  question.
 
 ### 3.2 Generic sidebar / split-view (`SidebarView`) — optional 🅾️
 
@@ -412,6 +494,12 @@ Swift, not gaps:
   is a more deliberate design than Swift's separately-styled buttons.
 - **Grapheme-cluster-aware typewriter:** `TypewriterController` uses `Characters`, which is safer
   for emoji/multi-byte text during streaming than Swift's raw `Character` array indexing.
+- **Invocation events parse themselves:** `AIToolInvocation.tryParse` turns a
+  `custom_client_tool_invocation` payload into a typed invocation with decoded arguments, tolerating
+  the `arguments`-as-JSON-string form the Anthropic/OpenAI tool-calling APIs emit. Swift's
+  `ClientToolInvocation` carries raw `Data` and offers no initializer from an event, so the iOS
+  sample has to define its own `ClientToolInvocationEventPayload` plus a `RawJSON` encoding
+  extension — work every host would otherwise repeat. See 3.1.
 - **Per-language syntax highlighting, without the dependency:** `CodeBlockView` takes a
   `CodeHighlighter` from the host, so a fence is colored by its own language — the example wires up
   31 of them — while the package itself ships no grammars. Swift's `SplashCodeSyntaxHighlighter`
