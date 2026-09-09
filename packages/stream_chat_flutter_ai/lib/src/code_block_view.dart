@@ -5,18 +5,14 @@ import 'package:flutter/services.dart';
 
 /// Builds the highlighted span tree for a fenced code block.
 ///
-/// [code] is the fence body and [language] its opening-line label, passed
-/// through verbatim — matching it case-insensitively, and resolving aliases like
-/// `js` or `py`, is the highlighter's job. [baseStyle] is the monospace style
-/// the block has already settled on, including its color; return spans that
-/// override only what a token needs, and Flutter merges the rest.
+/// [language] arrives verbatim: case folding and alias resolution (`js`, `py`,
+/// …) are the highlighter's job. [baseStyle] is the block's monospace style —
+/// override only what a token needs and Flutter merges the rest.
 ///
-/// Returning `null` means "not highlighted" — an unknown language, or a body
-/// this highlighter would rather not touch — and the block renders [code] as
-/// plain monospace text instead. That is a normal outcome, not a failure.
+/// Return `null` for a language you don't cover, and the block renders [code]
+/// as plain text. That is a normal outcome, not a failure.
 ///
-/// Tokenizing code needs a grammar set, and this package deliberately ships
-/// without one — see [CodeBlockView.highlighter].
+/// This package ships no grammars — see [CodeBlockView.highlighter].
 typedef CodeHighlighter = TextSpan? Function(String code, String language, TextStyle baseStyle);
 
 /// The background [CodeBlockView] uses when none is given.
@@ -28,41 +24,25 @@ const kDefaultCodeForegroundColor = Color(0xFFD4D4D4);
 /// How much of the foreground color the header chrome keeps.
 const _kLabelOpacity = 0.6;
 
-/// Above this many characters [CodeBlockView.highlighter] is not called.
-///
-/// Highlighting is typically a single linear pass, but it runs again on every
-/// frame a growing fence produces while a message streams, which makes the
-/// total cost quadratic in the block's length. Past a few hundred lines that is
-/// felt, and nobody is reading token colors that far down a wall of generated
-/// code anyway.
+/// Above this many characters [CodeBlockView.highlighter] is not called at all.
 const _kMaxHighlightChars = 20000;
 
 /// How many characters a growing fence must gain before it is re-highlighted.
 ///
-/// Highlighting a prefix is linear, but a streaming fence produces a longer
-/// prefix on every typewriter tick, so re-highlighting each one makes the total
-/// quadratic in the block's length. Measured on a 1839-character Dart fence,
-/// unthrottled: 1487 calls tokenizing 1.37 M characters — 746x the block, and
-/// most of a second of CPU for one code block.
-///
-/// The characters gained since the last pass render unhighlighted until the
-/// next one, so this is also the longest uncolored tail a reader can see: about
-/// a line, trailing the newest text and settling as it arrives. Coloring lags
-/// the cursor slightly, the way it does in an editor.
+/// A streaming fence hands over a longer prefix every tick, so highlighting
+/// each one costs O(n²) in the block's length. Also the longest uncolored tail
+/// a reader can see, since the gap renders plain until the next pass.
 const _kHighlightGrowthThreshold = 64;
 
 /// How long a fence must go unchanged before a pending tail is highlighted.
 ///
-/// Without this, a stream that stops mid-threshold would leave its last few
-/// characters uncolored for good.
+/// Without it, a stream stopping mid-threshold stays partly colored for good.
 const _kHighlightSettleDelay = Duration(milliseconds: 120);
 
 /// The font stack for code text.
 ///
-/// `monospace` is a real family only on Android. Everywhere else it silently
-/// resolves to the default sans face, which is why code blocks used to render
-/// proportionally on iOS, macOS and Windows. The fallbacks name each platform's
-/// actual monospace font.
+/// `monospace` is a real family only on Android; elsewhere it silently resolves
+/// to the default sans face, so the fallbacks name each platform's real one.
 const _kMonoFontFamily = 'monospace';
 const _kMonoFontFamilyFallback = ['Menlo', 'Consolas', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New'];
 
@@ -95,19 +75,15 @@ class CodeBlockView extends StatefulWidget {
 
   /// Tokenizes and colors the code. When null, code renders as plain text.
   ///
-  /// A grammar set is the single largest thing a highlighter brings with it —
-  /// `re_highlight`'s 194 grammars are ~2.7 MB of Dart source, and because each
-  /// is a top-level `final` holding a tree of constructor calls, nothing
-  /// tree-shakes the unused ones back out of a host app. This package stays
-  /// standalone and lets the host inject one instead — the same trade
-  /// `AIMarkdownBody.mathBuilder` makes. `example/lib/code_highlighter.dart` is
-  /// a complete implementation over `re_highlight`, ready to copy.
+  /// Grammars dwarf this package — `re_highlight`'s are ~2.7 MB of Dart source
+  /// that nothing tree-shakes — so a host injects one instead, the same trade
+  /// `AIMarkdownBody.mathBuilder` makes. Copy
+  /// `example/lib/code_highlighter.dart` to get one.
   ///
-  /// Only called for a fence that has a [language], and not for bodies past an
-  /// internal length cap, since a streaming fence re-highlights as it grows.
-  /// A highlighter that throws, or that returns spans whose text doesn't match
-  /// [code], is reported through [FlutterError.onError] and the block falls back
-  /// to plain text — highlighting never costs the reader the code.
+  /// Called only for a fence with a [language], throttled while one streams,
+  /// and skipped past an internal length cap. One that throws, or returns
+  /// spans whose text doesn't match [code], is reported through
+  /// [FlutterError.onError] and falls back to plain text.
   final CodeHighlighter? highlighter;
 
   /// Fills the block. Defaults to [kDefaultCodeBackgroundColor].
@@ -115,11 +91,11 @@ class CodeBlockView extends StatefulWidget {
   /// Deliberately independent of the ambient [Theme] — code reads as code.
   final Color backgroundColor;
 
-  /// The code's color, which the header's label and copy button then follow at
+  /// The code's color, which the header's label and copy button follow at
   /// reduced opacity. Defaults to [kDefaultCodeForegroundColor].
   ///
-  /// A [highlighter] receives this as the base style's color and paints token
-  /// colors over it, so the two should come from the same palette.
+  /// Reaches a [highlighter] as its base style's color, so the two should come
+  /// from the same palette.
   final Color foregroundColor;
 
   @override
@@ -129,24 +105,24 @@ class CodeBlockView extends StatefulWidget {
 class _CodeBlockViewState extends State<CodeBlockView> {
   /// The highlighted code, or null when it is rendered as plain text.
   ///
-  /// Computed off the widget's fields rather than in `build`, because those
-  /// fields are what it depends on and a code block is rebuilt far more often
-  /// than it changes — every typewriter tick, for one, while the text after it
-  /// is still arriving.
+  /// Held in state rather than computed in `build`, which runs far more often
+  /// than its inputs change — every typewriter tick, while text still arrives.
   TextSpan? _span;
 
-  /// The exact code [_span] was built from.
+  /// The exact code [_span] was built from; [CodeBlockView.code] grows past it
+  /// while a fence streams.
   ///
-  /// [CodeBlockView.code] grows past it while a fence streams, and the
-  /// difference is rendered unhighlighted until the next pass — see
-  /// [_kHighlightGrowthThreshold].
+  /// Only [_highlight] writes this, and only ever to the whole of
+  /// [CodeBlockView.code] — so the one place a shortfall can arise is
+  /// [didUpdateWidget]'s throttle branch, which arms [_settleTimer] to clear
+  /// it. [_displaySpan] asserts the two stay in step.
   String _highlightedCode = '';
 
   /// Fires the pass that picks up a tail too short to have triggered one.
   Timer? _settleTimer;
 
-  /// The language a highlighting failure has already been reported for, so a
-  /// still-streaming fence reports once rather than on every rebuild.
+  /// The language a failure was already reported for, so a still-streaming
+  /// fence reports once rather than on every rebuild.
   String? _failureReportedFor;
 
   @override
@@ -159,15 +135,9 @@ class _CodeBlockViewState extends State<CodeBlockView> {
   void didUpdateWidget(covariant CodeBlockView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Anything but more of the same code invalidates the span outright: there
-    // is no colored prefix left to keep.
-    //
-    // The highlighter is compared by identity, and hosts that pass an inline
-    // closure hand over a new one on every build of theirs. That is why
-    // `AIMarkdownBody` keys its fence cache on the source rather than on the
-    // highlighter — it returns an identical widget for an unchanged fence, so a
-    // host rebuilding for unrelated reasons never reaches this at all — and why
-    // a host driving `CodeBlockView` directly should hoist the function.
+    // Anything but more of the same code leaves no colored prefix to keep.
+    // The highlighter compares by identity, so hosts should hoist it rather
+    // than pass a fresh closure per build.
     if (widget.language != oldWidget.language ||
         widget.foregroundColor != oldWidget.foregroundColor ||
         widget.highlighter != oldWidget.highlighter ||
@@ -179,8 +149,7 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     if (widget.code.length - _highlightedCode.length >= _kHighlightGrowthThreshold) {
       _highlight();
     } else if (widget.code.length != _highlightedCode.length) {
-      // Too small a gain to pay for a pass. Render the tail plain and come back
-      // to it once the fence stops growing.
+      // Too small a gain to pay for a pass; revisit once the fence settles.
       _settleTimer?.cancel();
       _settleTimer = Timer(_kHighlightSettleDelay, () {
         if (mounted) setState(_highlight);
@@ -212,16 +181,13 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
     try {
       final span = highlighter(widget.code, language, _codeTextStyle);
-      // A null return is the documented "I don't know this one" answer, not a
-      // failure, so it degrades without a word.
+      // Null is the documented "I don't know this one", not a failure.
       if (span == null) return null;
 
-      // One linear pass next to the tokenizing just done, guarding the only
-      // property of this widget that actually matters: token colors are a
-      // nicety, the user's code is not. Highlighters drop text more often than
-      // you would hope — `re_highlight`, for one, reports a mid-parse grammar
-      // failure on its result rather than throwing, and hands back only the
-      // tokens it managed to produce.
+      // ~1% of the tokenizing just done, guarding the only property here that
+      // matters: colors are a nicety, the code is not. `re_highlight`, for
+      // one, reports a mid-parse failure on its result rather than throwing,
+      // handing back only the tokens it got to.
       if (span.toPlainText(includeSemanticsLabels: false, includePlaceholders: false) != widget.code) {
         _reportHighlightFailure(StateError('the highlighter altered the code text'), null, language);
         return null;
@@ -229,10 +195,8 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
       return span;
     } catch (error, stack) {
-      // Third-party code, called once per fence per tick. Degrading to plain
-      // text is right — a code block must not take down a message list — but
-      // silently would leave the host unable to tell a broken highlighter from
-      // a language it never covered.
+      // A code block must not take down a message list — but degrading
+      // silently would look identical to a language never covered.
       _reportHighlightFailure(error, stack, language);
       return null;
     }
@@ -240,14 +204,8 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
   /// Hands a highlighting failure to the host's [FlutterError.onError] before
   /// the block falls back to plain text.
-  ///
-  /// Degrading silently would be indistinguishable from the documented
-  /// "unrecognised language" path, so a host would have no way to tell a broken
-  /// highlighter from a language it never covered — and nobody files that bug.
   void _reportHighlightFailure(Object error, StackTrace? stack, String language) {
-    // A fence that fails while it is still streaming rebuilds on every
-    // typewriter tick. Report the first failure, not a few hundred copies of
-    // it.
+    // A failing fence rebuilds every tick while streaming; report once.
     if (_failureReportedFor == language) return;
     _failureReportedFor = language;
 
@@ -268,16 +226,18 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
   /// [_span] extended with whatever arrived after it, unhighlighted.
   ///
-  /// [_span] only covers [_highlightedCode], so it cannot be rendered on its
-  /// own while a fence is still growing — that would show the reader a
-  /// truncated block. Appending the remainder as one plain run keeps the code
-  /// whole and costs nothing per build: two children, no re-tokenizing.
+  /// [_span] covers only [_highlightedCode], so rendering it alone mid-stream
+  /// would show a truncated block. One plain run keeps the code whole.
   TextSpan? get _displaySpan {
     final span = _span;
     if (span == null) return null;
 
     final pending = widget.code.substring(_highlightedCode.length);
     if (pending.isEmpty) return span;
+
+    // A tail with no pass coming would stay plain for the block's whole life,
+    // and look exactly like a highlighter that declined the language.
+    assert(_settleTimer != null, 'a pending tail must have a settle pass armed');
 
     return TextSpan(
       style: _codeTextStyle,

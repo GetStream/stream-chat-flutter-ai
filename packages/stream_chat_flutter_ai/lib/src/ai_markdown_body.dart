@@ -85,12 +85,10 @@ Widget _buildFenceCached(
   // The chart flag and both colors are part of the key: two bodies configured
   // differently must not share one cached widget for the same fence.
   //
-  // The highlighter deliberately is *not*. Hosts pass an inline closure, whose
-  // identity differs on every build of theirs, so keying on it would mean a
-  // fresh cache entry per fence per build — the cache would never hit and would
-  // evict itself continuously. The cost is that swapping highlighters leaves
-  // already-built fences alone until their source next changes, which is the
-  // same trade `_MathElementBuilder` documents.
+  // The highlighter deliberately is *not*. A host's inline closure differs on
+  // every build, so keying on it would never hit and would evict continuously.
+  // Swapping highlighters then leaves built fences alone until their source
+  // next changes — the trade `_MathElementBuilder` documents.
   final key =
       '${isChartFence ? 'c' : 'x'}\n'
       '${codeBackgroundColor.toARGB32()}\n${codeForegroundColor.toARGB32()}\n'
@@ -212,10 +210,9 @@ class AIMarkdownBody extends StatefulWidget {
 
   /// Syntax-highlights code fences. When null, they render as plain text.
   ///
-  /// The grammars a highlighter needs are far larger than this package, so it
-  /// ships without them and takes one from the host instead — the same trade
-  /// [mathBuilder] makes. See [CodeBlockView.highlighter], and
-  /// `example/lib/code_highlighter.dart` for a ready-made implementation.
+  /// Grammars are far larger than this package, so it takes one from the host
+  /// instead — the same trade [mathBuilder] makes. See
+  /// [CodeBlockView.highlighter], and `example/lib/code_highlighter.dart`.
   final CodeHighlighter? codeHighlighter;
 
   /// Fills code fences. See [CodeBlockView.backgroundColor].
