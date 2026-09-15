@@ -186,8 +186,8 @@ class _SuggestionChip extends StatelessWidget {
 
     return DecoratedBox(
       // Same fill/border tokens as the composer's input pill (see
-      // `_InputContainer` in chat_composer.dart) so the two read as one
-      // connected surface rather than mismatched colors.
+      // `ChatComposerInput` in chat_composer_input.dart) so the two read as
+      // one connected surface rather than mismatched colors.
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(16),

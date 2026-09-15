@@ -14,7 +14,7 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.da
 ///
 /// Manages:
 /// - The text field content (via an internal [TextEditingController]).
-/// - The list of available [ChatOption] suggestion chips.
+/// - The list of selectable [ChatOption]s.
 /// - The currently selected [ChatOption].
 /// - Whether the AI is currently generating a response.
 ///
@@ -31,7 +31,7 @@ class ChatComposerController extends ChangeNotifier {
   /// Creates an [ChatComposerController].
   ///
   /// [initialText] pre-fills the text field.
-  /// [chatOptions] sets the initial list of suggestion chips.
+  /// [chatOptions] sets the initial list of selectable options.
   ChatComposerController({
     String initialText = '',
     List<ChatOption> chatOptions = const [],
@@ -126,7 +126,10 @@ class ChatComposerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The list of suggestion chips shown above the input field.
+  /// The selectable options listed inside the composer's attachment sheet.
+  ///
+  /// Not a chip row above the input — that was removed; the chosen option
+  /// appears as an inline badge inside the input box instead.
   List<ChatOption> get chatOptions => _chatOptions;
   set chatOptions(List<ChatOption> value) {
     _chatOptions = value;
