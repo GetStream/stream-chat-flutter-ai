@@ -843,6 +843,119 @@ void main() {
       controller.dispose();
     });
 
+    testWidgets('buildTrailing can send, using the wiring every slot now carries', (tester) async {
+      // The payoff of hanging focusNode/onSend/onStop off ChatComposerSlotProps
+      // rather than ChatComposerInputProps alone: a control outside the input
+      // pill can drive the composer. `stream_chat_flutter` puts its send button
+      // in exactly this slot.
+      final controller = ChatComposerController();
+      String? sentText;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _TrailingSendFactory(),
+            onSendPressed: (text, _, __) => sentText = text,
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('send outside'));
+      await tester.pump();
+
+      expect(sentText, equals('Hello'));
+      // The real handler, not a hook that only fires the callback.
+      expect(controller.text, isEmpty);
+      controller.dispose();
+    });
+
+    testWidgets('props.onSend does not send once the composer is disposed', (tester) async {
+      // props.onSend outlives the composer: it is handed to host code that may
+      // call it across an async gap — a confirmation dialog, a debounce — by
+      // which time the user may have navigated away. Without the mounted guard
+      // this sent a message from an abandoned screen and then notified a
+      // disposed controller, which only asserts in debug.
+      final controller = ChatComposerController(initialText: 'Hello');
+      final factory = _CapturingInputFactory();
+      var sends = 0;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: factory,
+            onSendPressed: (_, __, ___) => sends++,
+          ),
+        ),
+      );
+
+      final props = factory.captured!;
+      await tester.pumpWidget(_wrap(const SizedBox()));
+
+      // Loud in debug so the mistake is found in development; the guard also
+      // returns without sending in release, which is what `sends` pins.
+      expect(props.onSend, throwsAssertionError);
+      expect(sends, isZero);
+      // Content intact — nothing was cleared out from under the host either.
+      expect(controller.text, equals('Hello'));
+      controller.dispose();
+    });
+
+    testWidgets('props.onStop does nothing once the composer is disposed', (tester) async {
+      final controller = ChatComposerController()..isGenerating = true;
+      final factory = _CapturingInputFactory();
+      var stops = 0;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: factory,
+            onSendPressed: (_, __, ___) {},
+            onStopPressed: () => stops++,
+          ),
+        ),
+      );
+
+      final onStop = factory.captured!.onStop!;
+      await tester.pumpWidget(_wrap(const SizedBox()));
+
+      expect(onStop, throwsAssertionError);
+      expect(stops, isZero);
+      controller.dispose();
+    });
+
+    testWidgets('buildInput returning an Expanded is rejected', (tester) async {
+      // The composer already wraps the result in an Expanded. Nesting one
+      // throws from a debug-only ParentDataWidget assert several frames away
+      // from the factory that caused it, and mis-applies parent data in
+      // release — so buildInput's dartdoc forbids it and this pins the check
+      // that enforces it.
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            factory: _ExpandedInputFactory(),
+            onSendPressed: (_, __, ___) {},
+          ),
+        ),
+      );
+
+      // Matched on the message: the framework's own ParentDataWidget assert is
+      // also an AssertionError, and it is what fires if the composer's check
+      // is ever removed — so a bare type check would keep passing.
+      expect(
+        tester.takeException(),
+        isA<AssertionError>().having(
+          (it) => it.message.toString(),
+          'message',
+          contains('buildInput must not return an Expanded'),
+        ),
+      );
+    });
+
     testWidgets('buildTrailing receives the composer controller', (tester) async {
       final controller = ChatComposerController();
 
@@ -911,6 +1024,7 @@ void main() {
     test('copyWith replaces only the named fields', () {
       final controller = ChatComposerController();
       final focusNode = FocusNode();
+      const config = SpeechToTextConfig(localeId: 'nl_NL');
       void onSend() {}
       void onStop() {}
       final props = ChatComposerInputProps(
@@ -923,6 +1037,7 @@ void main() {
         maxLines: 4,
         textInputAction: TextInputAction.send,
         enableSpeechToText: true,
+        speechToTextConfig: config,
       );
 
       final copy = props.copyWith(hintText: 'Ask the docs');
@@ -939,6 +1054,7 @@ void main() {
       expect(copy.maxLines, equals(4));
       expect(copy.textInputAction, equals(TextInputAction.send));
       expect(copy.enableSpeechToText, isTrue);
+      expect(identical(copy.speechToTextConfig, config), isTrue);
 
       controller.dispose();
       focusNode.dispose();
@@ -989,6 +1105,22 @@ class _TrailingSlotFactory extends ChatComposerFactory {
   Widget buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
     return Text('trailing:${props.controller.selectedChatOption?.text ?? ''}');
   }
+}
+
+/// Drives the composer from the trailing slot, which carries the same wiring
+/// the input slot does.
+class _TrailingSendFactory extends ChatComposerFactory {
+  @override
+  Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
+    return TextButton(onPressed: props.onSend, child: const Text('send outside'));
+  }
+}
+
+/// Violates the layout contract `buildInput`'s dartdoc states.
+class _ExpandedInputFactory extends ChatComposerFactory {
+  @override
+  Widget buildInput(BuildContext context, ChatComposerInputProps props) =>
+      Expanded(child: ChatComposerInput(props: props));
 }
 
 /// Keeps the default input and decorates around it.

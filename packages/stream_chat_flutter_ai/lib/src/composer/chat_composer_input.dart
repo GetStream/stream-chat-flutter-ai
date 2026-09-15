@@ -22,7 +22,7 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 /// the mic's listening state from the process-wide
 /// [SpeechToTextController.instance].
 ///
-/// Rebuilds itself on [ChatComposerInputProps.controller] — and, when
+/// Rebuilds itself on [ChatComposerSlotProps.controller] — and, when
 /// [ChatComposerInputProps.enableSpeechToText] is set, on
 /// [SpeechToTextController.instance] too — so it renders correctly standalone
 /// as well as inside [ChatComposer], where the nesting is a harmless no-op.
@@ -214,18 +214,11 @@ class _TrailingControl extends StatelessWidget {
       return SpeechToTextButton(controller: controller, config: speechToTextConfig);
     }
 
-    if (controller.hasContent) {
-      return ComposerActionButton(
-        icon: Icons.arrow_upward_rounded,
-        onPressed: onSend,
-        tooltip: 'Send',
-        color: colorScheme.primary,
-      );
-    }
-
+    // Disabled rather than absent on an empty field: the button holds its
+    // place so the pill's width doesn't jump as the user types.
     return ComposerActionButton(
       icon: Icons.arrow_upward_rounded,
-      onPressed: null,
+      onPressed: controller.hasContent ? onSend : null,
       tooltip: 'Send',
       color: colorScheme.primary,
     );
@@ -298,13 +291,36 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
   @override
   void initState() {
     super.initState();
-    _bytes = widget.file.readAsBytes();
+    _bytes = _read(widget.file);
   }
 
   @override
   void didUpdateWidget(covariant _AttachmentThumbnail oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.file.path != oldWidget.file.path) _bytes = widget.file.readAsBytes();
+    if (widget.file.path != oldWidget.file.path) _bytes = _read(widget.file);
+  }
+
+  /// Reads [file], reporting a failure rather than leaving it to the snapshot.
+  ///
+  /// The file is picked once and read later, so it can be gone by the time we
+  /// get here — deleted from the gallery, or on a volume whose permission was
+  /// revoked. `FutureBuilder` surfaces that as a snapshot with no data, which
+  /// is indistinguishable from "still loading": without this the thumbnail
+  /// stayed an empty grey square forever and nothing said why.
+  static Future<Uint8List> _read(XFile file) async {
+    try {
+      return await file.readAsBytes();
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while reading a composer attachment thumbnail'),
+        ),
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -327,6 +343,16 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
               child: FutureBuilder<Uint8List>(
                 future: _bytes,
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return ColoredBox(
+                      color: colorScheme.surface,
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        size: 24,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    );
+                  }
                   final bytes = snapshot.data;
                   if (bytes == null) {
                     return ColoredBox(color: colorScheme.surface);

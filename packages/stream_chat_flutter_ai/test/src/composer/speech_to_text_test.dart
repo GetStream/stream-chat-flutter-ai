@@ -400,6 +400,63 @@ void main() {
       await endSession(tester);
     });
 
+    testWidgets('a standalone ChatComposerInput rebuilds when dictation ends', (tester) async {
+      // ChatComposerInput is public API, so it subscribes to the process-wide
+      // SpeechToTextController itself rather than relying on the composer's
+      // merged listenable. The end of a session is what proves the
+      // subscription: `isListening` goes false while the text is untouched, so
+      // ChatComposerController never notifies and only the speech listener can
+      // drive the morph back to send. Without it the mic stayed on screen and
+      // the dictated message could not be sent.
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+              enableSpeechToText: true,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      expect(SpeechToTextController.instance.isListening, isTrue);
+
+      // Content arrives mid-session: the mic must hold its place, or the only
+      // control that can stop the dictation disappears.
+      platform.emitWords('spoken');
+      await settle(tester);
+      expect(controller.text, 'spoken');
+      expect(find.byType(SpeechToTextButton), findsOneWidget);
+
+      // Cancelled, not stopped — and that is load-bearing. `stop` is followed
+      // by a final transcript, which writes to the text field and so notifies
+      // ChatComposerController; the input would rebuild off *that* even with
+      // no speech subscription at all, and the test would pass on a widget
+      // that never listened. `cancel` discards the pending transcript, so
+      // `isListening` going false is the only change in the system.
+      await SpeechToTextController.instance.cancel();
+      // Settled, not a single pump: the trailing control's AnimatedSwitcher
+      // keeps the outgoing mic on screen while it cross-fades to the send
+      // button.
+      await tester.pumpAndSettle();
+
+      expect(controller.text, 'spoken', reason: 'the cancel must not have touched the field');
+
+      expect(find.byType(SpeechToTextButton), findsNothing);
+      final sendButton = tester.widget<ComposerActionButton>(find.byType(ComposerActionButton));
+      expect(sendButton.icon, Icons.arrow_upward_rounded);
+      expect(sendButton.onPressed, isNotNull);
+    });
+
     testWidgets('disposing the composer cancels the session', (tester) async {
       await tester.pumpWidget(
         _wrap(ChatComposer(enableSpeechToText: true, onSendPressed: (_, _, _) {})),

@@ -243,6 +243,12 @@ handed values `ChatComposer` itself owns:
 | `buildInput` | `ChatComposerInputProps` | `ChatComposerInput` | `Widget` |
 | `buildAttachmentSheet` | `ChatComposerAttachmentSheetProps` | `ComposerAttachmentSheet` | `Widget` |
 
+Every one of those props carries the composer's wiring — `controller`, `focusNode`, `onSend` and
+`onStop` — so any slot can drive the composer, not just the input. `ChatComposerInputProps` adds
+the text-field configuration (`hintText`, `minLines`, `maxLines`, `textInputAction`,
+`enableSpeechToText`, `speechToTextConfig`) on top; the other three add nothing and exist to name
+the slot.
+
 ```dart
 class MyComposerFactory extends ChatComposerFactory {
   // Replace the leading "+" button.
@@ -313,6 +319,28 @@ class MyInputFactory extends ChatComposerFactory {
 yourself (a debug assert catches it). Unlike the leading and trailing slots it is non-nullable —
 there is no layout for "no input field"; return `const SizedBox.shrink()` if you really want an
 empty one.
+
+Because the wiring is on the shared base, a control that sends doesn't have to live inside the
+input at all — the trailing slot is empty by default and takes the same props:
+
+```dart
+class MySendButtonFactory extends ChatComposerFactory {
+  @override
+  Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
+    return IconButton(
+      icon: const Icon(Icons.send),
+      // Disabled while there is nothing to send, and while a response is
+      // streaming. `props.onStop` is null when the host passed no
+      // `onStopPressed`.
+      onPressed: props.controller.hasContent ? props.onSend : null,
+    );
+  }
+}
+```
+
+`props.onSend` and `props.onStop` are only safe to call while the composer is still mounted.
+Calling either across an async gap — after a confirmation dialog, say — once the composer has left
+the tree throws an `AssertionError` in debug and returns without sending in release.
 
 To change one value and keep everything else the host configured, use `props.copyWith` rather than
 re-listing the fields — a field you forget silently reverts to its default:

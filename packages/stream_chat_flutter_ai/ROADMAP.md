@@ -246,10 +246,11 @@ class ChatComposerFactory {
 }
 ```
 
-`lib/src/composer/chat_composer_props.dart` holds `ChatComposerSlotProps` (just `controller`) and
-one subclass per slot. `ChatComposerInputProps` adds the nine values the input needs and a factory
-cannot otherwise see: `focusNode`, `onSend`, `onStop`, `hintText`, `minLines`, `maxLines`,
-`textInputAction`, `enableSpeechToText`, `speechToTextConfig`.
+`lib/src/composer/chat_composer_props.dart` holds `ChatComposerSlotProps` and one subclass per
+slot. The base carries the four values a factory cannot otherwise see — `controller`, `focusNode`,
+`onSend`, `onStop` — so every slot can drive the composer; `ChatComposerInputProps` adds the six
+that are meaningless outside a text field: `hintText`, `minLines`, `maxLines`, `textInputAction`,
+`enableSpeechToText`, `speechToTextConfig`.
 
 **Correction to the proposed API, found while doing the work.** The signature this item proposed,
 `buildInput(BuildContext, ChatComposerController)`, cannot work. `_InputContainer` needed ten
@@ -267,11 +268,20 @@ signature would have existed and silently not sent.
   `buildLeading`/`buildTrailing` too is a breaking change, taken deliberately: the package is
   unpublished, no factory subclass existed outside one test and two doc snippets, and both 2.3 and
   2.4 will want to push more values through these slots. One convention beats two.
-- **Two simplifications versus the sibling:** public `const` constructors rather than `._` plus
-  `.from(...)` factories (the base carries a single field, so `.from` would be pure ceremony, and a
-  public constructor lets a test build props to drive a custom input directly), and no `Default…`
-  twin widget — the factory *is* the override seam here, so the sibling's builder-registry
-  indirection buys nothing.
+- **The wiring lives on the base, not on `ChatComposerInputProps`.** First cut put `focusNode`,
+  `onSend` and `onStop` on the input props alone, which left the other three slots holding a bare
+  controller and made the leading/trailing/sheet subclasses genuinely empty. That is backwards:
+  `stream_chat_flutter` puts its *send button* in the trailing slot, and a leading button that
+  wants to return focus to the field needs the node. Hoisting them also means 2.3 and 2.4 can add
+  shared values — translations, a theme — in one place rather than breaking four signatures a
+  second time.
+- **One simplification versus the sibling, and one convergence.** Public `const` constructors
+  rather than `._` private ones (a public constructor lets a test build props to drive a custom
+  input directly). But the `.from(...)` constructors *are* kept: with a base this wide the composer
+  builds the widest props once and narrows per slot, exactly as
+  `MessageComposerLeadingProps.from(props)` does, so the shared values are named in one place. No
+  `Default…` twin widget, though — the factory *is* the override seam here, so the sibling's
+  builder-registry indirection buys nothing (see the decision below).
 - **Both new slots are non-nullable**, against this item's own "keep the `Widget?` convention"
   constraint. That convention exists for *optional* slots, where `null` is how the composer knows
   not to reserve its 8px gap, and where the `SizedBox.shrink()` sentinel doubled the margin.
@@ -445,6 +455,45 @@ the `stream_core_flutter` split from the chat-specific packages), not in
 ## Decisions taken
 
 Recorded so they aren't re-litigated. State the counter-evidence if you want to reopen one.
+
+### Composer customisation: subclass a factory, not a builder registry 🅾️
+
+`ChatComposerFactory` is a plain class you subclass and pass to `ChatComposer.factory`. The sibling
+Flutter SDKs have converged on something structurally different, and the difference is worth
+recording before someone "aligns" them by reflex.
+
+`stream_core_flutter` ships `StreamComponentFactory` — an `InheritedWidget` holding a
+`StreamComponentBuilders` value object of nullable `Widget Function(BuildContext, T props)`
+builders, keyed by **props type**. `stream_chat_flutter` consumes it: each slot is a public widget
+that looks its own override up and falls back to a `Default…` twin.
+
+```dart
+// stream_chat_flutter, message_composer_leading.dart
+final leadingProps = MessageComposerLeadingProps.from(props);
+return context.chatComponentBuilder<MessageComposerLeadingProps>()?.call(context, leadingProps)
+    ?? DefaultStreamMessageComposerLeading(props: leadingProps);
+```
+
+That buys per-subtree overrides, override composition, and customisation without subclassing. It is
+the better mechanism, and it is **not adopted here**, for one blocking reason: `StreamComponentFactory`
+lives in `stream_core_flutter`, and this package's premise is that it depends on no Stream package
+at all (see the top of `CLAUDE.md`). Adopting the pattern means reimplementing the primitive —
+`InheritedWidget`, the typed builder registry, the extension lookup — which is a package-wide
+change about how *every* component is customised, not a composer change.
+
+Two consequences to keep in mind meanwhile:
+
+- **The name collides with a different idea.** A reader arriving from `stream_chat_flutter` will
+  expect `ChatComposerFactory.of(context)`. There is no such thing; the factory is a constructor
+  argument.
+- **The props are already shaped for the migration.** Slot props are per-slot types derived with
+  `.from(...)`, which is exactly what a type-keyed registry dispatches on. If this is ever picked
+  up, the cheapest path keeps today's method signatures and has `ChatComposer` consult a
+  context-provided override *before* falling back to `widget.factory`, so existing factory
+  subclasses keep working.
+
+Reopen this if the package gains a second customisable surface of comparable size, or if the
+no-Stream-dependency premise changes.
 
 ### Markdown renderer: stay on `flutter_markdown_plus` 🅾️
 

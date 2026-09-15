@@ -28,9 +28,11 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.da
 /// ```
 ///
 /// Each slot receives a [ChatComposerSlotProps] subclass rather than a bare
-/// [ChatComposerController], so a slot can be handed values [ChatComposer]
-/// owns — see [ChatComposerInputProps.onSend], which is the only way to reach
-/// [ChatComposer.onSendPressed] from here.
+/// [ChatComposerController], so every slot is handed the values [ChatComposer]
+/// owns — see [ChatComposerSlotProps.onSend], which is the only way to reach
+/// [ChatComposer.onSendPressed] from here. [ChatComposerInputProps] adds the
+/// text-field configuration on top; the other three subclasses exist to name
+/// the slot.
 class ChatComposerFactory {
   /// Creates a [ChatComposerFactory].
   const ChatComposerFactory();
@@ -52,7 +54,7 @@ class ChatComposerFactory {
     // `this`, not `const ChatComposerFactory()`: the button reads the sheet
     // back off the factory, so a subclass overriding only
     // `buildAttachmentSheet` still gets its sheet.
-    return _AttachmentButton(controller: props.controller, factory: this);
+    return _AttachmentButton(props: props, factory: this);
   }
 
   /// The widget placed to the right of the input container, or `null` for
@@ -60,6 +62,11 @@ class ChatComposerFactory {
   ///
   /// Returns `null` by default (no trailing widget). See [buildLeading] for
   /// how `null` affects layout.
+  ///
+  /// [props] carries the composer's full wiring, so this is the slot to reach
+  /// for when adding a control that drives the composer — a send or stop
+  /// button outside the pill, or the always-visible microphone that
+  /// `SpeechToTextButton`'s own documentation describes.
   Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
     return null;
   }
@@ -73,11 +80,11 @@ class ChatComposerFactory {
   /// entirely and build a field from scratch.
   ///
   /// For a full replacement, [props] is the seam that keeps the composer
-  /// working: [ChatComposerInputProps.onSend] and
-  /// [ChatComposerInputProps.onStop] are the only route to
+  /// working: [ChatComposerSlotProps.onSend] and
+  /// [ChatComposerSlotProps.onStop] are the only route to
   /// [ChatComposer.onSendPressed] / [ChatComposer.onStopPressed] (plus the
   /// clear-and-refocus that follows a send), and
-  /// [ChatComposerInputProps.focusNode] is the node that refocus targets.
+  /// [ChatComposerSlotProps.focusNode] is the node that refocus targets.
   ///
   /// Unlike [buildLeading] and [buildTrailing] this is non-nullable: the
   /// result goes into an [Expanded], and there is no layout for "no input".
@@ -120,11 +127,12 @@ class ChatComposerFactory {
 }
 
 /// The default leading "+" attachment button — opens [factory]'s attachment
-/// sheet for [controller].
+/// sheet for [props].
 class _AttachmentButton extends StatelessWidget {
-  const _AttachmentButton({required this.controller, required this.factory});
+  const _AttachmentButton({required this.props, required this.factory});
 
-  final ChatComposerController controller;
+  /// The leading slot's props, narrowed to the sheet's own when it opens.
+  final ChatComposerLeadingProps props;
 
   /// The factory that supplies the sheet's contents — `this` from
   /// [ChatComposerFactory.buildLeading], i.e. the instance the composer is
@@ -140,7 +148,7 @@ class _AttachmentButton extends StatelessWidget {
       showDragHandle: true,
       builder: (context) => factory.buildAttachmentSheet(
         context,
-        ChatComposerAttachmentSheetProps(controller: controller),
+        ChatComposerAttachmentSheetProps.from(props),
       ),
     );
   }
@@ -148,7 +156,7 @@ class _AttachmentButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final enabled = !controller.isGenerating;
+    final enabled = !props.controller.isGenerating;
     final iconColor = enabled ? colorScheme.onSurface : colorScheme.onSurface.withValues(alpha: 0.3);
 
     return Tooltip(

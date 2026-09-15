@@ -20,7 +20,7 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 ///
 /// Returning a [Future] is supported and expected — a send is usually a
 /// network call. The composer does not wait for it before clearing the field
-/// (see [ChatComposerInputProps.onSend]), but it does watch it: a rejected
+/// (see [ChatComposerSlotProps.onSend]), but it does watch it: a rejected
 /// future is reported through [FlutterError.onError] instead of being
 /// swallowed as an unhandled asynchronous error.
 typedef ChatComposerSendCallback =
@@ -235,8 +235,8 @@ class _ChatComposerState extends State<ChatComposer> {
   }
 
   void _onSend() {
-    // Handed to arbitrary host code through `ChatComposerInputProps.onSend`,
-    // which a custom input may call across an async gap (a confirm dialog, a
+    // Handed to arbitrary host code through `ChatComposerSlotProps.onSend`,
+    // which a slot may call across an async gap (a confirm dialog, a
     // debounce) long after the composer left the tree. Clearing a disposed
     // controller only asserts in debug, so without this the same call sends a
     // message from a screen the user has already navigated away from and then
@@ -244,9 +244,9 @@ class _ChatComposerState extends State<ChatComposer> {
     if (!mounted) {
       assert(
         false,
-        'ChatComposerInputProps.onSend was called after the ChatComposer was '
-        'disposed. A custom buildInput must not call it across an async gap '
-        'without checking that its own State is still mounted.',
+        'ChatComposerSlotProps.onSend was called after the ChatComposer was '
+        'disposed. A slot must not call it across an async gap without '
+        'checking that its own State is still mounted.',
       );
       return;
     }
@@ -256,7 +256,7 @@ class _ChatComposerState extends State<ChatComposer> {
       _controller.selectedChatOption,
       _controller.attachments,
     );
-    // Optimistic, and documented as such on `ChatComposerInputProps.onSend`:
+    // Optimistic, and documented as such on `ChatComposerSlotProps.onSend`:
     // the field empties on invocation, not on completion. Awaiting first would
     // leave the composer looking unresponsive for the length of a round trip.
     _controller.clear();
@@ -289,7 +289,7 @@ class _ChatComposerState extends State<ChatComposer> {
     if (!mounted) {
       assert(
         false,
-        'ChatComposerInputProps.onStop was called after the ChatComposer was '
+        'ChatComposerSlotProps.onStop was called after the ChatComposer was '
         'disposed.',
       );
       return;
@@ -302,64 +302,56 @@ class _ChatComposerState extends State<ChatComposer> {
     return ListenableBuilder(
       listenable: _listenable,
       builder: (context, _) {
-        final leading = widget.factory.buildLeading(
-          context,
-          ChatComposerLeadingProps(controller: _controller),
+        // Built once and narrowed per slot, the way `stream_chat_flutter`'s
+        // composer derives its own slot props: the wiring every slot shares is
+        // named here and nowhere else, so a value added later reaches all four
+        // without being re-listed four times.
+        final props = ChatComposerInputProps(
+          controller: _controller,
+          focusNode: _focusNode,
+          hintText: widget.hintText ?? ChatComposerInputProps.defaultHintText,
+          minLines: widget.minLines,
+          maxLines: widget.maxLines,
+          textInputAction: widget.textInputAction,
+          enableSpeechToText: widget.enableSpeechToText,
+          speechToTextConfig: widget.speechToTextConfig,
+          onSend: _onSend,
+          // `null`, not a callback that quietly does nothing, so a slot can
+          // tell that stopping is unsupported and hide its own stop
+          // affordance.
+          onStop: widget.onStopPressed == null ? null : _onStop,
         );
-        final trailing = widget.factory.buildTrailing(
-          context,
-          ChatComposerTrailingProps(controller: _controller),
-        );
-        final input = widget.factory.buildInput(
-          context,
-          ChatComposerInputProps(
-            controller: _controller,
-            focusNode: _focusNode,
-            hintText: widget.hintText ?? ChatComposerInputProps.defaultHintText,
-            minLines: widget.minLines,
-            maxLines: widget.maxLines,
-            textInputAction: widget.textInputAction,
-            enableSpeechToText: widget.enableSpeechToText,
-            speechToTextConfig: widget.speechToTextConfig,
-            onSend: _onSend,
-            // `null`, not a callback that quietly does nothing, so a custom
-            // input can tell that stopping is unsupported and hide its own
-            // stop affordance.
-            onStop: widget.onStopPressed == null ? null : _onStop,
-          ),
-        );
+
+        final leading = widget.factory.buildLeading(context, ChatComposerLeadingProps.from(props));
+        final trailing = widget.factory.buildTrailing(context, ChatComposerTrailingProps.from(props));
+        final input = widget.factory.buildInput(context, props);
 
         // The layout contract `buildInput`'s dartdoc states, enforced: an
         // `Expanded` returned here lands inside the one below, which throws
         // from a debug-only `ParentDataWidget` assert and mis-applies parent
-        // data in release.
+        // data in release. `Expanded` is a `Flexible`, so one check covers
+        // both.
         assert(
-          input is! Expanded && input is! Flexible,
+          input is! Flexible,
           'ChatComposerFactory.buildInput must not return an Expanded or '
           'Flexible — ChatComposer already wraps the result in one.',
         );
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
+            // Centered, not `.end` — the pill is taller than the fixed-size
+            // leading/trailing circles (its height grows with multi-line
+            // text), and bottom-aligning them dumps 100% of that extra
+            // height above the circles as a lopsided gap. Centering keeps
+            // the circles evenly inset, matching the reference Android
+            // layout, where both the "+" and mic sit centered within the
+            // pill's height rather than flush to its bottom edge.
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                // Centered, not `.end` — the pill is taller than the fixed-size
-                // leading/trailing circles (its height grows with multi-line
-                // text), and bottom-aligning them dumps 100% of that extra
-                // height above the circles as a lopsided gap. Centering keeps
-                // the circles evenly inset, matching the reference Android
-                // layout, where both the "+" and mic sit centered within the
-                // pill's height rather than flush to its bottom edge.
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (leading != null) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
-                  Expanded(child: input),
-                  if (trailing != null) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
-                ],
-              ),
+              if (leading != null) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
+              Expanded(child: input),
+              if (trailing != null) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
             ],
           ),
         );

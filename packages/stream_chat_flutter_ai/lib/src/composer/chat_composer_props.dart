@@ -12,16 +12,30 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 
 /// What every [ChatComposerFactory] slot receives.
 ///
-/// One subclass per slot, so a slot that needs more than the controller can
-/// grow its own fields without disturbing the others — see
-/// [ChatComposerInputProps], which carries the input field's configuration and
-/// the composer's send/stop wiring.
+/// Carries the composer's wiring — the [controller], the [focusNode], and the
+/// [onSend]/[onStop] handlers — so that *any* slot can drive the composer, not
+/// just the input one. A trailing send button, a leading button that refocuses
+/// the field, and a custom input all need the same handful of values, and only
+/// [ChatComposer] can supply them.
+///
+/// One subclass per slot. Three of them add nothing of their own and exist to
+/// name the slot at the call site; [ChatComposerInputProps] adds the text-field
+/// configuration, which has no meaning outside the input.
+///
+/// Shaped after `stream_chat_flutter`'s `MessageComposerComponentProps` family,
+/// down to the `.from` constructors the composer uses to derive one slot's
+/// props from another's.
 abstract class ChatComposerSlotProps {
   /// Creates a [ChatComposerSlotProps].
   ///
   /// Abstract: every slot passes one of the subclasses below, and a bare
   /// `ChatComposerSlotProps` belongs to no slot.
-  const ChatComposerSlotProps({required this.controller});
+  const ChatComposerSlotProps({
+    required this.controller,
+    required this.focusNode,
+    required this.onSend,
+    this.onStop,
+  });
 
   /// The composer's controller — input text, chat options, attachments, and
   /// generating state.
@@ -29,18 +43,92 @@ abstract class ChatComposerSlotProps {
   /// The same object throughout the composer's lifetime, and the one a slot
   /// should read and mutate rather than keeping state of its own.
   final ChatComposerController controller;
+
+  /// The composer's focus node for the text field.
+  ///
+  /// Either the one passed to [ChatComposer.focusNode] or, if that was `null`,
+  /// the one the composer created and owns. A custom input should attach this
+  /// node rather than create its own, or [onSend]'s refocus lands on a field
+  /// that isn't on screen. Other slots can use it to move focus into the field
+  /// — a leading button that dismisses a picker, say.
+  final FocusNode focusNode;
+
+  /// Sends the current message.
+  ///
+  /// A no-op unless [ChatComposerController.hasContent]; otherwise it fires
+  /// [ChatComposer.onSendPressed] with the text, the selected [ChatOption] and
+  /// the attachments, then clears [controller] and returns focus to
+  /// [focusNode].
+  ///
+  /// The clear is **optimistic**: it happens as soon as
+  /// [ChatComposer.onSendPressed] is invoked, not when the future it returns
+  /// completes. A host whose send can fail owns surfacing that failure and
+  /// re-seeding the composer — though a rejected future is at least reported
+  /// through [FlutterError.onError] rather than swallowed.
+  ///
+  /// Only safe to call while the [ChatComposer] is still mounted. Calling it
+  /// across an async gap (a confirmation dialog, a debounce) after the composer
+  /// has left the tree throws an [AssertionError] in debug, and returns without
+  /// sending in release.
+  ///
+  /// A slot should call this rather than reimplement it —
+  /// [ChatComposer.onSendPressed] is not otherwise reachable from a factory.
+  final VoidCallback onSend;
+
+  /// Stops the in-flight response, by calling [ChatComposer.onStopPressed].
+  ///
+  /// `null` when the host passed no `onStopPressed`, so a slot can hide or
+  /// disable its stop affordance rather than offer one that does nothing. Only
+  /// meaningful while [ChatComposerController.isGenerating] is `true`.
+  ///
+  /// Carries the same mounted caveat as [onSend].
+  final VoidCallback? onStop;
 }
 
 /// Props for [ChatComposerFactory.buildLeading].
 class ChatComposerLeadingProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerLeadingProps].
-  const ChatComposerLeadingProps({required super.controller});
+  const ChatComposerLeadingProps({
+    required super.controller,
+    required super.focusNode,
+    required super.onSend,
+    super.onStop,
+  });
+
+  /// Creates a [ChatComposerLeadingProps] carrying another slot's wiring.
+  ///
+  /// How [ChatComposer] derives this slot's props: it builds the widest set
+  /// once and narrows it per slot, so the shared values are named in one place
+  /// rather than re-listed four times.
+  ChatComposerLeadingProps.from(ChatComposerSlotProps props)
+    : this(
+        controller: props.controller,
+        focusNode: props.focusNode,
+        onSend: props.onSend,
+        onStop: props.onStop,
+      );
 }
 
 /// Props for [ChatComposerFactory.buildTrailing].
 class ChatComposerTrailingProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerTrailingProps].
-  const ChatComposerTrailingProps({required super.controller});
+  const ChatComposerTrailingProps({
+    required super.controller,
+    required super.focusNode,
+    required super.onSend,
+    super.onStop,
+  });
+
+  /// Creates a [ChatComposerTrailingProps] carrying another slot's wiring.
+  ///
+  /// See [ChatComposerLeadingProps.from].
+  ChatComposerTrailingProps.from(ChatComposerSlotProps props)
+    : this(
+        controller: props.controller,
+        focusNode: props.focusNode,
+        onSend: props.onSend,
+        onStop: props.onStop,
+      );
 }
 
 /// Props for [ChatComposerFactory.buildAttachmentSheet].
@@ -50,23 +138,38 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
 /// state has to listen to it itself.
 class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerAttachmentSheetProps].
-  const ChatComposerAttachmentSheetProps({required super.controller});
+  const ChatComposerAttachmentSheetProps({
+    required super.controller,
+    required super.focusNode,
+    required super.onSend,
+    super.onStop,
+  });
+
+  /// Creates a [ChatComposerAttachmentSheetProps] carrying another slot's
+  /// wiring.
+  ///
+  /// See [ChatComposerLeadingProps.from].
+  ChatComposerAttachmentSheetProps.from(ChatComposerSlotProps props)
+    : this(
+        controller: props.controller,
+        focusNode: props.focusNode,
+        onSend: props.onSend,
+        onStop: props.onStop,
+      );
 }
 
 /// Props for [ChatComposerFactory.buildInput].
 ///
-/// Everything [ChatComposerInput] renders from. Beyond the shared
-/// [controller], this carries the values [ChatComposer] owns and a slot has no
-/// other way to reach: the composer's [focusNode], its [onSend]/[onStop]
-/// handlers, and the text-field configuration passed to the [ChatComposer]
-/// constructor.
+/// Everything [ChatComposerInput] renders from: the wiring every slot gets
+/// from [ChatComposerSlotProps], plus the text-field configuration passed to
+/// the [ChatComposer] constructor, which no other slot has a use for.
 class ChatComposerInputProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerInputProps].
   const ChatComposerInputProps({
     required super.controller,
-    required this.focusNode,
-    required this.onSend,
-    this.onStop,
+    required super.focusNode,
+    required super.onSend,
+    super.onStop,
     this.hintText = defaultHintText,
     this.minLines = 1,
     this.maxLines = 8,
@@ -85,46 +188,6 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
   /// `props.hintText` renders the same placeholder the default one does
   /// instead of no placeholder at all.
   static const defaultHintText = 'Ask anything…';
-
-  /// The composer's focus node for the text field.
-  ///
-  /// Either the one passed to [ChatComposer.focusNode] or, if that was `null`,
-  /// the one the composer created and owns. A custom input should attach this
-  /// node rather than create its own, or [onSend]'s refocus lands on a field
-  /// that isn't on screen.
-  final FocusNode focusNode;
-
-  /// Sends the current message.
-  ///
-  /// A no-op unless [ChatComposerController.hasContent]; otherwise it fires
-  /// [ChatComposer.onSendPressed] with the text, the selected [ChatOption] and
-  /// the attachments, then clears [controller] and returns focus to
-  /// [focusNode].
-  ///
-  /// The clear is **optimistic**: it happens as soon as
-  /// [ChatComposer.onSendPressed] is invoked, not when the future it returns
-  /// completes. A host whose send can fail owns surfacing that failure and
-  /// re-seeding the composer — though a rejected future is at least reported
-  /// through [FlutterError.onError] rather than swallowed.
-  ///
-  /// Only safe to call while the [ChatComposer] is still mounted. Calling it
-  /// across an async gap (a confirmation dialog, a debounce) after the
-  /// composer has left the tree asserts in debug and returns without sending.
-  ///
-  /// A custom input built from [ChatComposerFactory.buildInput] should call
-  /// this rather than reimplement it — [ChatComposer.onSendPressed] is not
-  /// otherwise reachable from a factory.
-  final VoidCallback onSend;
-
-  /// Stops the in-flight response, by calling [ChatComposer.onStopPressed].
-  ///
-  /// `null` when the host passed no `onStopPressed`, so a custom input can
-  /// hide or disable its stop affordance rather than offer one that does
-  /// nothing. Only meaningful while [ChatComposerController.isGenerating] is
-  /// `true`.
-  ///
-  /// Carries the same mounted caveat as [onSend].
-  final VoidCallback? onStop;
 
   /// Placeholder text shown when the text field is empty.
   ///
