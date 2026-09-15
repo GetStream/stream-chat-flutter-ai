@@ -8,8 +8,9 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 ///
 /// Every string the widgets in this package draw — bar the ones a host passes
 /// in, like `ChatComposer.hintText` or a `ChatOption`'s label — resolves
-/// through an instance of this class. Provide one with an
-/// [AITranslationsScope] to translate them; with no scope in the tree the
+/// through an instance of this class. Supply one per locale with an
+/// [AITranslationsDelegate] on `MaterialApp.localizationsDelegates`, or pin
+/// one over a subtree with an [AITranslationsScope]. Supply neither and the
 /// widgets fall back to [DefaultAITranslations] and render the English they
 /// always have.
 ///
@@ -36,22 +37,33 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 /// package later adds is a compile error rather than an untranslated default.
 ///
 /// **Give your subclass a `const` constructor** and construct it as
-/// `const DutchTranslations()`. [AITranslationsScope.updateShouldNotify]
-/// compares instances, and a non-`const` instance built inside a `build`
-/// method is a new object every time — which, in a subtree that rebuilds on
-/// every typewriter tick, notifies every dependent every ~10ms. `const`
-/// instances are canonicalized to one object, so the comparison stays cheap
-/// and quiet.
+/// `const DutchTranslations()`. A scope compares instances to decide whether
+/// to notify, so a fresh instance per `build` rebuilds every dependent.
+@immutable
 abstract class AITranslations {
   /// Creates an [AITranslations].
   const AITranslations();
 
-  /// The nearest [AITranslationsScope]'s translations, or
-  /// [DefaultAITranslations] when there is no scope above [context].
+  /// The translations in force at [context] — the single lookup every widget
+  /// in this package uses.
   ///
-  /// Shorthand for [AITranslationsScope.of], which is where the lookup and its
-  /// dependency semantics are documented.
-  static AITranslations of(BuildContext context) => AITranslationsScope.of(context);
+  /// Resolved in this order, first hit winning:
+  ///
+  /// 1. the nearest enclosing [AITranslationsScope], which is how a subtree
+  ///    pins strings regardless of locale;
+  /// 2. whatever an [AITranslationsDelegate] loaded for the app's current
+  ///    locale, read through Flutter's [Localizations];
+  /// 3. [DefaultAITranslations] — the English this package ships.
+  ///
+  /// A scope beats the delegates deliberately: it is placed by hand around
+  /// specific widgets, so it is the more specific of the two. Nothing here
+  /// throws, and every step registers [context] as a dependent, so a locale
+  /// change or a swapped scope rebuilds the widgets that read it.
+  static AITranslations of(BuildContext context) {
+    return AITranslationsScope.maybeOf(context) ??
+        Localizations.of<AITranslations>(context, AITranslations) ??
+        const DefaultAITranslations();
+  }
 
   /// Placeholder shown in the composer's empty text field.
   ///
@@ -167,8 +179,13 @@ class DefaultAITranslations extends AITranslations {
 /// )
 /// ```
 ///
-/// Widgets read it through [of], which falls back to [DefaultAITranslations]
-/// rather than asserting, so a scope is optional everywhere.
+/// Use this to pin strings over part of the tree — a screen that is always in
+/// one language, a preview, a test. To translate the whole app by locale,
+/// register an [AITranslationsDelegate] instead and leave the scope out.
+///
+/// Widgets read it through [AITranslations.of], where a scope outranks the
+/// locale's delegate, and neither is required: without either, the English
+/// defaults render.
 ///
 /// **Where to put it.** Anywhere above the widgets whose strings it should
 /// cover — a single scope above the app's `MaterialApp` covers the lot.
@@ -188,19 +205,16 @@ class AITranslationsScope extends InheritedTheme {
   /// Should be a `const` instance — see [AITranslations] for why.
   final AITranslations translations;
 
-  /// The nearest enclosing scope's [translations], or [DefaultAITranslations]
-  /// when there is no scope above [context].
+  /// The nearest enclosing scope's [translations], or `null` when there is no
+  /// scope above [context].
   ///
-  /// Where a scope is found, [context] is registered as a dependent and so
-  /// rebuilds when the scope's value changes. Where none is, there is nothing
-  /// to depend on — but inserting one later rebuilds the subtree anyway, so
-  /// the fallback is not a value that can go stale.
-  static AITranslations of(BuildContext context) => maybeOf(context) ?? const DefaultAITranslations();
-
-  /// The nearest enclosing scope's [translations], or `null` when there is
-  /// none.
+  /// This consults *only* the scope. Widgets want [AITranslations.of], which
+  /// falls through to the locale's delegate and then to the English defaults.
   ///
-  /// Most callers want [of], which supplies the default instead of `null`.
+  /// Registers [context] as a dependent where a scope is found, so it rebuilds
+  /// when that scope's value changes. Where none is found there is nothing to
+  /// depend on — but inserting one later rebuilds the subtree anyway, so a
+  /// `null` here is not an answer that can go stale.
   static AITranslations? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<AITranslationsScope>()?.translations;
   }
@@ -219,3 +233,108 @@ class AITranslationsScope extends InheritedTheme {
     properties.add(DiagnosticsProperty<AITranslations>('translations', translations));
   }
 }
+
+/// Supplies [AITranslations] per locale, through Flutter's own localization
+/// machinery.
+///
+/// Register it on `MaterialApp.localizationsDelegates` alongside the Flutter
+/// ones and list the locales in `supportedLocales`; Flutter then resolves the
+/// app's locale and hands every widget in this package the matching instance,
+/// including inside routes it pushes, and reacts to a locale change on its
+/// own:
+///
+/// ```dart
+/// MaterialApp(
+///   localizationsDelegates: const [
+///     AITranslationsDelegate({
+///       'nl': DutchTranslations(),
+///       'de': GermanTranslations(),
+///     }),
+///     GlobalMaterialLocalizations.delegate,
+///     GlobalWidgetsLocalizations.delegate,
+///   ],
+///   supportedLocales: const [Locale('en'), Locale('nl'), Locale('de')],
+///   home: ...,
+/// )
+/// ```
+///
+/// English needs no entry: a locale this delegate does not carry renders
+/// [DefaultAITranslations], so registering it is safe long before a
+/// translation exists for every locale the app supports.
+///
+/// This adds no dependency — [LocalizationsDelegate] is part of
+/// `package:flutter/widgets.dart`. `GlobalMaterialLocalizations` above comes
+/// from `flutter_localizations`, which a host translating the rest of its app
+/// will already have.
+class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
+  /// Creates an [AITranslationsDelegate] serving [translations].
+  const AITranslationsDelegate(this.translations);
+
+  /// The translations to serve, keyed by the locale each is written for.
+  ///
+  /// Keys are `Locale.toString()`'s form: a language code (`'nl'`), or a
+  /// language and country joined by an underscore (`'pt_BR'`) — not the
+  /// hyphenated BCP-47 form. A debug-only check rejects anything else rather
+  /// than leaving it to fall back to English unexplained.
+  ///
+  /// Keyed by `String` rather than by [Locale] so the map, and with it the
+  /// whole delegate, can be `const`: [Locale] overrides `==`, and Dart does
+  /// not allow such a type as a `const` map key. `const` instances matter here
+  /// for the reason given on [AITranslations].
+  final Map<String, AITranslations> translations;
+
+  /// The entry for [locale]: the exact `language_COUNTRY` match if
+  /// [translations] has one, otherwise the entry for the bare language code,
+  /// otherwise `null`.
+  ///
+  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, while a `'pt_BR'`
+  /// entry serves only Brazilian Portuguese. [load] turns the `null` case into
+  /// [DefaultAITranslations].
+  AITranslations? resolve(Locale locale) {
+    return translations[locale.toString()] ?? translations[locale.languageCode];
+  }
+
+  /// Always `true`: a locale [translations] has no entry for is served the
+  /// English defaults rather than refused.
+  ///
+  /// Claiming every locale is deliberate. `WidgetsApp` warns, loudly and in
+  /// debug, when any `supportedLocales` entry is unsupported by any one
+  /// delegate — so reporting honestly here would put a warning in the console
+  /// of every app that supports more locales than it has translated this
+  /// package into, which is every app that adds this delegate first and
+  /// translates later. Use [resolve] to ask what is actually registered.
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<AITranslations> load(Locale locale) {
+    assert(() {
+      for (final key in translations.keys) {
+        if (!_localeKey.hasMatch(key)) {
+          throw FlutterError(
+            "AITranslationsDelegate was given the key '$key', which is not a locale key.\n"
+            "Keys take Locale.toString()'s form — a language code such as 'nl', optionally with a "
+            "country after an underscore, as in 'pt_BR'. A key in any other shape can never match "
+            'a locale, so those widgets would silently render English.',
+          );
+        }
+      }
+      return true;
+    }(), 'AITranslationsDelegate keys must be locale keys.');
+
+    // Synchronous: the strings are already in memory, and an asynchronous
+    // future here would leave the first frame after a locale change rendering
+    // the previous locale's strings.
+    return SynchronousFuture<AITranslations>(resolve(locale) ?? const DefaultAITranslations());
+  }
+
+  @override
+  bool shouldReload(AITranslationsDelegate old) => !mapEquals(old.translations, translations);
+
+  @override
+  String toString() => 'AITranslationsDelegate(${translations.keys.join(', ')})';
+}
+
+/// The shape [AITranslationsDelegate.translations]'s keys have to take:
+/// `nl`, `pt_BR`, `zh_Hant_TW`.
+final _localeKey = RegExp(r'^[a-zA-Z]{2,8}(_[a-zA-Z0-9]{2,8})*$');

@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart' show CupertinoLocalizations, DefaultCupertinoLocalizations;
+import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -76,9 +78,8 @@ void main() {
       const b = AITranslationsScope(translations: DefaultAITranslations(), child: child);
       const c = AITranslationsScope(translations: _TestTranslations(), child: child);
 
-      // `const` instances of the same class are canonicalized to one object,
-      // which is what keeps a scope rebuilt every typewriter tick from
-      // notifying its dependents every tick. Documented on AITranslations.
+      // `const` instances of the same class are canonicalized to one object —
+      // the property the docs lean on when they ask for a `const` subclass.
       expect(a.updateShouldNotify(b), isFalse);
       expect(a.updateShouldNotify(c), isTrue);
     });
@@ -175,6 +176,161 @@ void main() {
     });
   });
 
+  group('AITranslationsDelegate', () {
+    // Everything here goes through a real MaterialApp rather than calling the
+    // delegate directly: the point of the delegate is that Flutter's own
+    // locale resolution drives it.
+    Widget app({required Locale locale, Widget? home}) => MaterialApp(
+      locale: locale,
+      localizationsDelegates: const [
+        AITranslationsDelegate({
+          'nl': _TestTranslations(),
+          'pt_BR': _BrazilianTranslations(),
+        }),
+        ..._anyLocaleMaterialDelegates,
+      ],
+      supportedLocales: const [Locale('en'), Locale('nl'), Locale('pt', 'BR')],
+      home: Scaffold(body: home ?? const _Probe()),
+    );
+
+    testWidgets('serves the entry for the app locale', (tester) async {
+      await tester.pumpWidget(app(locale: const Locale('nl')));
+
+      expect(find.text('VERSTUUR'), findsOneWidget);
+    });
+
+    testWidgets('a locale it does not carry falls back to English', (tester) async {
+      await tester.pumpWidget(app(locale: const Locale('en')));
+
+      expect(find.text('Send'), findsOneWidget);
+    });
+
+    testWidgets('changing the app locale changes the strings', (tester) async {
+      await tester.pumpWidget(app(locale: const Locale('en')));
+      expect(find.text('Send'), findsOneWidget);
+
+      await tester.pumpWidget(app(locale: const Locale('nl')));
+      await tester.pump();
+
+      expect(find.text('VERSTUUR'), findsOneWidget);
+      expect(find.text('Send'), findsNothing);
+    });
+
+    testWidgets('a country entry serves only that country', (tester) async {
+      await tester.pumpWidget(app(locale: const Locale('pt', 'BR')));
+
+      expect(find.text('MANDA VER'), findsOneWidget);
+    });
+
+    testWidgets('a bare language entry serves its country variants', (tester) async {
+      // `Locale('nl')` is registered, the app is running nl_BE.
+      await tester.pumpWidget(
+        const MaterialApp(
+          locale: Locale('nl', 'BE'),
+          localizationsDelegates: [
+            AITranslationsDelegate({'nl': _TestTranslations()}),
+            ..._anyLocaleMaterialDelegates,
+          ],
+          supportedLocales: [Locale('nl', 'BE')],
+          home: Scaffold(body: _Probe()),
+        ),
+      );
+
+      expect(find.text('VERSTUUR'), findsOneWidget);
+    });
+
+    testWidgets('an enclosing scope outranks the delegate', (tester) async {
+      // The scope is placed by hand around specific widgets; the delegate
+      // covers the app. The narrower one wins.
+      await tester.pumpWidget(
+        app(
+          locale: const Locale('nl'),
+          home: const AITranslationsScope(
+            translations: _BrazilianTranslations(),
+            child: _Probe(),
+          ),
+        ),
+      );
+
+      expect(find.text('MANDA VER'), findsOneWidget);
+      expect(find.text('VERSTUUR'), findsNothing);
+    });
+
+    testWidgets('reaches a pushed route, which is where Localizations sits', (tester) async {
+      await tester.pumpWidget(
+        app(
+          locale: const Locale('nl'),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (context) => Text(AITranslations.of(context).send),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('VERSTUUR'), findsOneWidget);
+    });
+
+    test('resolve matches country first, then bare language', () {
+      const delegate = AITranslationsDelegate({
+        'nl': _TestTranslations(),
+        'pt_BR': _BrazilianTranslations(),
+      });
+
+      expect(delegate.resolve(const Locale('nl')), isA<_TestTranslations>());
+      expect(delegate.resolve(const Locale('nl', 'BE')), isA<_TestTranslations>());
+      expect(delegate.resolve(const Locale('pt', 'BR')), isA<_BrazilianTranslations>());
+      // Registered for BR only, so plain `pt` matches nothing.
+      expect(delegate.resolve(const Locale('pt')), isNull);
+      expect(delegate.resolve(const Locale('en')), isNull);
+    });
+
+    test('isSupported claims every locale, so WidgetsApp does not warn', () {
+      // The English fallback happens in `load`, not by refusing the locale —
+      // see the note on `isSupported`. A test app declaring a supported locale
+      // this delegate had refused would fail on that warning.
+      const delegate = AITranslationsDelegate({'nl': _TestTranslations()});
+
+      expect(delegate.isSupported(const Locale('nl')), isTrue);
+      expect(delegate.isSupported(const Locale('en')), isTrue);
+      expect(delegate.isSupported(const Locale('ja')), isTrue);
+    });
+
+    testWidgets('load serves the English defaults for an unregistered locale', (tester) async {
+      const delegate = AITranslationsDelegate({'nl': _TestTranslations()});
+
+      await expectLater(delegate.load(const Locale('ja')), completion(isA<DefaultAITranslations>()));
+    });
+
+    test('a key that is not a locale key is rejected in debug', () {
+      // 'nl-BE' is the BCP-47 form; Locale.toString() uses an underscore, so
+      // this key could never match and every widget would quietly render
+      // English.
+      const delegate = AITranslationsDelegate({'nl-BE': _TestTranslations()});
+
+      expect(
+        () => delegate.load(const Locale('nl')),
+        throwsA(isA<FlutterError>().having((e) => e.message, 'message', contains('nl-BE'))),
+      );
+    });
+
+    test('shouldReload tracks the map, not the delegate instance', () {
+      const a = AITranslationsDelegate({'nl': _TestTranslations()});
+      const b = AITranslationsDelegate({'nl': _TestTranslations()});
+      const c = AITranslationsDelegate({'nl': _BrazilianTranslations()});
+
+      expect(a.shouldReload(b), isFalse);
+      expect(a.shouldReload(c), isTrue);
+    });
+  });
+
   group('DefaultAITranslations', () {
     test('a subclass overriding one string keeps the rest', () {
       const translations = _TestTranslations();
@@ -188,10 +344,55 @@ void main() {
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
+/// Stands in for `flutter_localizations` in the tests that declare non-English
+/// `supportedLocales`.
+///
+/// `MaterialApp` warns — and a widget test fails on that warning — when a
+/// declared locale is unsupported by *any* delegate, and Flutter's built-in
+/// Material and Cupertino delegates cover English only. These serve the
+/// English defaults for every locale, which is fine: nothing here asserts on a
+/// Material string. The alternative is a `flutter_localizations`
+/// dev-dependency for two classes the package itself never touches.
+const _anyLocaleMaterialDelegates = <LocalizationsDelegate<dynamic>>[
+  _AnyLocaleDelegate<MaterialLocalizations>(DefaultMaterialLocalizations()),
+  _AnyLocaleDelegate<CupertinoLocalizations>(DefaultCupertinoLocalizations()),
+];
+
+class _AnyLocaleDelegate<T> extends LocalizationsDelegate<T> {
+  const _AnyLocaleDelegate(this.value);
+
+  final T value;
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<T> load(Locale locale) => SynchronousFuture<T>(value);
+
+  @override
+  bool shouldReload(_AnyLocaleDelegate<T> old) => false;
+}
+
+/// Reads the one string these tests assert on, from its own context.
+class _Probe extends StatelessWidget {
+  const _Probe();
+
+  @override
+  Widget build(BuildContext context) => Text(AITranslations.of(context).send);
+}
+
 /// Overrides exactly one string, to prove the rest still come from the default.
 class _TestTranslations extends DefaultAITranslations {
   const _TestTranslations();
 
   @override
   String get send => 'VERSTUUR';
+}
+
+/// A second override, to tell two registered locales apart.
+class _BrazilianTranslations extends DefaultAITranslations {
+  const _BrazilianTranslations();
+
+  @override
+  String get send => 'MANDA VER';
 }

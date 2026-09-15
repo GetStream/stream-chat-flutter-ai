@@ -337,11 +337,10 @@ class _ChatComposerState extends State<ChatComposer> {
         final props = ChatComposerInputProps(
           controller: _controller,
           focusNode: _focusNode,
-          // Resolved here rather than left to
-          // ChatComposerInputProps.defaultHintText: this is the one place in
-          // the input's string set with a BuildContext above the private leaf
-          // widgets, so a custom input forwarding `props.hintText` gets the
-          // localized placeholder too.
+          // The one string resolved outside the widget that renders it: the
+          // hint travels through the props, whose default is a `const` and so
+          // cannot consult a scope. Resolving it here means a custom input
+          // forwarding `props.hintText` renders the localized placeholder too.
           hintText: widget.hintText ?? AITranslations.of(context).composerHint,
           minLines: widget.minLines,
           maxLines: widget.maxLines,

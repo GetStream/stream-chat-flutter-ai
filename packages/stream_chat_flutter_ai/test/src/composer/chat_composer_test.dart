@@ -1201,6 +1201,50 @@ void main() {
       expect(find.text('VRAAG MAAR'), findsOneWidget);
     });
 
+    testWidgets('the hint follows a scope swapped at runtime', (tester) async {
+      // The hint is the one string resolved outside the widget that renders
+      // it — ChatComposer reads it and passes it down through
+      // ChatComposerInputProps, since the props default is a `const` and
+      // cannot consult a scope. That makes it the one string a regression
+      // could freeze at its first value.
+      final strings = ValueNotifier<AITranslations>(const DefaultAITranslations());
+      addTearDown(strings.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ValueListenableBuilder<AITranslations>(
+            valueListenable: strings,
+            builder: (context, value, _) => AITranslationsScope(
+              translations: value,
+              child: ChatComposer(onSendPressed: (_, __, ___) {}),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(ChatComposerInputProps.defaultHintText), findsOneWidget);
+
+      strings.value = const _TestTranslations();
+      await tester.pump();
+
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+      expect(find.text(ChatComposerInputProps.defaultHintText), findsNothing);
+    });
+
+    testWidgets('a custom input slot is handed the translated hint', (tester) async {
+      // A factory gets the resolved string, not the constant, so an input that
+      // renders `props.hintText` is translated without doing the lookup.
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(factory: factory, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(factory.captured!.hintText, equals('VRAAG MAAR'));
+    });
+
     testWidgets('an explicit hintText wins over the scope', (tester) async {
       await tester.pumpWidget(
         _wrapTranslated(
@@ -1230,7 +1274,8 @@ void main() {
       // button alongside the incoming enabled one.
       await tester.pumpAndSettle();
 
-      // Enabled arm — a separate literal before this change.
+      // Enabled arm — the same call site, so this pins the state change
+      // rather than a second literal.
       expect(find.byTooltip('VERSTUUR'), findsOneWidget);
     });
 

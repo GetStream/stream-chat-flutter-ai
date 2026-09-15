@@ -60,37 +60,50 @@ First release of `stream_chat_flutter_ai`.
   (override `buildLeading` — still nullable — for no picker at all). Nothing is compared against a
   sentinel either, so the `SizedBox.shrink()` hazard that made the other two nullable can't recur
   here.
-- **Every string the package renders itself is now translatable.** `AITranslations` (abstract),
-  `DefaultAITranslations` (the English it has always rendered) and `AITranslationsScope` (an
-  `InheritedTheme`) replace the fourteen literals that were hardcoded across `ChatComposer`,
-  `ChatComposerInput`, the attachment sheet, the voice-input button and `CodeBlockView`. Subclass
-  `DefaultAITranslations`, override only what you are changing, and provide it with a scope; with
-  no scope in the tree every widget renders exactly what it did before, so nothing changes for a
-  host that adds none.
-  `ChatComposer.hintText` still wins over `AITranslations.composerHint`, being the more specific of
-  the two.
+- **Every string the package renders itself is now translatable.** `AITranslations` (abstract) and
+  `DefaultAITranslations` (the English it has always rendered) replace the fourteen literals that
+  were hardcoded across `ChatComposer`, `ChatComposerInput`, the attachment sheet, the voice-input
+  button and `CodeBlockView`. Subclass `DefaultAITranslations` and override only what you are
+  changing; register nothing and every widget renders exactly what it did before, so this changes
+  nothing for a host that ignores it. `ChatComposer.hintText` still wins over
+  `AITranslations.composerHint`, being the more specific of the two.
+
+  **`AITranslationsDelegate` is how an app supplies them per locale** — a `LocalizationsDelegate`
+  like any other, registered on `MaterialApp.localizationsDelegates` with a `const` map keyed by
+  `Locale.toString()`'s form (`'nl'`, or `'pt_BR'`, which beats a plain `'pt'` entry). Flutter then
+  resolves the app's locale, hands each widget the matching instance, and swaps them when the
+  locale changes, routes included. A locale the map has no entry for renders the English defaults,
+  so the delegate can go in with one language and gain the rest later. It also reports every locale
+  as supported for exactly that reason: `WidgetsApp` warns about any `supportedLocales` entry that
+  some delegate refuses, and an English fallback is not a refusal. No new dependency —
+  `LocalizationsDelegate` is part of `package:flutter/widgets.dart`.
+
+  **`AITranslationsScope` pins one language over a subtree**, for a screen that is always in one
+  language, a preview or a test. It outranks the delegate, being the narrower of the two;
+  `AITranslations.of(context)` resolves scope, then delegate, then English defaults, and never
+  throws.
 
   Ten of those fourteen are `Tooltip` messages on icon-only buttons — send, stop, mic, "+", copy,
   and the two dismiss controls — so they are also the only accessible label those buttons expose.
   Translating them is what makes the composer legible to a screen reader outside English, which is
   the larger half of why this exists.
 
-  A scope resolves through the widget's own `BuildContext` rather than being threaded as a
-  constructor argument, for two reasons. Twelve of the literals live in private leaf widgets two to
-  four layers below a public one, and `CodeBlockView`'s two are constructed inside a top-level
-  function behind the process-global fence widget cache, which has no `BuildContext` at all —
-  threading would have meant ten new parameters plus a new component in that cache key. Translations
-  deliberately are *not* part of it: the cached object is an unbuilt widget configuration, and the
-  string is resolved later, from the element's own context.
+  Strings resolve through the widget's own `BuildContext` rather than being threaded as constructor
+  arguments. Ten of the fourteen live in private leaf widgets two to four layers below a public one,
+  three more in the attachment sheet's private `State`, and `CodeBlockView`'s two are constructed
+  inside a top-level function behind the process-global fence widget cache, which has no
+  `BuildContext` at all — threading would have meant ten new parameters plus a new component in that
+  cache key. Translations deliberately are *not* part of it: the cached object is an unbuilt widget
+  configuration, and the string is resolved later, from the element's own context.
 
   The scope is an `InheritedTheme`, so `showModalBottomSheet`, `showDialog` and `showMenu` carry it
   across the `Navigator` exactly as they carry a `Theme` — a scope placed directly above a
   `ChatComposer` translates that composer's attachment sheet without the host doing anything, and so
   does one above a sheet the host presents itself.
 
-  Give your subclass a `const` constructor and construct it as `const MyTranslations()`.
-  `AITranslationsScope.updateShouldNotify` compares instances, and a non-`const` instance built
-  inside a `build` that runs on every typewriter tick would notify every dependent every ~10ms.
+  Give your subclass a `const` constructor and construct it as `const MyTranslations()`: a scope
+  compares instances to decide whether to notify, so a fresh instance per `build` rebuilds every
+  dependent, and a `const` map of them makes the delegate itself `const`.
 
   Ships English only — this is the seam, not a set of translations.
 

@@ -352,10 +352,10 @@ today, but the seam exists for adding locales). Flutter hardcoded every user-fac
 
 **Shipped:** `lib/src/localization/ai_translations.dart` — `AITranslations` (abstract, `const`
 constructor, one getter per string), `DefaultAITranslations` (the English literals the widgets
-already rendered) and `AITranslationsScope` (an `InheritedTheme`). Fourteen members cover the
-fifteen literals that were there: the enabled and disabled send tooltips were separate literals for
-the same button and collapsed into one `send`. `clearOption(String option)` is a method rather than
-a getter, being the one interpolated string.
+already rendered), `AITranslationsDelegate` (a `LocalizationsDelegate`) and `AITranslationsScope`
+(an `InheritedTheme`). Fourteen members, one per literal — 2.2 had already collapsed the enabled and disabled send tooltips into a single call site,
+so `send` covers both states. `clearOption(String option)` is a method rather than a getter, being
+the one interpolated string.
 
 A host subclasses `DefaultAITranslations` and overrides only what it is changing — the same
 subclass-and-override idiom `ChatComposerFactory` already established:
@@ -371,9 +371,26 @@ class DutchTranslations extends DefaultAITranslations {
 AITranslationsScope(translations: const DutchTranslations(), child: ChatComposer(...))
 ```
 
-`AITranslations.of(context)` falls back to `const DefaultAITranslations()` rather than asserting, so
-a scope is optional everywhere and a host that adds none sees no change at all. English only — no
-locales ship.
+**Two ways in, and a lookup that never throws.** `AITranslationsDelegate` goes on
+`MaterialApp.localizationsDelegates` with a `const` map keyed by `Locale.toString()`'s form, which
+is how an app covers several languages: Flutter resolves the locale, picks the instance, and reloads
+on a locale change, routes included. `AITranslationsScope` pins one instance over a subtree.
+`AITranslations.of(context)` reads the scope, then the delegate, then
+`const DefaultAITranslations()` — so both are optional and a host that registers neither sees no
+change at all. English only — no locales ship.
+
+This mirrors `stream_chat_flutter`, which resolves through `Localizations` the same way
+(`StreamChatLocalizations.of(context) ?? DefaultTranslations.instance`), so a host of both SDKs
+registers two delegates side by side. Two deliberate differences: the map is keyed by `String`
+rather than `Locale`, because `Locale` overrides `==` and Dart forbids such a type as a `const` map
+key — a `Locale`-keyed delegate could not be `const`, which is exactly what the scope's identity
+comparison wants; and `isSupported` returns `true` unconditionally, because `WidgetsApp` warns in
+debug about any `supportedLocales` entry that some delegate refuses, and "this locale gets the
+English defaults" is not a refusal. `resolve` is the honest answer for anything that needs one.
+
+There is no separate `stream_chat_ai_localizations` package and no shipped locales: fourteen
+strings are a seam, not a translation project, and a host writing two subclasses does not need a
+package to hold them.
 
 **Naming.** `AITranslations`, not the `StreamAiTranslations` this item originally drafted. The
 package dropped the `Stream` prefix when it dropped the `stream_chat` dependency, and its
@@ -381,13 +398,19 @@ AI-specific types carry a capital `AI` token (`AIMarkdownBody`, `AISuggestionsVi
 `AITypingIndicatorView`).
 
 **Why a scope rather than constructor threading** (this is the decision to re-read before
-"simplifying" it into parameters). Twelve of the fifteen literals live in *private* leaf widgets two
-to four layers below a public one — `_TrailingControl`, `_AttachmentThumbnail`,
-`_SelectedOptionChip`, `_AttachmentButton`, `_CameraTile`, `_MicButton`, `_CopyButtonState`. And
-`CodeBlockView`'s two are constructed inside the top-level `_buildFenceCached`
-(`lib/src/ai_markdown_body.dart`), which has no `BuildContext` at all. Threading would have meant
-about ten new parameters and a new component in the fence cache key. A lookup in `build` costs
-nothing and needs neither.
+"simplifying" it into parameters). Ten of the fourteen live in *private* leaf widgets two to four
+layers below a public one — `_TrailingControl`, `_AttachmentThumbnail`, `_SelectedOptionChip`,
+`_AttachmentButton`, `_CameraTile`, `_MicButton`, `_CopyButtonState` — and three more in
+`ComposerAttachmentSheet`'s private `State`. `CodeBlockView`'s two are constructed inside the
+top-level `_buildFenceCached` (`lib/src/ai_markdown_body.dart`), which has no `BuildContext` at all.
+Threading would have meant about ten new parameters and a new component in the fence cache key. A
+lookup in `build` costs nothing and needs neither.
+
+The fourteenth, the composer hint, is the exception and stays threaded: 2.2 made it a field of
+`ChatComposerInputProps` (non-nullable, defaulting to the `defaultHintText` constant), so
+`ChatComposer.build` resolves it from the scope there and hands the input an already-localized
+string. A props object a host builds by hand therefore carries the English default, which is what
+`defaultHintText` documents.
 
 **The fence cache, which the scope survives.** `_fenceWidgetCache` returns the *identical* `Widget`
 instance for a given fence source, and translations deliberately are **not** part of its key —
@@ -414,10 +437,8 @@ such a route is already open reaches it only on the next open. Documented on the
 README.
 
 **The `const` requirement.** `AITranslationsScope.updateShouldNotify` compares instances, so a
-non-`const` subclass instance built inside a `build` that runs on every typewriter tick would notify
-every dependent every ~10ms. `const` instances are canonicalized to one object. Documented on
-`AITranslations`, on `AITranslationsScope.translations`, and in the README; asserted in
-`ai_translations_test.dart`.
+fresh subclass instance per `build` would rebuild every dependent. Documented on `AITranslations`,
+on `AITranslationsScope.translations`, and in the README; asserted in `ai_translations_test.dart`.
 
 **Accessibility, which is the larger half of this.** Ten of the fourteen are `Tooltip` messages on
 icon-only buttons, so they are also the only accessible label those buttons expose. Before this, a
@@ -435,6 +456,10 @@ host onto Flutter's localization delegates, and the package's dependency list st
 README claims. A host already using `flutter_localizations` bridges the two in a few lines by
 reading its own `AppLocalizations` inside a `DefaultAITranslations` subclass.
 
+- **Still not `flutter_localizations`, `intl` or `.arb`.** `LocalizationsDelegate` and
+  `Localizations` are both in `package:flutter/widgets.dart`, so delegate support cost no
+  dependency. A host that wants translated *Material* strings adds `flutter_localizations` itself,
+  as it would anyway.
 - **Files:** new `lib/src/localization/ai_translations.dart`, exported from
   `lib/stream_chat_flutter_ai.dart`; `chat_composer.dart`, `chat_composer_input.dart`,
   `chat_composer_props.dart`, `chat_composer_factory.dart`, `composer_attachment_sheet.dart`,
