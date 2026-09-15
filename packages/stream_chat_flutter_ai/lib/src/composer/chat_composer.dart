@@ -86,6 +86,7 @@ class ChatComposer extends StatefulWidget {
     this.textInputAction = TextInputAction.newline,
     this.enableSpeechToText = false,
     this.speechToTextConfig = const SpeechToTextConfig(),
+    this.allowSendWhileGenerating = false,
   }) : assert(minLines >= 1, 'minLines must be at least 1'),
        assert(maxLines >= minLines, "maxLines can't be less than minLines");
 
@@ -140,6 +141,25 @@ class ChatComposer extends StatefulWidget {
   ///
   /// Only consulted when [enableSpeechToText] is `true`.
   final SpeechToTextConfig speechToTextConfig;
+
+  /// Whether a send is allowed while [ChatComposerController.isGenerating] is
+  /// `true`. Defaults to `false`.
+  ///
+  /// The default matches what this composer's own UI has always enforced: the
+  /// trailing control morphs into a stop button while a response streams, so
+  /// there is no send button to press. Leaving the rule to the UI alone made
+  /// it a property of the *default* input rather than of the composer —
+  /// [ChatComposerFactory.buildInput] or [ChatComposerFactory.buildTrailing]
+  /// could put a send button on screen mid-stream and it would send.
+  ///
+  /// Set `true` if your backend accepts a follow-up while it is still
+  /// answering — queuing the next turn, interrupting, or anything else that
+  /// treats a second send as valid. It governs whether
+  /// [ChatComposerSlotProps.onSend] acts, not what the default input renders:
+  /// that control still shows stop while generating, so a host setting this
+  /// generally supplies its own send affordance and enables it on
+  /// [ChatComposerSlotProps.canSend].
+  final bool allowSendWhileGenerating;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -250,7 +270,10 @@ class _ChatComposerState extends State<ChatComposer> {
       );
       return;
     }
+    // Same rule `ChatComposerSlotProps.canSend` reports, so a slot that
+    // enables its button on that getter and this guard can never disagree.
     if (!_controller.hasContent) return;
+    if (_controller.isGenerating && !widget.allowSendWhileGenerating) return;
     final send = widget.onSendPressed(
       _controller.text,
       _controller.selectedChatOption,
@@ -314,6 +337,7 @@ class _ChatComposerState extends State<ChatComposer> {
           textInputAction: widget.textInputAction,
           enableSpeechToText: widget.enableSpeechToText,
           speechToTextConfig: widget.speechToTextConfig,
+          allowSendWhileGenerating: widget.allowSendWhileGenerating,
           onSend: _onSend,
           // `null`, not a callback that quietly does nothing, so a slot can
           // tell that stopping is unsupported and hide its own stop

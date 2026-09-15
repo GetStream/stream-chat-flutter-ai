@@ -35,6 +35,7 @@ abstract class ChatComposerSlotProps {
     required this.focusNode,
     required this.onSend,
     this.onStop,
+    this.allowSendWhileGenerating = false,
   });
 
   /// The composer's controller — input text, chat options, attachments, and
@@ -83,6 +84,32 @@ abstract class ChatComposerSlotProps {
   ///
   /// Carries the same mounted caveat as [onSend].
   final VoidCallback? onStop;
+
+  /// Whether [onSend] still sends while [ChatComposerController.isGenerating]
+  /// is `true`.
+  ///
+  /// Mirrors [ChatComposer.allowSendWhileGenerating]; see it for what the
+  /// choice means. Read [canSend] rather than combining this with the
+  /// controller by hand.
+  final bool allowSendWhileGenerating;
+
+  /// Whether calling [onSend] right now would actually send.
+  ///
+  /// The condition a slot's send control should be enabled on:
+  ///
+  /// ```dart
+  /// IconButton(
+  ///   icon: const Icon(Icons.send),
+  ///   onPressed: props.canSend ? props.onSend : null,
+  /// )
+  /// ```
+  ///
+  /// [onSend] is a no-op when this is `false`, so a control wired to it
+  /// unconditionally looks enabled and does nothing — the dead-affordance
+  /// problem [onStop] avoids by being `null`. `onSend` can't take that route:
+  /// it flips with every keystroke, and a slot that captured it once would
+  /// hold a stale `null`.
+  bool get canSend => controller.hasContent && (allowSendWhileGenerating || !controller.isGenerating);
 }
 
 /// Props for [ChatComposerFactory.buildLeading].
@@ -93,6 +120,7 @@ class ChatComposerLeadingProps extends ChatComposerSlotProps {
     required super.focusNode,
     required super.onSend,
     super.onStop,
+    super.allowSendWhileGenerating,
   });
 
   /// Creates a [ChatComposerLeadingProps] carrying another slot's wiring.
@@ -106,6 +134,7 @@ class ChatComposerLeadingProps extends ChatComposerSlotProps {
         focusNode: props.focusNode,
         onSend: props.onSend,
         onStop: props.onStop,
+        allowSendWhileGenerating: props.allowSendWhileGenerating,
       );
 }
 
@@ -117,6 +146,7 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
     required super.focusNode,
     required super.onSend,
     super.onStop,
+    super.allowSendWhileGenerating,
   });
 
   /// Creates a [ChatComposerTrailingProps] carrying another slot's wiring.
@@ -128,6 +158,7 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
         focusNode: props.focusNode,
         onSend: props.onSend,
         onStop: props.onStop,
+        allowSendWhileGenerating: props.allowSendWhileGenerating,
       );
 }
 
@@ -143,6 +174,7 @@ class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
     required super.focusNode,
     required super.onSend,
     super.onStop,
+    super.allowSendWhileGenerating,
   });
 
   /// Creates a [ChatComposerAttachmentSheetProps] carrying another slot's
@@ -155,6 +187,7 @@ class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
         focusNode: props.focusNode,
         onSend: props.onSend,
         onStop: props.onStop,
+        allowSendWhileGenerating: props.allowSendWhileGenerating,
       );
 }
 
@@ -170,6 +203,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     required super.focusNode,
     required super.onSend,
     super.onStop,
+    super.allowSendWhileGenerating,
     this.hintText = defaultHintText,
     this.minLines = 1,
     this.maxLines = 8,
@@ -223,7 +257,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
   /// A copy of these props with the given fields replaced.
   ///
   /// The way to tweak one value while keeping the rest of what [ChatComposer]
-  /// passed down — hand-listing all ten fields instead silently reverts any
+  /// passed down — hand-listing all eleven fields instead silently reverts any
   /// you forget to a constructor default, discarding the host's own
   /// configuration.
   ///
@@ -235,6 +269,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     VoidCallback? onSend,
     VoidCallback? onStop,
     bool clearOnStop = false,
+    bool? allowSendWhileGenerating,
     String? hintText,
     int? minLines,
     int? maxLines,
@@ -247,6 +282,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
       focusNode: focusNode ?? this.focusNode,
       onSend: onSend ?? this.onSend,
       onStop: clearOnStop ? null : (onStop ?? this.onStop),
+      allowSendWhileGenerating: allowSendWhileGenerating ?? this.allowSendWhileGenerating,
       hintText: hintText ?? this.hintText,
       minLines: minLines ?? this.minLines,
       maxLines: maxLines ?? this.maxLines,

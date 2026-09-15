@@ -617,6 +617,100 @@ void main() {
       expect(sends, isZero);
     });
 
+    testWidgets('props.onSend does not send while a response is generating', (tester) async {
+      // The default input never offers send mid-stream — the trailing control
+      // is a stop button by then — so this rule used to be a property of that
+      // one widget. A custom slot could put a send button on screen and it
+      // would send.
+      final controller = ChatComposerController(initialText: 'Hello')..isGenerating = true;
+      var sends = 0;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _ReplacementInputFactory(),
+            onSendPressed: (_, __, ___) => sends++,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('go'));
+      await tester.pump();
+
+      expect(sends, isZero);
+      expect(controller.text, equals('Hello'), reason: 'a refused send must not clear the field');
+    });
+
+    testWidgets('allowSendWhileGenerating lets a slot send mid-stream', (tester) async {
+      // For backends that accept a follow-up while still answering.
+      final controller = ChatComposerController(initialText: 'Hello')..isGenerating = true;
+      String? sentText;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            allowSendWhileGenerating: true,
+            factory: _ReplacementInputFactory(),
+            onSendPressed: (text, _, __) => sentText = text,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('go'));
+      await tester.pump();
+
+      expect(sentText, equals('Hello'));
+      controller.dispose();
+    });
+
+    testWidgets('props.canSend reports exactly what props.onSend will do', (tester) async {
+      // The two must never disagree: canSend is what a slot enables its button
+      // on, onSend is what the button calls. Asserted together, on the same
+      // props, for each state that distinguishes them.
+      final controller = ChatComposerController();
+      final factory = _CapturingInputFactory();
+      var sends = 0;
+
+      Future<void> pump({required bool allow}) {
+        return tester.pumpWidget(
+          _wrap(
+            ChatComposer(
+              controller: controller,
+              allowSendWhileGenerating: allow,
+              factory: factory,
+              onSendPressed: (_, __, ___) => sends++,
+            ),
+          ),
+        );
+      }
+
+      // Empty field: nothing to send.
+      await pump(allow: false);
+      expect(factory.captured!.canSend, isFalse);
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await tester.pumpAndSettle();
+      expect(factory.captured!.canSend, isTrue);
+
+      // Generating, and follow-ups are refused.
+      controller.isGenerating = true;
+      await tester.pumpAndSettle();
+      expect(factory.captured!.canSend, isFalse);
+      factory.captured!.onSend();
+      expect(sends, isZero, reason: 'canSend was false, so onSend must be a no-op');
+
+      // Same state, but the host allows it.
+      await pump(allow: true);
+      await tester.pumpAndSettle();
+      expect(factory.captured!.canSend, isTrue);
+      factory.captured!.onSend();
+      expect(sends, equals(1));
+
+      controller.dispose();
+    });
+
     testWidgets('props.onStop reaches onStopPressed from a replacement input', (tester) async {
       final controller = ChatComposerController()..isGenerating = true;
       var stopped = false;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -42,13 +43,42 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 ///   }
 /// }
 /// ```
-class ChatComposerInput extends StatelessWidget {
+class ChatComposerInput extends StatefulWidget {
   /// Creates a [ChatComposerInput].
   const ChatComposerInput({super.key, required this.props});
 
   /// The controller, focus node, send/stop wiring and text-field configuration
   /// this input renders from.
   final ChatComposerInputProps props;
+
+  @override
+  State<ChatComposerInput> createState() => _ChatComposerInputState();
+}
+
+class _ChatComposerInputState extends State<ChatComposerInput> {
+  ChatComposerInputProps get props => widget.props;
+
+  /// Stateful only for this.
+  ///
+  /// The mic belongs to this widget's own subtree (see [_TrailingControl]), so
+  /// when the input leaves the tree the only control that could end a running
+  /// session goes with it — the same reason [ChatComposer] cancels in its
+  /// `dispose`. Used inside a composer that cancel is redundant, and harmless:
+  /// children unmount first, and the second cancel finds no session.
+  ///
+  /// Gated on [ChatComposerInputProps.enableSpeechToText], unlike the
+  /// composer's, and the difference is deliberate. [ChatComposer] is the last
+  /// line of defence for the whole widget, so it cancels whatever slot hosted
+  /// the mic. This input owns only the mic *it* renders: a
+  /// [SpeechToTextButton] a host placed in another slot — the arrangement that
+  /// widget's documentation recommends, which leaves this flag `false` —
+  /// survives the input being swapped out, and cancelling it here would end a
+  /// dictation whose mic is still on screen.
+  @override
+  void dispose() {
+    if (props.enableSpeechToText) unawaited(SpeechToTextController.instance.cancel());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

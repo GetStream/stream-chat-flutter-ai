@@ -329,14 +329,20 @@ class MySendButtonFactory extends ChatComposerFactory {
   Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
     return IconButton(
       icon: const Icon(Icons.send),
-      // Disabled while there is nothing to send, and while a response is
-      // streaming. `props.onStop` is null when the host passed no
-      // `onStopPressed`.
-      onPressed: props.controller.hasContent ? props.onSend : null,
+      // `canSend` is the whole rule: there is something to send, and a
+      // response isn't already streaming. `onSend` no-ops when it is false,
+      // so wiring the button to it unconditionally leaves it looking enabled
+      // and doing nothing.
+      onPressed: props.canSend ? props.onSend : null,
     );
   }
 }
 ```
+
+By default the composer refuses to send while `controller.isGenerating` is `true` — the same rule
+its own UI has always enforced by morphing the send button into a stop button. If your backend
+accepts a follow-up mid-stream, pass `allowSendWhileGenerating: true` to `ChatComposer`; `canSend`
+follows it, so the example above needs no change.
 
 `props.onSend` and `props.onStop` are only safe to call while the composer is still mounted.
 Calling either across an async gap — after a confirmation dialog, say — once the composer has left

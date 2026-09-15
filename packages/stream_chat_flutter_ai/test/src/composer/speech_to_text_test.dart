@@ -457,6 +457,90 @@ void main() {
       expect(sendButton.onPressed, isNotNull);
     });
 
+    testWidgets('a standalone ChatComposerInput leaving the tree cancels the session', (tester) async {
+      // ChatComposerInput is exported, and documented as working standalone.
+      // Used that way there is no ChatComposer above it to cancel in its own
+      // dispose, so the mic stayed hot with nothing left on screen able to
+      // stop it — bounded only by `listenFor`, with the platform's recording
+      // indicator lit for the whole of it.
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+              enableSpeechToText: true,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      expect(SpeechToTextController.instance.isListening, isTrue);
+
+      await tester.pumpWidget(_wrap(const SizedBox()));
+      await tester.pumpAndSettle();
+
+      expect(platform.cancelCalls, 1);
+      expect(SpeechToTextController.instance.isListening, isFalse);
+    });
+
+    testWidgets('a mic in another slot survives the input being swapped out', (tester) async {
+      // The other half of the rule above, and why the input's cancel is gated
+      // on `enableSpeechToText` while the composer's deliberately is not. With
+      // the flag false the input renders no mic of its own, so a
+      // SpeechToTextButton the host placed elsewhere — the arrangement that
+      // widget's own documentation recommends — is not the input's to cancel.
+      // An ungated cancel here would end a dictation whose mic is still on
+      // screen.
+      final controller = ChatComposerController();
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+
+      Widget build({required bool showInput}) {
+        return _wrap(
+          Column(
+            children: [
+              SpeechToTextButton(controller: controller),
+              if (showInput)
+                ChatComposerInput(
+                  props: ChatComposerInputProps(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onSend: () {},
+                  ),
+                ),
+            ],
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(showInput: true));
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      expect(SpeechToTextController.instance.isListening, isTrue);
+
+      // A bounded pump, not `pumpAndSettle`: the surviving mic pulses while it
+      // listens, so settling would run the clock past `listenFor` and let the
+      // plugin end the session on its own — which looks exactly like the bug
+      // this test is here to catch.
+      await tester.pumpWidget(build(showInput: false));
+      await settle(tester);
+
+      expect(platform.cancelCalls, isZero);
+      expect(SpeechToTextController.instance.isListening, isTrue);
+
+      await endSession(tester);
+    });
+
     testWidgets('disposing the composer cancels the session', (tester) async {
       await tester.pumpWidget(
         _wrap(ChatComposer(enableSpeechToText: true, onSendPressed: (_, _, _) {})),
