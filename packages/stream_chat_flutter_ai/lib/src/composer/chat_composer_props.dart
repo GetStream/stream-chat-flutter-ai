@@ -22,9 +22,9 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 /// name the slot at the call site; [ChatComposerInputProps] adds the text-field
 /// configuration, which has no meaning outside the input.
 ///
-/// Shaped after `stream_chat_flutter`'s `MessageComposerComponentProps` family,
-/// down to the `.from` constructors the composer uses to derive one slot's
-/// props from another's.
+/// The three narrow subclasses each have a `.from` constructor: [ChatComposer]
+/// builds [ChatComposerInputProps] — the widest set — once, and narrows that
+/// per slot, so the shared values are named in one place.
 abstract class ChatComposerSlotProps {
   /// Creates a [ChatComposerSlotProps].
   ///

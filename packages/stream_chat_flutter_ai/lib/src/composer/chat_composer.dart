@@ -302,8 +302,7 @@ class _ChatComposerState extends State<ChatComposer> {
     return ListenableBuilder(
       listenable: _listenable,
       builder: (context, _) {
-        // Built once and narrowed per slot, the way `stream_chat_flutter`'s
-        // composer derives its own slot props: the wiring every slot shares is
+        // Built once and narrowed per slot: the wiring every slot shares is
         // named here and nowhere else, so a value added later reaches all four
         // without being re-listed four times.
         final props = ChatComposerInputProps(
