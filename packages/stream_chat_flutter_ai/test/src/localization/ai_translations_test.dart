@@ -312,13 +312,14 @@ void main() {
     test('a key that is not a locale key is rejected in debug', () {
       // 'nl-BE' is the BCP-47 form; Locale.toString() uses an underscore, so
       // this key could never match and every widget would quietly render
-      // English.
+      // English. Both entry points report it, because the check sits in
+      // `resolve`, which `load` goes through — a malformed key must not read
+      // as the `null` that means "this locale isn't translated".
       const delegate = AITranslationsDelegate({'nl-BE': _TestTranslations()});
+      final complains = throwsA(isA<FlutterError>().having((e) => e.message, 'message', contains('nl-BE')));
 
-      expect(
-        () => delegate.load(const Locale('nl')),
-        throwsA(isA<FlutterError>().having((e) => e.message, 'message', contains('nl-BE'))),
-      );
+      expect(() => delegate.resolve(const Locale('nl')), complains);
+      expect(() => delegate.load(const Locale('nl')), complains);
     });
 
     test('shouldReload tracks the map, not the delegate instance', () {

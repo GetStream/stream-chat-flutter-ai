@@ -289,8 +289,29 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
   ///
   /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, while a `'pt_BR'`
   /// entry serves only Brazilian Portuguese. [load] turns the `null` case into
-  /// [DefaultAITranslations].
+  /// [DefaultAITranslations], so `null` here means "nothing registered", never
+  /// "no strings available".
+  ///
+  /// Throws in debug if [translations] holds a key that is not a locale key.
+  /// That is a different failure from `null`: a malformed key can never match
+  /// any locale, so returning `null` for it would report "you did not
+  /// translate this locale" for a locale that *was* translated, under a key
+  /// with a typo in it.
   AITranslations? resolve(Locale locale) {
+    assert(() {
+      for (final key in translations.keys) {
+        if (!_localeKey.hasMatch(key)) {
+          throw FlutterError(
+            "AITranslationsDelegate was given the key '$key', which is not a locale key.\n"
+            "Keys take Locale.toString()'s form — a language code such as 'nl', optionally with a "
+            "country after an underscore, as in 'pt_BR'. A key in any other shape can never match "
+            'a locale, so those widgets would silently render English.',
+          );
+        }
+      }
+      return true;
+    }(), 'AITranslationsDelegate keys must be locale keys.');
+
     return translations[locale.toString()] ?? translations[locale.languageCode];
   }
 
@@ -308,20 +329,6 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
 
   @override
   Future<AITranslations> load(Locale locale) {
-    assert(() {
-      for (final key in translations.keys) {
-        if (!_localeKey.hasMatch(key)) {
-          throw FlutterError(
-            "AITranslationsDelegate was given the key '$key', which is not a locale key.\n"
-            "Keys take Locale.toString()'s form — a language code such as 'nl', optionally with a "
-            "country after an underscore, as in 'pt_BR'. A key in any other shape can never match "
-            'a locale, so those widgets would silently render English.',
-          );
-        }
-      }
-      return true;
-    }(), 'AITranslationsDelegate keys must be locale keys.');
-
     // Synchronous: the strings are already in memory, and an asynchronous
     // future here would leave the first frame after a locale change rendering
     // the previous locale's strings.
