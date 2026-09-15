@@ -121,6 +121,60 @@ void main() {
     });
   });
 
+  group('AITranslationsScope crosses a route', () {
+    // The scope is an InheritedTheme, so anything that captures themes on the
+    // way to the Navigator carries it. Asserted through showDialog rather than
+    // the attachment sheet to pin the general mechanism, not one caller: the
+    // package owes translated strings to whatever it shows in a route of its
+    // own, however that route is pushed.
+    testWidgets('a dialog pushed from inside the scope keeps it', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AITranslationsScope(
+            translations: const _TestTranslations(),
+            child: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => Text(AITranslations.of(context).send),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('VERSTUUR'), findsOneWidget);
+    });
+
+    testWidgets('without the scope the same dialog falls back to English', (tester) async {
+      // The control for the test above — otherwise it would pass just as well
+      // if the dialog were somehow reading the defaults.
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (context) => Text(AITranslations.of(context).send),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Send'), findsOneWidget);
+    });
+  });
+
   group('DefaultAITranslations', () {
     test('a subclass overriding one string keeps the rest', () {
       const translations = _TestTranslations();

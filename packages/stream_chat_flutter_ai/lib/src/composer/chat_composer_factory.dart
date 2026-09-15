@@ -143,24 +143,18 @@ class _AttachmentButton extends StatelessWidget {
   final ChatComposerFactory factory;
 
   Future<void> _openAttachmentSheet(BuildContext context) {
-    // Read here, from this button's context, and re-provide inside the sheet.
-    // The sheet is pushed as its own route, so it sits under the Navigator
-    // rather than under whatever wraps this button — a translations scope
-    // placed directly above the composer would otherwise be invisible to it,
-    // and the sheet's four strings would fall back to English while
-    // everything around them was translated.
-    final translations = AITranslations.of(context);
-
+    // The sheet is pushed as its own route, so it lands under the Navigator
+    // rather than under whatever wraps this button — but AITranslationsScope
+    // is an InheritedTheme, and showModalBottomSheet captures those across the
+    // push, so a scope sitting directly above the composer still reaches the
+    // sheet's strings without anything being re-provided here.
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => AITranslationsScope(
-        translations: translations,
-        child: factory.buildAttachmentSheet(
-          context,
-          ChatComposerAttachmentSheetProps.from(props),
-        ),
+      builder: (context) => factory.buildAttachmentSheet(
+        context,
+        ChatComposerAttachmentSheetProps.from(props),
       ),
     );
   }

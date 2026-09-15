@@ -1,14 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-// [ChatComposer] is here for the doc links below only; nothing in this file's
-// code uses it. [ChatComposerInputProps] is used — see [composerHint].
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
+// For DefaultAITranslations.composerHint, which defers to
+// ChatComposerInputProps.defaultHintText rather than repeating its literal.
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 
 /// The user-facing strings the package renders itself.
 ///
 /// Every string the widgets in this package draw — bar the ones a host passes
-/// in, like [ChatComposer.hintText] or a `ChatOption`'s label — resolves
+/// in, like `ChatComposer.hintText` or a `ChatOption`'s label — resolves
 /// through an instance of this class. Provide one with an
 /// [AITranslationsScope] to translate them; with no scope in the tree the
 /// widgets fall back to [DefaultAITranslations] and render the English they
@@ -50,15 +49,13 @@ abstract class AITranslations {
   /// The nearest [AITranslationsScope]'s translations, or
   /// [DefaultAITranslations] when there is no scope above [context].
   ///
-  /// Registers [context] as a dependent, so a widget resolving its strings
-  /// here rebuilds when the scope's value changes.
-  static AITranslations of(BuildContext context) {
-    return AITranslationsScope.maybeOf(context) ?? const DefaultAITranslations();
-  }
+  /// Shorthand for [AITranslationsScope.of], which is where the lookup and its
+  /// dependency semantics are documented.
+  static AITranslations of(BuildContext context) => AITranslationsScope.of(context);
 
   /// Placeholder shown in the composer's empty text field.
   ///
-  /// Only used when [ChatComposer.hintText] is `null` — an explicit
+  /// Only used when `ChatComposer.hintText` is `null` — an explicit
   /// `hintText` wins, since it is the more specific of the two.
   String get composerHint;
 
@@ -170,18 +167,19 @@ class DefaultAITranslations extends AITranslations {
 /// )
 /// ```
 ///
-/// Widgets read it through [AITranslations.of], which falls back to
-/// [DefaultAITranslations] rather than asserting, so a scope is optional
-/// everywhere.
+/// Widgets read it through [of], which falls back to [DefaultAITranslations]
+/// rather than asserting, so a scope is optional everywhere.
 ///
 /// **Where to put it.** Anywhere above the widgets whose strings it should
-/// cover; a single scope above the app's `MaterialApp` covers everything,
-/// including anything the package pushes onto the [Navigator]. Placed lower —
-/// directly above a [ChatComposer], say — it still reaches that composer's
-/// attachment sheet, because the composer re-provides it inside the sheet's
-/// route. A host pushing a `ComposerAttachmentSheet` itself owns that
-/// re-provision.
-class AITranslationsScope extends InheritedWidget {
+/// cover — a single scope above the app's `MaterialApp` covers the lot.
+/// Placed lower, directly above a `ChatComposer` say, it still reaches the
+/// attachment sheet and anything else the package shows in a route of its own:
+/// this is an [InheritedTheme], so `showModalBottomSheet`, `showDialog` and
+/// `showMenu` carry it across the [Navigator] for you, as they do a `Theme`. The
+/// one thing to know is that they *capture* it at push time, so a scope
+/// swapped while such a route is already open does not reach it until the
+/// route is reopened.
+class AITranslationsScope extends InheritedTheme {
   /// Creates an [AITranslationsScope].
   const AITranslationsScope({super.key, required this.translations, required super.child});
 
@@ -190,13 +188,26 @@ class AITranslationsScope extends InheritedWidget {
   /// Should be a `const` instance — see [AITranslations] for why.
   final AITranslations translations;
 
+  /// The nearest enclosing scope's [translations], or [DefaultAITranslations]
+  /// when there is no scope above [context].
+  ///
+  /// Where a scope is found, [context] is registered as a dependent and so
+  /// rebuilds when the scope's value changes. Where none is, there is nothing
+  /// to depend on — but inserting one later rebuilds the subtree anyway, so
+  /// the fallback is not a value that can go stale.
+  static AITranslations of(BuildContext context) => maybeOf(context) ?? const DefaultAITranslations();
+
   /// The nearest enclosing scope's [translations], or `null` when there is
   /// none.
   ///
-  /// Registers [context] as a dependent. Most callers want
-  /// [AITranslations.of], which supplies the default instead of `null`.
+  /// Most callers want [of], which supplies the default instead of `null`.
   static AITranslations? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<AITranslationsScope>()?.translations;
+  }
+
+  @override
+  Widget wrap(BuildContext context, Widget child) {
+    return AITranslationsScope(translations: translations, child: child);
   }
 
   @override

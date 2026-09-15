@@ -62,10 +62,11 @@ First release of `stream_chat_flutter_ai`.
   here.
 - **Every string the package renders itself is now translatable.** `AITranslations` (abstract),
   `DefaultAITranslations` (the English it has always rendered) and `AITranslationsScope` (an
-  `InheritedWidget`) replace the fourteen literals that were hardcoded across `ChatComposer`, its
-  attachment sheet, the voice-input button and `CodeBlockView`. Subclass `DefaultAITranslations`,
-  override only what you are changing, and provide it with a scope; with no scope in the tree every
-  widget renders exactly what it did before, so nothing changes for a host that adds none.
+  `InheritedTheme`) replace the fourteen literals that were hardcoded across `ChatComposer`,
+  `ChatComposerInput`, the attachment sheet, the voice-input button and `CodeBlockView`. Subclass
+  `DefaultAITranslations`, override only what you are changing, and provide it with a scope; with
+  no scope in the tree every widget renders exactly what it did before, so nothing changes for a
+  host that adds none.
   `ChatComposer.hintText` still wins over `AITranslations.composerHint`, being the more specific of
   the two.
 
@@ -81,6 +82,11 @@ First release of `stream_chat_flutter_ai`.
   threading would have meant ten new parameters plus a new component in that cache key. Translations
   deliberately are *not* part of it: the cached object is an unbuilt widget configuration, and the
   string is resolved later, from the element's own context.
+
+  The scope is an `InheritedTheme`, so `showModalBottomSheet`, `showDialog` and `showMenu` carry it
+  across the `Navigator` exactly as they carry a `Theme` — a scope placed directly above a
+  `ChatComposer` translates that composer's attachment sheet without the host doing anything, and so
+  does one above a sheet the host presents itself.
 
   Give your subclass a `const` constructor and construct it as `const MyTranslations()`.
   `AITranslationsScope.updateShouldNotify` compares instances, and a non-`const` instance built

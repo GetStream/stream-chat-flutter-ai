@@ -465,19 +465,44 @@ Most of these strings are `Tooltip` messages on icon-only buttons — the send, 
 and dismiss controls — which makes them the only accessible label those buttons expose. Translating
 them is what makes the composer legible to a screen reader in another locale.
 
+To follow the app's locale, pick the instance from `Localizations.localeOf` below your
+`MaterialApp` — note that each branch returns a `const` instance, which is what the first bullet
+below is about:
+
+```dart
+const _translations = <String, AITranslations>{
+  'nl': DutchTranslations(),
+  'de': GermanTranslations(),
+};
+
+MaterialApp(
+  locale: locale,
+  localizationsDelegates: GlobalMaterialLocalizations.delegates,
+  supportedLocales: const [Locale('en'), Locale('nl'), Locale('de')],
+  builder: (context, child) => AITranslationsScope(
+    translations: _translations[Localizations.localeOf(context).languageCode] ??
+        const DefaultAITranslations(),
+    child: child!,
+  ),
+  home: ...,
+)
+```
+
 Three things worth knowing:
 
 - **Give your subclass a `const` constructor** and construct it as `const DutchTranslations()`.
   `AITranslationsScope` compares instances to decide whether to notify, and a non-`const` instance
   built inside a `build` method is a new object every time — which, in a subtree that rebuilds on
   every typewriter tick, notifies every dependent every ~10ms. `const` instances are canonicalized
-  to one object.
+  to one object. Looking one up per locale, as above, is fine; building one per `build` is not.
 - **`ChatComposer.hintText` wins over `AITranslations.composerHint`.** A hint written for one
   composer is more specific than an app-wide string.
-- **A scope above your `MaterialApp` covers everything**, including routes the package pushes.
-  Placed lower — directly above a `ChatComposer` — it still reaches that composer's attachment
-  sheet, because the composer re-provides it inside the sheet's route. If you present a
-  `ComposerAttachmentSheet` yourself, you own that re-provision.
+- **A scope reaches routes, not just the widgets under it.** `AITranslationsScope` is an
+  `InheritedTheme`, so `showModalBottomSheet`, `showDialog` and `showMenu` carry it across the
+  `Navigator` the same way they carry a `Theme`. A scope directly above a `ChatComposer` therefore
+  still translates that composer's attachment sheet, and so does one above a
+  `ComposerAttachmentSheet` you present yourself. Those pushes *capture* the scope, so swapping it
+  while such a route is open doesn't reach the open route — only the next one.
 
 Subclassing `DefaultAITranslations` rather than implementing `AITranslations` directly means a
 string added in a later version arrives as an untranslated default rather than a compile error.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -1284,8 +1285,8 @@ void main() {
     testWidgets('the attachment sheet is translated across its own route', (tester) async {
       // The sheet is pushed with `showModalBottomSheet`, so it sits under the
       // Navigator rather than under the scope this test wraps the composer in.
-      // It only reads these strings because the leading button re-provides the
-      // scope inside the sheet's route.
+      // It reads these strings because AITranslationsScope is an
+      // InheritedTheme and the push captures it, the same way a Theme crosses.
       await tester.pumpWidget(
         _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
       );
@@ -1299,6 +1300,62 @@ void main() {
       expect(find.text('FOTOS'), findsOneWidget);
       expect(find.text('ALLE FOTOS'), findsOneWidget);
       expect(find.byTooltip('LACH EENS'), findsOneWidget);
+    });
+
+    testWidgets('a sheet the host presents itself is translated too', (tester) async {
+      // Nothing in the package is involved in the push here. This is the case
+      // that needed a caveat in the docs while the leading button re-provided
+      // the scope by hand, and the one InheritedTheme closes.
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                builder: (_) => ComposerAttachmentSheet(controller: controller),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('FOTOS'), findsOneWidget);
+      expect(find.text('ALLE FOTOS'), findsOneWidget);
+    });
+
+    testWidgets('the denied-photo-access button is translated', (tester) async {
+      // The only string of the fourteen that needs the platform to say no:
+      // without a permission answer the sheet stays on its spinner and this
+      // branch never builds, so the channel is mocked into refusing.
+      const channel = MethodChannel('com.fluttercandies/photo_manager');
+      final messenger = tester.binding.defaultBinaryMessenger
+        ..setMockMethodCallHandler(channel, (call) async {
+          // `PermissionState.denied`, by index — what `hasAccess` reads as
+          // false.
+          if (call.method == 'requestPermissionExtend') return PermissionState.denied.index;
+          return null;
+        });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(ComposerAttachmentSheet(controller: controller)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('LAAT ME ERIN'), findsOneWidget);
+      expect(find.text('Allow photo access'), findsNothing);
     });
   });
 }
@@ -1394,7 +1451,9 @@ Widget _wrapTranslated(Widget child) => _wrap(
 );
 
 /// Overrides every string [ChatComposer] and its attachment sheet render, so a
-/// leaked English literal fails rather than merely looking the same.
+/// leaked English literal fails rather than merely looking the same. Keep it
+/// exhaustive: a string left at its default here is a string whose plumbing
+/// these tests do not actually check.
 class _TestTranslations extends DefaultAITranslations {
   const _TestTranslations();
 
@@ -1421,6 +1480,9 @@ class _TestTranslations extends DefaultAITranslations {
 
   @override
   String get allPhotos => 'ALLE FOTOS';
+
+  @override
+  String get allowPhotoAccess => 'LAAT ME ERIN';
 
   @override
   String get takePhoto => 'LACH EENS';

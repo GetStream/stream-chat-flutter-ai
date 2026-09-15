@@ -59,12 +59,10 @@ void debugClearAssetPathCache() => _assetPathCache.clear();
 /// <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
 /// ```
 ///
-/// This sheet's own strings resolve through [AITranslations.of]. The composer's
-/// default leading button ([ChatComposerFactory.buildLeading]) presents it
-/// inside an [AITranslationsScope] carrying whatever scope was above the
-/// composer, since the sheet is pushed as its own route; a host presenting the
-/// sheet directly owns that wrapping, unless its scope already sits above the
-/// [Navigator].
+/// This sheet's own strings resolve through [AITranslations.of]. It works the
+/// same however the sheet is presented: [AITranslationsScope] is an
+/// [InheritedTheme], so `showModalBottomSheet` carries whatever scope was
+/// above the caller across the push, exactly as it does [Theme].
 class ComposerAttachmentSheet extends StatefulWidget {
   /// Creates a [ComposerAttachmentSheet].
   const ComposerAttachmentSheet({super.key, required this.controller});

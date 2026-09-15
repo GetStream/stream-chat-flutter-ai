@@ -352,7 +352,7 @@ today, but the seam exists for adding locales). Flutter hardcoded every user-fac
 
 **Shipped:** `lib/src/localization/ai_translations.dart` — `AITranslations` (abstract, `const`
 constructor, one getter per string), `DefaultAITranslations` (the English literals the widgets
-already rendered) and `AITranslationsScope` (an `InheritedWidget`). Fourteen members cover the
+already rendered) and `AITranslationsScope` (an `InheritedTheme`). Fourteen members cover the
 fifteen literals that were there: the enabled and disabled send tooltips were separate literals for
 the same button and collapsed into one `send`. `clearOption(String option)` is a method rather than
 a getter, being the one interpolated string.
@@ -398,12 +398,20 @@ element's own context, and the inherited-dependency mechanism marks the element 
 change regardless of widget identity. One cached fence renders correctly under two different scopes,
 and `ai_markdown_body_test.dart` asserts exactly that — same instance, different string.
 
-**The modal route, which it doesn't survive unaided.** `ComposerAttachmentSheet` is pushed with
-`showModalBottomSheet`, so it sits under the `Navigator` rather than under whatever wraps the
-composer. `_AttachmentButton` therefore reads the translations from its own context *before*
-pushing and re-provides them inside the sheet's route, so a scope placed directly above a
-`ChatComposer` still reaches the sheet's four strings. A host presenting the sheet itself owns that
-re-provision, which its class doc says.
+**The modal route, which it survives because the scope is an `InheritedTheme`.**
+`ComposerAttachmentSheet` is pushed with `showModalBottomSheet`, so it sits under the `Navigator`
+rather than under whatever wraps the composer. Rather than snapshot the translations at the push and
+re-provide them inside the sheet — which works, but only for the one call site that remembers to do
+it — `AITranslationsScope` extends `InheritedTheme` and overrides `wrap`. `showModalBottomSheet`,
+`showDialog` and `showMenu` all call `InheritedTheme.capture` on the way to the `Navigator`, so a
+scope placed directly above a `ChatComposer` reaches the sheet's four strings with no cooperation
+from the pushing code, and a host presenting the sheet itself gets the same for free. Pinned by
+three tests: the composer's own sheet, a host-presented one, and a `showDialog` that proves the
+mechanism is general rather than bottom-sheet-specific.
+
+The one seam left is that `InheritedTheme.capture` snapshots at push time, so a scope swapped while
+such a route is already open reaches it only on the next open. Documented on the scope and in the
+README.
 
 **The `const` requirement.** `AITranslationsScope.updateShouldNotify` compares instances, so a
 non-`const` subclass instance built inside a `build` that runs on every typewriter tick would notify
@@ -428,8 +436,9 @@ README claims. A host already using `flutter_localizations` bridges the two in a
 reading its own `AppLocalizations` inside a `DefaultAITranslations` subclass.
 
 - **Files:** new `lib/src/localization/ai_translations.dart`, exported from
-  `lib/stream_chat_flutter_ai.dart`; `chat_composer.dart`, `chat_composer_factory.dart`,
-  `composer_attachment_sheet.dart`, `speech_to_text_button.dart`, `code_block_view.dart`; new
+  `lib/stream_chat_flutter_ai.dart`; `chat_composer.dart`, `chat_composer_input.dart`,
+  `chat_composer_props.dart`, `chat_composer_factory.dart`, `composer_attachment_sheet.dart`,
+  `speech_to_text_button.dart`, `code_block_view.dart`; new
   `test/src/localization/ai_translations_test.dart`, plus cases in `chat_composer_test.dart`,
   `speech_to_text_test.dart`, `code_block_view_test.dart` and `ai_markdown_body_test.dart`; a
   `### Localization` section in the README.
@@ -460,8 +469,9 @@ everything else is still a hardcoded constant with no way for a host to interven
 **Proposed work:** a `ChartTheme`-style object carrying the palette, height, and sizing constants,
 plus a `Semantics` wrapper deriving a summary from the `USpec`. 2.3 settled the shape to mirror: an
 abstract class with a `const` constructor, a concrete default holding today's values, and an
-`InheritedWidget` scope read through a static `of(context)` that falls back to that default rather
-than asserting — see `lib/src/localization/ai_translations.dart`. Unlike translations, a theme has a
+`InheritedTheme` scope read through a static `of(context)` that falls back to that default rather
+than asserting — see `lib/src/localization/ai_translations.dart`, including why the scope is an
+`InheritedTheme` and not a plain `InheritedWidget`. Unlike translations, a theme has a
 real case for a per-widget constructor parameter too, since a host may want one chart styled
 differently from the rest.
 Consider `USpecKind`-aware summaries and per-series labels.
