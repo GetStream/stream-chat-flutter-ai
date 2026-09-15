@@ -340,9 +340,9 @@ class MySendButtonFactory extends ChatComposerFactory {
 ```
 
 By default the composer refuses to send while `controller.isGenerating` is `true` — the same rule
-its own UI has always enforced by morphing the send button into a stop button. If your backend
-accepts a follow-up mid-stream, pass `allowSendWhileGenerating: true` to `ChatComposer`; `canSend`
-follows it, so the example above needs no change.
+its own UI expresses by showing a stop button instead of a send button. If your backend accepts a
+follow-up mid-stream, pass `allowSendWhileGenerating: true` to `ChatComposer`; `canSend` follows
+it, so the example above needs no change.
 
 `props.onSend` and `props.onStop` are only safe to call while the composer is still mounted.
 Calling either across an async gap — after a confirmation dialog, say — once the composer has left

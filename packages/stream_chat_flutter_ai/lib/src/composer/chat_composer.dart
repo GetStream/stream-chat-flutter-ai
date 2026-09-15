@@ -145,12 +145,12 @@ class ChatComposer extends StatefulWidget {
   /// Whether a send is allowed while [ChatComposerController.isGenerating] is
   /// `true`. Defaults to `false`.
   ///
-  /// The default matches what this composer's own UI has always enforced: the
-  /// trailing control morphs into a stop button while a response streams, so
-  /// there is no send button to press. Leaving the rule to the UI alone made
-  /// it a property of the *default* input rather than of the composer —
-  /// [ChatComposerFactory.buildInput] or [ChatComposerFactory.buildTrailing]
-  /// could put a send button on screen mid-stream and it would send.
+  /// The default matches what the composer renders: while a response streams
+  /// the trailing control is a stop button, so there is no send button to
+  /// press. The flag applies that same rule to [ChatComposerSlotProps.onSend]
+  /// itself, so a slot supplying its own send control — through
+  /// [ChatComposerFactory.buildInput] or [ChatComposerFactory.buildTrailing] —
+  /// cannot sidestep it.
   ///
   /// Set `true` if your backend accepts a follow-up while it is still
   /// answering — queuing the next turn, interrupting, or anything else that
