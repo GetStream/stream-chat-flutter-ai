@@ -206,7 +206,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
-    this.hintText = defaultHintText,
+    this.hintText,
     this.minLines = 1,
     this.maxLines = 8,
     this.textInputAction = TextInputAction.newline,
@@ -217,24 +217,14 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
        // several frames deep with no mention of the composer.
        assert(maxLines >= minLines, "maxLines can't be less than minLines");
 
-  /// The placeholder [hintText] falls back to, and the English
-  /// [AITranslations.composerHint] returns.
-  ///
-  /// Lives here, not in [ChatComposerInput], so a custom input forwarding
-  /// `props.hintText` renders the same placeholder the default one does
-  /// instead of no placeholder at all.
-  ///
-  /// [ChatComposer] does not use this constant directly: with a
-  /// [BuildContext] in hand it passes [AITranslations.composerHint] — the same
-  /// string unless an [AITranslationsScope] translated it — so a props object
-  /// built by the composer is already localized. This is the fallback for one
-  /// constructed by hand, outside any scope.
-  static const defaultHintText = 'Ask anything…';
-
   /// Placeholder text shown when the text field is empty.
   ///
-  /// Defaults to [defaultHintText].
-  final String hintText;
+  /// `null` when the host passed no [ChatComposer.hintText], and it is left
+  /// that way: the slot rendering the field decides what an absent hint means.
+  /// [ChatComposerInput] falls back to [AITranslations.composerHint]; a custom
+  /// input that wants the same does `props.hintText ?? AITranslations.of(context).composerHint`,
+  /// and one with a placeholder of its own simply ignores this.
+  final String? hintText;
 
   /// Minimum number of lines in the text field.
   final int minLines;

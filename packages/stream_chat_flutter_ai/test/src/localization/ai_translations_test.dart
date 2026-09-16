@@ -322,6 +322,44 @@ void main() {
       expect(() => delegate.load(const Locale('nl')), complains);
     });
 
+    test('a mis-cased key is rejected in debug', () {
+      // The same failure as a malformed key, and the easier one to write by
+      // accident: Locale compares its subtags verbatim and never normalizes
+      // case, so 'NL' matches no locale at all and 'pt_br' matches neither
+      // `pt_BR` nor `pt`.
+      for (final key in const ['NL', 'pt_br', 'PT_BR', 'zh_hant_TW']) {
+        const supported = Locale('nl');
+        final delegate = AITranslationsDelegate({key: const _TestTranslations()});
+
+        expect(
+          () => delegate.resolve(supported),
+          throwsA(isA<FlutterError>().having((e) => e.message, 'message', contains(key))),
+          reason: "'$key' is not a shape Locale.toString() can produce",
+        );
+      }
+    });
+
+    test('every shape Locale.toString() produces is accepted', () {
+      // The guard against over-tightening the check: a key in canonical form
+      // has to survive it, script and numeric region subtags included.
+      const delegate = AITranslationsDelegate({
+        'nl': _TestTranslations(),
+        'pt_BR': _TestTranslations(),
+        'zh_Hant': _TestTranslations(),
+        'zh_Hant_TW': _TestTranslations(),
+        'es_419': _TestTranslations(),
+        // An 8-letter language subtag, the longest ISO 639 allows.
+        'nordicmt': _TestTranslations(),
+      });
+
+      expect(delegate.resolve(const Locale('nl')), isA<_TestTranslations>());
+      expect(
+        delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+        isA<_TestTranslations>(),
+      );
+      expect(delegate.resolve(const Locale('es', '419')), isA<_TestTranslations>());
+    });
+
     test('shouldReload tracks the map, not the delegate instance', () {
       const a = AITranslationsDelegate({'nl': _TestTranslations()});
       const b = AITranslationsDelegate({'nl': _TestTranslations()});

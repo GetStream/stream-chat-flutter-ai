@@ -326,9 +326,10 @@ signature would have existed and silently not sent.
   standalone use rendered once and froze — worst case a live dictation session whose only stop
   control never appeared. It now nests its own listeners (not `Listenable.merge`, for the reason
   recorded on `_ChatComposerState._listenable`).
-- **`hintText`'s default moved into the props** as `ChatComposerInputProps.defaultHintText`. It
-  lived in the widget as `props.hintText ?? 'Ask anything…'`, so a custom input forwarding
-  `props.hintText` — the pattern the README recommends — rendered no placeholder at all.
+- **`hintText` is nullable, and `null` means "the host expressed no preference".** It was
+  non-nullable with a constant default, so a custom input could not tell a hint the host chose from
+  the package's own. The slot that renders the field now decides what an absent hint falls back to;
+  2.3 made that fallback a localized lookup.
 - **`onStop` is nullable.** `_onStop` wrapped `onStopPressed?.call()` unconditionally, so props
   always handed over a callable and a custom input could not tell that stopping was unsupported.
 - **A rejected send is reported.** `ChatComposerSendCallback` now returns `FutureOr<void>`,
@@ -406,11 +407,13 @@ top-level `_buildFenceCached` (`lib/src/ai_markdown_body.dart`), which has no `B
 Threading would have meant about ten new parameters and a new component in the fence cache key. A
 lookup in `build` costs nothing and needs neither.
 
-The fourteenth, the composer hint, is the exception and stays threaded: 2.2 made it a field of
-`ChatComposerInputProps` (non-nullable, defaulting to the `defaultHintText` constant), so
-`ChatComposer.build` resolves it from the scope there and hands the input an already-localized
-string. A props object a host builds by hand therefore carries the English default, which is what
-`defaultHintText` documents.
+The fourteenth, the composer hint, looked like an exception and is not one. It is a field of
+`ChatComposerInputProps`, but the composer only forwards `ChatComposer.hintText` into it —
+unresolved, `null` when the host passed none. `ChatComposerInput` does its own
+`AITranslations.of(context)` lookup like every other string, at the widget that renders it. Having
+the composer resolve it first was tried and dropped: it made the hint the one string a custom input
+got for free, at the cost of a second resolution site whose result a factory could not distinguish
+from a hint the host had chosen.
 
 **The fence cache, which the scope survives.** `_fenceWidgetCache` returns the *identical* `Widget`
 instance for a given fence source, and translations deliberately are **not** part of its key —

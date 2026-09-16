@@ -148,7 +148,7 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
                   maxLines: props.maxLines,
                   textInputAction: props.textInputAction,
                   decoration: InputDecoration(
-                    hintText: props.hintText,
+                    hintText: props.hintText ?? AITranslations.of(context).composerHint,
                     hintStyle: TextStyle(
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.6,

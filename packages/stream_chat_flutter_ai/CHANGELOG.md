@@ -53,7 +53,6 @@ First release of `stream_chat_flutter_ai`.
 - `ChatComposerSlotProps.canSend` — whether calling `onSend` right now would actually send (there is content, and either nothing is generating or the host allowed it). The condition a slot's send control should be enabled on, so a factory doesn't hand-roll a half-right version of the rule the composer applies internally. `onSend` no-ops when it is `false`, so a control wired to it unconditionally looks enabled and does nothing — the dead-affordance problem `onStop` avoids by being `null`; `onSend` can't take that route because it flips with every keystroke.
 - `ChatComposer.allowSendWhileGenerating` — opts into sending while a response streams, for backends that accept a queued or interrupting follow-up. Defaults to `false`. It governs whether `onSend` acts, not what the default input renders: that control still shows stop while generating.
 - `ChatComposerInputProps.copyWith` — change one value and keep the rest of what `ChatComposer` passed down. Hand-listing all ten fields instead silently reverts any you forget to a constructor default, discarding the host's own configuration.
-- `ChatComposerInputProps.defaultHintText` — the placeholder `ChatComposer.hintText` falls back to. It lives on the props rather than inside `ChatComposerInput` so that a custom input forwarding `props.hintText` renders the same placeholder the default one does, instead of none at all.
 - Both new slots return a non-nullable `Widget`, unlike `buildLeading`/`buildTrailing`. Neither has
   an absent state to express: `buildInput`'s result goes into an `Expanded`, where "no input" has
   no layout, and `buildAttachmentSheet` is only called once the button has decided to open a modal
@@ -70,7 +69,9 @@ First release of `stream_chat_flutter_ai`.
 
   **`AITranslationsDelegate` is how an app supplies them per locale** — a `LocalizationsDelegate`
   like any other, registered on `MaterialApp.localizationsDelegates` with a `const` map keyed by
-  `Locale.toString()`'s form (`'nl'`, or `'pt_BR'`, which beats a plain `'pt'` entry). Flutter then
+  `Locale.toString()`'s form (`'nl'`, or `'pt_BR'`, which beats a plain `'pt'` entry) — case
+  included, since `Locale` matches its subtags verbatim and a debug-only check rejects a key in any
+  other shape rather than letting it fall back to English unexplained. Flutter then
   resolves the app's locale, hands each widget the matching instance, and swaps them when the
   locale changes, routes included. A locale the map has no entry for renders the English defaults,
   so the delegate can go in with one language and gain the rest later. It also reports every locale
@@ -87,6 +88,9 @@ First release of `stream_chat_flutter_ai`.
   and the two dismiss controls — so they are also the only accessible label those buttons expose.
   Translating them is what makes the composer legible to a screen reader outside English, which is
   the larger half of why this exists.
+
+  The example app registers the delegate with a Dutch translation, so the wiring a host copies is
+  in runnable code rather than only in the README.
 
   Strings resolve through the widget's own `BuildContext` rather than being threaded as constructor
   arguments. Ten of the fourteen live in private leaf widgets two to four layers below a public one,
@@ -203,7 +207,7 @@ First release of `stream_chat_flutter_ai`.
 🐞 Fixed
 
 - `ChatComposerInput` now rebuilds on its own listenables. As the private `_InputContainer` it was only ever constructed inside `ChatComposer`'s `ListenableBuilder`; exported, it read `ChatComposerController` state and the process-wide `SpeechToTextController.instance` while subscribing to neither, so standalone use rendered once and then froze — typing never enabled send, a dismissed chip stayed on screen, and with `enableSpeechToText` a dictation session could run with no control able to stop it.
-- A custom input forwarding `props.hintText` rendered no placeholder, because the default lived in the widget as `props.hintText ?? 'Ask anything…'` rather than on the props. See `ChatComposerInputProps.defaultHintText` under ✅ Added.
+- `ChatComposerInputProps.hintText` is now `String?`, and `null` where the host passed no `ChatComposer.hintText` — **breaking change** for a custom input reading it. It was non-nullable, defaulting to a constant, which left an input no way to tell a hint the host chose from the package's own default, and put the English literal on the composer rather than in the translations. The slot rendering the field now owns what an absent hint means: `ChatComposerInput` falls back to `AITranslations.composerHint`, and a custom input wanting the same writes `props.hintText ?? AITranslations.of(context).composerHint`.
 - `ChatComposerInputProps.onSend`/`onStop` now check `mounted`. They are handed to host code that may call them across an async gap — a confirmation dialog, a debounce — and doing so after the composer left the tree sent a message from an abandoned screen and then notified a disposed controller, which only asserts in debug.
 - `ChatComposerInputProps` and `ChatComposer` both assert `minLines >= 1` and `maxLines >= minLines`, rather than letting the pairing trip `TextField`'s own assert several frames deep with no mention of the composer. `ChatComposerFactory.buildInput` returning an `Expanded`/`Flexible` — which the dartdoc already forbade — is asserted too.
 - A standalone `ChatComposerInput` left a dictation session running when it was removed from the tree. The session is owned by the process-wide `SpeechToTextController` and outlives the mic button by design; `ChatComposer.dispose` was the only thing cancelling it, which standalone use — documented and supported — bypassed entirely. The microphone stayed live with nothing on screen able to stop it, bounded only by `SpeechToTextConfig.listenFor` and with the platform's recording indicator lit throughout. `ChatComposerInput` is now a `StatefulWidget` and cancels in its own `dispose`, gated on `enableSpeechToText` so that a `SpeechToTextButton` a host placed in another slot — the arrangement that widget's own documentation recommends — is left alone.

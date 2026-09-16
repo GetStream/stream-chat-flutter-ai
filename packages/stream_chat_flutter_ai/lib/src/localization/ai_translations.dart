@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-// For DefaultAITranslations.composerHint, which defers to
-// ChatComposerInputProps.defaultHintText rather than repeating its literal.
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 
 /// The user-facing strings the package renders itself.
 ///
@@ -124,11 +121,8 @@ class DefaultAITranslations extends AITranslations {
   /// Creates a [DefaultAITranslations].
   const DefaultAITranslations();
 
-  // Deferred to the props rather than repeating the literal: a directly
-  // constructed ChatComposerInputProps still defaults to that constant, so two
-  // copies of the English hint could drift apart.
   @override
-  String get composerHint => ChatComposerInputProps.defaultHintText;
+  String get composerHint => 'Ask anything…';
 
   @override
   String get send => 'Send';
@@ -274,8 +268,10 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
   ///
   /// Keys are `Locale.toString()`'s form: a language code (`'nl'`), or a
   /// language and country joined by an underscore (`'pt_BR'`) — not the
-  /// hyphenated BCP-47 form. A debug-only check rejects anything else rather
-  /// than leaving it to fall back to English unexplained.
+  /// hyphenated BCP-47 form. Case included: lowercase language, uppercase
+  /// country, as [Locale] matches its subtags verbatim. A debug-only check
+  /// rejects anything else rather than leaving it to fall back to English
+  /// unexplained.
   ///
   /// Keyed by `String` rather than by [Locale] so the map, and with it the
   /// whole delegate, can be `const`: [Locale] overrides `==`, and Dart does
@@ -303,9 +299,11 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
         if (!_localeKey.hasMatch(key)) {
           throw FlutterError(
             "AITranslationsDelegate was given the key '$key', which is not a locale key.\n"
-            "Keys take Locale.toString()'s form — a language code such as 'nl', optionally with a "
-            "country after an underscore, as in 'pt_BR'. A key in any other shape can never match "
-            'a locale, so those widgets would silently render English.',
+            "Keys take Locale.toString()'s form — a lowercase language code such as 'nl', "
+            "optionally followed by a script and an uppercase country, as in 'pt_BR' and "
+            "'zh_Hant_TW'. Case counts: 'NL' is a different string from 'nl', and Locale never "
+            'normalizes it. A key in any other shape can never match a locale, so those widgets '
+            'would silently render English.',
           );
         }
       }
@@ -343,5 +341,9 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
 }
 
 /// The shape [AITranslationsDelegate.translations]'s keys have to take:
-/// `nl`, `pt_BR`, `zh_Hant_TW`.
-final _localeKey = RegExp(r'^[a-zA-Z]{2,8}(_[a-zA-Z0-9]{2,8})*$');
+/// `nl`, `pt_BR`, `zh_Hant`, `zh_Hant_TW`, `es_419`.
+///
+/// Mirrors what `Locale.toString()` can produce — a language, then an optional
+/// script, then an optional region. Case is part of the shape: [Locale] never
+/// normalizes it, so `'NL'` is as unmatchable a key as `'nl-NL'` is.
+final _localeKey = RegExp(r'^[a-z]{2,8}(_[A-Z][a-z]{3})?(_([A-Z]{2}|\d{3}))?$');

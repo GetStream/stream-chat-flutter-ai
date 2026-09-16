@@ -305,7 +305,12 @@ class MyInputFactory extends ChatComposerFactory {
           child: TextField(
             controller: props.controller.textEditingController,
             focusNode: props.focusNode,
-            decoration: InputDecoration(hintText: props.hintText),
+            // `props.hintText` is null unless the host passed
+            // `ChatComposer.hintText`; the composer leaves the placeholder to
+            // you. Drop the fallback if your input has a hint of its own.
+            decoration: InputDecoration(
+              hintText: props.hintText ?? AITranslations.of(context).composerHint,
+            ),
           ),
         ),
         IconButton(icon: const Icon(Icons.send), onPressed: props.onSend),
@@ -475,10 +480,16 @@ MaterialApp(
 ```
 
 Keys are `Locale.toString()`'s form: `'nl'`, or `'pt_BR'` for a country-specific one, which takes
-precedence over a plain `'pt'` entry. English needs no entry — a locale the delegate has nothing
-for renders the defaults — so it is safe to register the delegate with one language in it and add
-the rest later. The delegate adds no dependency; `GlobalMaterialLocalizations` above is
+precedence over a plain `'pt'` entry. Case is part of that form — lowercase language, uppercase
+country — because `Locale` compares its subtags verbatim and never normalizes them, so `'NL'` would
+match no locale at all. A debug-only assert rejects a key in any other shape rather than leaving it
+to render English with no explanation. English itself needs no entry — a locale the delegate has
+nothing for renders the defaults — so it is safe to register the delegate with one language in it
+and add the rest later. The delegate adds no dependency; `GlobalMaterialLocalizations` above is
 `flutter_localizations`, which you will already have if you are translating the rest of your app.
+
+The example app under `example/` has this wired up — an `AITranslationsDelegate` carrying a Dutch
+translation — so run it on a device set to Dutch to see the placeholder and the tooltips follow.
 
 Most of these strings are `Tooltip` messages on icon-only buttons — the send, stop, mic, "+", copy
 and dismiss controls — which makes them the only accessible label those buttons expose. Translating

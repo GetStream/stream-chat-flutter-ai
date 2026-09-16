@@ -11,6 +11,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 // nothing in this file's code uses it.
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+// Doc links only.
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// Callback fired when the user taps the send button.
@@ -113,10 +114,10 @@ class ChatComposer extends StatefulWidget {
 
   /// Placeholder text shown when the text field is empty.
   ///
-  /// Defaults to [AITranslations.composerHint] — the localized placeholder —
-  /// when `null`. Passing a value here wins over any [AITranslationsScope],
-  /// since a hint written for one composer is more specific than an app-wide
-  /// string.
+  /// `null` leaves the placeholder to the input slot, which for
+  /// [ChatComposerInput] means [AITranslations.composerHint] — the localized
+  /// one. Passing a value here wins over any [AITranslationsScope], since a
+  /// hint written for one composer is more specific than an app-wide string.
   final String? hintText;
 
   /// Minimum number of lines in the text field.
@@ -337,11 +338,9 @@ class _ChatComposerState extends State<ChatComposer> {
         final props = ChatComposerInputProps(
           controller: _controller,
           focusNode: _focusNode,
-          // The one string resolved outside the widget that renders it: the
-          // hint travels through the props, whose default is a `const` and so
-          // cannot consult a scope. Resolving it here means a custom input
-          // forwarding `props.hintText` renders the localized placeholder too.
-          hintText: widget.hintText ?? AITranslations.of(context).composerHint,
+          // Passed through unresolved: `null` means "no hint of your own", and
+          // the slot that renders the field decides what that falls back to.
+          hintText: widget.hintText,
           minLines: widget.minLines,
           maxLines: widget.maxLines,
           textInputAction: widget.textInputAction,

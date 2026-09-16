@@ -13,6 +13,10 @@ Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 const _leadingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.leading');
 const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing');
 
+/// Read from the translations rather than repeated as a literal: these tests
+/// are about which string reaches the field, not about the wording.
+final _defaultHint = const DefaultAITranslations().composerHint;
+
 void main() {
   group('ChatComposerController', () {
     test('hasContent is false when text is empty', () {
@@ -829,19 +833,30 @@ void main() {
       focusNode.dispose();
     });
 
-    testWidgets('a custom input forwarding props.hintText gets the default placeholder', (tester) async {
-      // The default used to live in `ChatComposerInput` as
-      // `props.hintText ?? 'Ask anything…'`, so a custom input forwarding
-      // `props.hintText` — exactly what the README shows — rendered no
-      // placeholder at all.
+    testWidgets('a slot is handed a null hintText when the host passed none', (tester) async {
+      // The composer forwards `ChatComposer.hintText` as-is rather than
+      // resolving it, so `null` reaches the slot intact and an input with a
+      // placeholder of its own can tell that the host expressed no preference.
       final factory = _CapturingInputFactory();
 
       await tester.pumpWidget(
         _wrap(ChatComposer(factory: factory, onSendPressed: (_, __, ___) {})),
       );
 
-      expect(factory.captured!.hintText, equals(ChatComposerInputProps.defaultHintText));
-      expect(find.text(ChatComposerInputProps.defaultHintText), findsOneWidget);
+      expect(factory.captured!.hintText, isNull);
+      // It renders one anyway: this factory delegates to ChatComposerInput,
+      // which resolves the null itself.
+      expect(find.text(_defaultHint), findsOneWidget);
+    });
+
+    testWidgets('an explicit hintText reaches a slot unchanged', (tester) async {
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrap(ChatComposer(factory: factory, hintText: 'Ask me', onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(factory.captured!.hintText, equals('Ask me'));
     });
 
     testWidgets('a send-action submit sends through props.onSend', (tester) async {
@@ -1204,8 +1219,7 @@ void main() {
     testWidgets('the hint follows a scope swapped at runtime', (tester) async {
       // The hint is the one string resolved outside the widget that renders
       // it — ChatComposer reads it and passes it down through
-      // ChatComposerInputProps, since the props default is a `const` and
-      // cannot consult a scope. That makes it the one string a regression
+      // ChatComposerInputProps. That makes it the one string a regression
       // could freeze at its first value.
       final strings = ValueNotifier<AITranslations>(const DefaultAITranslations());
       addTearDown(strings.dispose);
@@ -1222,18 +1236,19 @@ void main() {
         ),
       );
 
-      expect(find.text(ChatComposerInputProps.defaultHintText), findsOneWidget);
+      expect(find.text(_defaultHint), findsOneWidget);
 
       strings.value = const _TestTranslations();
       await tester.pump();
 
       expect(find.text('VRAAG MAAR'), findsOneWidget);
-      expect(find.text(ChatComposerInputProps.defaultHintText), findsNothing);
+      expect(find.text(_defaultHint), findsNothing);
     });
 
-    testWidgets('a custom input slot is handed the translated hint', (tester) async {
-      // A factory gets the resolved string, not the constant, so an input that
-      // renders `props.hintText` is translated without doing the lookup.
+    testWidgets('a custom input slot resolves the hint itself', (tester) async {
+      // The composer does not resolve it on the slot's behalf: a custom input
+      // owns its placeholder, and one that wants the translation asks for it.
+      // ChatComposerInput, which this factory delegates to, does exactly that.
       final factory = _CapturingInputFactory();
 
       await tester.pumpWidget(
@@ -1242,7 +1257,52 @@ void main() {
         ),
       );
 
-      expect(factory.captured!.hintText, equals('VRAAG MAAR'));
+      expect(factory.captured!.hintText, isNull);
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+    });
+
+    testWidgets('a standalone input resolves a null props.hintText itself', (tester) async {
+      // Props built by hand carry no hint, so the field has to fall back to
+      // the scope rather than render an empty placeholder.
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+    });
+
+    testWidgets('a standalone input falls back to English outside any scope', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(_defaultHint), findsOneWidget);
     });
 
     testWidgets('an explicit hintText wins over the scope', (tester) async {
