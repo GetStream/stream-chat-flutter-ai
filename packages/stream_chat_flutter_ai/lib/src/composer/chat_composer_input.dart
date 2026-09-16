@@ -13,6 +13,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// The composer's input pill — [ChatComposer]'s default input slot.
 ///
@@ -147,7 +148,7 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
                   maxLines: props.maxLines,
                   textInputAction: props.textInputAction,
                   decoration: InputDecoration(
-                    hintText: props.hintText,
+                    hintText: props.hintText ?? AITranslations.of(context).composerHint,
                     hintStyle: TextStyle(
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.6,
@@ -228,12 +229,13 @@ class _TrailingControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final translations = AITranslations.of(context);
 
     if (controller.isGenerating) {
       return ComposerActionButton(
         icon: Icons.stop_rounded,
         onPressed: onStop,
-        tooltip: 'Stop generating',
+        tooltip: translations.stopGenerating,
         color: colorScheme.error,
       );
     }
@@ -249,7 +251,7 @@ class _TrailingControl extends StatelessWidget {
     return ComposerActionButton(
       icon: Icons.arrow_upward_rounded,
       onPressed: controller.hasContent ? onSend : null,
-      tooltip: 'Send',
+      tooltip: translations.send,
       color: colorScheme.primary,
     );
   }
@@ -413,7 +415,7 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
                 child: InkWell(
                   onTap: widget.onRemove,
                   child: Tooltip(
-                    message: 'Remove attachment',
+                    message: AITranslations.of(context).removeAttachment,
                     child: Icon(
                       Icons.close,
                       size: 14,
@@ -476,7 +478,7 @@ class _SelectedOptionChip extends StatelessWidget {
                   child: InkWell(
                     onTap: onDismiss,
                     child: Tooltip(
-                      message: 'Clear ${option.text}',
+                      message: AITranslations.of(context).clearOption(option.text),
                       child: Icon(Icons.close, size: 18, color: colorScheme.onPrimaryContainer),
                     ),
                   ),

@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dar
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// Factory that produces the composable regions of [ChatComposer].
 ///
@@ -142,6 +143,11 @@ class _AttachmentButton extends StatelessWidget {
   final ChatComposerFactory factory;
 
   Future<void> _openAttachmentSheet(BuildContext context) {
+    // The sheet is pushed as its own route, so it lands under the Navigator
+    // rather than under whatever wraps this button — but AITranslationsScope
+    // is an InheritedTheme, and showModalBottomSheet captures those across the
+    // push, so a scope sitting directly above the composer still reaches the
+    // sheet's strings without anything being re-provided here.
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -160,7 +166,7 @@ class _AttachmentButton extends StatelessWidget {
     final iconColor = enabled ? colorScheme.onSurface : colorScheme.onSurface.withValues(alpha: 0.3);
 
     return Tooltip(
-      message: 'Add photos',
+      message: AITranslations.of(context).addPhotos,
       child: Container(
         width: 40,
         height: 40,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
@@ -24,6 +25,15 @@ class ExampleApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.dark,
       ),
+      // English needs no entry: a locale the delegate has nothing for falls
+      // back to DefaultAITranslations.
+      localizationsDelegates: const [
+        AITranslationsDelegate({'nl': DutchTranslations()}),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en'), Locale('nl')],
       home: const AssistantScreen(),
     );
   }
@@ -311,8 +321,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
                 onSuggestionSelected: (text) => _send(text, null, const []),
               ),
             ChatComposer(
+              // No `hintText`: passing one would win over the translation.
               controller: _composerController,
-              hintText: 'Ask anything',
               enableSpeechToText: true,
               onSendPressed: _send,
               onStopPressed: _stop,
@@ -381,4 +391,52 @@ class _UserBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Extends [DefaultAITranslations] rather than implementing [AITranslations],
+/// so anything left out keeps rendering English.
+class DutchTranslations extends DefaultAITranslations {
+  const DutchTranslations();
+
+  @override
+  String get composerHint => 'Vraag maar raak…';
+
+  @override
+  String get send => 'Verstuur';
+
+  @override
+  String get stopGenerating => 'Stop met genereren';
+
+  @override
+  String get removeAttachment => 'Bijlage verwijderen';
+
+  @override
+  String clearOption(String option) => '$option wissen';
+
+  @override
+  String get addPhotos => "Foto's toevoegen";
+
+  @override
+  String get photos => "Foto's";
+
+  @override
+  String get allPhotos => "Alle foto's";
+
+  @override
+  String get allowPhotoAccess => "Geef toegang tot je foto's";
+
+  @override
+  String get takePhoto => 'Maak een foto';
+
+  @override
+  String get voiceInput => 'Spraakinvoer';
+
+  @override
+  String get stopRecording => 'Stop met opnemen';
+
+  @override
+  String get copyCode => 'Kopieer code';
+
+  @override
+  String get codeCopied => 'Gekopieerd!';
 }

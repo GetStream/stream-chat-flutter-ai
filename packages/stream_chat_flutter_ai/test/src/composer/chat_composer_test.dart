@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -11,6 +12,10 @@ Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 /// any 8px `SizedBox` in the subtree.
 const _leadingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.leading');
 const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing');
+
+/// Read from the translations rather than repeated as a literal: these tests
+/// are about which string reaches the field, not about the wording.
+final _defaultHint = const DefaultAITranslations().composerHint;
 
 void main() {
   group('ChatComposerController', () {
@@ -828,19 +833,30 @@ void main() {
       focusNode.dispose();
     });
 
-    testWidgets('a custom input forwarding props.hintText gets the default placeholder', (tester) async {
-      // The default used to live in `ChatComposerInput` as
-      // `props.hintText ?? 'Ask anything…'`, so a custom input forwarding
-      // `props.hintText` — exactly what the README shows — rendered no
-      // placeholder at all.
+    testWidgets('a slot is handed a null hintText when the host passed none', (tester) async {
+      // The composer forwards `ChatComposer.hintText` as-is rather than
+      // resolving it, so `null` reaches the slot intact and an input with a
+      // placeholder of its own can tell that the host expressed no preference.
       final factory = _CapturingInputFactory();
 
       await tester.pumpWidget(
         _wrap(ChatComposer(factory: factory, onSendPressed: (_, __, ___) {})),
       );
 
-      expect(factory.captured!.hintText, equals(ChatComposerInputProps.defaultHintText));
-      expect(find.text(ChatComposerInputProps.defaultHintText), findsOneWidget);
+      expect(factory.captured!.hintText, isNull);
+      // It renders one anyway: this factory delegates to ChatComposerInput,
+      // which resolves the null itself.
+      expect(find.text(_defaultHint), findsOneWidget);
+    });
+
+    testWidgets('an explicit hintText reaches a slot unchanged', (tester) async {
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrap(ChatComposer(factory: factory, hintText: 'Ask me', onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(factory.captured!.hintText, equals('Ask me'));
     });
 
     testWidgets('a send-action submit sends through props.onSend', (tester) async {
@@ -1190,6 +1206,263 @@ void main() {
       focusNode.dispose();
     });
   });
+
+  group('ChatComposer localization', () {
+    testWidgets('the hint comes from the scope when hintText is null', (tester) async {
+      await tester.pumpWidget(
+        _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+    });
+
+    testWidgets('the hint follows a scope swapped at runtime', (tester) async {
+      // The hint is the one string resolved outside the widget that renders
+      // it — ChatComposer reads it and passes it down through
+      // ChatComposerInputProps. That makes it the one string a regression
+      // could freeze at its first value.
+      final strings = ValueNotifier<AITranslations>(const DefaultAITranslations());
+      addTearDown(strings.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ValueListenableBuilder<AITranslations>(
+            valueListenable: strings,
+            builder: (context, value, _) => AITranslationsScope(
+              translations: value,
+              child: ChatComposer(onSendPressed: (_, __, ___) {}),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(_defaultHint), findsOneWidget);
+
+      strings.value = const _TestTranslations();
+      await tester.pump();
+
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+      expect(find.text(_defaultHint), findsNothing);
+    });
+
+    testWidgets('a custom input slot resolves the hint itself', (tester) async {
+      // The composer does not resolve it on the slot's behalf: a custom input
+      // owns its placeholder, and one that wants the translation asks for it.
+      // ChatComposerInput, which this factory delegates to, does exactly that.
+      final factory = _CapturingInputFactory();
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(factory: factory, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(factory.captured!.hintText, isNull);
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+    });
+
+    testWidgets('a standalone input resolves a null props.hintText itself', (tester) async {
+      // Props built by hand carry no hint, so the field has to fall back to
+      // the scope rather than render an empty placeholder.
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('VRAAG MAAR'), findsOneWidget);
+    });
+
+    testWidgets('a standalone input falls back to English outside any scope', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposerInput(
+            props: ChatComposerInputProps(
+              controller: controller,
+              focusNode: focusNode,
+              onSend: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(_defaultHint), findsOneWidget);
+    });
+
+    testWidgets('an explicit hintText wins over the scope', (tester) async {
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(hintText: 'Per-composer hint', onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(find.text('Per-composer hint'), findsOneWidget);
+      expect(find.text('VRAAG MAAR'), findsNothing);
+    });
+
+    testWidgets('the send tooltip is translated in both its enabled and disabled state', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      // Disabled arm: no content yet.
+      expect(find.byTooltip('VERSTUUR'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Hello');
+      // Settled, or the AnimatedSwitcher still holds the outgoing disabled
+      // button alongside the incoming enabled one.
+      await tester.pumpAndSettle();
+
+      // Enabled arm — the same call site, so this pins the state change
+      // rather than a second literal.
+      expect(find.byTooltip('VERSTUUR'), findsOneWidget);
+    });
+
+    testWidgets('the stop tooltip is translated', (tester) async {
+      final controller = ChatComposerController()..isGenerating = true;
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(find.byTooltip('STOP MAAR'), findsOneWidget);
+    });
+
+    testWidgets('the attachment-thumbnail dismiss tooltip is translated', (tester) async {
+      final controller = ChatComposerController()..addAttachments([XFile('a.png')]);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byTooltip('WEG ERMEE'), findsOneWidget);
+    });
+
+    testWidgets('the selected-option chip dismiss tooltip is translated, with the option interpolated', (tester) async {
+      final controller = ChatComposerController()..selectChatOption(const ChatOption(id: 'a', text: 'Weather'));
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+        ),
+      );
+
+      expect(find.byTooltip('Weather WISSEN'), findsOneWidget);
+    });
+
+    testWidgets('the leading attachment-button tooltip is translated', (tester) async {
+      await tester.pumpWidget(
+        _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
+      );
+
+      expect(find.byTooltip('FOTO ERBIJ'), findsOneWidget);
+    });
+
+    testWidgets('the attachment sheet is translated across its own route', (tester) async {
+      // The sheet is pushed with `showModalBottomSheet`, so it sits under the
+      // Navigator rather than under the scope this test wraps the composer in.
+      // It reads these strings because AITranslationsScope is an
+      // InheritedTheme and the push captures it, the same way a Theme crosses.
+      await tester.pumpWidget(
+        _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
+      );
+
+      await tester.tap(find.byIcon(Icons.add));
+      // Bounded pump rather than `pumpAndSettle` — see the note in the
+      // ComposerAttachmentSheet group above.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('FOTOS'), findsOneWidget);
+      expect(find.text('ALLE FOTOS'), findsOneWidget);
+      expect(find.byTooltip('LACH EENS'), findsOneWidget);
+    });
+
+    testWidgets('a sheet the host presents itself is translated too', (tester) async {
+      // Nothing in the package is involved in the push here. This is the case
+      // that needed a caveat in the docs while the leading button re-provided
+      // the scope by hand, and the one InheritedTheme closes.
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                builder: (_) => ComposerAttachmentSheet(controller: controller),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('FOTOS'), findsOneWidget);
+      expect(find.text('ALLE FOTOS'), findsOneWidget);
+    });
+
+    testWidgets('the denied-photo-access button is translated', (tester) async {
+      // The only string of the fourteen that needs the platform to say no:
+      // without a permission answer the sheet stays on its spinner and this
+      // branch never builds, so the channel is mocked into refusing.
+      const channel = MethodChannel('com.fluttercandies/photo_manager');
+      final messenger = tester.binding.defaultBinaryMessenger
+        ..setMockMethodCallHandler(channel, (call) async {
+          // `PermissionState.denied`, by index — what `hasAccess` reads as
+          // false.
+          if (call.method == 'requestPermissionExtend') return PermissionState.denied.index;
+          return null;
+        });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrapTranslated(ComposerAttachmentSheet(controller: controller)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('LAAT ME ERIN'), findsOneWidget);
+      expect(find.text('Allow photo access'), findsNothing);
+    });
+  });
 }
 
 /// Renders something in the otherwise-empty trailing slot, so the composer's
@@ -1276,4 +1549,46 @@ class _CustomSheetFactory extends ChatComposerFactory {
     captured = props;
     return const Text('custom sheet');
   }
+}
+
+Widget _wrapTranslated(Widget child) => _wrap(
+  AITranslationsScope(translations: const _TestTranslations(), child: child),
+);
+
+/// Overrides every string [ChatComposer] and its attachment sheet render, so a
+/// leaked English literal fails rather than merely looking the same. Keep it
+/// exhaustive: a string left at its default here is a string whose plumbing
+/// these tests do not actually check.
+class _TestTranslations extends DefaultAITranslations {
+  const _TestTranslations();
+
+  @override
+  String get composerHint => 'VRAAG MAAR';
+
+  @override
+  String get send => 'VERSTUUR';
+
+  @override
+  String get stopGenerating => 'STOP MAAR';
+
+  @override
+  String get removeAttachment => 'WEG ERMEE';
+
+  @override
+  String clearOption(String option) => '$option WISSEN';
+
+  @override
+  String get addPhotos => 'FOTO ERBIJ';
+
+  @override
+  String get photos => 'FOTOS';
+
+  @override
+  String get allPhotos => 'ALLE FOTOS';
+
+  @override
+  String get allowPhotoAccess => 'LAAT ME ERIN';
+
+  @override
+  String get takePhoto => 'LACH EENS';
 }

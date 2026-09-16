@@ -15,6 +15,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
+  # Translates Flutter's own Material/Cupertino widgets for the Dutch locale
+  # the app offers. Not needed by stream_chat_flutter_ai, whose
+  # `AITranslationsDelegate` only needs `package:flutter/widgets.dart`.
+  flutter_localizations:
+    sdk: flutter
   # The package ships LaTeX *parsing* but no math engine, so that hosts who
   # don't render math don't pay for one. Supplying it here is what makes
   # `StreamingMessageView.mathBuilder` able to typeset.

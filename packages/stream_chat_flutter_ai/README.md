@@ -305,7 +305,12 @@ class MyInputFactory extends ChatComposerFactory {
           child: TextField(
             controller: props.controller.textEditingController,
             focusNode: props.focusNode,
-            decoration: InputDecoration(hintText: props.hintText),
+            // `props.hintText` is null unless the host passed
+            // `ChatComposer.hintText`; the composer leaves the placeholder to
+            // you. Drop the fallback if your input has a hint of its own.
+            decoration: InputDecoration(
+              hintText: props.hintText ?? AITranslations.of(context).composerHint,
+            ),
           ),
         ),
         IconButton(icon: const Icon(Icons.send), onPressed: props.onSend),
@@ -432,6 +437,95 @@ SpeechToTextButton(
 <key>com.apple.security.device.microphone</key>
 <true/>
 ```
+
+### Localization
+
+Every string the package renders itself resolves through an `AITranslations` instance. Register
+none and the widgets use `DefaultAITranslations` and render the English they always have, so this
+is opt-in.
+
+Subclass `DefaultAITranslations` and override only what you're changing:
+
+```dart
+class DutchTranslations extends DefaultAITranslations {
+  const DutchTranslations();
+
+  @override
+  String get composerHint => 'Vraag maar';
+
+  @override
+  String get send => 'Verstuur';
+
+  @override
+  String clearOption(String option) => '$option wissen';
+}
+```
+
+Then hand them to the app through `AITranslationsDelegate`, a `LocalizationsDelegate` like any
+other, so Flutter picks the instance for the app's locale and swaps it when the locale changes:
+
+```dart
+MaterialApp(
+  localizationsDelegates: const [
+    AITranslationsDelegate({
+      'nl': DutchTranslations(),
+      'de': GermanTranslations(),
+    }),
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ],
+  supportedLocales: const [Locale('en'), Locale('nl'), Locale('de')],
+  home: ...,
+)
+```
+
+Keys are `Locale.toString()`'s form: `'nl'`, or `'pt_BR'` for a country-specific one, which takes
+precedence over a plain `'pt'` entry. Case is part of that form — lowercase language, uppercase
+country — because `Locale` compares its subtags verbatim and never normalizes them, so `'NL'` would
+match no locale at all. A debug-only assert rejects a key in any other shape rather than leaving it
+to render English with no explanation. English itself needs no entry — a locale the delegate has
+nothing for renders the defaults — so it is safe to register the delegate with one language in it
+and add the rest later. The delegate adds no dependency; `GlobalMaterialLocalizations` above is
+`flutter_localizations`, which you will already have if you are translating the rest of your app.
+
+The example app under `example/` has this wired up — an `AITranslationsDelegate` carrying a Dutch
+translation — so run it on a device set to Dutch to see the placeholder and the tooltips follow.
+
+Most of these strings are `Tooltip` messages on icon-only buttons — the send, stop, mic, "+", copy
+and dismiss controls — which makes them the only accessible label those buttons expose. Translating
+them is what makes the composer legible to a screen reader in another locale.
+
+To pin one language over part of the tree instead — a screen that is always in one language, a
+preview, a test — wrap it in an `AITranslationsScope`:
+
+```dart
+AITranslationsScope(
+  translations: const DutchTranslations(),
+  child: ChatComposer(onSendPressed: ...),
+)
+```
+
+A scope outranks the delegate, being the narrower of the two. `AITranslations.of(context)` resolves
+the scope first, then the locale's delegate, then the English defaults, and never throws.
+
+Three things worth knowing:
+
+- **Give your subclass a `const` constructor** and construct it as `const DutchTranslations()`.
+  A scope compares instances to decide whether to notify, so a fresh instance built in a `build`
+  method rebuilds every dependent. A `const` map of them also makes the delegate itself `const`.
+- **`ChatComposer.hintText` wins over `AITranslations.composerHint`.** A hint written for one
+  composer is more specific than an app-wide string.
+- **Both reach routes, not just the widgets under them.** The delegate's strings sit in
+  `MaterialApp`'s own `Localizations`, above the `Navigator`, so every route gets them.
+  `AITranslationsScope` is an `InheritedTheme`, so `showModalBottomSheet`, `showDialog` and
+  `showMenu` carry it across the `Navigator` the same way they carry a `Theme` — a scope directly
+  above a `ChatComposer` still translates that composer's attachment sheet, and so does one above a
+  `ComposerAttachmentSheet` you present yourself. Those pushes *capture* the scope, so swapping it
+  while such a route is open doesn't reach the open route, only the next one. The delegate has no
+  such seam.
+
+Subclassing `DefaultAITranslations` rather than implementing `AITranslations` directly means a
+string added in a later version arrives as an untranslated default rather than a compile error.
 
 ---
 

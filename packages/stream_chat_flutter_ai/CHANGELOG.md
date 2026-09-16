@@ -53,13 +53,64 @@ First release of `stream_chat_flutter_ai`.
 - `ChatComposerSlotProps.canSend` — whether calling `onSend` right now would actually send (there is content, and either nothing is generating or the host allowed it). The condition a slot's send control should be enabled on, so a factory doesn't hand-roll a half-right version of the rule the composer applies internally. `onSend` no-ops when it is `false`, so a control wired to it unconditionally looks enabled and does nothing — the dead-affordance problem `onStop` avoids by being `null`; `onSend` can't take that route because it flips with every keystroke.
 - `ChatComposer.allowSendWhileGenerating` — opts into sending while a response streams, for backends that accept a queued or interrupting follow-up. Defaults to `false`. It governs whether `onSend` acts, not what the default input renders: that control still shows stop while generating.
 - `ChatComposerInputProps.copyWith` — change one value and keep the rest of what `ChatComposer` passed down. Hand-listing all ten fields instead silently reverts any you forget to a constructor default, discarding the host's own configuration.
-- `ChatComposerInputProps.defaultHintText` — the placeholder `ChatComposer.hintText` falls back to. It lives on the props rather than inside `ChatComposerInput` so that a custom input forwarding `props.hintText` renders the same placeholder the default one does, instead of none at all.
 - Both new slots return a non-nullable `Widget`, unlike `buildLeading`/`buildTrailing`. Neither has
   an absent state to express: `buildInput`'s result goes into an `Expanded`, where "no input" has
   no layout, and `buildAttachmentSheet` is only called once the button has decided to open a modal
   (override `buildLeading` — still nullable — for no picker at all). Nothing is compared against a
   sentinel either, so the `SizedBox.shrink()` hazard that made the other two nullable can't recur
   here.
+- **Every string the package renders itself is now translatable.** `AITranslations` (abstract) and
+  `DefaultAITranslations` (the English it has always rendered) replace the fourteen literals that
+  were hardcoded across `ChatComposer`, `ChatComposerInput`, the attachment sheet, the voice-input
+  button and `CodeBlockView`. Subclass `DefaultAITranslations` and override only what you are
+  changing; register nothing and every widget renders exactly what it did before, so this changes
+  nothing for a host that ignores it. `ChatComposer.hintText` still wins over
+  `AITranslations.composerHint`, being the more specific of the two.
+
+  **`AITranslationsDelegate` is how an app supplies them per locale** — a `LocalizationsDelegate`
+  like any other, registered on `MaterialApp.localizationsDelegates` with a `const` map keyed by
+  `Locale.toString()`'s form (`'nl'`, or `'pt_BR'`, which beats a plain `'pt'` entry) — case
+  included, since `Locale` matches its subtags verbatim and a debug-only check rejects a key in any
+  other shape rather than letting it fall back to English unexplained. Flutter then
+  resolves the app's locale, hands each widget the matching instance, and swaps them when the
+  locale changes, routes included. A locale the map has no entry for renders the English defaults,
+  so the delegate can go in with one language and gain the rest later. It also reports every locale
+  as supported for exactly that reason: `WidgetsApp` warns about any `supportedLocales` entry that
+  some delegate refuses, and an English fallback is not a refusal. No new dependency —
+  `LocalizationsDelegate` is part of `package:flutter/widgets.dart`.
+
+  **`AITranslationsScope` pins one language over a subtree**, for a screen that is always in one
+  language, a preview or a test. It outranks the delegate, being the narrower of the two;
+  `AITranslations.of(context)` resolves scope, then delegate, then English defaults, and never
+  throws.
+
+  Ten of those fourteen are `Tooltip` messages on icon-only buttons — send, stop, mic, "+", copy,
+  and the two dismiss controls — so they are also the only accessible label those buttons expose.
+  Translating them is what makes the composer legible to a screen reader outside English, which is
+  the larger half of why this exists.
+
+  The example app registers the delegate with a Dutch translation, so the wiring a host copies is
+  in runnable code rather than only in the README.
+
+  Strings resolve through the widget's own `BuildContext` rather than being threaded as constructor
+  arguments. Ten of the fourteen live in private leaf widgets two to four layers below a public one,
+  three more in the attachment sheet's private `State`, and `CodeBlockView`'s two are constructed
+  inside a top-level function behind the process-global fence widget cache, which has no
+  `BuildContext` at all — threading would have meant ten new parameters plus a new component in that
+  cache key. Translations deliberately are *not* part of it: the cached object is an unbuilt widget
+  configuration, and the string is resolved later, from the element's own context.
+
+  The scope is an `InheritedTheme`, so `showModalBottomSheet`, `showDialog` and `showMenu` carry it
+  across the `Navigator` exactly as they carry a `Theme` — a scope placed directly above a
+  `ChatComposer` translates that composer's attachment sheet without the host doing anything, and so
+  does one above a sheet the host presents itself.
+
+  Give your subclass a `const` constructor and construct it as `const MyTranslations()`: a scope
+  compares instances to decide whether to notify, so a fresh instance per `build` rebuilds every
+  dependent, and a `const` map of them makes the delegate itself `const`.
+
+  Ships English only — this is the seam, not a set of translations.
+
 - **Code fences can be syntax-highlighted, by a highlighter the host supplies.**
   `CodeBlockView.highlighter`, plus matching `AIMarkdownBody.codeHighlighter` and
   `StreamingMessageView.codeHighlighter`, take a `CodeHighlighter` —
@@ -156,7 +207,7 @@ First release of `stream_chat_flutter_ai`.
 🐞 Fixed
 
 - `ChatComposerInput` now rebuilds on its own listenables. As the private `_InputContainer` it was only ever constructed inside `ChatComposer`'s `ListenableBuilder`; exported, it read `ChatComposerController` state and the process-wide `SpeechToTextController.instance` while subscribing to neither, so standalone use rendered once and then froze — typing never enabled send, a dismissed chip stayed on screen, and with `enableSpeechToText` a dictation session could run with no control able to stop it.
-- A custom input forwarding `props.hintText` rendered no placeholder, because the default lived in the widget as `props.hintText ?? 'Ask anything…'` rather than on the props. See `ChatComposerInputProps.defaultHintText` under ✅ Added.
+- `ChatComposerInputProps.hintText` is now `String?`, and `null` where the host passed no `ChatComposer.hintText` — **breaking change** for a custom input reading it. It was non-nullable, defaulting to a constant, which left an input no way to tell a hint the host chose from the package's own default, and put the English literal on the composer rather than in the translations. The slot rendering the field now owns what an absent hint means: `ChatComposerInput` falls back to `AITranslations.composerHint`, and a custom input wanting the same writes `props.hintText ?? AITranslations.of(context).composerHint`.
 - `ChatComposerInputProps.onSend`/`onStop` now check `mounted`. They are handed to host code that may call them across an async gap — a confirmation dialog, a debounce — and doing so after the composer left the tree sent a message from an abandoned screen and then notified a disposed controller, which only asserts in debug.
 - `ChatComposerInputProps` and `ChatComposer` both assert `minLines >= 1` and `maxLines >= minLines`, rather than letting the pairing trip `TextField`'s own assert several frames deep with no mention of the composer. `ChatComposerFactory.buildInput` returning an `Expanded`/`Flexible` — which the dartdoc already forbade — is asserted too.
 - A standalone `ChatComposerInput` left a dictation session running when it was removed from the tree. The session is owned by the process-wide `SpeechToTextController` and outlives the mic button by design; `ChatComposer.dispose` was the only thing cancelling it, which standalone use — documented and supported — bypassed entirely. The microphone stayed live with nothing on screen able to stop it, bounded only by `SpeechToTextConfig.listenFor` and with the platform's recording indicator lit throughout. `ChatComposerInput` is now a `StatefulWidget` and cancels in its own `dispose`, gated on `enableSpeechToText` so that a `SpeechToTextButton` a host placed in another slot — the arrangement that widget's own documentation recommends — is left alone.

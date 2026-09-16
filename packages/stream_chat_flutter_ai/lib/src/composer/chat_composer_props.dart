@@ -9,6 +9,8 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+// Doc links only.
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// What every [ChatComposerFactory] slot receives.
 ///
@@ -204,7 +206,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
-    this.hintText = defaultHintText,
+    this.hintText,
     this.minLines = 1,
     this.maxLines = 8,
     this.textInputAction = TextInputAction.newline,
@@ -215,18 +217,14 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
        // several frames deep with no mention of the composer.
        assert(maxLines >= minLines, "maxLines can't be less than minLines");
 
-  /// The placeholder [hintText] falls back to, and [ChatComposer]'s own
-  /// default when [ChatComposer.hintText] is `null`.
-  ///
-  /// Lives here, not in [ChatComposerInput], so a custom input forwarding
-  /// `props.hintText` renders the same placeholder the default one does
-  /// instead of no placeholder at all.
-  static const defaultHintText = 'Ask anything…';
-
   /// Placeholder text shown when the text field is empty.
   ///
-  /// Defaults to [defaultHintText].
-  final String hintText;
+  /// `null` when the host passed no [ChatComposer.hintText], and it is left
+  /// that way: the slot rendering the field decides what an absent hint means.
+  /// [ChatComposerInput] falls back to [AITranslations.composerHint]; a custom
+  /// input that wants the same does `props.hintText ?? AITranslations.of(context).composerHint`,
+  /// and one with a placeholder of its own simply ignores this.
+  final String? hintText;
 
   /// Minimum number of lines in the text field.
   final int minLines;

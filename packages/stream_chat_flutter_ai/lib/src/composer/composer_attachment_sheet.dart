@@ -8,6 +8,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
 
 /// How many asset-id → file-path mappings to remember. Comfortably more than
@@ -57,6 +58,11 @@ void debugClearAssetPathCache() => _assetPathCache.clear();
 /// <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
 /// <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
 /// ```
+///
+/// This sheet's own strings resolve through [AITranslations.of]. It works the
+/// same however the sheet is presented: [AITranslationsScope] is an
+/// [InheritedTheme], so `showModalBottomSheet` carries whatever scope was
+/// above the caller across the push, exactly as it does [Theme].
 class ComposerAttachmentSheet extends StatefulWidget {
   /// Creates a [ComposerAttachmentSheet].
   const ComposerAttachmentSheet({super.key, required this.controller});
@@ -226,6 +232,7 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 
   Widget _buildSheet(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final translations = AITranslations.of(context);
     final chatOptions = widget.controller.chatOptions;
     final atCapacity = widget.controller.remainingAttachmentSlots <= 0;
 
@@ -241,11 +248,11 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Row(
                 children: [
-                  Text('Photos', style: Theme.of(context).textTheme.titleMedium),
+                  Text(translations.photos, style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
                   TextButton(
                     onPressed: atCapacity ? null : _pickFromFullLibrary,
-                    child: const Text('All Photos'),
+                    child: Text(translations.allPhotos),
                   ),
                 ],
               ),
@@ -264,12 +271,12 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
                       child: Center(child: CircularProgressIndicator()),
                     )
                   else if (!_hasAccess)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Center(
                         child: TextButton(
                           onPressed: PhotoManager.openSetting,
-                          child: Text('Allow photo access'),
+                          child: Text(translations.allowPhotoAccess),
                         ),
                       ),
                     )
@@ -325,7 +332,7 @@ class _CameraTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Tooltip(
-            message: 'Take a photo',
+            message: AITranslations.of(context).takePhoto,
             child: Center(child: Icon(Icons.camera_alt_outlined, color: iconColor)),
           ),
         ),
