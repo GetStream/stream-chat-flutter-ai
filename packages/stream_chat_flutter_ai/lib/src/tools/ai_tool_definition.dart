@@ -100,7 +100,8 @@ class AIToolDefinition {
   ///
   /// Keys are camelCase, and a null [instructions] is omitted rather than sent
   /// as null — both matching what the Swift library's synthesized `Encodable`
-  /// produces.
+  /// produces, and what the reference `/register-tools` in `chat-ai-samples`
+  /// reads.
   ///
   /// **Verify this against your own backend.** The endpoint that consumes it is
   /// the host's, not Stream's, so the casing it wants is ultimately the host's

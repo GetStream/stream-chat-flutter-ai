@@ -500,11 +500,14 @@ is to call the agent SDK's `registerClientTools(channelId, tools)`, which *persi
 the definitions server-side and re-applies them the next time the channel's agent
 starts.
 
-> **Unverified from this repository:** `registrationPayloads()` emits camelCase keys
-> (`showExternalSourcesIndicator`), matching what the iOS library's encoder produces.
-> Since the endpoint consuming them is your own, check the casing your backend
-> expects — a mismatch fails quietly, as a tool that simply never fires. The payloads
-> are plain maps, so remapping keys is a couple of lines.
+> **Check the casing your own backend expects.** `registrationPayloads()` emits
+> camelCase keys (`showExternalSourcesIndicator`), which is what the reference
+> `/register-tools` in
+> [`chat-ai-samples`](https://github.com/GetStream/chat-ai-samples) reads — it takes
+> the camelCase spelling and treats `show_external_sources_indicator` as a deprecated
+> fallback. Since the endpoint consuming them is *yours*, that is a default rather
+> than a rule, and a mismatch fails quietly, as a tool that simply never fires. The
+> payloads are plain maps, so remapping keys is a couple of lines.
 
 Then route invocations. `dispatch` runs the tool's actions in order, guarding each
 one; `resolve` returns them unrun if you want to schedule them yourself. `dispatch`

@@ -237,9 +237,11 @@ First release of `stream_chat_flutter_ai`.
   And the registry's single `handleInvocation` is split into `resolve` (pure) and `dispatch` (runs
   and guards), because one name for both would read as a synonym.
 
-- `registrationPayloads()` emits camelCase keys, matching what the iOS library's encoder produces,
-  and omits a null `instructions` rather than sending it. Worth verifying against your own backend:
-  the endpoint consuming it is the host's, so the casing is ultimately the host's to decide, and a
+- `registrationPayloads()` emits camelCase keys, matching both what the iOS library's encoder
+  produces and what the reference `/register-tools` in `chat-ai-samples` reads (it accepts the
+  camelCase spelling, with `show_external_sources_indicator` as a deprecated fallback), and omits a
+  null `instructions` rather than sending it. Still worth verifying against your own backend: the
+  endpoint consuming it is the host's, so the casing is ultimately the host's to decide, and a
   mismatch fails quietly as a tool that never fires.
 
 🐞 Fixed
