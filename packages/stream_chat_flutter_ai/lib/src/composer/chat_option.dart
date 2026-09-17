@@ -5,8 +5,6 @@ import 'package:flutter/widgets.dart';
 ///
 /// Once selected, it is displayed inline inside the input area as a dismissible
 /// chip, and passed to the send callback when the option is active.
-///
-/// Mirrors the `ChatOption` type in the stream-chat-swift-ai library.
 class ChatOption {
   /// Creates a [ChatOption].
   const ChatOption({

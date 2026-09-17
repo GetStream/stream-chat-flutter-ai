@@ -1,8 +1,3 @@
-// Cross-references below to the stream-chat-swift-ai library, to MCP, and to the
-// reference `/register-tools` in `chat-ai-samples` describe those sources as of
-// September 2026. Neither repository is vendored here, so no check in this one
-// re-verifies them.
-
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -68,10 +63,10 @@ final class AIInvokedTool {
 /// an alert, navigate, read a sensor — and the protocol has no channel for
 /// reporting a result back, so neither does this type.
 ///
-/// Mirrors `ClientToolInvocation` in the stream-chat-swift-ai library. [args]
-/// and [AIInvokedTool.parameters] are decoded maps rather than the raw bytes
-/// that library carries, which is why [tryParse] can live here instead of in
-/// every host.
+/// [args] and [AIInvokedTool.parameters] are decoded maps rather than raw
+/// bytes, which is why [tryParse] can live here instead of in every host.
+///
+/// Not a value type: two invocations with the same fields are not `==`.
 @immutable
 final class AIToolInvocation {
   /// Creates an [AIToolInvocation].
@@ -165,9 +160,8 @@ final class AIToolInvocation {
 
   /// The channel the invocation came from — the event's `cid`.
   ///
-  /// A plain string, where the Swift library carries an `AnyHashable` wrapping
-  /// its own `ChannelId` type. This package has no Stream Chat dependency, and
-  /// `cid` is a string on the wire.
+  /// A plain string: this package has no Stream Chat dependency, and `cid` is a
+  /// string on the wire.
   final String? channelId;
 
   /// The message being generated when the tool was invoked.
@@ -179,8 +173,6 @@ final class AIToolInvocation {
   /// Empty when the invocation carried none, never null, and unmodifiable when
   /// produced by [tryParse] — one contract rather than one per input shape.
   final Map<String, Object?> args;
-
-  // No `==`/`hashCode`, for the reason given on `AIToolDefinition`.
 
   @override
   String toString() {

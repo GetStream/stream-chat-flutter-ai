@@ -63,8 +63,7 @@ class USeries {
 
 /// Unified chart specification — the internal representation used by [ChartView].
 ///
-/// Parsed from JSON code fences in AI messages. Supports a subset of the
-/// formats recognised by the iOS stream-chat-swift-ai library:
+/// Parsed from JSON code fences in AI messages. Recognises these formats:
 /// - Direct USpec JSON (`kind` + `series` fields).
 /// - Chart.js format (`type` + `data.labels` + `data.datasets` fields).
 /// - Plotly (single-spec and figure) heatmaps.

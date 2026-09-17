@@ -1,8 +1,3 @@
-// Cross-references below to the stream-chat-swift-ai library, to MCP, and to the
-// reference `/register-tools` in `chat-ai-samples` describe those sources as of
-// September 2026. Neither repository is vendored here, so no check in this one
-// re-verifies them.
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -67,8 +62,6 @@ typedef AIToolErrorCallback = void Function(AIToolInvocation invocation, Object 
 /// An interface rather than a `(definition, onInvoke)` pair of arguments,
 /// because a real tool needs somewhere to hold the navigator key or repository
 /// it acts on.
-///
-/// Mirrors the `ClientTool` protocol in the stream-chat-swift-ai library.
 abstract interface class AIClientTool {
   /// What the agent is told about this tool.
   ///
@@ -116,8 +109,8 @@ abstract interface class AIClientTool {
 /// and because the agent registers tools per channel, one registry per channel
 /// is a reasonable shape that a singleton would fight.
 ///
-/// Mirrors `ClientToolRegistry` in the stream-chat-swift-ai library, with
-/// [resolve] and [dispatch] in place of its single `handleInvocation`.
+/// [resolve] and [dispatch] are separate rather than one `handleInvocation`,
+/// because a single name covering both reads as a synonym for either.
 final class AIToolRegistry {
   /// Creates an empty [AIToolRegistry].
   AIToolRegistry({this.onToolError});
@@ -163,9 +156,8 @@ final class AIToolRegistry {
   /// The registration payloads for every registered tool, ready for
   /// `jsonEncode`.
   ///
-  /// In first-registration order, which the Swift library's equivalent is not —
-  /// its dictionary values come out unordered. Nothing requires the order, but
-  /// a stable one makes the request easier to read and to test.
+  /// In first-registration order. Nothing requires the order, but a stable one
+  /// makes the request easier to read and to test.
   ///
   /// These go to the host's own backend; see [AIToolDefinition.toJson] for the
   /// shape and the one thing to verify about it.

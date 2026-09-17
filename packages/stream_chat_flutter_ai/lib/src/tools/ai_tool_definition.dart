@@ -1,8 +1,3 @@
-// Cross-references below to the stream-chat-swift-ai library, to MCP, and to the
-// reference `/register-tools` in `chat-ai-samples` describe those sources as of
-// September 2026. Neither repository is vendored here, so no check in this one
-// re-verifies them.
-
 import 'package:flutter/foundation.dart';
 
 /// The JSON Schema a tool that takes no arguments declares.
@@ -12,11 +7,11 @@ const _kEmptyObjectSchema = <String, Object?>{'type': 'object', 'properties': <S
 ///
 /// This is the registration half of the tool subsystem. The host builds a
 /// definition per tool, registers it with an `AIToolRegistry`, and POSTs
-/// `registrationPayloads()` to **its own** backend, which hands them to the
-/// agent SDK. See the README for the full round trip.
+/// `registrationPayloads()` to **its own** backend, which registers them with
+/// the agent for a channel. See the README for the full round trip.
 ///
-/// The one step worth knowing here: the agent SDK **persists** registrations
-/// server-side and re-applies them the next time the channel's agent starts.
+/// The one step worth knowing here: registrations **persist** server-side and
+/// are re-applied the next time the channel's agent starts.
 /// That is why an invocation can name a tool the running build knows nothing
 /// about — a registration made by an older version outlives that version. See
 /// `AIToolRegistry.resolve`, which treats that as a normal outcome rather than
@@ -39,14 +34,8 @@ const _kEmptyObjectSchema = <String, Object?>{'type': 'object', 'properties': <S
 /// );
 /// ```
 ///
-/// This type has no `==`/`hashCode`, and neither does `AIToolInvocation`.
-/// [parameters] is a map, so a correct pair needs deep comparison — a
-/// `collection` dependency this package doesn't take — and a shallow pair would
-/// compare two identical schemas as different. Comparing definitions in a test
-/// means comparing [toJson] results, which are plain maps and compare deeply.
-///
-/// Collapses the `Tool`/`ToolRegistrationPayload` pair the stream-chat-swift-ai
-/// library carries — see [toJson].
+/// Not a value type: two definitions with the same fields are not `==`. Compare
+/// [toJson] results instead, which are plain maps and compare deeply.
 @immutable
 final class AIToolDefinition {
   /// Creates an [AIToolDefinition].
@@ -66,11 +55,10 @@ final class AIToolDefinition {
 
   /// What the tool does, in the words the model reads when deciding to call it.
   ///
-  /// Required here, where MCP's `Tool.description` — which the Swift library
-  /// embeds — is optional and falls back to its `instructions` when absent. A
-  /// tool the model can't tell apart from the others is not useful, and
-  /// backfilling this from a field written for a different audience produces a
-  /// worse description than asking for one.
+  /// Required, and deliberately not defaulted from [instructions]: a tool the
+  /// model can't tell apart from the others is not useful, and backfilling this
+  /// from a field written for a different audience produces a worse description
+  /// than asking for one.
   final String description;
 
   /// Extra guidance for the agent on when and how to use the tool.
@@ -104,9 +92,7 @@ final class AIToolDefinition {
   /// This tool's registration payload, ready for `jsonEncode`.
   ///
   /// Keys are camelCase, and a null [instructions] is omitted rather than sent
-  /// as null — both matching what the Swift library's synthesized `Encodable`
-  /// produces, and what the reference `/register-tools` in `chat-ai-samples`
-  /// reads.
+  /// as null.
   ///
   /// **Verify this against your own backend.** The endpoint that consumes it is
   /// the host's, not Stream's, so the casing it wants is ultimately the host's
