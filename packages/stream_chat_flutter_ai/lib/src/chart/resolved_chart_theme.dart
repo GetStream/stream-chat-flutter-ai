@@ -2,24 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 
-/// The heatmap ramp under a light [Brightness], anchored on the first default
-/// series color. Higher values are darker and more saturated.
+/// The heatmap ramp on a light [Brightness]: higher values darker.
 const _kLightScale = (low: Color(0xFFEAF2FB), mid: Color(0xFF4A90D9), high: Color(0xFF1B4F8A));
 
-/// The heatmap ramp under a dark [Brightness].
-///
-/// Runs the other way — higher values are *lighter* — because a light-to-dark
-/// ramp on a dark surface makes the highest cells recede into the background,
-/// inverting the intensity the color is supposed to encode.
+/// The heatmap ramp on a dark [Brightness]: higher values *lighter*, because a
+/// light-to-dark ramp on a dark surface makes the busiest cells recede.
 const _kDarkScale = (low: Color(0xFF12283F), mid: Color(0xFF3B7CB8), high: Color(0xFFC3DDF6));
 
-/// A [ChartThemeData] with every field filled in.
+/// A [ChartThemeData] with every field resolved, bar [titleTextStyle].
 ///
-/// Internal to the package: [ChartThemeData]'s fields are nullable so a host
-/// can override two of them and leave the rest to the ambient theme, but the
-/// chart widgets need a concrete value for each. Resolving once at the top of
-/// `build` and passing this down is also what keeps the fallback table in one
-/// place instead of scattering `?? colorScheme.something` across two files.
+/// Internal: [ChartThemeData]'s fields are nullable so a host can override a
+/// couple and leave the rest, but the chart widgets need a concrete value for
+/// each. Resolving once at the top of `build` keeps the fallback table in one
+/// place rather than scattering `?? colorScheme.something` across two files.
 @immutable
 class ResolvedChartTheme {
   const ResolvedChartTheme._({
@@ -38,8 +33,8 @@ class ResolvedChartTheme {
     required this.heatmapHighColor,
   });
 
-  /// Resolves the chart theme in effect at [context], with [override] — a
-  /// widget's own `theme` argument — layered on top of it.
+  /// Resolves the theme at [context], with [override] — a widget's own `theme`
+  /// argument — layered on top.
   factory ResolvedChartTheme.resolve(BuildContext context, {ChartThemeData? override}) {
     final theme = ChartTheme.of(context).merge(override);
     final themeData = Theme.of(context);
@@ -95,8 +90,8 @@ class ResolvedChartTheme {
   /// one; [ChartView] fills it in per slice otherwise.
   final TextStyle pieLabelStyle;
 
-  /// See [ChartThemeData.titleTextStyle]. Null only if the ambient
-  /// [TextTheme.titleSmall] is.
+  /// See [ChartThemeData.titleTextStyle]. The one nullable field — null only
+  /// when the ambient [TextTheme.titleSmall] is.
   final TextStyle? titleTextStyle;
 
   /// See [ChartThemeData.gridLineColor].
@@ -117,9 +112,8 @@ class ResolvedChartTheme {
 
   /// Lays [override] over [base].
   ///
-  /// [TextStyle.merge] asserts on a style with `inherit: false`, which a host
-  /// is free to build, so such a style replaces the base outright rather than
-  /// crashing.
+  /// [TextStyle.merge] asserts on an `inherit: false` style, which a host is
+  /// free to build, so such a style replaces the base outright.
   static TextStyle _merge(TextStyle base, TextStyle? override) {
     if (override == null) return base;
     return override.inherit ? base.merge(override) : override;

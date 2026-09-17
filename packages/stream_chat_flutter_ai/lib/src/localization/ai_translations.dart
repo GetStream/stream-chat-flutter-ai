@@ -124,14 +124,13 @@ abstract class AITranslations {
 
   /// The screen-reader summary of a chart.
   ///
-  /// [ChartView] renders to a canvas, so this string is the only thing a
-  /// screen reader has to go on — see [ChartSemantics], which carries the facts
-  /// with its numbers already formatted.
+  /// [ChartView] paints to a canvas, so this is the only thing a reader has to
+  /// go on. [ChartSemantics] carries the facts, numbers already formatted.
   ///
-  /// This is one method rather than a dozen phrase-sized ones because a whole
-  /// sentence's word order varies far more between languages than a tooltip's
-  /// does; composing it yourself is the point. Leave out any clause whose fact
-  /// is absent, the way [DefaultAITranslations] does.
+  /// One method rather than a dozen phrase-sized ones, because a sentence's
+  /// word order varies far more between languages than a tooltip's — composing
+  /// it is the point. Switch on [ChartSemantics.kind], and drop any clause
+  /// whose fact is absent, the way [DefaultAITranslations] does.
   String chartSemanticsLabel(ChartSemantics chart);
 }
 

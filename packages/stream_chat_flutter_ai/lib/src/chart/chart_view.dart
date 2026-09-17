@@ -30,27 +30,24 @@ class ChartView extends StatelessWidget {
   /// The chart data to display.
   final USpec spec;
 
-  /// Overrides the ambient chart theme for this chart alone.
-  ///
-  /// Layered over the nearest [ChartTheme] and over the [AITheme] registered on
-  /// the ambient [ThemeData]; see [ChartThemeData].
+  /// Overrides the ambient chart theme for this chart alone, layered over the
+  /// nearest [ChartTheme] and the ambient [AITheme]. See [ChartThemeData].
   final ChartThemeData? theme;
 
   /// Replaces the summary a screen reader is given for this chart.
   ///
-  /// `fl_chart` paints to a canvas and exposes nothing, so by default the chart
-  /// describes itself: [AITranslations.chartSemanticsLabel] turns the facts in
-  /// [ChartSemantics] into one sentence, and that becomes the label of a single
-  /// semantics node standing for the whole chart.
+  /// By default the chart describes itself: [AITranslations.chartSemanticsLabel]
+  /// composes one sentence from [ChartSemantics], and that labels a single node
+  /// standing for the whole chart.
   ///
-  /// The node **excludes** the subtree beneath it. The axis tick labels are
-  /// real `Text` widgets, and letting a reader walk them produces a run of bare
-  /// numbers with nothing to say which axis they belong to or how they pair up;
-  /// the summary already carries the range, the category count and — when the
-  /// data named them — the axis labels.
+  /// That node **excludes** its subtree. Axis ticks are real `Text` widgets, and
+  /// walking them gives a reader bare numbers with nothing saying which axis
+  /// they belong to, while the summary already carries the range, the counts and
+  /// the axis names.
   ///
-  /// Pass an empty string to add no semantics at all, which is the way to opt
-  /// out and describe the chart yourself.
+  /// Pass `''` to add no node of this widget's own — which also puts those
+  /// subtree labels back in reach. That is the opt-out for describing the chart
+  /// yourself, not a way to hide it.
   final String? semanticsLabel;
 
   @override

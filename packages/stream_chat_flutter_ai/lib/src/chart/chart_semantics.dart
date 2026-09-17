@@ -7,13 +7,12 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// What a chart is showing, reduced to the facts a spoken summary needs.
 ///
-/// `fl_chart` paints to a canvas and contributes no accessibility nodes, so
-/// without a summary a [ChartView] is an empty box to a screen reader. This
-/// gathers the facts; [AITranslations.chartSemanticsLabel] turns them into a
-/// sentence, which is the half that has to be translated.
+/// `fl_chart` paints to a canvas and exposes no accessibility nodes, so without
+/// a summary a [ChartView] is an empty box to a screen reader. This gathers the
+/// facts; [AITranslations.chartSemanticsLabel] composes the sentence, which is
+/// the half that gets translated.
 ///
-/// Numbers arrive already formatted, so an implementation never has to decide
-/// how many decimals to read out.
+/// Numbers arrive pre-formatted, so an implementation never picks decimals.
 @immutable
 class ChartSemantics {
   const ChartSemantics._({
@@ -122,23 +121,24 @@ class ChartSemantics {
   /// The y-axis label, or null when the data carried none.
   final String? yLabel;
 
-  /// The series names, in axis order, with unnamed series filled in.
+  /// The series names in [USpec.series] order, with unnamed ones filled in.
   final List<String> seriesNames;
 
-  /// How many data points there are across every series.
+  /// How many data points are plotted.
+  ///
+  /// A pie and a histogram draw only the first series, so this counts that one
+  /// alone for them — the summary describes what is on screen.
   final int pointCount;
 
-  /// How many distinct positions the x axis holds.
-  ///
-  /// Mirrors how [ChartView] actually lays the axis out: the distinct labels
-  /// when they can serve as category keys, and the longest series' length when
-  /// they repeat and so can't.
+  /// How many distinct positions the x axis holds, mirroring how [ChartView]
+  /// lays it out: distinct labels when they can serve as category keys, the
+  /// longest series' length when they repeat.
   final int categoryCount;
 
-  /// How many rows a [USpecKind.heatmap] grid has — one per series.
+  /// One per described series — a [USpecKind.heatmap]'s row count.
   final int rowCount;
 
-  /// How many columns a [USpecKind.heatmap] grid has.
+  /// The distinct x positions — a [USpecKind.heatmap]'s column count.
   final int columnCount;
 
   /// The smallest value plotted, formatted, or null when there is no data.
@@ -158,8 +158,8 @@ class ChartSemantics {
   /// The label of the biggest [USpecKind.pie] slice, or null for other kinds.
   final String? largestSliceLabel;
 
-  /// That slice's share of the whole as a whole-number percentage, formatted,
-  /// or null when the slices don't sum to anything positive.
+  /// That slice's share as a whole-number percentage, formatted. Null for other
+  /// kinds, and when the slices don't sum to anything positive.
   final String? largestSlicePercent;
 
   /// Whether the chart has nothing to plot.
@@ -167,11 +167,8 @@ class ChartSemantics {
 
   static String? _orNull(String? value) => (value == null || value.isEmpty) ? null : value;
 
-  /// Formats a value for speech.
-  ///
-  /// Chart data is nearly always integral, and a screen reader reads `10.0` as
-  /// "ten point zero", so whole numbers lose their decimal and the rest keep at
-  /// most two.
+  /// Formats a value for speech: a screen reader reads `10.0` as "ten point
+  /// zero", so whole numbers lose their decimal and the rest keep at most two.
   static String _formatValue(double value) {
     if (!value.isFinite) return value.toString();
     // Also normalizes -0.0, which toStringAsFixed(0) renders as '-0'.
@@ -182,8 +179,8 @@ class ChartSemantics {
     return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
-  /// How many x positions [series] occupies, mirroring `ChartView`'s own
-  /// category logic.
+  /// How many x positions [series] occupies. Mirrors `ChartView._categoryLabels`
+  /// — change both together, or the spoken count drifts from the drawn axis.
   static int _categoryCount(List<USeries> series) {
     final hasCategoryKeys = series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
     if (hasCategoryKeys) {

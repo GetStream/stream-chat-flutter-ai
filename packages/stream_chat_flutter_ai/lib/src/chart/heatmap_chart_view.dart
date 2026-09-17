@@ -38,10 +38,8 @@ class HeatmapChartView extends StatelessWidget {
   /// [USpecKind.heatmap].
   final USpec spec;
 
-  /// Overrides the ambient chart theme for this grid alone.
-  ///
-  /// Layered over the nearest [ChartTheme] and over the [AITheme] registered on
-  /// the ambient [ThemeData]; see [ChartThemeData].
+  /// Overrides the ambient chart theme for this grid alone, layered over the
+  /// nearest [ChartTheme] and the ambient [AITheme]. See [ChartThemeData].
   final ChartThemeData? theme;
 
   /// See [ChartView.semanticsLabel].
