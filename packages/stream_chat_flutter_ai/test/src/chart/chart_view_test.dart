@@ -711,6 +711,60 @@ void main() {
         );
       }
     });
+
+    // The eight goldens above all use the default theme, so they prove the
+    // defaults didn't move and nothing else — a feature whose entire point is
+    // visual had no visual evidence of what it does. These four cover the two
+    // things a host actually changes: an override reaching the paint, and the
+    // dark half that resolves from Brightness.
+    //
+    // Scope: CI goldens obscure text with an opaque paint, so these pin fills,
+    // grid lines and the heatmap ramp. Label colours — including the per-slice
+    // pie contrast — are invisible to every golden in this suite and stay
+    // covered by the widget tests above.
+    group('golden themed', () {
+      const brand = ChartThemeData(
+        seriesColors: [Color(0xFF7A5CFF), Color(0xFF00D4A0)],
+        gridLineColor: Color(0xFFFFB000),
+      );
+
+      goldenTest(
+        'a host palette and grid colour reach a bar chart',
+        fileName: 'chart_view_themed_bar',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrapThemed(const ChartView(spec: _barSpec), brand),
+      );
+
+      goldenTest(
+        'a host ramp reaches the heatmap',
+        fileName: 'chart_view_themed_heatmap',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrapThemed(
+          const ChartView(spec: _heatmapSpec),
+          const ChartThemeData(
+            heatmapLowColor: Color(0xFFFFF3B0),
+            heatmapMidColor: Color(0xFFFF8C42),
+            heatmapHighColor: Color(0xFF6A040F),
+          ),
+        ),
+      );
+
+      goldenTest(
+        'the default line chart under a dark theme',
+        fileName: 'chart_view_dark_line',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrapDark(const ChartView(spec: _lineSpec)),
+      );
+
+      // The one the luminance test can only describe: the ramp runs the other
+      // way on a dark surface so the busiest cells stay the brightest.
+      goldenTest(
+        'the default heatmap ramp under a dark theme',
+        fileName: 'chart_view_dark_heatmap',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrapDark(const ChartView(spec: _heatmapSpec)),
+      );
+    });
   });
 }
 
