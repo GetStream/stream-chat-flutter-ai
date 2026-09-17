@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 /// The JSON Schema a tool that takes no arguments declares.
@@ -34,8 +35,8 @@ const _kEmptyObjectSchema = <String, Object?>{'type': 'object', 'properties': <S
 /// );
 /// ```
 ///
-/// Not a value type: two definitions with the same fields are not `==`. Compare
-/// [toJson] results instead, which are plain maps and compare deeply.
+/// A value type: two definitions with the same fields are `==`, [parameters]
+/// compared deeply.
 @immutable
 final class AIToolDefinition {
   /// Creates an [AIToolDefinition].
@@ -110,6 +111,25 @@ final class AIToolDefinition {
     'parameters': Map<String, Object?>.of(parameters),
     'showExternalSourcesIndicator': showExternalSourcesIndicator,
   };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AIToolDefinition &&
+          other.name == name &&
+          other.description == description &&
+          other.instructions == instructions &&
+          other.showExternalSourcesIndicator == showExternalSourcesIndicator &&
+          const DeepCollectionEquality().equals(other.parameters, parameters);
+
+  @override
+  int get hashCode => Object.hash(
+    name,
+    description,
+    instructions,
+    showExternalSourcesIndicator,
+    const DeepCollectionEquality().hash(parameters),
+  );
 
   /// A copy of this definition with the given fields replaced.
   ///

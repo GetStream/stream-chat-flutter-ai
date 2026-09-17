@@ -238,6 +238,13 @@ First release of `stream_chat_flutter_ai`.
   invisible in debug and release alike. A payload that never claimed to be an invocation still
   returns `null` quietly, so a host piping every channel event through `tryParse` is not drowned.
 
+- `AIToolDefinition`, `AIToolInvocation` and `AIInvokedTool` are value types: two with the same
+  fields are `==`, with `parameters` and `args` compared deeply, so a host can assert on a parsed
+  invocation or a registered definition directly. `collection` becomes a direct dependency for that
+  deep comparison — it was already resolved transitively through the Flutter SDK, so a host's
+  dependency graph is unchanged. An absent echoed schema stays distinct from an empty one, which is
+  the asymmetry `AIInvokedTool.parameters` documents.
+
 - `AIToolInvocation.args` is unmodifiable however the event spelled its arguments, and
   `AIToolDefinition.toJson()` copies `parameters` out rather than aliasing them. Also new:
   `AIToolDefinition.copyWith` and `AIToolRegistry.runActions`, which gives the deferred `resolve`

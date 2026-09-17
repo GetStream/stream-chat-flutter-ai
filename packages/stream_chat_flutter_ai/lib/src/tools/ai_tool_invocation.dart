@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 /// The Stream Chat custom-event type that carries a client-tool invocation.
@@ -52,6 +53,18 @@ final class AIInvokedTool {
   ///
   /// Unmodifiable when produced by [AIToolInvocation.tryParse].
   final Map<String, Object?>? parameters;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AIInvokedTool &&
+          other.name == name &&
+          other.description == description &&
+          other.instructions == instructions &&
+          const DeepCollectionEquality().equals(other.parameters, parameters);
+
+  @override
+  int get hashCode => Object.hash(name, description, instructions, const DeepCollectionEquality().hash(parameters));
 }
 
 /// A request from the AI agent to run one of the host's client-side tools.
@@ -66,7 +79,8 @@ final class AIInvokedTool {
 /// [args] and [AIInvokedTool.parameters] are decoded maps rather than raw
 /// bytes, which is why [tryParse] can live here instead of in every host.
 ///
-/// Not a value type: two invocations with the same fields are not `==`.
+/// A value type: two invocations with the same fields are `==`, [args] and the
+/// echoed schema compared deeply.
 @immutable
 final class AIToolInvocation {
   /// Creates an [AIToolInvocation].
@@ -173,6 +187,18 @@ final class AIToolInvocation {
   /// Empty when the invocation carried none, never null, and unmodifiable when
   /// produced by [tryParse] — one contract rather than one per input shape.
   final Map<String, Object?> args;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AIToolInvocation &&
+          other.tool == tool &&
+          other.channelId == channelId &&
+          other.messageId == messageId &&
+          const DeepCollectionEquality().equals(other.args, args);
+
+  @override
+  int get hashCode => Object.hash(tool, channelId, messageId, const DeepCollectionEquality().hash(args));
 
   @override
   String toString() {
