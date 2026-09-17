@@ -170,11 +170,13 @@ The block stays dark regardless of the ambient `Theme` — code reads as code.
 
 ### `ChartView` + `USpec`
 
-Renders a `USpec` chart as a line, bar, or pie chart powered by `fl_chart`. Parse AI
-responses that contain JSON chart data with `USpecParser`:
+Renders a `USpec` as a line, bar, area, scatter, bubble, pie, histogram or heatmap chart. All but
+the heatmap are painted by `fl_chart`; the heatmap is a plain widget grid. Parse AI responses that
+contain JSON chart data with `USpecParser`:
 
 ```dart
-final spec = USpecParser.tryParse(jsonString);   // supports USpec and Chart.js formats
+// Reads USpec, Chart.js, Plotly, ECharts, Highcharts, Vega-Lite and a flat pie schema.
+final spec = USpecParser.tryParse(jsonString);
 if (spec != null) ChartView(spec: spec);
 ```
 
@@ -193,9 +195,10 @@ MaterialApp(
 )
 ```
 
-Every field is nullable, and leaving one unset means "derive it from the ambient `ColorScheme`" —
-so overriding the palette leaves the grid lines, axis labels and heatmap ramp following your app,
-in light and dark alike. Override it for a subtree with `ChartTheme(data: ..., child: ...)`, or for
+Every field is nullable, and leaving one unset means "derive it from the ambient `ThemeData`" — so
+overriding the palette leaves the grid lines, axis labels and heatmap ramp following your app, in
+light and dark alike. The sizing fields (`height`, the scatter and bubble radii, `histogramBinCount`)
+have no theme to derive from, so they fall back to fixed defaults instead. Override it for a subtree with `ChartTheme(data: ..., child: ...)`, or for
 one chart with `ChartView(theme: ...)`; the three compose, most specific first.
 
 Two things worth knowing:
@@ -567,9 +570,22 @@ composing it is the point:
 
 ```dart
 @override
-String chartSemanticsLabel(ChartSemantics chart) =>
-    'Staafdiagram, ${chart.categoryCount} categorieën';
+String chartSemanticsLabel(ChartSemantics chart) {
+  final kind = switch (chart.kind) {
+    USpecKind.bar => 'Staafdiagram',
+    USpecKind.pie => 'Cirkeldiagram',
+    USpecKind.heatmap => 'Heatmap',
+    _ => 'Grafiek',
+  };
+  if (chart.isEmpty) return '$kind, geen gegevens';
+  return '$kind, ${chart.categoryCount} categorieën, '
+      'waarden ${chart.valueMin} tot ${chart.valueMax}';
+}
 ```
+
+Switch on `chart.kind` — it covers all eight `USpecKind`s, and a label that names the wrong kind is
+worse than a generic one. Check `chart.isEmpty` before reading `valueMin`/`valueMax`: they are
+`null` for a chart with no points.
 
 Subclassing `DefaultAITranslations` rather than implementing `AITranslations` directly means a
 string added in a later version arrives as an untranslated default rather than a compile error.

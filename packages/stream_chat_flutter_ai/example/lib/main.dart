@@ -144,10 +144,11 @@ amber slice:
     {
       "name": "Share",
       "points": [
-        {"x": "Writing", "y": 42},
-        {"x": "Reviewing", "y": 28},
+        {"x": "Writing", "y": 40},
+        {"x": "Reviewing", "y": 25},
         {"x": "Meetings", "y": 18},
-        {"x": "Waiting on CI", "y": 12}
+        {"x": "Waiting on CI", "y": 12},
+        {"x": "Email", "y": 5}
       ]
     }
   ]
@@ -155,7 +156,8 @@ amber slice:
 ```
 
 And a heatmap, whose ramp inverts between light and dark so the busiest cells
-stay the brightest:
+stay the brightest. Its second row names no series, so it falls back to
+`AITranslations.unnamedChartSeries`:
 
 ```chart
 {
@@ -172,7 +174,6 @@ stay the brightest:
       ]
     },
     {
-      "name": "Tue",
       "points": [
         {"x": "9", "y": 0, "z": 5},
         {"x": "12", "y": 0, "z": 14},

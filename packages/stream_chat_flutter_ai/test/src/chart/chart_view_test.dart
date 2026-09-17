@@ -446,17 +446,57 @@ void main() {
           ),
         );
 
-        final fills = tester
-            .widgetList<Container>(
-              find.descendant(of: find.byType(HeatmapChartView), matching: find.byType(Container)),
-            )
-            .map((c) => c.decoration)
-            .whereType<BoxDecoration>()
-            .map((d) => d.color)
-            .whereType<Color>();
+        // Positional, not `contains`: the cells run 1, 5, 3, 9, so the first
+        // is the minimum and the last the maximum. Asserting membership would
+        // pass just as happily with the ramp reversed.
+        final fills = _orderedFills(tester);
 
-        expect(fills, contains(const Color(0xFFFF0000)), reason: 'the minimum cell sits at the low stop');
-        expect(fills, contains(const Color(0xFF0000FF)), reason: 'the maximum at the high stop');
+        expect(fills.first, const Color(0xFFFF0000), reason: 'the minimum cell sits at the low stop');
+        expect(fills.last, const Color(0xFF0000FF), reason: 'the maximum at the high stop');
+        expect(fills[1], const Color(0xFF00FF00), reason: 'a value halfway along the range sits on the mid stop');
+      });
+
+      testWidgets('the default heatmap ramp runs light-to-dark under a light theme', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _heatmapSpec)));
+
+        final fills = _orderedFills(tester);
+        expect(
+          fills.last.computeLuminance(),
+          lessThan(fills.first.computeLuminance()),
+          reason: 'on a light surface the busiest cell is the darkest',
+        );
+      });
+
+      testWidgets('the default heatmap ramp inverts under a dark theme', (tester) async {
+        // The one behaviour the brightness check exists for: a light-to-dark
+        // ramp on a dark surface makes the highest cells recede into the
+        // background, inverting the intensity the color is supposed to encode.
+        await tester.pumpWidget(_wrapDark(const ChartView(spec: _heatmapSpec)));
+
+        final fills = _orderedFills(tester);
+        expect(
+          fills.last.computeLuminance(),
+          greaterThan(fills.first.computeLuminance()),
+          reason: 'on a dark surface the busiest cell is the lightest',
+        );
+      });
+
+      testWidgets('a host heatmap override wins over the brightness default', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData.dark().copyWith(
+              extensions: const [
+                AITheme(chartTheme: ChartThemeData(heatmapLowColor: Color(0xFFFF0000))),
+              ],
+            ),
+            home: const Scaffold(
+              body: Center(child: ChartView(spec: _heatmapSpec)),
+            ),
+          ),
+        );
+
+        expect(_orderedFills(tester).first, const Color(0xFFFF0000));
       });
 
       group('precedence', () {
@@ -849,6 +889,23 @@ const _emptyHeatmapSpec = USpec(kind: USpecKind.heatmap, series: []);
 /// Counts the heatmap cells that were given a fill color — cells a row has no
 /// value for are left unfilled, and the gradient legend paints a gradient
 /// rather than a flat color.
+/// The heatmap's cell fills, in the order they are laid out (row-major).
+///
+/// [_heatmapSpec] runs 1, 5, 3, 9 in that order, so the first entry is the
+/// minimum and the last is the maximum — which is what makes a reversed ramp
+/// detectable. Matching on membership alone would pass either way round.
+List<Color> _orderedFills(WidgetTester tester) {
+  return tester
+      .widgetList<Container>(
+        find.descendant(of: find.byType(HeatmapChartView), matching: find.byType(Container)),
+      )
+      .map((c) => c.decoration)
+      .whereType<BoxDecoration>()
+      .map((d) => d.color)
+      .whereType<Color>()
+      .toList(growable: false);
+}
+
 int _filledCells(WidgetTester tester) {
   final containers = tester.widgetList<Container>(
     find.descendant(of: find.byType(HeatmapChartView), matching: find.byType(Container)),
@@ -871,6 +928,16 @@ Widget _wrapThemed(Widget child, ChartThemeData chartTheme) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: ThemeData(extensions: [AITheme(chartTheme: chartTheme)]),
+    home: Scaffold(body: Center(child: child)),
+  );
+}
+
+/// [_wrap] under a dark [ThemeData], for the half of the chart theme that
+/// resolves from [Brightness].
+Widget _wrapDark(Widget child) {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData.dark(),
     home: Scaffold(body: Center(child: child)),
   );
 }

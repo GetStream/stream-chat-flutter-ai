@@ -4,6 +4,146 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() {
   group('ChartThemeData', () {
+    // Every field, rather than a spot-check: copyWith, merge, == and hashCode
+    // are four hand-written 13-line tables, and a crossed line in any of them
+    // (`scatterRadius: bubbleMinRadius ?? this.scatterRadius`) is invisible
+    // until someone themes that particular field. The loop below is what makes
+    // a 14th field added to only three of the four fail loudly.
+    group('every field', () {
+      const base = ChartThemeData(
+        seriesColors: [Color(0xFF111111)],
+        height: 100,
+        scatterRadius: 1,
+        bubbleMinRadius: 2,
+        bubbleMaxRadius: 3,
+        histogramBinCount: 4,
+        axisLabelStyle: TextStyle(fontSize: 11),
+        pieLabelStyle: TextStyle(fontSize: 12),
+        titleTextStyle: TextStyle(fontSize: 13),
+        gridLineColor: Color(0xFF222222),
+        heatmapLowColor: Color(0xFF333333),
+        heatmapMidColor: Color(0xFF444444),
+        heatmapHighColor: Color(0xFF555555),
+      );
+
+      /// One per field: how to set it to a second value, and how to read it.
+      final fields =
+          <
+            ({
+              String name,
+              ChartThemeData only,
+              ChartThemeData Function() copied,
+              Object? Function(ChartThemeData) read,
+            })
+          >[
+            (
+              name: 'seriesColors',
+              only: const ChartThemeData(seriesColors: [Color(0xFFAAAAAA)]),
+              copied: () => base.copyWith(seriesColors: const [Color(0xFFAAAAAA)]),
+              read: (t) => t.seriesColors,
+            ),
+            (
+              name: 'height',
+              only: const ChartThemeData(height: 900),
+              copied: () => base.copyWith(height: 900),
+              read: (t) => t.height,
+            ),
+            (
+              name: 'scatterRadius',
+              only: const ChartThemeData(scatterRadius: 91),
+              copied: () => base.copyWith(scatterRadius: 91),
+              read: (t) => t.scatterRadius,
+            ),
+            (
+              name: 'bubbleMinRadius',
+              only: const ChartThemeData(bubbleMinRadius: 92),
+              copied: () => base.copyWith(bubbleMinRadius: 92),
+              read: (t) => t.bubbleMinRadius,
+            ),
+            (
+              name: 'bubbleMaxRadius',
+              only: const ChartThemeData(bubbleMaxRadius: 93),
+              copied: () => base.copyWith(bubbleMaxRadius: 93),
+              read: (t) => t.bubbleMaxRadius,
+            ),
+            (
+              name: 'histogramBinCount',
+              only: const ChartThemeData(histogramBinCount: 94),
+              copied: () => base.copyWith(histogramBinCount: 94),
+              read: (t) => t.histogramBinCount,
+            ),
+            (
+              name: 'axisLabelStyle',
+              only: const ChartThemeData(axisLabelStyle: TextStyle(fontSize: 95)),
+              copied: () => base.copyWith(axisLabelStyle: const TextStyle(fontSize: 95)),
+              read: (t) => t.axisLabelStyle,
+            ),
+            (
+              name: 'pieLabelStyle',
+              only: const ChartThemeData(pieLabelStyle: TextStyle(fontSize: 96)),
+              copied: () => base.copyWith(pieLabelStyle: const TextStyle(fontSize: 96)),
+              read: (t) => t.pieLabelStyle,
+            ),
+            (
+              name: 'titleTextStyle',
+              only: const ChartThemeData(titleTextStyle: TextStyle(fontSize: 97)),
+              copied: () => base.copyWith(titleTextStyle: const TextStyle(fontSize: 97)),
+              read: (t) => t.titleTextStyle,
+            ),
+            (
+              name: 'gridLineColor',
+              only: const ChartThemeData(gridLineColor: Color(0xFFBBBBBB)),
+              copied: () => base.copyWith(gridLineColor: const Color(0xFFBBBBBB)),
+              read: (t) => t.gridLineColor,
+            ),
+            (
+              name: 'heatmapLowColor',
+              only: const ChartThemeData(heatmapLowColor: Color(0xFFCCCCCC)),
+              copied: () => base.copyWith(heatmapLowColor: const Color(0xFFCCCCCC)),
+              read: (t) => t.heatmapLowColor,
+            ),
+            (
+              name: 'heatmapMidColor',
+              only: const ChartThemeData(heatmapMidColor: Color(0xFFDDDDDD)),
+              copied: () => base.copyWith(heatmapMidColor: const Color(0xFFDDDDDD)),
+              read: (t) => t.heatmapMidColor,
+            ),
+            (
+              name: 'heatmapHighColor',
+              only: const ChartThemeData(heatmapHighColor: Color(0xFFEEEEEE)),
+              copied: () => base.copyWith(heatmapHighColor: const Color(0xFFEEEEEE)),
+              read: (t) => t.heatmapHighColor,
+            ),
+          ];
+
+      test('the table covers every field the class declares', () {
+        // Guards the loop itself: add a field without a row here and this
+        // fails rather than silently leaving the new field untested.
+        expect(fields, hasLength(13));
+        expect(fields.map((f) => f.name).toSet(), hasLength(13));
+      });
+
+      for (final field in fields) {
+        test('${field.name} survives copyWith, merge, == and hashCode', () {
+          final copied = field.copied();
+          final merged = base.merge(field.only);
+
+          expect(field.read(copied), field.read(field.only), reason: 'copyWith set ${field.name}');
+          expect(field.read(merged), field.read(field.only), reason: 'merge took ${field.name}');
+
+          // Nothing else moved — this is what catches a crossed line.
+          for (final other in fields.where((f) => f.name != field.name)) {
+            expect(other.read(copied), other.read(base), reason: 'copyWith(${field.name}) disturbed ${other.name}');
+            expect(other.read(merged), other.read(base), reason: 'merge(${field.name}) disturbed ${other.name}');
+          }
+
+          expect(copied, merged, reason: 'copyWith and merge disagree on ${field.name}');
+          expect(copied, isNot(base), reason: '== ignores ${field.name}');
+          expect(copied.hashCode, isNot(base.hashCode), reason: 'hashCode ignores ${field.name}');
+        });
+      }
+    });
+
     group('merge', () {
       test("takes the other theme's set fields", () {
         const base = ChartThemeData(height: 100, histogramBinCount: 4);
@@ -157,6 +297,68 @@ void main() {
 
       expect(b.updateShouldNotify(a), isTrue);
       expect(sameAsA.updateShouldNotify(a), isFalse);
+    });
+  });
+
+  group('ChartTheme crosses a route', () {
+    // ChartTheme is an InheritedTheme purely so `wrap` carries it to routes
+    // pushed from inside the scope — showDialog, showModalBottomSheet, a
+    // pushed page. Return `child` from `wrap` and nothing else in the suite
+    // notices, while every chart in a dialog silently loses the host's theme.
+    // Mirrors the AITranslationsScope route test for the same reason: pin the
+    // mechanism, not one caller.
+    testWidgets('a chart in a dialog pushed from inside the scope keeps the theme', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: ChartTheme(
+              data: const ChartThemeData(height: 321),
+              child: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (context) => Text('${ChartTheme.of(context).height}'),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('321.0'), findsOneWidget);
+    });
+
+    testWidgets('without the scope the same dialog falls back to the ambient theme', (tester) async {
+      // The control: otherwise the test above would pass just as well if the
+      // dialog were reading a default that happened to match.
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => Text('${ChartTheme.of(context).height}'),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('321.0'), findsNothing);
+      expect(find.text('null'), findsOneWidget, reason: 'unset, for ResolvedChartTheme to fill in');
     });
   });
 }

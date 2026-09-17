@@ -54,7 +54,12 @@ class USeries {
   /// Creates a [USeries].
   const USeries({required this.name, required this.points});
 
-  /// The series name (shown in legends).
+  /// The series name, or `''` when the data didn't name one.
+  ///
+  /// [USpecParser] leaves it empty rather than inventing an English default,
+  /// so anything displaying it substitutes `AITranslations.unnamedChartSeries`
+  /// first — `HeatmapChartView` does this for its row labels, and
+  /// `ChartSemantics` for the spoken summary. This package draws no legend.
   final String name;
 
   /// The data points that make up this series.
