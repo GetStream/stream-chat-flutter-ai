@@ -25,8 +25,8 @@ environment:
 resolution: workspace
 
 dependencies:
-  # List equality for the public chart value types (`UPoint`, `USeries`,
-  # `USpec`), whose fields include lists.
+  # Deep and list equality for the public value types, whose fields include
+  # lists and maps.
   collection: ^1.19.0
   # Depended on directly, not just via image_picker: `XFile` appears in this
   # package's own public API (`ChatComposerSendCallback`, and
