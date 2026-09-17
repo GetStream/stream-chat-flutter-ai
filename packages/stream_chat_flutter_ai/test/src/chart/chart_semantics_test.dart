@@ -87,6 +87,109 @@ void main() {
       expect(ChartSemantics.fromSpec(spec, unnamedSeries: 'Series').categoryCount, 3);
     });
 
+    group('kinds that draw only the first series', () {
+      // ChartView plots series.first for a pie and a histogram and ignores the
+      // rest, so the spoken summary has to do the same or it announces a count
+      // nobody can see.
+      const twoSeriesPie = USpec(
+        kind: USpecKind.pie,
+        series: [
+          USeries(
+            name: 'Drawn',
+            points: [
+              UPoint(x: 'Chrome', y: 60),
+              UPoint(x: 'Safari', y: 40),
+            ],
+          ),
+          USeries(
+            name: 'Ignored',
+            points: [
+              UPoint(x: 'Edge', y: 5),
+              UPoint(x: 'Opera', y: 5),
+            ],
+          ),
+        ],
+      );
+
+      test('a pie counts only the slices it draws', () {
+        final chart = ChartSemantics.fromSpec(twoSeriesPie, unnamedSeries: 'Series');
+
+        expect(chart.pointCount, 2, reason: 'four points, but only the first series is plotted');
+        expect(chart.seriesNames, ['Drawn']);
+        expect(chart.rowCount, 1);
+        expect(chart.valueMax, '60');
+        expect(chart.largestSliceLabel, 'Chrome');
+        expect(chart.largestSlicePercent, '60', reason: 'a share of the drawn series, not of all four points');
+      });
+
+      test('a histogram counts only the samples it bins', () {
+        const spec = USpec(
+          kind: USpecKind.histogram,
+          series: [
+            USeries(
+              name: 'Drawn',
+              points: [
+                UPoint(x: '0', y: 1),
+                UPoint(x: '1', y: 9),
+              ],
+            ),
+            USeries(
+              name: 'Ignored',
+              points: [UPoint(x: '2', y: 100)],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+
+        expect(chart.pointCount, 2);
+        expect(chart.valueMax, '9', reason: 'the ignored series must not widen the range');
+      });
+
+      test('a pie whose first series is empty describes an empty chart rather than throwing', () {
+        // Reachable through the public const USpec constructor, which
+        // validates nothing. ChartView renders this as an empty pie, so the
+        // summary must not be the thing that crashes the frame.
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(name: 'Empty', points: []),
+            USeries(
+              name: 'Later',
+              points: [UPoint(x: 'Chrome', y: 60)],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+
+        expect(chart.isEmpty, isTrue);
+        expect(chart.pointCount, 0);
+        expect(chart.largestSliceLabel, isNull);
+      });
+
+      test('a line chart still describes every series', () {
+        const spec = USpec(
+          kind: USpecKind.line,
+          series: [
+            USeries(
+              name: 'A',
+              points: [UPoint(x: 'Jan', y: 1)],
+            ),
+            USeries(
+              name: 'B',
+              points: [UPoint(x: 'Jan', y: 2)],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+
+        expect(chart.pointCount, 2);
+        expect(chart.seriesNames, ['A', 'B']);
+      });
+    });
+
     group('number formatting', () {
       test('reads a whole value without its decimal', () {
         // A screen reader says "ten point zero" for a bare toString, and chart
@@ -126,6 +229,47 @@ void main() {
         final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
         expect(chart.valueMin, '2.5', reason: 'a trailing zero is trimmed');
         expect(chart.valueMax, '3.14');
+      });
+
+      test('drops the decimal point when rounding clears the fraction', () {
+        // toStringAsFixed(2) gives '100.00' and '4.00' here. Stripping the
+        // zeros without the point left '100.' and '4.', which a screen reader
+        // reads as "one hundred point".
+        const spec = USpec(
+          kind: USpecKind.line,
+          series: [
+            USeries(
+              name: 'A',
+              points: [
+                UPoint(x: 'Jan', y: 3.999),
+                UPoint(x: 'Feb', y: 99.999),
+              ],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+        expect(chart.valueMin, '4');
+        expect(chart.valueMax, '100');
+      });
+
+      test('reports a sub-hundredth value as zero, not a bare point', () {
+        const spec = USpec(
+          kind: USpecKind.line,
+          series: [
+            USeries(
+              name: 'A',
+              points: [
+                UPoint(x: 'Jan', y: 0.001),
+                UPoint(x: 'Feb', y: 0.5),
+              ],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+        expect(chart.valueMin, '0');
+        expect(chart.valueMax, '0.5');
       });
 
       test('renders a negative zero as zero', () {

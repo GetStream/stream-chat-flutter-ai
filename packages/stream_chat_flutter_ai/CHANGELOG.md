@@ -267,6 +267,23 @@ First release of `stream_chat_flutter_ai`.
 
 🐞 Fixed
 
+- **A chart's spoken value range dropped its fraction and kept the decimal point.** The trailing-zero
+  strip in `ChartSemantics` ran on the whole formatted number rather than on the fraction, so a value
+  rounding to `x.00` — `99.999`, `3.999`, `1.001` — came out as `100.`, `4.` and `1.`, which a screen
+  reader voices as "one hundred point". Charts whose values all sit below `0.005` fared worst: both
+  ends of the range collapsed to `0.`, so the range clause said nothing at all. Since the chart's
+  `Semantics` node excludes the painted axis labels, that sentence is the only thing a screen-reader
+  user gets.
+- **A pie or histogram described series it doesn't draw.** `ChartView` plots the first series and
+  ignores the rest for both kinds, but `ChartSemantics.fromSpec` flattened every series — so a
+  two-series pie showing four slices was announced as eight, with the largest slice's share computed
+  against a total the chart never draws. `USpecParser` accepts a multi-series pie from model output,
+  so this needed nothing unusual to hit. The summary now covers exactly what is on screen.
+- **A pie whose first series was empty crashed the frame.** `ChartSemantics.fromSpec` reduced over
+  that series without a guard, throwing `StateError` inside `build` and replacing the whole
+  `AIMarkdownBody` with an error widget, where `ChartView` renders the same spec as an empty pie.
+  Reachable through the public `USpec` constructor, which validates nothing.
+
 - `ChatComposerInput` now rebuilds on its own listenables. As the private `_InputContainer` it was only ever constructed inside `ChatComposer`'s `ListenableBuilder`; exported, it read `ChatComposerController` state and the process-wide `SpeechToTextController.instance` while subscribing to neither, so standalone use rendered once and then froze — typing never enabled send, a dismissed chip stayed on screen, and with `enableSpeechToText` a dictation session could run with no control able to stop it.
 - `ChatComposerInputProps.hintText` is now `String?`, and `null` where the host passed no `ChatComposer.hintText` — **breaking change** for a custom input reading it. It was non-nullable, defaulting to a constant, which left an input no way to tell a hint the host chose from the package's own default, and put the English literal on the composer rather than in the translations. The slot rendering the field now owns what an absent hint means: `ChatComposerInput` falls back to `AITranslations.composerHint`, and a custom input wanting the same writes `props.hintText ?? AITranslations.of(context).composerHint`.
 - `ChatComposerInputProps.onSend`/`onStop` now check `mounted`. They are handed to host code that may call them across an async gap — a confirmation dialog, a debounce — and doing so after the composer left the tree sent a message from an abandoned screen and then notified a disposed controller, which only asserts in debug.

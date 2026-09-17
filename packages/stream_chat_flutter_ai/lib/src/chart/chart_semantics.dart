@@ -39,16 +39,25 @@ class ChartSemantics {
   /// [unnamedSeries] stands in for a series the chart data didn't name — the
   /// parser leaves those empty rather than inventing an English word for them.
   factory ChartSemantics.fromSpec(USpec spec, {required String unnamedSeries}) {
-    final points = [for (final series in spec.series) ...series.points];
+    // A pie and a histogram plot the first series and ignore the rest — see
+    // `ChartView._buildPieChart` and `_buildHistogramChart`. Describing every
+    // series would announce a slice or sample count the chart never draws, so
+    // the summary covers exactly what is on screen.
+    final drawn = switch (spec.kind) {
+      USpecKind.pie || USpecKind.histogram => spec.series.take(1).toList(growable: false),
+      _ => spec.series,
+    };
+
+    final points = [for (final series in drawn) ...series.points];
     final names = [
-      for (final series in spec.series)
+      for (final series in drawn)
         if (series.name.trim().isEmpty) unnamedSeries else series.name,
     ];
     final title = spec.title?.trim();
     final xLabel = spec.xLabel?.trim();
     final yLabel = spec.yLabel?.trim();
 
-    final columns = <String>{for (final series in spec.series) ...series.points.map((p) => p.x)};
+    final columns = <String>{for (final series in drawn) ...series.points.map((p) => p.x)};
 
     if (points.isEmpty) {
       return ChartSemantics._(
@@ -56,7 +65,7 @@ class ChartSemantics {
         seriesNames: names,
         pointCount: 0,
         categoryCount: 0,
-        rowCount: spec.series.length,
+        rowCount: drawn.length,
         columnCount: columns.length,
         title: _orNull(title),
         xLabel: _orNull(xLabel),
@@ -72,7 +81,9 @@ class ChartSemantics {
     String? largestLabel;
     String? largestPercent;
     if (spec.kind == USpecKind.pie) {
-      final slices = spec.series.first.points;
+      // `points` is already the first series alone, and non-empty past the
+      // guard above — so `reduce` has something to fold.
+      final slices = points;
       final total = slices.fold<double>(0, (sum, p) => sum + p.y);
       final largest = slices.reduce((a, b) => b.y > a.y ? b : a);
       largestLabel = _orNull(largest.x.trim());
@@ -84,8 +95,8 @@ class ChartSemantics {
       kind: spec.kind,
       seriesNames: names,
       pointCount: points.length,
-      categoryCount: _categoryCount(spec),
-      rowCount: spec.series.length,
+      categoryCount: _categoryCount(drawn),
+      rowCount: drawn.length,
       columnCount: columns.length,
       title: _orNull(title),
       xLabel: _orNull(xLabel),
@@ -166,16 +177,18 @@ class ChartSemantics {
     // Also normalizes -0.0, which toStringAsFixed(0) renders as '-0'.
     if (value == 0) return '0';
     if (value == value.roundToDouble()) return value.toStringAsFixed(0);
-    return value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
+    // The `\.?` matters: without it the trailing zeros go but the point stays,
+    // so 99.999 formats as '100.' and a reader hears "one hundred point".
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
-  /// How many x positions [spec] occupies, mirroring `ChartView`'s own
+  /// How many x positions [series] occupies, mirroring `ChartView`'s own
   /// category logic.
-  static int _categoryCount(USpec spec) {
-    final hasCategoryKeys = spec.series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
+  static int _categoryCount(List<USeries> series) {
+    final hasCategoryKeys = series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
     if (hasCategoryKeys) {
-      return <String>{for (final series in spec.series) ...series.points.map((p) => p.x)}.length;
+      return <String>{for (final s in series) ...s.points.map((p) => p.x)}.length;
     }
-    return spec.series.fold(0, (longest, s) => math.max(longest, s.points.length));
+    return series.fold(0, (longest, s) => math.max(longest, s.points.length));
   }
 }
