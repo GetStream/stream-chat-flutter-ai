@@ -31,6 +31,10 @@ melos:
 
       # List of all the dependencies used in the project.
       dependencies:
+        # Deep/list equality for the public value types (`USpec` and friends).
+        # Already resolved transitively via the Flutter SDK; declared because
+        # the package imports it directly.
+        collection: ^1.19.0
         cross_file: ^0.3.5
         fl_chart: ^1.2.0
         flutter_markdown_plus: ^1.0.7

@@ -25,6 +25,9 @@ environment:
 resolution: workspace
 
 dependencies:
+  # List equality for the public chart value types (`UPoint`, `USeries`,
+  # `USpec`), whose fields include lists.
+  collection: ^1.19.0
   # Depended on directly, not just via image_picker: `XFile` appears in this
   # package's own public API (`ChatComposerSendCallback`, and
   # `ChatComposerController.attachments`) and is re-exported from the barrel file.
