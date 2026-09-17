@@ -224,10 +224,29 @@ First release of `stream_chat_flutter_ai`.
   for a tool that produced no actions — and that `null` is deliberately **not** reported through
   `FlutterError`. Registrations persist server-side and are re-applied when the channel's agent
   restarts, so a build that has dropped a tool still receives invocations for it from a channel an
-  older build registered. Reporting it would red-screen a debug build over something outside the
-  app's control. `FlutterError` stays this package's channel for bugs: a tool that throws, or whose
-  actions throw, is reported there, while `dispatch`'s `bool` answers only whether a tool was
-  registered.
+  older build registered. That is outside the app's control, so routing it to a host's crash
+  reporter would be noise; a debug-only console line names the tool and what *is* registered
+  instead, for the case where the name is mismatched rather than stale. `FlutterError` stays this
+  package's channel for bugs: a tool that throws, or whose actions throw, is reported there — along
+  with the invocation, whose `toString` withholds the argument values — and to `AIToolRegistry`'s
+  new `onToolError`, which is how a host tells the *user* that something didn't work. `dispatch`'s
+  `bool` answers only whether a tool was registered.
+
+- A `custom_client_tool_invocation` payload that announces itself as an invocation and then fails to
+  parse is reported to `FlutterError.onError`, naming the payload's keys but not their values. The
+  tool the agent asked for will not run and the agent is never told, so this would otherwise be
+  invisible in debug and release alike. A payload that never claimed to be an invocation still
+  returns `null` quietly, so a host piping every channel event through `tryParse` is not drowned.
+
+- `AIToolInvocation.args` is unmodifiable however the event spelled its arguments, and
+  `AIToolDefinition.toJson()` copies `parameters` out rather than aliasing them. Also new:
+  `AIToolDefinition.copyWith` and `AIToolRegistry.runActions`, which gives the deferred `resolve`
+  path the same guarding `dispatch` applies rather than leaving each host to reimplement it.
+
+- An empty string of arguments now fails the parse instead of reading as none. `jsonDecode('')`
+  throws, so `""` is not a readable JSON object, and a tool that takes no arguments omits the key or
+  sends `{}`; an empty string is far more likely an argument stream that was cut short, and running
+  on what survived is the wrong-ticket failure the parser refuses everywhere else.
 
 - Deviations from the Swift library's shape, recorded so they aren't read as oversights. There is no
   `ToolRegistrationPayload`: it exists there because MCP's `Tool.description` is optional, forcing a

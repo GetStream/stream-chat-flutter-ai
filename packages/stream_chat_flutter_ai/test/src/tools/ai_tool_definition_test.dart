@@ -77,7 +77,21 @@ void main() {
         };
         const definition = AIToolDefinition(name: 'search', description: 'Search', parameters: schema);
 
-        expect(definition.toJson()['parameters'], same(schema));
+        expect(definition.toJson()['parameters'], schema);
+      });
+
+      test('copies the parameters out rather than aliasing them', () {
+        // A host that rewrites its payload before sending — adding
+        // `additionalProperties`, say — must not also rewrite the definition it
+        // registered.
+        final schema = <String, Object?>{'type': 'object', 'properties': <String, Object?>{}};
+        final definition = AIToolDefinition(name: 'search', description: 'Search', parameters: schema);
+
+        final payload = definition.toJson();
+        (payload['parameters']! as Map<String, Object?>)['additionalProperties'] = false;
+
+        expect(definition.parameters, isNot(contains('additionalProperties')));
+        expect(schema, isNot(contains('additionalProperties')));
       });
 
       test('produces something jsonEncode accepts', () {
@@ -91,6 +105,27 @@ void main() {
         );
 
         expect(jsonDecode(jsonEncode(definition.toJson())), definition.toJson());
+      });
+    });
+
+    group('copyWith', () {
+      const definition = AIToolDefinition(
+        name: 'greetUser',
+        description: 'Greet the user',
+        instructions: 'Greet on request.',
+      );
+
+      test('replaces only what it is given', () {
+        final copy = definition.copyWith(description: 'Say hello');
+
+        expect(copy.toJson(), {
+          ...definition.toJson(),
+          'description': 'Say hello',
+        });
+      });
+
+      test('keeps every field when given nothing', () {
+        expect(definition.copyWith().toJson(), definition.toJson());
       });
     });
   });

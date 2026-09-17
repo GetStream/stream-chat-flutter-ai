@@ -1,29 +1,24 @@
+// Cross-references below to the stream-chat-swift-ai library, to MCP, and to the
+// reference `/register-tools` in `chat-ai-samples` describe those sources as of
+// September 2026. Neither repository is vendored here, so no check in this one
+// re-verifies them.
+
+import 'package:flutter/foundation.dart';
+
 /// The JSON Schema a tool that takes no arguments declares.
-///
-/// Private on purpose: it exists to make the no-argument case a default rather
-/// than something every host spells out.
 const _kEmptyObjectSchema = <String, Object?>{'type': 'object', 'properties': <String, Object?>{}};
 
 /// What the AI agent is told about one of the host's client-side tools.
 ///
-/// This is the registration half of the tool subsystem. The flow it feeds,
-/// end to end:
+/// This is the registration half of the tool subsystem. The host builds a
+/// definition per tool, registers it with an `AIToolRegistry`, and POSTs
+/// `registrationPayloads()` to **its own** backend, which hands them to the
+/// agent SDK. See the README for the full round trip.
 ///
-/// 1. The host builds a definition per tool and registers it with an
-///    `AIToolRegistry`.
-/// 2. The host POSTs `registrationPayloads()` to **its own** backend — the
-///    reference sample exposes `/register-tools` taking
-///    `{channel_id, tools}`. This package holds no HTTP client and no
-///    endpoint; that envelope belongs to whatever service the host runs.
-/// 3. That backend calls the agent SDK's `registerClientTools(channelId,
-///    tools)`, which **persists** the definitions server-side and re-applies
-///    them the next time the channel's agent starts.
-/// 4. When the model decides to call a tool, the agent emits a
-///    `custom_client_tool_invocation` event, which the host parses with
-///    `AIToolInvocation.tryParse` and hands back to the registry.
-///
-/// Step 3 is why an invocation can name a tool the running build knows nothing
-/// about: a registration made by an older version outlives that version. See
+/// The one step worth knowing here: the agent SDK **persists** registrations
+/// server-side and re-applies them the next time the channel's agent starts.
+/// That is why an invocation can name a tool the running build knows nothing
+/// about — a registration made by an older version outlives that version. See
 /// `AIToolRegistry.resolve`, which treats that as a normal outcome rather than
 /// an error.
 ///
@@ -44,9 +39,16 @@ const _kEmptyObjectSchema = <String, Object?>{'type': 'object', 'properties': <S
 /// );
 /// ```
 ///
-/// Mirrors the `ClientTool`/`ToolRegistrationPayload` pair in the
-/// stream-chat-swift-ai library, collapsed into one type — see [toJson].
-class AIToolDefinition {
+/// This type has no `==`/`hashCode`, and neither does `AIToolInvocation`.
+/// [parameters] is a map, so a correct pair needs deep comparison — a
+/// `collection` dependency this package doesn't take — and a shallow pair would
+/// compare two identical schemas as different. Comparing definitions in a test
+/// means comparing [toJson] results, which are plain maps and compare deeply.
+///
+/// Collapses the `Tool`/`ToolRegistrationPayload` pair the stream-chat-swift-ai
+/// library carries — see [toJson].
+@immutable
+final class AIToolDefinition {
   /// Creates an [AIToolDefinition].
   const AIToolDefinition({
     required this.name,
@@ -64,10 +66,11 @@ class AIToolDefinition {
 
   /// What the tool does, in the words the model reads when deciding to call it.
   ///
-  /// Required here, where the Swift library's is optional and falls back to
-  /// [instructions] when absent. A tool the model can't tell apart from the
-  /// others is not useful, and backfilling this from a field written for a
-  /// different audience produces a worse description than asking for one.
+  /// Required here, where MCP's `Tool.description` — which the Swift library
+  /// embeds — is optional and falls back to its `instructions` when absent. A
+  /// tool the model can't tell apart from the others is not useful, and
+  /// backfilling this from a field written for a different audience produces a
+  /// worse description than asking for one.
   final String description;
 
   /// Extra guidance for the agent on when and how to use the tool.
@@ -84,16 +87,18 @@ class AIToolDefinition {
   /// their agent configuration uses.
   ///
   /// Defaults to an empty object schema, which is what a tool taking no
-  /// arguments declares.
+  /// arguments declares. Note the asymmetry with `AIInvokedTool.parameters`,
+  /// which is nullable because absent there means "the event echoed no schema"
+  /// rather than "this tool declares no arguments".
   final Map<String, Object?> parameters;
 
   /// Whether the agent should signal that it is consulting external sources
   /// while this tool runs.
   ///
   /// Passed through to the backend; **this package never reads it**. Acting on
-  /// it is the server's job — it is what makes the agent emit its
-  /// "checking external sources" state, which a host renders with
-  /// `AITypingIndicatorView`.
+  /// it is the server's job — it is what makes the agent report a "checking
+  /// external sources" state, which a host can render by passing that caption
+  /// to `AITypingIndicatorView`, whose `text` is an arbitrary string.
   final bool showExternalSourcesIndicator;
 
   /// This tool's registration payload, ready for `jsonEncode`.
@@ -108,16 +113,33 @@ class AIToolDefinition {
   /// to decide — and a mismatch fails quietly, as a tool that simply never
   /// fires. The result is a plain map, so remapping the keys is a couple of
   /// lines if yours differ.
+  ///
+  /// [parameters] is copied out rather than aliased, so a host that rewrites
+  /// its payload before sending does not also rewrite the definition it
+  /// registered.
   Map<String, Object?> toJson() => <String, Object?>{
     'name': name,
     'description': description,
     if (instructions case final instructions?) 'instructions': instructions,
-    'parameters': parameters,
+    'parameters': Map<String, Object?>.of(parameters),
     'showExternalSourcesIndicator': showExternalSourcesIndicator,
   };
 
-  // No `==`/`hashCode`. [parameters] is a map, so a correct pair needs deep
-  // comparison — `DeepCollectionEquality`, and a `collection` dependency this
-  // package doesn't take — and a shallow pair would compare two identical
-  // schemas as different. Nothing here compares definitions.
+  /// A copy of this definition with the given fields replaced.
+  ///
+  /// A null argument means "keep what is there", so this cannot clear
+  /// [instructions] — construct a new definition for that.
+  AIToolDefinition copyWith({
+    String? name,
+    String? description,
+    String? instructions,
+    Map<String, Object?>? parameters,
+    bool? showExternalSourcesIndicator,
+  }) => AIToolDefinition(
+    name: name ?? this.name,
+    description: description ?? this.description,
+    instructions: instructions ?? this.instructions,
+    parameters: parameters ?? this.parameters,
+    showExternalSourcesIndicator: showExternalSourcesIndicator ?? this.showExternalSourcesIndicator,
+  );
 }

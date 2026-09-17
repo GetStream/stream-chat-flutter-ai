@@ -1,14 +1,13 @@
 # Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
 
 > A standalone set of Flutter components for building LLM-driven chat experiences:
-> streaming text, animated typing indicators, labelled code blocks, charts,
-> a purpose-built AI composer, speech-to-text input, and client-side tool calling.
-> This package has **no
-> dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
-> package** — every widget operates on plain strings, callbacks, and controllers, so
-> it can be dropped into any Flutter app or paired with any backend/LLM provider. See
-> [Using with Stream Chat](#using-with-stream-chat) below for wiring it up to a Stream
-> Chat channel.
+> streaming text, animated typing indicators, labelled code blocks, charts, a
+> purpose-built AI composer, speech-to-text input, and client-side tool calling. This
+> package has **no dependency on `stream_chat`, `stream_chat_flutter`, or any other
+> Stream Chat package** — every widget operates on plain strings, callbacks, and
+> controllers, so it can be dropped into any Flutter app or paired with any
+> backend/LLM provider. See [Using with Stream Chat](#using-with-stream-chat) below
+> for wiring it up to a Stream Chat channel.
 
 [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dartlang.org/packages/stream_chat_flutter_ai)
 [![CI](https://github.com/GetStream/stream-chat-flutter-ai/actions/workflows/stream_flutter_ai_workflow.yml/badge.svg?branch=main)](https://github.com/GetStream/stream-chat-flutter-ai/actions/workflows/stream_flutter_ai_workflow.yml)
@@ -510,15 +509,20 @@ starts.
 > payloads are plain maps, so remapping keys is a couple of lines.
 
 Then route invocations. `dispatch` runs the tool's actions in order, guarding each
-one; `resolve` returns them unrun if you want to schedule them yourself. `dispatch`
+one; `resolve` returns them unrun if you want to schedule them yourself — run those
+with `runActions` to get the same guarding, rather than reimplementing it. `dispatch`
 reports whether *a tool was registered* under the invoked name — not whether it
 succeeded. A `false` is normal rather than an error: because registrations outlive
 the build that made them, an older version of your app can register a tool this build
-no longer has. Failures inside a tool go to `FlutterError.onError` instead.
+no longer has; a debug build also prints the name and what *is* registered, for the
+case where the name is mismatched rather than stale. Failures inside a tool go to
+`FlutterError.onError`, and to the registry's `onToolError` if you pass one — that
+callback is how you tell the *user* something didn't work.
 
 Set `showExternalSourcesIndicator: true` on a tool that consults something remote and
-the agent will report a "checking external sources" state while it runs, which you can
-surface with [`AITypingIndicatorView`](#aitypingindicatorview).
+the agent will report a "checking external sources" state while it runs. This package
+never reads the flag; to surface the state, pass your own caption for it to
+[`AITypingIndicatorView`](#aitypingindicatorview), whose `text` is an ordinary string.
 
 ### Localization
 
@@ -647,9 +651,13 @@ Route client-tool invocations to your `AIToolRegistry`:
 ```dart
 channel.on(kClientToolInvocationEventType).listen((event) {
   final invocation = AIToolInvocation.tryParse({...event.extraData, 'cid': event.cid});
-  if (invocation != null) registry.dispatch(invocation);
+  if (invocation != null) unawaited(registry.dispatch(invocation));
 });
 ```
+
+A payload that announced itself as an invocation and then failed to parse is reported
+to `FlutterError.onError`: the tool the agent asked for will not run, and the agent is
+never told, so that would otherwise be silent.
 
 `tryParse` takes a flat map so the event's own fields can be merged in: `cid` is a
 first-class field on `Event` rather than part of `extraData`. It tolerates an absent

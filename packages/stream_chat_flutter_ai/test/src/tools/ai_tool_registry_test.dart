@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_tool_definition.dart';
@@ -13,6 +15,7 @@ class _RecordingTool implements AIClientTool {
     this.actionCount = 1,
     this.onHandle,
     this.actionBody,
+    this.syncActions = false,
   });
 
   final List<String> log;
@@ -24,7 +27,15 @@ class _RecordingTool implements AIClientTool {
 
   /// Runs in place of the default logging body, so a test can make an action
   /// fail.
-  final Future<void> Function(int index)? actionBody;
+  final FutureOr<void> Function(int index)? actionBody;
+
+  /// Whether the returned actions are plain synchronous closures.
+  ///
+  /// [AIToolAction] is `FutureOr<void> Function()`, so a tool may legitimately
+  /// return a closure that is not `async` at all. A throw from one of those
+  /// leaves the action synchronously rather than as a rejected future, which is
+  /// a different path out of [AIToolRegistry.dispatch].
+  final bool syncActions;
 
   final invocations = <AIToolInvocation>[];
 
@@ -36,12 +47,32 @@ class _RecordingTool implements AIClientTool {
     invocations.add(invocation);
     onHandle?.call();
     return List.generate(actionCount, (index) {
+      if (syncActions) {
+        return () {
+          if (actionBody case final body?) return body(index);
+          log.add('$name#$index');
+        };
+      }
       return () async {
         if (actionBody case final body?) return body(index);
         log.add('$name#$index');
       };
     });
   }
+}
+
+/// A tool whose `definition` getter answers differently on every call.
+///
+/// Stands in for the realistic versions — a name read from a mutable field, a
+/// locale, or a feature flag.
+class _DriftingTool implements AIClientTool {
+  int _calls = 0;
+
+  @override
+  AIToolDefinition get definition => AIToolDefinition(name: 'drift${_calls++}', description: 'Drifts');
+
+  @override
+  List<AIToolAction> handleInvocation(AIToolInvocation invocation) => const [];
 }
 
 /// Runs [body] with [FlutterError.onError] collecting instead of failing, and
@@ -72,7 +103,7 @@ void main() {
         expect(AIToolRegistry().toolNames, isEmpty);
       });
 
-      test('produces one payload per tool, in registration order', () {
+      test('produces one payload per tool, in first-registration order', () {
         final log = <String>[];
         final registry = AIToolRegistry()
           ..register(_RecordingTool(log: log, name: 'second'))
@@ -92,6 +123,33 @@ void main() {
         expect(registry.registrationPayloads(), hasLength(1));
         registry.resolve(_invocationOf('greetUser'));
         expect(replacement.invocations, hasLength(1));
+      });
+
+      test('keeps a re-registered tool in its original position', () {
+        // Re-registering is blessed as normal — a State.initState that runs
+        // again, a hot reload — so it must not quietly reorder the payloads.
+        final log = <String>[];
+        final registry = AIToolRegistry()
+          ..register(_RecordingTool(log: log, name: 'first'))
+          ..register(_RecordingTool(log: log, name: 'second'))
+          ..register(_RecordingTool(log: log, name: 'first'));
+
+        expect(registry.toolNames, ['first', 'second']);
+      });
+
+      test('keys a tool under the name it had when it was registered', () {
+        // The registry announces one name to the backend and matches
+        // invocations against another if it re-reads a getter that has since
+        // changed its answer.
+        final registry = AIToolRegistry()..register(_DriftingTool());
+
+        expect(registry.registrationPayloads().map((payload) => payload['name']), registry.toolNames);
+      });
+
+      test('rejects an empty tool name in debug', () {
+        // The definition's own assert is compile-time for const definitions;
+        // this is the net for a name derived at runtime.
+        expect(() => AIToolRegistry().register(_RecordingTool(log: [], name: '')), throwsAssertionError);
       });
 
       test('unregisters a registered tool, and reports whether there was one', () {
@@ -133,6 +191,19 @@ void main() {
 
       test('returns null for a name no tool is registered under', () {
         expect(AIToolRegistry().resolve(_invocationOf('greetUser')), isNull);
+      });
+
+      test('lets a tool that throws while handling throw through', () {
+        // Unlike dispatch: this is a lookup, and a caller reaching for the
+        // actions themselves decides what a failure means. Wrapping this in a
+        // guard "for symmetry" would turn a crashing tool into a null, which is
+        // the one thing null must not mean.
+        final registry = AIToolRegistry()
+          ..register(
+            _RecordingTool(log: [], onHandle: () => throw StateError('no navigator')),
+          );
+
+        expect(() => registry.resolve(_invocationOf('greetUser')), throwsStateError);
       });
 
       test('returns an empty list for a tool that produced no actions', () {
@@ -202,8 +273,9 @@ void main() {
       test('reports an unregistered name as unhandled, and says nothing to FlutterError', () async {
         // Registrations persist on the server and are re-applied when the agent
         // restarts, so a build that dropped a tool still receives invocations
-        // for it. That is expected, and outside the app's control — reporting it
-        // would red-screen a debug build over something it cannot fix.
+        // for it. That is expected, and outside the app's control, so routing it
+        // to a host's crash reporter would be noise. A debug-only console line
+        // names it instead.
         final reported = await _collectingErrors(() async {
           expect(await AIToolRegistry().dispatch(_invocationOf('greetUser')), isFalse);
         });
@@ -294,6 +366,158 @@ void main() {
 
           expect(reported, hasLength(3));
         });
+
+        test('catches a synchronous throw from an action that is not async', () async {
+          // AIToolAction is FutureOr<void> Function(), so a tool may return a
+          // plain closure. Hoisting the call out of the guard would let this
+          // escape uncaught while every async-action test still passed.
+          final log = <String>[];
+          final registry = AIToolRegistry()
+            ..register(
+              _RecordingTool(
+                log: log,
+                actionCount: 2,
+                syncActions: true,
+                actionBody: (index) {
+                  if (index == 0) throw StateError('sync failure');
+                  log.add('ran $index');
+                },
+              ),
+            );
+
+          final reported = await _collectingErrors(() async {
+            expect(await registry.dispatch(_invocationOf('greetUser')), isTrue);
+          });
+
+          expect(log, ['ran 1']);
+          expect(reported, hasLength(1));
+          expect(reported.single.exception, isStateError);
+        });
+
+        test('runs a synchronous action that does not throw', () async {
+          final log = <String>[];
+          final registry = AIToolRegistry()..register(_RecordingTool(log: log, syncActions: true));
+
+          expect(await registry.dispatch(_invocationOf('greetUser')), isTrue);
+          expect(log, ['greetUser#0']);
+        });
+
+        test('names the failing action, and the tool, in the report context', () async {
+          // The context is the only thing that makes a report actionable in a
+          // crash reporter, and the 1-based index is exactly the detail that
+          // rots unnoticed.
+          final registry = AIToolRegistry()
+            ..register(
+              _RecordingTool(
+                log: [],
+                actionCount: 3,
+                actionBody: (index) async => throw StateError('action $index failed'),
+              ),
+            );
+
+          final reported = await _collectingErrors(() async {
+            await registry.dispatch(_invocationOf('greetUser'));
+          });
+
+          expect(
+            reported.map((details) => details.context.toString()),
+            [
+              contains('action 1 of 3'),
+              contains('action 2 of 3'),
+              contains('action 3 of 3'),
+            ],
+          );
+          expect(reported.every((details) => details.context.toString().contains('greetUser')), isTrue);
+          expect(reported.every((details) => details.stack != null), isTrue);
+        });
+
+        test('names the handling phase, not an action, when handling throws', () async {
+          final registry = AIToolRegistry()
+            ..register(
+              _RecordingTool(log: [], onHandle: () => throw StateError('no navigator')),
+            );
+
+          final reported = await _collectingErrors(() async {
+            await registry.dispatch(_invocationOf('greetUser'));
+          });
+
+          expect(reported.single.context.toString(), contains('handle an invocation'));
+          expect(reported.single.context.toString(), isNot(contains('action')));
+        });
+
+        test('carries the invocation, without its argument values, in the report', () async {
+          // toString withholds the values by design; this is the one place it
+          // is for, and the channel and message are what make a report
+          // attributable.
+          final registry = AIToolRegistry()
+            ..register(
+              _RecordingTool(log: [], actionBody: (_) async => throw StateError('boom')),
+            );
+          final invocation = AIToolInvocation.tryParse({
+            'tool': {'name': 'greetUser'},
+            'cid': 'messaging:general',
+            'args': {'name': 'ACME-SECRET-42'},
+          })!;
+
+          final reported = await _collectingErrors(() async {
+            await registry.dispatch(invocation);
+          });
+
+          final information = reported.single.informationCollector!().join('\n');
+          expect(information, contains('messaging:general'));
+          expect(information, contains('name'));
+          expect(information, isNot(contains('ACME-SECRET-42')));
+        });
+
+        test('tells the host through onToolError as well as FlutterError', () async {
+          // A global handler cannot tell the user that something did not work.
+          final failures = <(String, Object)>[];
+          final registry = AIToolRegistry(
+            onToolError: (invocation, error, _) => failures.add((invocation.tool.name, error)),
+          )..register(_RecordingTool(log: [], actionBody: (_) async => throw StateError('boom')));
+
+          await _collectingErrors(() async {
+            await registry.dispatch(_invocationOf('greetUser'));
+          });
+
+          expect(failures, hasLength(1));
+          expect(failures.single.$1, 'greetUser');
+          expect(failures.single.$2, isStateError);
+        });
+      });
+    });
+
+    group('runActions', () {
+      test('gives the deferred path the same guarding dispatch has', () async {
+        // A host that took the actions from resolve and scheduled them itself
+        // would otherwise have to reimplement this, and the await is what keeps
+        // a throw after an action's first await out of the zone.
+        final log = <String>[];
+        final registry = AIToolRegistry()
+          ..register(
+            _RecordingTool(
+              log: log,
+              actionCount: 2,
+              actionBody: (index) async {
+                if (index == 0) {
+                  await Future<void>.delayed(Duration.zero);
+                  throw StateError('failed after awaiting');
+                }
+                log.add('ran $index');
+              },
+            ),
+          );
+
+        final invocation = _invocationOf('greetUser');
+        final actions = registry.resolve(invocation)!;
+
+        final reported = await _collectingErrors(() async {
+          await registry.runActions(invocation, actions);
+        });
+
+        expect(log, ['ran 1']);
+        expect(reported, hasLength(1));
+        expect(reported.single.exception, isStateError);
       });
     });
   });

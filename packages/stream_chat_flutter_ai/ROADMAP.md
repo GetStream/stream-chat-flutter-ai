@@ -614,7 +614,9 @@ closures). Here it is a `channel.on(...)` listener and an HTTP call, both shown 
   `channel.on` glue under **Using with Stream Chat**.
 - **Acceptance:** met by `test/src/tools/` — the documented event payload, parsed by `tryParse`,
   routed through `dispatch`, asserting the tool's action ran; plus the `null`-vs-`[]` distinction,
-  action ordering, and every failure path. The worked example lives in the README rather than the
+  action ordering, `resolve` letting a tool's throw through, and the failure paths through
+  `dispatch` — a throwing handler, a throwing action, a throw after an `await`, and a synchronous
+  throw from an action that is not `async`. The worked example lives in the README rather than the
   example app.
 - **Follow-ups, deliberately not in scope:** wire the example app with a synthetic invocation
   trigger; wire `chat-ai-samples/flutter` end-to-end the way the iOS sample is (separate repo); and
