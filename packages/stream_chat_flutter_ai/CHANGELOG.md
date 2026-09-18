@@ -10,6 +10,23 @@ First release of `stream_chat_flutter_ai`.
 
 🔄 Changed
 
+- **Pie slice labels now pick black or white per slice** instead of always being white. White
+  disappears on a light slice, and a host palette is free to contain one — so the colour is chosen
+  for contrast against each slice's own fill. Under the default palette this makes every label
+  dark where it used to be white. Setting a colour on `ChartThemeData.pieLabelStyle` takes the
+  choice back.
+
+- **`USpecParser` leaves an unnamed series' name empty** instead of substituting `'Series'` or
+  `'Pie'`. Those were English strings assigned in a parser that has no `BuildContext`, and
+  `'Series'` reached the screen as a heatmap row label; the name is now resolved at render time
+  from `AITranslations.unnamedChartSeries`. Read `USeries.name` from a parse result and you will
+  see `''` where you used to see one of those two words.
+
+- **`AITranslations` gained two members**, `unnamedChartSeries` and `chartSemanticsLabel`. A host
+  subclassing `DefaultAITranslations` — which is what the docs tell you to do — picks up the
+  English defaults and needs no change; one implementing `AITranslations` directly gets a compile
+  error until it adds them.
+
 - `SpeechToTextController.instance` now asserts rather than allowing `dispose()`. It is owned by the
   process; a host disposing its controllers reflexively in `State.dispose` would otherwise brick
   dictation app-wide, surfacing much later on an unrelated screen.
@@ -69,6 +86,50 @@ First release of `stream_chat_flutter_ai`.
   (override `buildLeading` — still nullable — for no picker at all). Nothing is compared against a
   sentinel either, so the `SizedBox.shrink()` hazard that made the other two nullable can't recur
   here.
+- **Charts are themeable, through a new `AITheme` extension.** `AITheme` is a `ThemeExtension` a
+  host registers on `ThemeData.extensions`; `ChartThemeData` is its first component theme, carrying
+  the categorical palette (`kDefaultChartSeriesColors` is the old six-colour set, exported so it
+  can be extended rather than replaced), the plot height, the scatter and bubble radii, the
+  histogram's bucket count, the axis, pie-label and title text styles, the grid line colour, and
+  the heatmap's three ramp stops. Every field is nullable and an unset one derives from the ambient
+  `ColorScheme`, so overriding the palette leaves everything else following the app in both
+  brightnesses. `ChartTheme` overrides it for one subtree and `ChartView.theme` /
+  `HeatmapChartView.theme` for one chart; the three compose, most specific first.
+
+  Note that `ThemeData.copyWith(extensions:)` replaces the whole extension set, so an app that
+  already registers others has to re-list them.
+
+  `AITheme` deliberately carries no brightness, colour scheme or typography of its own. Every
+  widget here already resolves from the ambient `ColorScheme`, and a second brightness would be a
+  second source of truth able to disagree with `Theme.of` — so this is a bag of overrides over
+  Material, not a parallel design system. `copyWith`/`merge`/`lerp`/`==` are hand-written rather
+  than generated: one component theme does not justify a codegen dependency in a package whose
+  premise is a short dependency list. In `lerp`, an unset field *swaps* at the halfway point
+  instead of interpolating, because `null` means "derive from the theme" and not "transparent" —
+  interpolating one would fade a grid line through transparency, or grow a chart up from zero
+  height, partway through a light/dark transition.
+
+  Neither `AIMarkdownBody` nor `StreamingMessageView` gained a parameter for this. Both lookups
+  reach a chart in the markdown path through its own `BuildContext`, so the fence widget cache's
+  key is untouched — the same call `AITranslations` made, and for the same reason.
+
+- **Charts describe themselves to a screen reader.** `fl_chart` paints to a canvas and contributes
+  no accessibility nodes, so a `ChartView` used to be an empty box. Each chart now carries one
+  semantics node summarising the kind, the title, the axes, the series, the counts and the value
+  range — "Bar chart, Messages per day, 5 categories, values 8 to 24" — with a sentence per
+  `USpecKind`. `ChartSemantics.fromSpec` gathers the facts and formats the numbers for speech
+  (`10.0` reads as "10"); `AITranslations.chartSemanticsLabel` composes the sentence, so it is
+  translatable like everything else. Pass `ChartView.semanticsLabel` to replace it, or an empty
+  string to add no node and describe the chart yourself.
+
+  The node excludes the subtree beneath it. The axis tick labels and a heatmap's row, column and
+  legend labels are real `Text` widgets, and letting a reader walk them yields a run of bare
+  numbers with nothing saying which axis they belong to or how they pair up; the summary already
+  carries the range, the counts and — where the data named them — the axis labels.
+
+  This is also the first thing in the package to read `USpec.xLabel` and `USpec.yLabel`, which the
+  parsers have been filling in for nobody.
+
 - **Every string the package renders itself is now translatable.** `AITranslations` (abstract) and
   `DefaultAITranslations` (the English it has always rendered) replace the fourteen literals that
   were hardcoded across `ChatComposer`, `ChatComposerInput`, the attachment sheet, the voice-input
@@ -215,6 +276,23 @@ First release of `stream_chat_flutter_ai`.
   documented types that were only reachable through a `src/` import.
 
 🐞 Fixed
+
+- **A chart's spoken value range dropped its fraction and kept the decimal point.** The trailing-zero
+  strip in `ChartSemantics` ran on the whole formatted number rather than on the fraction, so a value
+  rounding to `x.00` — `99.999`, `3.999`, `1.001` — came out as `100.`, `4.` and `1.`, which a screen
+  reader voices as "one hundred point". Charts whose values all sit below `0.005` fared worst: both
+  ends of the range collapsed to `0.`, so the range clause said nothing at all. Since the chart's
+  `Semantics` node excludes the painted axis labels, that sentence is the only thing a screen-reader
+  user gets.
+- **A pie or histogram described series it doesn't draw.** `ChartView` plots the first series and
+  ignores the rest for both kinds, but `ChartSemantics.fromSpec` flattened every series — so a
+  two-series pie showing four slices was announced as eight, with the largest slice's share computed
+  against a total the chart never draws. `USpecParser` accepts a multi-series pie from model output,
+  so this needed nothing unusual to hit. The summary now covers exactly what is on screen.
+- **A pie whose first series was empty crashed the frame.** `ChartSemantics.fromSpec` reduced over
+  that series without a guard, throwing `StateError` inside `build` and replacing the whole
+  `AIMarkdownBody` with an error widget, where `ChartView` renders the same spec as an empty pie.
+  Reachable through the public `USpec` constructor, which validates nothing.
 
 - `ChatComposerInput` now rebuilds on its own listenables. As the private `_InputContainer` it was only ever constructed inside `ChatComposer`'s `ListenableBuilder`; exported, it read `ChatComposerController` state and the process-wide `SpeechToTextController.instance` while subscribing to neither, so standalone use rendered once and then froze — typing never enabled send, a dismissed chip stayed on screen, and with `enableSpeechToText` a dictation session could run with no control able to stop it.
 - `ChatComposerInputProps.hintText` is now `String?`, and `null` where the host passed no `ChatComposer.hintText` — **breaking change** for a custom input reading it. It was non-nullable, defaulting to a constant, which left an input no way to tell a hint the host chose from the package's own default, and put the English literal on the composer rather than in the translations. The slot rendering the field now owns what an absent hint means: `ChatComposerInput` falls back to `AITranslations.composerHint`, and a custom input wanting the same writes `props.hintText ?? AITranslations.of(context).composerHint`.
