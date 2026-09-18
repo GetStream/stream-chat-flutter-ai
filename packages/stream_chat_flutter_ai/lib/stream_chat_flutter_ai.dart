@@ -31,4 +31,7 @@ export 'src/composer/suggestions_view.dart';
 export 'src/localization/ai_translations.dart';
 export 'src/markdown/math_syntax.dart';
 export 'src/streaming_message_view.dart';
+export 'src/tools/ai_tool_definition.dart';
+export 'src/tools/ai_tool_invocation.dart';
+export 'src/tools/ai_tool_registry.dart';
 export 'src/typewriter_builder.dart';
