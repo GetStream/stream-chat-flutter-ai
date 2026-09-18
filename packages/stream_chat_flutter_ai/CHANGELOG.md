@@ -37,6 +37,16 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **`UPoint`, `USeries` and `USpec` are value types.** All three now implement `==`/`hashCode`,
+  comparing their nested lists by value, so two specs parsed from the same JSON are equal and a spec
+  works as a map key or set member. Previously they used identity, which made a host asserting on a
+  parse result compare two structurally identical charts as different. `ChatOption` (id-based, by
+  design) and `TypewriterValue` already had equality; this brings the chart types in line.
+
+- `collection` is now a direct dependency, for the list equality above. It was already resolved
+  transitively through the Flutter SDK, so this adds nothing to a host's dependency graph — it is
+  declared because the package imports it directly, which `flutter pub publish` requires.
+
 - **`ChatComposerFactory` now covers all four composer regions**, not two.
   `ChatComposerFactory.buildInput` supplies the input field and
   `ChatComposerFactory.buildAttachmentSheet` supplies the contents of the sheet the default
