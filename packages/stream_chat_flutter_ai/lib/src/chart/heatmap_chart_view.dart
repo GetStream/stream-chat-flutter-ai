@@ -36,9 +36,9 @@ _Scale _scaleFor(Brightness brightness) => brightness == Brightness.dark ? _kDar
 /// Renders a [USpecKind.heatmap] [USpec] as a grid of color-scaled cells.
 ///
 /// `fl_chart` has no heatmap widget, so the grid is drawn with plain Material
-/// widgets. The layout mirrors Swift's `HeatmapChart`: one row per [USeries]
-/// (labelled with [USeries.name]), one column per distinct [UPoint.x], and a
-/// cell color derived from [UPoint.z] (falling back to [UPoint.y]).
+/// widgets: one row per [USeries] (labelled with [USeries.name]), one column
+/// per distinct [UPoint.x], and a cell color derived from [UPoint.z] (falling
+/// back to [UPoint.y]).
 ///
 /// A gradient scale bar with the minimum and maximum cell values is shown
 /// below the grid, since cell color is the only encoding of the value.

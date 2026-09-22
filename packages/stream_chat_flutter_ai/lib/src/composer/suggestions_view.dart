@@ -11,21 +11,9 @@ const _kChipPadding = EdgeInsets.all(12);
 /// widget itself has no notion of sending a message, so hosts decide what
 /// happens next (e.g. populate the composer, or send immediately).
 ///
-/// Mirrors `SuggestionsView` in `stream-chat-swift-ai`
-/// (`Sources/StreamChatAI/Composer/SuggestionsView.swift`), which the
-/// reference iOS sample docks above its composer on the "new chat" landing
-/// screen (no active channel yet):
-/// ```swift
-/// VStack {
-///   Spacer()
-///   SuggestionsView(suggestions: predefinedOptions) { messageData in
-///     sendMessage(messageData)
-///   }
-/// }
-/// ```
-/// This widget only renders the scroll row — the `Spacer`/bottom-docking
-/// layout above is left to the host, same as Swift's split between the view
-/// and its call site.
+/// Typically docked above the composer on a "new chat" landing screen, before
+/// there is an active channel. This widget only renders the scroll row; the
+/// bottom-docking layout around it is left to the host.
 ///
 /// Example:
 /// ```dart
@@ -62,7 +50,7 @@ class AISuggestionsView extends StatelessWidget {
   ///
   /// Each chip shrinks to fit its own text — short suggestions get a snug
   /// chip instead of every chip stretching to this same width. Defaults to
-  /// `160`, matching `SuggestionsView`'s Swift default.
+  /// `160`.
   final double itemMaxWidth;
 
   /// Padding around the scrollable row.
@@ -77,10 +65,9 @@ class AISuggestionsView extends StatelessWidget {
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
 
-    // `IntrinsicHeight` + a plain `Row` (rather than a fixed-height
-    // `ListView`, as Swift's `SuggestionsView` uses) lets each chip size to
-    // its own 2-line text instead of being hard-clipped to an arbitrary box
-    // height.
+    // `IntrinsicHeight` + a plain `Row`, rather than a fixed-height `ListView`,
+    // lets each chip size to its own 2-line text instead of being hard-clipped
+    // to an arbitrary box height.
     return IntrinsicHeight(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
