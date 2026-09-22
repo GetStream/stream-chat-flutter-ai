@@ -279,8 +279,15 @@ final class AIToolRegistry {
   /// No report-once guard: an invocation is handled once and there is no
   /// rebuild loop to flood a crash reporter, so every failure is worth a
   /// report.
+  ///
+  /// Cannot throw. Both halves run the host's own code — [onToolError] is
+  /// documented to touch the UI, and [FlutterError.onError] may be replaced by
+  /// one that rethrows — and this is called from inside [runActions]' catch
+  /// block, where a throw would strand every action after the one that failed
+  /// and complete [dispatch]'s future with an error its usual caller never
+  /// awaits. Reporting a failure must not become a second failure.
   void _report(Object error, StackTrace stack, AIToolInvocation invocation, String context) {
-    FlutterError.reportError(
+    _reportSafely(
       FlutterErrorDetails(
         exception: error,
         stack: stack,
@@ -291,6 +298,32 @@ final class AIToolRegistry {
         informationCollector: () => [DiagnosticsProperty<AIToolInvocation>('invocation', invocation)],
       ),
     );
-    onToolError?.call(invocation, error, stack);
+
+    try {
+      onToolError?.call(invocation, error, stack);
+    } catch (callbackError, callbackStack) {
+      _reportSafely(
+        FlutterErrorDetails(
+          exception: callbackError,
+          stack: callbackStack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while handing a client-tool failure to onToolError'),
+          informationCollector: () => [
+            DiagnosticsProperty<AIToolInvocation>('invocation', invocation),
+            DiagnosticsProperty<Object>('the failure it was told about', error),
+          ],
+        ),
+      );
+    }
+  }
+
+  /// [FlutterError.reportError], with the host's handler guarded.
+  static void _reportSafely(FlutterErrorDetails details) {
+    try {
+      FlutterError.reportError(details);
+    } catch (_) {
+      // Nowhere left to send it: the reporter is what threw. Swallowing it is
+      // the only option that still leaves the remaining actions to run.
+    }
   }
 }

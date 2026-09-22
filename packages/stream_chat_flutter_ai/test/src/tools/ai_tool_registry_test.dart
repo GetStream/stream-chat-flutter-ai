@@ -484,6 +484,64 @@ void main() {
           expect(failures.single.$1, 'greetUser');
           expect(failures.single.$2, isStateError);
         });
+
+        test('runs the remaining actions when onToolError itself throws', () async {
+          // The callback is the host's code, doing what it is documented for:
+          // a `ScaffoldMessenger.of` on an unmounted context throws. Reporting
+          // a failure must not strand the actions after it.
+          final log = <String>[];
+          final tool = _RecordingTool(
+            log: log,
+            actionCount: 3,
+            actionBody: (index) async {
+              if (index == 0) throw StateError('boom');
+              log.add('ran $index');
+            },
+          );
+          final registry = AIToolRegistry(
+            onToolError: (_, _, _) => throw StateError('no ScaffoldMessenger'),
+          )..register(tool);
+
+          final reported = await _collectingErrors(() async {
+            expect(await registry.dispatch(_invocationOf('greetUser')), isTrue);
+          });
+
+          expect(log, ['ran 1', 'ran 2']);
+          // The action's failure, and the callback's own failure alongside it.
+          expect(reported, hasLength(2));
+          expect(reported.last.context.toString(), contains('onToolError'));
+        });
+
+        test('runs the remaining actions when the host FlutterError handler rethrows', () async {
+          // Same stranding, reached through the other half of the report.
+          final log = <String>[];
+          final registry = AIToolRegistry()
+            ..register(
+              _RecordingTool(
+                log: log,
+                actionCount: 3,
+                actionBody: (index) async {
+                  if (index == 0) throw StateError('boom');
+                  log.add('ran $index');
+                },
+              ),
+            );
+
+          final reported = <FlutterErrorDetails>[];
+          final previousOnError = FlutterError.onError;
+          FlutterError.onError = (details) {
+            reported.add(details);
+            throw StateError('this host rethrows');
+          };
+          try {
+            expect(await registry.dispatch(_invocationOf('greetUser')), isTrue);
+          } finally {
+            FlutterError.onError = previousOnError;
+          }
+
+          expect(log, ['ran 1', 'ran 2']);
+          expect(reported, hasLength(1));
+        });
       });
     });
 
