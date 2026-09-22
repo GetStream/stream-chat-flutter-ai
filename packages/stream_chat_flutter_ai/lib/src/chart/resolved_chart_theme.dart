@@ -11,10 +11,9 @@ const _kDarkScale = (low: Color(0xFF12283F), mid: Color(0xFF3B7CB8), high: Color
 
 /// A [ChartThemeData] with every field resolved, bar [titleTextStyle].
 ///
-/// Internal: [ChartThemeData]'s fields are nullable so a host can override a
-/// couple and leave the rest, but the chart widgets need a concrete value for
-/// each. Resolving once at the top of `build` keeps the fallback table in one
-/// place rather than scattering `?? colorScheme.something` across two files.
+/// Internal. [ChartThemeData]'s fields are nullable, but the chart widgets need
+/// a concrete value for each, so resolving once at the top of `build` keeps the
+/// fallback table in one place.
 @immutable
 class ResolvedChartTheme {
   const ResolvedChartTheme._({

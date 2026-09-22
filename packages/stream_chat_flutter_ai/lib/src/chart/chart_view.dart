@@ -17,12 +17,9 @@ import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 /// [USpecKind.histogram], and [USpecKind.heatmap] — the last of which is drawn
 /// by [HeatmapChartView] rather than `fl_chart`, which has no heatmap widget.
 ///
-/// [USpec.title], when the spec carries one, is rendered as a heading above the
-/// plot, matching the reference Android/iOS AI packages.
-///
-/// Colors, sizes and the histogram's bucket count all come from
-/// [ChartThemeData] — app-wide through [AITheme], per subtree through
-/// [ChartTheme], or per chart through [theme].
+/// [USpec.title] is rendered as a heading above the plot. Colors, sizes and the
+/// histogram's bucket count come from [ChartThemeData] — app-wide through
+/// [AITheme], per subtree through [ChartTheme], or per chart through [theme].
 class ChartView extends StatelessWidget {
   /// Creates a [ChartView].
   const ChartView({super.key, required this.spec, this.theme, this.semanticsLabel});
@@ -40,13 +37,12 @@ class ChartView extends StatelessWidget {
   /// composes one sentence from [ChartSemantics], and that labels a single node
   /// standing for the whole chart.
   ///
-  /// That node **excludes** its subtree. Axis ticks are real `Text` widgets, and
+  /// That node **excludes** its subtree: axis ticks are real `Text` widgets, and
   /// walking them gives a reader bare numbers with nothing saying which axis
-  /// they belong to, while the summary already carries the range, the counts and
-  /// the axis names.
+  /// they belong to.
   ///
-  /// Pass `''` to add no node of this widget's own — which also puts those
-  /// subtree labels back in reach. That is the opt-out for describing the chart
+  /// Pass `''` to add no node of this widget's own, which also puts those
+  /// subtree labels back in reach — the opt-out for describing the chart
   /// yourself, not a way to hide it.
   final String? semanticsLabel;
 
@@ -209,11 +205,9 @@ class ChartView extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   Widget _buildScatterChart(ResolvedChartTheme theme, {required bool bubble}) {
-    // Categorical x values ('Jan', 'Feb') have no numeric position, so they're
-    // placed on the shared category axis and labelled along the bottom.
-    // Previously the fallback used the running total of spots across *all*
-    // series, so every series after the first was pushed off to the right of the
-    // one before it instead of sharing the same categories.
+    // Categorical x values ('Jan', 'Feb') have no numeric position, so they go
+    // on the shared category axis — shared being the point, since indexing per
+    // series pushes each one right of the last.
     final numericX = _hasNumericX();
     final labels = numericX ? const <String>[] : _categoryLabels();
     final sizeRange = bubble ? _sizeRange() : null;
@@ -264,11 +258,9 @@ class ChartView extends StatelessWidget {
 
   /// Maps a bubble's [UPoint.size] onto a pixel radius.
   ///
-  /// Sizes are normalized across every bubble in the chart first, because they
-  /// arrive in the data's own units — Chart.js's `r` is already pixels, but a
-  /// USpec `size` is just as likely to be a population or a revenue figure.
-  /// Clamping the raw value instead pinned every bubble past the maximum to the
-  /// same radius, flattening the very encoding the chart exists to show.
+  /// Normalized across the chart first, since sizes arrive in the data's own
+  /// units — a population or a revenue figure as often as pixels. Clamping raw
+  /// values instead flattens every bubble past the maximum to one radius.
   double _bubbleRadius(double? size, ({double min, double max})? range, ResolvedChartTheme theme) {
     if (size == null || range == null) return theme.scatterRadius;
 
@@ -342,34 +334,25 @@ class ChartView extends StatelessWidget {
       series.points.asMap().entries.map((e) => FlSpot(_categoryX(e.value, e.key, labels), e.value.y)).toList();
 
   /// Where [point] — the [index]-th in its series — sits on the shared category
-  /// axis [labels].
-  ///
-  /// Falls back to the position within its own series when the point's label
-  /// isn't on the axis, or when labels aren't usable as keys at all.
+  /// axis [labels], falling back to [index] when its label isn't on the axis or
+  /// labels aren't usable as keys.
   double _categoryX(UPoint point, int index, List<String> labels) {
     if (!_hasCategoryKeys) return index.toDouble();
     final at = labels.indexOf(point.x);
     return (at >= 0 ? at : index).toDouble();
   }
 
-  /// Whether a point can be located on the x axis by its [UPoint.x] label.
-  ///
-  /// True when no series repeats a label. One that does carries no usable
-  /// category key — a histogram's raw samples all share an empty `x` — so those
-  /// charts keep plotting each point at its position within its own series.
+  /// Whether a point can be located on the x axis by its [UPoint.x] label —
+  /// true when no series repeats one. A histogram's raw samples all share an
+  /// empty `x`, so those fall back to plotting by position.
   bool get _hasCategoryKeys => spec.series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
 
-  /// The x-axis categories, in axis order.
+  /// The x-axis categories, in axis order, merged across every series with the
+  /// longest one first.
   ///
-  /// Every series' labels are merged rather than read off the longest one
-  /// alone, and points are then placed by *label* rather than by their position
-  /// within their own list. Position was wrong for any series with a hole in it:
-  /// a Chart.js `null` — the documented way to write a gap — parses to a series
-  /// that is simply shorter, so every point after the gap was drawn one category
-  /// to the left, out of step with both the axis and the other series.
-  ///
-  /// Longest series first, so the fullest one sets the order and the rest only
-  /// contribute categories it is missing.
+  /// Points are placed by *label*, not by position within their own list: a
+  /// Chart.js `null` gap parses to a shorter series, so positional indexing
+  /// draws everything after the gap one category too far left.
   List<String> _categoryLabels() {
     if (!_hasCategoryKeys) {
       var labels = const <String>[];

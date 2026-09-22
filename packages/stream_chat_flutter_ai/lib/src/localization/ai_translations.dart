@@ -116,21 +116,20 @@ abstract class AITranslations {
   /// while it shows its confirmation.
   String get codeCopied;
 
-  /// The name to use for a chart series the data didn't name.
-  ///
-  /// Reaches the screen as a heatmap's row label, and is read out as part of
+  /// The name to use for a chart series the data didn't name. Reaches the
+  /// screen as a heatmap's row label, and is read out by
   /// [chartSemanticsLabel].
   String get unnamedChartSeries;
 
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
-  /// go on. [ChartSemantics] carries the facts, numbers already formatted.
+  /// go on; [ChartSemantics] carries the facts, already formatted.
   ///
   /// One method rather than a dozen phrase-sized ones, because a sentence's
-  /// word order varies far more between languages than a tooltip's — composing
-  /// it is the point. Switch on [ChartSemantics.kind], and drop any clause
-  /// whose fact is absent, the way [DefaultAITranslations] does.
+  /// word order varies far more between languages than a tooltip's. Switch on
+  /// [ChartSemantics.kind] and drop any clause whose fact is absent, the way
+  /// [DefaultAITranslations] does.
   String chartSemanticsLabel(ChartSemantics chart);
 }
 

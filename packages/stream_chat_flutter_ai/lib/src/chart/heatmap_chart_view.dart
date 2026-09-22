@@ -8,10 +8,8 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 
 /// The width of the row-label gutter, matching the `leftTitles` reserved size
-/// used by the `fl_chart`-backed kinds so a heatmap lines up with them.
-///
-/// Not themeable for that reason: it and the `fl_chart` reserved size have to
-/// move together or a heatmap stops lining up with the bar chart above it.
+/// the `fl_chart` kinds use. Not themeable: the two have to move together or a
+/// heatmap stops lining up with the bar chart above it.
 const _kRowLabelWidth = 40.0;
 
 /// The height of the column-label strip, matching the `bottomTitles` reserved
@@ -23,13 +21,10 @@ const _kLegendBarHeight = 10.0;
 
 /// Renders a [USpecKind.heatmap] [USpec] as a grid of color-scaled cells.
 ///
-/// `fl_chart` has no heatmap widget, so the grid is drawn with plain Material
-/// widgets. The layout mirrors Swift's `HeatmapChart`: one row per [USeries]
-/// (labelled with [USeries.name]), one column per distinct [UPoint.x], and a
-/// cell color derived from [UPoint.z] (falling back to [UPoint.y]).
-///
-/// A gradient scale bar with the minimum and maximum cell values is shown
-/// below the grid, since cell color is the only encoding of the value.
+/// `fl_chart` has no heatmap widget, so the grid is plain Material widgets: one
+/// row per [USeries], one column per distinct [UPoint.x], and a cell color from
+/// [UPoint.z] (falling back to [UPoint.y]). A gradient scale bar below the grid
+/// carries the range, since color is the only encoding of the value.
 class HeatmapChartView extends StatelessWidget {
   /// Creates a [HeatmapChartView].
   const HeatmapChartView({super.key, required this.spec, this.theme, this.semanticsLabel});
@@ -241,15 +236,12 @@ class _HeatmapGrid {
   final double min;
   final double max;
 
-  /// Builds a grid from [spec], or returns `null` when there is nothing to
-  /// draw (no series, or no series holding any point).
+  /// Builds a grid from [spec], or `null` when there is nothing to draw.
   ///
-  /// Columns are the distinct [UPoint.x] values across *all* series, in first
-  /// seen order — rows can be ragged (the Plotly adapter drops cells whose `z`
-  /// isn't numeric), so a row is keyed by column label rather than by index.
-  ///
-  /// [unnamedSeries] labels a series the data didn't name; the parser leaves
-  /// those empty rather than inventing an English word for them.
+  /// Columns are the distinct [UPoint.x] across all series, in first-seen order.
+  /// Rows can be ragged — the Plotly adapter drops cells whose `z` isn't
+  /// numeric — so a row is keyed by column label, not by index. [unnamedSeries]
+  /// labels a series the data didn't name.
   static _HeatmapGrid? fromSpec(USpec spec, {required String unnamedSeries}) {
     // A LinkedHashSet keeps first-seen order while making the membership check
     // O(1) — `List.contains` made building the column list quadratic in the

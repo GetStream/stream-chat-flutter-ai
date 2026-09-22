@@ -11,7 +11,6 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 
 /// The palette [ChartView] cycles through when nothing overrides it.
 ///
-/// Six hues picked to stay distinguishable rather than to match any app.
 /// Exported so a host can extend it rather than replace it.
 const kDefaultChartSeriesColors = [
   Color(0xFF4A90D9),
@@ -41,10 +40,10 @@ const kDefaultChartSeriesColors = [
 /// default. [copyWith] cannot unset a field — a `null` argument keeps the
 /// current value.
 ///
-/// Layout stays internal and unthemeable: bar widths, the pie radius, slice
-/// gaps, fill opacity, plot padding, and the axis gutters, which have to keep
-/// matching the `reservedSize` values [ChartView] hands `fl_chart`. So a taller
-/// [height] leaves the pie undersized.
+/// Layout stays internal: bar widths, the pie radius, slice gaps, fill opacity,
+/// plot padding, and the axis gutters, which have to keep matching the
+/// `reservedSize` values [ChartView] hands `fl_chart`. So a taller [height]
+/// leaves the pie undersized.
 @immutable
 class ChartThemeData {
   /// Creates a [ChartThemeData].
@@ -75,9 +74,8 @@ class ChartThemeData {
   /// [USpecKind.bubble] point carrying no size of its own. Falls back to 6.
   final double? scatterRadius;
 
-  /// The radius of the smallest [USpecKind.bubble] point. Falls back to 6.
-  ///
-  /// Sizes are normalized across the chart before being mapped onto this range.
+  /// The radius of the smallest [USpecKind.bubble] point, the other end of the
+  /// range sizes are normalized onto. Falls back to 6.
   final double? bubbleMinRadius;
 
   /// The radius of the largest [USpecKind.bubble] point. Falls back to 40.
@@ -92,10 +90,8 @@ class ChartThemeData {
   final TextStyle? axisLabelStyle;
 
   /// The style of the labels on [USpecKind.pie] slices. Falls back to 11pt
-  /// semibold.
-  ///
-  /// With no [TextStyle.color], each slice picks black or white for contrast
-  /// against its own fill; set one here to take that over.
+  /// semibold. With no [TextStyle.color] each slice picks black or white for
+  /// contrast against its own fill; set one here to take that over.
   final TextStyle? pieLabelStyle;
 
   /// The style of the heading above a chart carrying a [USpec.title]. Falls
@@ -114,9 +110,8 @@ class ChartThemeData {
   final Color? heatmapMidColor;
 
   /// The highest stop of a heatmap's scale. Falls back to a deep blue on a
-  /// light [Brightness] and a *pale* one on a dark theme, where a
-  /// light-to-dark ramp would make the busiest cells recede into the
-  /// background.
+  /// light [Brightness] and a *pale* one on a dark theme, where a light-to-dark
+  /// ramp would make the busiest cells recede.
   final Color? heatmapHighColor;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
@@ -205,8 +200,7 @@ class ChartThemeData {
   ///
   /// Don't interpolate instead: `null` means "derive from the theme", not zero
   /// or transparent, so `Color.lerp` would fade a grid line through
-  /// transparency and `lerpDouble` would grow the chart up from zero height.
-  /// Swapping lands in the right place at both ends.
+  /// transparency and `lerpDouble` would grow the chart from zero height.
   static T? _swap<T>(T? a, T? b, double t) => t < 0.5 ? a : b;
 
   static double? _lerpDouble(double? a, double? b, double t) => _bothSet(a, b) ? lerpDouble(a, b, t) : _swap(a, b, t);
@@ -248,9 +242,8 @@ class ChartThemeData {
         other.heatmapHighColor == heatmapHighColor;
   }
 
-  // Object.hashAll rather than Object.hash: the palette needs a deep hash of
-  // its own, and a list's identity hash would make two equal themes hash
-  // differently.
+  // Object.hashAll, not Object.hash: a list's identity hash would make two
+  // equal palettes hash differently.
   @override
   int get hashCode => Object.hashAll([
     if (seriesColors != null) Object.hashAll(seriesColors!),
@@ -281,11 +274,9 @@ class ChartThemeData {
 /// )
 /// ```
 ///
-/// For one chart, [ChartView.theme] is shorter and wins over this.
-///
-/// Nesting one inside another replaces rather than layers, the way `IconTheme`
-/// does: [of] reads the nearest scope only. Use [ChartTheme.merge] to add to an
-/// enclosing scope instead of shadowing it.
+/// For one chart, [ChartView.theme] is shorter and wins over this. Nesting one
+/// inside another replaces rather than layers, the way `IconTheme` does — use
+/// [ChartTheme.merge] to add to an enclosing scope instead.
 class ChartTheme extends InheritedTheme {
   /// Creates a [ChartTheme].
   const ChartTheme({super.key, required this.data, required super.child});

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-// Here for the doc link on [of] only; nothing in this file's code uses it.
-import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 
 /// The package's overrides on the ambient Material theme, registered as a
@@ -14,14 +12,10 @@ import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 /// )
 /// ```
 ///
-/// Overrides, not a design system: it carries no brightness, color scheme or
-/// typography, since every widget here already resolves from the ambient
-/// [ColorScheme]. One instance covers light and dark, and what it leaves unset
-/// follows the app.
-///
-/// Note [ThemeData.copyWith] replaces the whole extension set, so an app with
-/// other extensions has to re-list them:
-/// `theme.copyWith(extensions: [...theme.extensions.values, const AITheme()])`.
+/// Overrides, not a design system: no brightness, color scheme or typography of
+/// its own, so one instance covers light and dark. Note [ThemeData.copyWith]
+/// replaces the whole extension set, so an app with other extensions has to
+/// re-list them.
 ///
 /// See also:
 ///
@@ -38,9 +32,8 @@ class AITheme extends ThemeExtension<AITheme> {
 
   /// The [AITheme] on the ambient [ThemeData], or a default one.
   ///
-  /// Depends on the [Theme]. Never `null` and never throws: registering no
-  /// extension gets the appearance the package always had, which is what makes
-  /// theming opt-in. [AITranslations.of] takes the same line.
+  /// Never null and never throws — registering no extension gets the appearance
+  /// the package always had, which is what makes theming opt-in.
   static AITheme of(BuildContext context) => Theme.of(context).extension<AITheme>() ?? const AITheme();
 
   @override

@@ -9,10 +9,8 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 ///
 /// `fl_chart` paints to a canvas and exposes no accessibility nodes, so without
 /// a summary a [ChartView] is an empty box to a screen reader. This gathers the
-/// facts; [AITranslations.chartSemanticsLabel] composes the sentence, which is
-/// the half that gets translated.
-///
-/// Numbers arrive pre-formatted, so an implementation never picks decimals.
+/// facts, already formatted; [AITranslations.chartSemanticsLabel] composes the
+/// sentence, which is the half that gets translated.
 @immutable
 class ChartSemantics {
   const ChartSemantics._({
@@ -38,10 +36,8 @@ class ChartSemantics {
   /// [unnamedSeries] stands in for a series the chart data didn't name — the
   /// parser leaves those empty rather than inventing an English word for them.
   factory ChartSemantics.fromSpec(USpec spec, {required String unnamedSeries}) {
-    // A pie and a histogram plot the first series and ignore the rest — see
-    // `ChartView._buildPieChart` and `_buildHistogramChart`. Describing every
-    // series would announce a slice or sample count the chart never draws, so
-    // the summary covers exactly what is on screen.
+    // A pie and a histogram plot the first series and ignore the rest, so
+    // describing every one would announce a count the chart never draws.
     final drawn = switch (spec.kind) {
       USpecKind.pie || USpecKind.histogram => spec.series.take(1).toList(growable: false),
       _ => spec.series,
@@ -130,10 +126,8 @@ class ChartSemantics {
   /// The series names in [USpec.series] order, with unnamed ones filled in.
   final List<String> seriesNames;
 
-  /// How many data points are plotted.
-  ///
-  /// A pie and a histogram draw only the first series, so this counts that one
-  /// alone for them — the summary describes what is on screen.
+  /// How many data points are plotted — for a pie and a histogram, the first
+  /// series alone, which is all they draw.
   final int pointCount;
 
   /// How many distinct positions the x axis holds, mirroring how [ChartView]
@@ -180,8 +174,8 @@ class ChartSemantics {
 
   static String? _orNull(String? value) => (value == null || value.isEmpty) ? null : value;
 
-  /// Formats a value for speech: a screen reader reads `10.0` as "ten point
-  /// zero", so whole numbers lose their decimal and the rest keep at most two.
+  /// Formats a value for speech: a reader says "ten point zero" for `10.0`, so
+  /// whole numbers lose their decimal and the rest keep at most two.
   static String _formatValue(double value) {
     if (!value.isFinite) return value.toString();
     // Round before deciding how to render. Deciding first got both edges wrong:
