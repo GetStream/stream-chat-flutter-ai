@@ -190,8 +190,9 @@ class ChartView extends StatelessWidget {
   ///
   /// Deliberately not [ThemeData.estimateBrightnessForColor]: it compares its
   /// `kThreshold` of 0.15 to `(luminance + 0.05)²`, so it actually switches at
-  /// a luminance of 0.34, and its own comment concedes it "biases more towards
-  /// using light text than WCAG20 recommends". Four of the six colors in
+  /// a luminance of 0.34, and its own comment concedes Material "appears to
+  /// bias more towards using light text than WCAG20 recommends". Four of the
+  /// six colors in
   /// [kDefaultChartSeriesColors] sit below that line, so it kept white on mid
   /// blue (3.3:1), orange (2.9:1) and red (3.8:1) — all under the 4.5:1 the
   /// 11px label needs — where black87 gives 5.6, 6.5 and 5.0.

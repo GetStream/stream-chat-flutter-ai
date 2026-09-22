@@ -151,9 +151,9 @@ class ChartSemantics {
   /// The distinct x positions, left to right — a [USpecKind.heatmap]'s column
   /// labels.
   ///
-  /// A heatmap draws these down the side and along the bottom, and the
-  /// semantics node excludes them, so the summary is where a screen reader
-  /// hears which cell is which.
+  /// A heatmap draws these along the bottom (its rows go down the side, from
+  /// [seriesNames]), and the semantics node excludes both, so the summary is
+  /// where a screen reader hears which cell is which.
   final List<String> columnLabels;
 
   /// How many distinct x positions there are — a [USpecKind.heatmap]'s column

@@ -505,8 +505,8 @@ an empty box.
   in one place. *Sibling* scopes don't: `of` reads the nearest `ChartTheme` only, so nesting one
   inside another shadows the outer palette rather than layering onto it. That's `IconTheme`'s
   behaviour, kept rather than fixed, and `ChartTheme.merge` is the way to layer — same shape as
-  `IconTheme.merge`, merging the enclosing scope's data only so `AITheme`'s resolved fields aren't
-  baked into a widget that outlives a change to them.
+  `IconTheme.merge`, merging the enclosing scope's data only so `data` stays the overrides its own
+  doc describes rather than a full snapshot of what `AITheme` resolved.
 - `ChartView.semanticsLabel`, `ChartSemantics.fromSpec`, and two new `AITranslations` members —
   `unnamedChartSeries` and `chartSemanticsLabel(ChartSemantics)`.
 

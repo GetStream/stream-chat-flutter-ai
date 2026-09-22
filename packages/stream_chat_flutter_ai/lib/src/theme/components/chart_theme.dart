@@ -309,9 +309,11 @@ class ChartTheme extends InheritedTheme {
   /// ```
   static Widget merge({Key? key, required ChartThemeData data, required Widget child}) => Builder(
     builder: (context) {
-      // Only the enclosing scope, not [of]'s result: folding [AITheme]'s
-      // resolved fields in here would bake them into a widget that outlives a
-      // change to them. [of] layers over [AITheme] on every read anyway.
+      // Only the enclosing scope, not [of]'s result, which would fold every
+      // field [AITheme] resolved into `data` and leave it a full snapshot
+      // rather than the overrides it documents — including across the
+      // `InheritedTheme.capture` that carries this scope to a pushed route.
+      // [of] layers over [AITheme] on every read regardless.
       final outer = context.dependOnInheritedWidgetOfExactType<ChartTheme>()?.data;
       return ChartTheme(key: key, data: outer?.merge(data) ?? data, child: child);
     },
