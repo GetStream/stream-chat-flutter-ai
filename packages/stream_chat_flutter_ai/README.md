@@ -1,13 +1,13 @@
 # Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
 
 > A standalone set of Flutter components for building LLM-driven chat experiences:
-> streaming text, animated typing indicators, labelled code blocks, charts,
-> a purpose-built AI composer, and speech-to-text input. This package has **no
-> dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
-> package** — every widget operates on plain strings, callbacks, and controllers, so
-> it can be dropped into any Flutter app or paired with any backend/LLM provider. See
-> [Using with Stream Chat](#using-with-stream-chat) below for wiring it up to a Stream
-> Chat channel.
+> streaming text, animated typing indicators, labelled code blocks, charts, a
+> purpose-built AI composer, speech-to-text input, and client-side tool calling. This
+> package has **no dependency on `stream_chat`, `stream_chat_flutter`, or any other
+> Stream Chat package** — every widget operates on plain strings, callbacks, and
+> controllers, so it can be dropped into any Flutter app or paired with any
+> backend/LLM provider. See [Using with Stream Chat](#using-with-stream-chat) below
+> for wiring it up to a Stream Chat channel.
 
 [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dartlang.org/packages/stream_chat_flutter_ai)
 [![CI](https://github.com/GetStream/stream-chat-flutter-ai/actions/workflows/stream_flutter_ai_workflow.yml/badge.svg?branch=main)](https://github.com/GetStream/stream-chat-flutter-ai/actions/workflows/stream_flutter_ai_workflow.yml)
@@ -483,6 +483,92 @@ SpeechToTextButton(
 <true/>
 ```
 
+### `AIToolRegistry`
+
+Client-side tools let the AI agent reach into your app: open a screen, present a
+native alert, read a sensor. You declare each one as an `AIClientTool`, register it,
+and hand the registrations to your backend; the agent then invokes them by name.
+
+**Nothing is returned to the model.** A client tool is a side effect, not a function
+call with a result — the protocol has no channel for reporting one back, so neither
+does this API.
+
+Declare a tool:
+
+```dart
+class GreetUserTool implements AIClientTool {
+  GreetUserTool({required this.onGreet});
+
+  final void Function(String message) onGreet;
+
+  @override
+  AIToolDefinition get definition => const AIToolDefinition(
+    name: 'greetUser',
+    description: 'Show the user a native greeting',
+    instructions: 'Use greetUser when the user asks to be greeted.',
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'name': {'type': 'string'},
+      },
+    },
+  );
+
+  @override
+  List<AIToolAction> handleInvocation(AIToolInvocation invocation) {
+    final name = invocation.args['name'] as String? ?? 'there';
+    return [() => onGreet('Hello, $name!')];
+  }
+}
+```
+
+A tool returns its work as `AIToolAction`s rather than performing it, so you decide
+when and where it runs — the decision lives in the tool, the effect in your widget
+tree. Omit `parameters` entirely for a tool that takes no arguments.
+
+Register it, and tell your backend:
+
+```dart
+final registry = AIToolRegistry()
+  ..register(GreetUserTool(onGreet: (message) => showSnackBar(message)));
+
+await http.post(
+  Uri.parse('$myBackend/register-tools'),
+  headers: {'content-type': 'application/json'},
+  body: jsonEncode({'channel_id': channel.cid, 'tools': registry.registrationPayloads()}),
+);
+```
+
+That endpoint is **yours**, not Stream's — this package ships no HTTP client. Its job
+is to call the agent SDK's `registerClientTools(channelId, tools)`, which *persists*
+the definitions server-side and re-applies them the next time the channel's agent
+starts.
+
+> **Check the casing your own backend expects.** `registrationPayloads()` emits
+> camelCase keys (`showExternalSourcesIndicator`), which is what the reference
+> `/register-tools` in
+> [`chat-ai-samples`](https://github.com/GetStream/chat-ai-samples) reads — it takes
+> the camelCase spelling and treats `show_external_sources_indicator` as a deprecated
+> fallback. Since the endpoint consuming them is *yours*, that is a default rather
+> than a rule, and a mismatch fails quietly, as a tool that simply never fires. The
+> payloads are plain maps, so remapping keys is a couple of lines.
+
+Then route invocations. `dispatch` runs the tool's actions in order, guarding each
+one; `resolve` returns them unrun if you want to schedule them yourself — run those
+with `runActions` to get the same guarding, rather than reimplementing it. `dispatch`
+reports whether *a tool was registered* under the invoked name — not whether it
+succeeded. A `false` is normal rather than an error: because registrations outlive
+the build that made them, an older version of your app can register a tool this build
+no longer has; a debug build also prints the name and what *is* registered, for the
+case where the name is mismatched rather than stale. Failures inside a tool go to
+`FlutterError.onError`, and to the registry's `onToolError` if you pass one — that
+callback is how you tell the *user* something didn't work.
+
+Set `showExternalSourcesIndicator: true` on a tool that consults something remote and
+the agent will report a "checking external sources" state while it runs. This package
+never reads the flag; to surface the state, pass your own caption for it to
+[`AITypingIndicatorView`](#aitypingindicatorview), whose `text` is an ordinary string.
+
 ### Localization
 
 Every string the package renders itself resolves through an `AITranslations` instance. Register
@@ -636,6 +722,33 @@ channel.on(EventType.aiIndicatorClear).listen((_) {
   // hide the indicator, show the final message
 });
 ```
+
+Route client-tool invocations to your `AIToolRegistry`:
+
+```dart
+channel.on(kClientToolInvocationEventType).listen((event) {
+  final invocation = AIToolInvocation.tryParse(
+    {...event.extraData, 'cid': event.cid, 'message_id': event.messageId},
+    isInvocationEvent: true,
+  );
+  if (invocation != null) unawaited(registry.dispatch(invocation));
+});
+```
+
+A payload that announced itself as an invocation and then failed to parse is reported
+to `FlutterError.onError`: the tool the agent asked for will not run, and the agent is
+never told, so that would otherwise be silent.
+
+`tryParse` takes a flat map so the event's own fields can be merged in. `cid`,
+`message_id` and `type` are all first-class fields on `Event` rather than part of
+`extraData`, so the two the invocation needs are added by hand — forget `message_id`
+and `invocation.messageId` is silently null.
+
+`type` is the third one, and it is what `isInvocationEvent: true` stands in for: it
+tells `tryParse` that you have already filtered the stream, so a payload that arrives
+with no `tool` object is a malformed invocation worth reporting rather than some other
+event to pass over. Filter on an event type of your own and the flag still holds — it
+is the filtering it asserts, not the name.
 
 Stop an in-progress AI response:
 

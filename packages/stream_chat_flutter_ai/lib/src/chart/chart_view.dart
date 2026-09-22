@@ -300,7 +300,7 @@ class ChartView extends StatelessWidget {
   }
 
   /// Bins [values] into [targetBins] equal-width buckets between their min
-  /// and max, mirroring Swift's `makeBins`.
+  /// and max.
   List<_HistogramBin> _makeBins(List<double> values, int targetBins) {
     if (values.isEmpty) return const [];
     final minV = values.reduce((a, b) => a < b ? a : b);

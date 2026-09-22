@@ -54,6 +54,16 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **`UPoint`, `USeries` and `USpec` are value types.** All three now implement `==`/`hashCode`,
+  comparing their nested lists by value, so two specs parsed from the same JSON are equal and a spec
+  works as a map key or set member. Previously they used identity, which made a host asserting on a
+  parse result compare two structurally identical charts as different. `ChatOption` (id-based, by
+  design) and `TypewriterValue` already had equality; this brings the chart types in line.
+
+- `collection` is now a direct dependency, for the list equality above. It was already resolved
+  transitively through the Flutter SDK, so this adds nothing to a host's dependency graph — it is
+  declared because the package imports it directly, which `flutter pub publish` requires.
+
 - **`ChatComposerFactory` now covers all four composer regions**, not two.
   `ChatComposerFactory.buildInput` supplies the input field and
   `ChatComposerFactory.buildAttachmentSheet` supplies the contents of the sheet the default
@@ -272,6 +282,75 @@ First release of `stream_chat_flutter_ai`.
   disable itself at the cap and show which images are already attached.
 - `HeatmapChartView` and `ComposerActionButton` are exported from the library. Both are public,
   documented types that were only reachable through a `src/` import.
+
+- **Client-side tool calling, so the AI agent can reach into the host app.** `AIToolRegistry` holds
+  `AIClientTool` implementations keyed by name; each supplies an `AIToolDefinition` (name,
+  description, agent instructions, a JSON Schema for its arguments) and returns `AIToolAction`s for
+  an `AIToolInvocation`. `registrationPayloads()` produces the JSON a host POSTs to its own backend,
+  and `AIToolInvocation.tryParse` turns a `custom_client_tool_invocation` event into a typed
+  invocation with decoded arguments. No protocol dependency: despite the "MCP" framing this subsystem
+  was scoped under, the wire protocol is not MCP-over-JSON-RPC — plain JSON Schema goes out over the
+  host's own endpoint, and a Stream Chat custom event comes back — so there is no transport to
+  depend on. The iOS library links the whole MCP SDK to borrow two of its types, one of which is a
+  JSON-value enum that `Map<String, Object?>` already is in Dart.
+
+- Nothing is returned to the model. A client tool is a side effect — present an alert, navigate, read
+  a sensor — and the protocol carries no result back, so the API doesn't pretend otherwise. A tool
+  returns its work as deferred actions rather than performing it, which is what lets a host run them
+  where a `BuildContext` exists, or queue them, or drop them because the user has left that channel.
+
+- `AIToolRegistry.resolve` returns `null` for a name no tool is registered under, distinct from `[]`
+  for a tool that produced no actions — and that `null` is deliberately **not** reported through
+  `FlutterError`. Registrations persist server-side and are re-applied when the channel's agent
+  restarts, so a build that has dropped a tool still receives invocations for it from a channel an
+  older build registered. That is outside the app's control, so routing it to a host's crash
+  reporter would be noise; a debug-only console line names the tool and what *is* registered
+  instead, for the case where the name is mismatched rather than stale. `FlutterError` stays this
+  package's channel for bugs: a tool that throws, or whose actions throw, is reported there — along
+  with the invocation, whose `toString` withholds the argument values — and to `AIToolRegistry`'s
+  new `onToolError`, which is how a host tells the *user* that something didn't work. `dispatch`'s
+  `bool` answers only whether a tool was registered.
+
+- A `custom_client_tool_invocation` payload that announces itself as an invocation and then fails to
+  parse is reported to `FlutterError.onError`, naming the payload's keys but not their values. The
+  tool the agent asked for will not run and the agent is never told, so this would otherwise be
+  invisible in debug and release alike. A payload that never claimed to be an invocation still
+  returns `null` quietly, so a host piping every channel event through `tryParse` is not drowned.
+  Which of the two a payload is rests on `tryParse`'s `isInvocationEvent`, the flag a host sets to
+  say it filtered the stream itself — `type`, like `cid` and `message_id`, is a field on `Event`
+  rather than part of `extraData`, so leaving the distinction to the keys that survived the merge
+  would drop the report exactly when the backend renamed one.
+
+- `AIToolDefinition`, `AIToolInvocation` and `AIInvokedTool` are value types: two with the same
+  fields are `==`, with `parameters` and `args` compared deeply, so a host can assert on a parsed
+  invocation or a registered definition directly. The deep comparison uses `collection`, already a
+  direct dependency for the chart value types above. An absent echoed schema stays distinct from an
+  empty one, which is the asymmetry `AIInvokedTool.parameters` documents.
+
+- `AIToolInvocation.args` is unmodifiable however the event spelled its arguments, and
+  `AIToolDefinition.toJson()` copies `parameters` out rather than aliasing them. Also new:
+  `AIToolDefinition.copyWith` and `AIToolRegistry.runActions`, which gives the deferred `resolve`
+  path the same guarding `dispatch` applies rather than leaving each host to reimplement it.
+
+- An empty string of arguments now fails the parse instead of reading as none. `jsonDecode('')`
+  throws, so `""` is not a readable JSON object, and a tool that takes no arguments omits the key or
+  sends `{}`; an empty string is far more likely an argument stream that was cut short, and running
+  on what survived is the wrong-ticket failure the parser refuses everywhere else.
+
+- Deviations from the Swift library's shape, recorded so they aren't read as oversights. There is no
+  `ToolRegistrationPayload`: it exists there because MCP's `Tool.description` is optional, forcing a
+  fallback to `instructions`, and once `AIToolDefinition.description` is required the payload is the
+  same five fields — so it is `AIToolDefinition.toJson()` instead. There is no
+  `ClientToolActionHandling`, which exists there to hold an `AnyObject`; Dart has function types.
+  And the registry's single `handleInvocation` is split into `resolve` (pure) and `dispatch` (runs
+  and guards), because one name for both would read as a synonym.
+
+- `registrationPayloads()` emits camelCase keys, matching both what the iOS library's encoder
+  produces and what the reference `/register-tools` in `chat-ai-samples` reads (it accepts the
+  camelCase spelling, with `show_external_sources_indicator` as a deprecated fallback), and omits a
+  null `instructions` rather than sending it. Still worth verifying against your own backend: the
+  endpoint consuming it is the host's, so the casing is ultimately the host's to decide, and a
+  mismatch fails quietly as a tool that never fires.
 
 🐞 Fixed
 

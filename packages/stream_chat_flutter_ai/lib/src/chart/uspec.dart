@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
+
 // Here for the [ChartView] doc link only — this library is otherwise pure Dart
 // with no Flutter dependency, and nothing below uses the widget.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
@@ -47,6 +49,13 @@ class UPoint {
 
   /// Optional intensity value, used by [USpecKind.heatmap] cells.
   final double? z;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is UPoint && other.x == x && other.y == y && other.size == size && other.z == z;
+
+  @override
+  int get hashCode => Object.hash(x, y, size, z);
 }
 
 /// A named series of data points.
@@ -64,12 +73,19 @@ class USeries {
 
   /// The data points that make up this series.
   final List<UPoint> points;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is USeries && other.name == name && const ListEquality<UPoint>().equals(other.points, points);
+
+  @override
+  int get hashCode => Object.hash(name, Object.hashAll(points));
 }
 
 /// Unified chart specification — the internal representation used by [ChartView].
 ///
-/// Parsed from JSON code fences in AI messages. Supports a subset of the
-/// formats recognised by the iOS stream-chat-swift-ai library:
+/// Parsed from JSON code fences in AI messages. Recognises these formats:
 /// - Direct USpec JSON (`kind` + `series` fields).
 /// - Chart.js format (`type` + `data.labels` + `data.datasets` fields).
 /// - Plotly (single-spec and figure) heatmaps.
@@ -105,6 +121,20 @@ class USpec {
 
   /// Whether the y-axis should be forced to start at zero.
   final bool beginAtZeroY;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is USpec &&
+          other.kind == kind &&
+          const ListEquality<USeries>().equals(other.series, series) &&
+          other.title == title &&
+          other.xLabel == xLabel &&
+          other.yLabel == yLabel &&
+          other.beginAtZeroY == beginAtZeroY;
+
+  @override
+  int get hashCode => Object.hash(kind, Object.hashAll(series), title, xLabel, yLabel, beginAtZeroY);
 }
 
 /// Parses JSON strings from AI code blocks into [USpec] chart data.
