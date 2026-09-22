@@ -234,10 +234,10 @@ class DefaultAITranslations extends AITranslations {
           ..add(_count(chart.pointCount, 'sample'))
           ..add(_range(chart));
       case USpecKind.heatmap:
-        // A heatmap rarely names its axes, and what identifies a cell is the
-        // row and column it sits in. The painted labels are excluded from the
-        // tree, so naming them here is the only way a reader learns that the
-        // two rows are Mon and Tue rather than just that there are two.
+        // A heatmap rarely names its axes, and the painted row and column
+        // labels are excluded from the tree — so naming them here is the only
+        // way a reader learns the rows are Mon and Tue, not just that there
+        // are two.
         parts
           ..add('${_count(chart.rowCount, 'row')} by ${_count(chart.columnCount, 'column')}')
           ..add('rows: ${chart.seriesNames.join(', ')}')
@@ -247,8 +247,7 @@ class DefaultAITranslations extends AITranslations {
         parts
           ..add(_count(chart.pointCount, 'point'))
           ..add(_range(chart));
-        // Null for everything but a bubble, which is the one kind that draws
-        // the size — see [ChartSemantics.sizeMin].
+        // Null for everything but a bubble — see [ChartSemantics.sizeMin].
         if (chart.sizeMin case final min?) parts.add('sizes $min to ${chart.sizeMax}');
     }
 
@@ -257,8 +256,8 @@ class DefaultAITranslations extends AITranslations {
 
   static String _range(ChartSemantics chart) => 'values ${chart.valueMin} to ${chart.valueMax}';
 
-  /// `'1 row'`, `'4 columns'`. English pluralization belongs to this class
-  /// alone — a subclass composes the whole sentence its own way.
+  /// `'1 row'`, `'4 columns'`. English pluralization, which a subclass replaces
+  /// along with the rest of the sentence.
   static String _count(int count, String singular, {String? plural}) =>
       '$count ${count == 1 ? singular : plural ?? '${singular}s'}';
 }

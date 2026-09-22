@@ -188,21 +188,15 @@ class ChartView extends StatelessWidget {
   /// The readable color for a label drawn on top of [slice] — whichever of
   /// white and `black87` contrasts better against it.
   ///
-  /// Deliberately not [ThemeData.estimateBrightnessForColor]: it compares its
-  /// `kThreshold` of 0.15 to `(luminance + 0.05)²`, so it actually switches at
-  /// a luminance of 0.34, and its own comment concedes Material "appears to
-  /// bias more towards using light text than WCAG20 recommends". Four of the
-  /// six colors in
-  /// [kDefaultChartSeriesColors] sit below that line, so it kept white on mid
-  /// blue (3.3:1), orange (2.9:1) and red (3.8:1) — all under the 4.5:1 the
-  /// 11px label needs — where black87 gives 5.6, 6.5 and 5.0.
+  /// Not [ThemeData.estimateBrightnessForColor], which switches at a luminance
+  /// of 0.34 rather than the 0.15 it names and so left white on mid blue,
+  /// orange and red — all under the 4.5:1 the 11px label needs.
   static Color _onSlice(Color slice) =>
       _contrast(slice, Colors.white) >= _contrast(slice, Colors.black87) ? Colors.white : Colors.black87;
 
   /// The WCAG contrast ratio of [label] drawn over [slice], from 1 to 21.
   ///
-  /// [label] is composited onto the slice first: `black87` is `0xDD000000`, so
-  /// what lands on screen is 87% black over the fill, not pure black.
+  /// [label] is composited on first — `black87` is 87% opaque, not pure black.
   static double _contrast(Color slice, Color label) {
     final slices = slice.computeLuminance();
     final labels = Color.alphaBlend(label, slice).computeLuminance();

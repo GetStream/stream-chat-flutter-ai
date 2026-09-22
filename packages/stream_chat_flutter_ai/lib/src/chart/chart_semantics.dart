@@ -76,11 +76,9 @@ class ChartSemantics {
     // A heatmap encodes its value in `z`, falling back to `y` the same way the
     // grid does.
     final values = spec.kind == USpecKind.heatmap ? points.map((p) => p.z ?? p.y) : points.map((p) => p.y);
-    // Only a bubble chart maps `UPoint.size` onto anything — every other kind
-    // draws its points at the flat `scatterRadius`. The parsers fill `size` in
-    // regardless of the mark (a Vega-Lite `{"mark": "point", "encoding":
-    // {"size": ...}}` is a scatter), so without this a chart of a dozen
-    // identical dots announced the size range it never drew.
+    // Only a bubble draws `UPoint.size`, but the parsers fill it in regardless
+    // of the mark — a Vega-Lite `{"mark": "point", "encoding": {"size": ...}}`
+    // is a scatter — so without this guard identical dots announce a range.
     final sizes = spec.kind == USpecKind.bubble
         ? points.map((p) => p.size).whereType<double>()
         : const Iterable<double>.empty();
@@ -143,17 +141,12 @@ class ChartSemantics {
   /// longest series' length when they repeat.
   final int categoryCount;
 
-  /// One per described series — a [USpecKind.heatmap]'s row count.
-  ///
-  /// The rows themselves are named in [seriesNames], in the same order.
+  /// One per described series — a [USpecKind.heatmap]'s row count. The rows are
+  /// named in [seriesNames], in the same order.
   final int rowCount;
 
   /// The distinct x positions, left to right — a [USpecKind.heatmap]'s column
-  /// labels.
-  ///
-  /// A heatmap draws these along the bottom (its rows go down the side, from
-  /// [seriesNames]), and the semantics node excludes both, so the summary is
-  /// where a screen reader hears which cell is which.
+  /// labels, drawn along its bottom. Its rows are [seriesNames].
   final List<String> columnLabels;
 
   /// How many distinct x positions there are — a [USpecKind.heatmap]'s column
@@ -167,10 +160,8 @@ class ChartSemantics {
   final String? valueMax;
 
   /// The smallest [UPoint.size] among [USpecKind.bubble] points, formatted, or
-  /// null when no point carries one.
-  ///
-  /// Always null for every other kind: they draw all points at one radius, so
-  /// a size range would describe an encoding that isn't on screen.
+  /// null when no point carries one. Always null for every other kind, which
+  /// draws all points at one radius.
   final String? sizeMin;
 
   /// The largest [UPoint.size] among [USpecKind.bubble] points, formatted, or
@@ -193,16 +184,13 @@ class ChartSemantics {
   /// zero", so whole numbers lose their decimal and the rest keep at most two.
   static String _formatValue(double value) {
     if (!value.isFinite) return value.toString();
-    // Round first, then decide how to render — deciding first got both edges
-    // wrong. 99.999 is not whole but rounds to one, and -0.001 is neither zero
-    // nor whole, so it reached the last branch as '-0.00' -> '-0', voiced as
-    // "minus zero" for every value in (-0.005, 0).
+    // Round before deciding how to render. Deciding first got both edges wrong:
+    // 99.999 is not whole but rounds to one, and -0.001 is neither zero nor
+    // whole, so it came out '-0' — voiced as "minus zero".
     final rounded = double.parse(value.toStringAsFixed(2));
-    // Covers -0.0, whose toStringAsFixed(0) is '-0'.
     if (rounded == 0) return '0';
     if (rounded == rounded.roundToDouble()) return rounded.toStringAsFixed(0);
-    // Always has a fraction past the guard above, so stripping its trailing
-    // zeros can never leave a dangling point.
+    // Always has a fraction here, so stripping zeros can't leave a bare point.
     return rounded.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
   }
 
