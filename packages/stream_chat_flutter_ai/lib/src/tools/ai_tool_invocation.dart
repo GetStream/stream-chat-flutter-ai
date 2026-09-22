@@ -121,15 +121,28 @@ final class AIToolInvocation {
   /// A missing `type` is fine. A host filtering with `channel.on(...)` has the
   /// type on the event object rather than in the payload it passes here, so
   /// insisting on it would break the ordinary path.
-  static AIToolInvocation? tryParse(Map<String, Object?> json) {
+  ///
+  /// Pass [isInvocationEvent] in that case. It says the caller already
+  /// established this is a tool invocation — by filtering the stream — so a
+  /// payload carrying no `tool` object is a malformed invocation and is
+  /// reported, rather than passed over as an event that was never one. Without
+  /// it that distinction rests on whether a `type` key happened to survive into
+  /// the map, which for a host merging `Event.extraData` it does not, and the
+  /// report this parser promises would go missing exactly when the backend
+  /// renamed the key. Filtering on an event type of your own is fine: it is the
+  /// filtering, not the name, that this asserts.
+  static AIToolInvocation? tryParse(Map<String, Object?> json, {bool isInvocationEvent = false}) {
     final type = json['type'];
     if (type != null && type != kClientToolInvocationEventType) return null;
 
+    // Whether this payload is known to be an invocation, and so can be called
+    // malformed rather than passed over: either the caller said so, or the
+    // payload named its own type.
+    final announced = isInvocationEvent || type != null;
+
     final rawTool = json['tool'];
     if (rawTool is! Map) {
-      // Only a payload that named its type can be called malformed; without
-      // one this may simply be an event that was never a tool invocation.
-      if (type != null) _reportMalformed(json, 'it carries no "tool" object');
+      if (announced) _reportMalformed(json, 'it carries no "tool" object');
       return null;
     }
 

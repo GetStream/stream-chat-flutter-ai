@@ -237,6 +237,10 @@ First release of `stream_chat_flutter_ai`.
   tool the agent asked for will not run and the agent is never told, so this would otherwise be
   invisible in debug and release alike. A payload that never claimed to be an invocation still
   returns `null` quietly, so a host piping every channel event through `tryParse` is not drowned.
+  Which of the two a payload is rests on `tryParse`'s `isInvocationEvent`, the flag a host sets to
+  say it filtered the stream itself — `type`, like `cid` and `message_id`, is a field on `Event`
+  rather than part of `extraData`, so leaving the distinction to the keys that survived the merge
+  would drop the report exactly when the backend renamed one.
 
 - `AIToolDefinition`, `AIToolInvocation` and `AIInvokedTool` are value types: two with the same
   fields are `==`, with `parameters` and `args` compared deeply, so a host can assert on a parsed

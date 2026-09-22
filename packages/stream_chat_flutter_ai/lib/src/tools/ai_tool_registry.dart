@@ -100,7 +100,10 @@ abstract interface class AIClientTool {
 ///
 /// // Route invocations back to the tool that declared them.
 /// channel.on(kClientToolInvocationEventType).listen((event) {
-///   final invocation = AIToolInvocation.tryParse({...event.extraData, 'cid': event.cid});
+///   final invocation = AIToolInvocation.tryParse(
+///     {...event.extraData, 'cid': event.cid, 'message_id': event.messageId},
+///     isInvocationEvent: true,
+///   );
 ///   if (invocation != null) unawaited(registry.dispatch(invocation));
 /// });
 /// ```

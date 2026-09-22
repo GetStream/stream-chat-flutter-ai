@@ -650,7 +650,10 @@ Route client-tool invocations to your `AIToolRegistry`:
 
 ```dart
 channel.on(kClientToolInvocationEventType).listen((event) {
-  final invocation = AIToolInvocation.tryParse({...event.extraData, 'cid': event.cid});
+  final invocation = AIToolInvocation.tryParse(
+    {...event.extraData, 'cid': event.cid, 'message_id': event.messageId},
+    isInvocationEvent: true,
+  );
   if (invocation != null) unawaited(registry.dispatch(invocation));
 });
 ```
@@ -659,10 +662,16 @@ A payload that announced itself as an invocation and then failed to parse is rep
 to `FlutterError.onError`: the tool the agent asked for will not run, and the agent is
 never told, so that would otherwise be silent.
 
-`tryParse` takes a flat map so the event's own fields can be merged in: `cid` is a
-first-class field on `Event` rather than part of `extraData`. It tolerates an absent
-`type` for the same reason — when you filter with `channel.on(...)`, the type is on the
-event object, not in the payload you forward.
+`tryParse` takes a flat map so the event's own fields can be merged in. `cid`,
+`message_id` and `type` are all first-class fields on `Event` rather than part of
+`extraData`, so the two the invocation needs are added by hand — forget `message_id`
+and `invocation.messageId` is silently null.
+
+`type` is the third one, and it is what `isInvocationEvent: true` stands in for: it
+tells `tryParse` that you have already filtered the stream, so a payload that arrives
+with no `tool` object is a malformed invocation worth reporting rather than some other
+event to pass over. Filter on an event type of your own and the flag still holds — it
+is the filtering it asserts, not the name.
 
 Stop an in-progress AI response:
 

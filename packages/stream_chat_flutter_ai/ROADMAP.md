@@ -574,8 +574,8 @@ class AIToolRegistry {
   Future<bool> dispatch(AIToolInvocation invocation);         // bool = coverage, not success
 }
 
-// Plus AIToolInvocation.tryParse(Map<String, Object?>), AIInvokedTool, and
-// kClientToolInvocationEventType.
+// Plus AIToolInvocation.tryParse(Map<String, Object?>, {bool isInvocationEvent}),
+// AIInvokedTool, and kClientToolInvocationEventType.
 ```
 
 **Where the seam sits.** The same place iOS puts it: the package holds the types and the name→tool

@@ -147,6 +147,18 @@ void main() {
         expect(reported, isEmpty);
       });
 
+      test('an event of some other type, even one the caller vouched for', () {
+        // `isInvocationEvent` says the stream was filtered, not that a payload
+        // naming a different event should be read as an invocation anyway.
+        final other = _event()..['type'] = 'message.new';
+
+        final reported = _collectingErrors(() {
+          expect(AIToolInvocation.tryParse(other, isInvocationEvent: true), isNull);
+        });
+
+        expect(reported, isEmpty);
+      });
+
       test('an event of some other type', () {
         // A host that pipes every channel event through here gets nothing,
         // rather than a tool call built out of a message.
@@ -175,6 +187,21 @@ void main() {
 
         expect(reported, hasLength(1));
         expect(reported.single.library, 'stream_chat_flutter_ai');
+        expect(reported.single.exception, isFormatException);
+      });
+
+      test('a payload with no tool object that the caller vouched for', () {
+        // The documented path: `type` is a field on `Event`, so it never
+        // reaches the map, and without `isInvocationEvent` a renamed `tool` key
+        // would vanish with no report at all.
+        final reported = _collectingErrors(() {
+          expect(
+            AIToolInvocation.tryParse({'cid': 'messaging:general'}, isInvocationEvent: true),
+            isNull,
+          );
+        });
+
+        expect(reported, hasLength(1));
         expect(reported.single.exception, isFormatException);
       });
 
