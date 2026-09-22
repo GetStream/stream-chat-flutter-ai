@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/heatmap_chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
 /// The palette [ChartView] cycles through when nothing overrides it.
 ///
@@ -175,45 +176,29 @@ class ChartThemeData {
     if (identical(a, b)) return a;
     return ChartThemeData(
       seriesColors: _lerpPalette(a.seriesColors, b.seriesColors, t),
-      height: _lerpDouble(a.height, b.height, t),
-      scatterRadius: _lerpDouble(a.scatterRadius, b.scatterRadius, t),
-      bubbleMinRadius: _lerpDouble(a.bubbleMinRadius, b.bubbleMinRadius, t),
-      bubbleMaxRadius: _lerpDouble(a.bubbleMaxRadius, b.bubbleMaxRadius, t),
+      height: lerpDoubleOrSwap(a.height, b.height, t),
+      scatterRadius: lerpDoubleOrSwap(a.scatterRadius, b.scatterRadius, t),
+      bubbleMinRadius: lerpDoubleOrSwap(a.bubbleMinRadius, b.bubbleMinRadius, t),
+      bubbleMaxRadius: lerpDoubleOrSwap(a.bubbleMaxRadius, b.bubbleMaxRadius, t),
       // A count, so it interpolates and then rounds rather than snapping at
       // the midpoint.
-      histogramBinCount: _bothSet(a.histogramBinCount, b.histogramBinCount)
+      histogramBinCount: bothSet(a.histogramBinCount, b.histogramBinCount)
           ? lerpDouble(a.histogramBinCount, b.histogramBinCount, t)!.round()
-          : _swap(a.histogramBinCount, b.histogramBinCount, t),
-      axisLabelStyle: _lerpStyle(a.axisLabelStyle, b.axisLabelStyle, t),
-      pieLabelStyle: _lerpStyle(a.pieLabelStyle, b.pieLabelStyle, t),
-      titleTextStyle: _lerpStyle(a.titleTextStyle, b.titleTextStyle, t),
-      gridLineColor: _lerpColor(a.gridLineColor, b.gridLineColor, t),
-      heatmapLowColor: _lerpColor(a.heatmapLowColor, b.heatmapLowColor, t),
-      heatmapMidColor: _lerpColor(a.heatmapMidColor, b.heatmapMidColor, t),
-      heatmapHighColor: _lerpColor(a.heatmapHighColor, b.heatmapHighColor, t),
+          : swapAtMidpoint(a.histogramBinCount, b.histogramBinCount, t),
+      axisLabelStyle: lerpTextStyleOrSwap(a.axisLabelStyle, b.axisLabelStyle, t),
+      pieLabelStyle: lerpTextStyleOrSwap(a.pieLabelStyle, b.pieLabelStyle, t),
+      titleTextStyle: lerpTextStyleOrSwap(a.titleTextStyle, b.titleTextStyle, t),
+      gridLineColor: lerpColorOrSwap(a.gridLineColor, b.gridLineColor, t),
+      heatmapLowColor: lerpColorOrSwap(a.heatmapLowColor, b.heatmapLowColor, t),
+      heatmapMidColor: lerpColorOrSwap(a.heatmapMidColor, b.heatmapMidColor, t),
+      heatmapHighColor: lerpColorOrSwap(a.heatmapHighColor, b.heatmapHighColor, t),
     );
   }
-
-  static bool _bothSet(Object? a, Object? b) => a != null && b != null;
-
-  /// Picks the nearer side, for a field only one of them sets.
-  ///
-  /// Don't interpolate instead: `null` means "derive from the theme", not zero
-  /// or transparent, so `Color.lerp` would fade a grid line through
-  /// transparency and `lerpDouble` would grow the chart from zero height.
-  static T? _swap<T>(T? a, T? b, double t) => t < 0.5 ? a : b;
-
-  static double? _lerpDouble(double? a, double? b, double t) => _bothSet(a, b) ? lerpDouble(a, b, t) : _swap(a, b, t);
-
-  static Color? _lerpColor(Color? a, Color? b, double t) => _bothSet(a, b) ? Color.lerp(a, b, t) : _swap(a, b, t);
-
-  static TextStyle? _lerpStyle(TextStyle? a, TextStyle? b, double t) =>
-      _bothSet(a, b) ? TextStyle.lerp(a, b, t) : _swap(a, b, t);
 
   /// Interpolates two palettes index by index, *wrapping* the shorter one the
   /// way it is cycled at paint time so no series loses its color mid-animation.
   static List<Color>? _lerpPalette(List<Color>? a, List<Color>? b, double t) {
-    if (a == null || b == null || a.isEmpty || b.isEmpty) return _swap(a, b, t);
+    if (a == null || b == null || a.isEmpty || b.isEmpty) return swapAtMidpoint(a, b, t);
     if (identical(a, b)) return a;
     final length = a.length > b.length ? a.length : b.length;
     return List<Color>.generate(

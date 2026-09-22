@@ -34,6 +34,8 @@ export 'src/markdown/math_syntax.dart';
 export 'src/streaming_message_view.dart';
 export 'src/theme/ai_theme.dart';
 export 'src/theme/components/chart_theme.dart';
+export 'src/theme/components/composer_theme.dart';
+export 'src/theme/components/suggestions_theme.dart';
 
 export 'src/tools/ai_tool_definition.dart';
 export 'src/tools/ai_tool_invocation.dart';

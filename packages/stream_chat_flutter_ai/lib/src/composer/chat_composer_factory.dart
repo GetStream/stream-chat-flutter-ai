@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dar
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
+import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
 /// Factory that produces the composable regions of [ChatComposer].
@@ -161,9 +162,9 @@ class _AttachmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     final enabled = !props.controller.isGenerating;
-    final iconColor = enabled ? colorScheme.onSurface : colorScheme.onSurface.withValues(alpha: 0.3);
+    final iconColor = theme.iconColorFor(enabled: enabled);
 
     return Tooltip(
       message: AITranslations.of(context).addPhotos,
@@ -174,9 +175,9 @@ class _AttachmentButton extends StatelessWidget {
           // Same fill/border tokens as the input pill (see
           // `ChatComposerInput` in chat_composer_input.dart) so the two read
           // as one connected surface rather than mismatched colors.
-          color: colorScheme.surfaceContainerHigh,
+          color: theme.fillColor,
           shape: BoxShape.circle,
-          border: Border.all(color: colorScheme.outlineVariant),
+          border: Border.all(color: theme.borderColor),
         ),
         // Above the fill, so the ink splash is actually visible.
         child: Material(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 
 /// A fixed-size, circular filled icon button.
 ///
@@ -38,6 +39,7 @@ class ComposerActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
+    final foregroundColor = ResolvedComposerTheme.resolve(context).actionButtonForegroundColor;
     return Tooltip(
       message: tooltip,
       child: AnimatedContainer(
@@ -57,7 +59,7 @@ class ComposerActionButton extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed,
-            child: Center(child: Icon(icon, color: Colors.white, size: 22)),
+            child: Center(child: Icon(icon, color: foregroundColor, size: 22)),
           ),
         ),
       ),

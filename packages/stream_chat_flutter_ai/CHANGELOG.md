@@ -1,3 +1,20 @@
+## Unreleased
+
+✅ Added
+
+- **`ComposerThemeData` and `SuggestionsThemeData`**, joining `ChartThemeData` on the `AITheme`
+  extension. `ChatComposer`, `ComposerAttachmentSheet` and `AISuggestionsView` previously resolved
+  every color straight from the ambient `ColorScheme` with no seam for a host to intervene; they now
+  take the pill's fill and border, the hint style, icon and disabled-icon colors, the send, stop and
+  recording button fills and the glyph on them, the selected-option chip, the photo grid's selection
+  ring, the attachment placeholder, and the chips' fill, border and text style. Narrow either to a
+  subtree with `ComposerTheme` / `SuggestionsTheme`, which layer over the extension and cross a
+  `Navigator` the way `ChartTheme` does — so a scope above the composer reaches its attachment
+  sheet.
+
+  Every field is nullable and unset means "derive from the ambient `ThemeData`", so registering
+  nothing renders exactly as before.
+
 ## 0.0.1
 
 First release of `stream_chat_flutter_ai`.
