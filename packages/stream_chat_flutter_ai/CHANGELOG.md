@@ -209,7 +209,7 @@ First release of `stream_chat_flutter_ai`.
   description, agent instructions, a JSON Schema for its arguments) and returns `AIToolAction`s for
   an `AIToolInvocation`. `registrationPayloads()` produces the JSON a host POSTs to its own backend,
   and `AIToolInvocation.tryParse` turns a `custom_client_tool_invocation` event into a typed
-  invocation with decoded arguments. Zero new dependencies: despite the "MCP" framing this subsystem
+  invocation with decoded arguments. No protocol dependency: despite the "MCP" framing this subsystem
   was scoped under, the wire protocol is not MCP-over-JSON-RPC — plain JSON Schema goes out over the
   host's own endpoint, and a Stream Chat custom event comes back — so there is no transport to
   depend on. The iOS library links the whole MCP SDK to borrow two of its types, one of which is a
@@ -245,8 +245,9 @@ First release of `stream_chat_flutter_ai`.
 - `AIToolDefinition`, `AIToolInvocation` and `AIInvokedTool` are value types: two with the same
   fields are `==`, with `parameters` and `args` compared deeply, so a host can assert on a parsed
   invocation or a registered definition directly. `collection` becomes a direct dependency for that
-  deep comparison — it was already resolved transitively through the Flutter SDK, so a host's
-  dependency graph is unchanged. An absent echoed schema stays distinct from an empty one, which is
+  deep comparison — it was already resolved transitively through the Flutter SDK, and already
+  imported undeclared by `src/chart/uspec.dart`, so a host's dependency graph is unchanged and one
+  undeclared import is now declared. An absent echoed schema stays distinct from an empty one, which is
   the asymmetry `AIInvokedTool.parameters` documents.
 
 - `AIToolInvocation.args` is unmodifiable however the event spelled its arguments, and
