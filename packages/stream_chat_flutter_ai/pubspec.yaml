@@ -1,7 +1,7 @@
 name: stream_chat_flutter_ai
 homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: Stream Chat AI Flutter components. Build AI-powered chat experiences with Stream.
-version: 0.0.1
+version: 0.1.0
 repository: https://github.com/GetStream/stream-chat-flutter-ai
 issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
 

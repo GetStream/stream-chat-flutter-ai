@@ -758,7 +758,7 @@ closures). Here it is a `channel.on(...)` listener and an HTTP call, both shown 
   `AIToolDefinition` once `description` is required (Swift needs it because MCP's is optional and
   falls back to `instructions`); the second exists to hold an `AnyObject`, which Dart doesn't need.
 - **Names follow 1.1's convention** (`AIToolRegistry`, `AIClientTool`), not this item's draft
-  `StreamAiClientTool` — the package dropped the `Stream` prefix from every public type in 0.0.1.
+  `StreamAiClientTool` — the package dropped the `Stream` prefix from every public type in 0.1.0.
 - **No widget work.** `showExternalSourcesIndicator` makes the *server* emit its "checking external
   sources" state, which `AITypingIndicatorView` already renders from a plain string.
 
