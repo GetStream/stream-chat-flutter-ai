@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
@@ -171,6 +172,47 @@ class ChartSemantics {
 
   /// Whether the chart has nothing to plot.
   bool get isEmpty => pointCount == 0;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChartSemantics &&
+          other.kind == kind &&
+          other.title == title &&
+          other.xLabel == xLabel &&
+          other.yLabel == yLabel &&
+          const ListEquality<String>().equals(other.seriesNames, seriesNames) &&
+          other.pointCount == pointCount &&
+          other.categoryCount == categoryCount &&
+          other.rowCount == rowCount &&
+          const ListEquality<String>().equals(other.columnLabels, columnLabels) &&
+          other.valueMin == valueMin &&
+          other.valueMax == valueMax &&
+          other.sizeMin == sizeMin &&
+          other.sizeMax == sizeMax &&
+          other.largestSliceLabel == largestSliceLabel &&
+          other.largestSlicePercent == largestSlicePercent;
+
+  @override
+  int get hashCode => Object.hash(
+    kind,
+    title,
+    xLabel,
+    yLabel,
+    // The lists need a deep hash of their own; an identity hash would make two
+    // equal summaries hash differently.
+    Object.hashAll(seriesNames),
+    pointCount,
+    categoryCount,
+    rowCount,
+    Object.hashAll(columnLabels),
+    valueMin,
+    valueMax,
+    sizeMin,
+    sizeMax,
+    largestSliceLabel,
+    largestSlicePercent,
+  );
 
   static String? _orNull(String? value) => (value == null || value.isEmpty) ? null : value;
 

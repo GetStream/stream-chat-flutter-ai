@@ -115,6 +115,10 @@ First release of `stream_chat_flutter_ai`.
   reach a chart in the markdown path through its own `BuildContext`, so the fence widget cache's
   key is untouched — the same call `AITranslations` made, and for the same reason.
 
+- **`ChartSemantics` compares by value**, like the `USpec` types it is derived from. Two summaries
+  of the same chart are `==` and hash alike, so a host can memoize on one or assert against one in
+  a test.
+
 - **Charts describe themselves to a screen reader.** `fl_chart` paints to a canvas and contributes
   no accessibility nodes, so a `ChartView` used to be an empty box. Each chart now carries one
   semantics node summarising the kind, the title, the axes, the series, the counts and the value

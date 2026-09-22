@@ -414,6 +414,125 @@ void main() {
     });
   });
 
+  group('equality', () {
+    ChartSemantics facts(USpec spec) => ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+
+    USpec line(List<USeries> series, {String title = 'T', String x = 'X', String y = 'Y'}) =>
+        USpec(kind: USpecKind.line, title: title, xLabel: x, yLabel: y, series: series);
+
+    const janFeb = [
+      USeries(
+        name: 'A',
+        points: [
+          UPoint(x: 'Jan', y: 1),
+          UPoint(x: 'Feb', y: 2),
+        ],
+      ),
+    ];
+
+    USpec pie(List<UPoint> slices) => USpec(
+      kind: USpecKind.pie,
+      series: [USeries(name: 'A', points: slices)],
+    );
+    USpec bubble(double firstSize) => USpec(
+      kind: USpecKind.bubble,
+      series: [
+        USeries(
+          name: 'A',
+          points: [
+            UPoint(x: '1', y: 1, size: firstSize),
+            const UPoint(x: '2', y: 2, size: 9),
+          ],
+        ),
+      ],
+    );
+
+    test('two summaries of the same chart are equal and hash alike', () {
+      expect(facts(_barSpec), facts(_barSpec));
+      expect(facts(_barSpec).hashCode, facts(_barSpec).hashCode);
+    });
+
+    // Each pair moves exactly one derived fact, so dropping that fact from
+    // either == or hashCode fails here. Comparing against one shared baseline
+    // instead would not: most variants differ in several facts at once, and any
+    // one of the others still separates them.
+    final pairs = <String, (USpec, USpec)>{
+      'kind': (line(janFeb), const USpec(kind: USpecKind.bar, title: 'T', xLabel: 'X', yLabel: 'Y', series: janFeb)),
+      'title': (line(janFeb), line(janFeb, title: 'U')),
+      'xLabel': (line(janFeb), line(janFeb, x: 'Z')),
+      'yLabel': (line(janFeb), line(janFeb, y: 'Z')),
+      'seriesNames, and rowCount with it': (
+        line(janFeb),
+        line(const [
+          USeries(
+            name: 'B',
+            points: [
+              UPoint(x: 'Jan', y: 1),
+              UPoint(x: 'Feb', y: 2),
+            ],
+          ),
+        ]),
+      ),
+      'columnLabels': (
+        line(janFeb),
+        line(const [
+          USeries(
+            name: 'A',
+            points: [
+              UPoint(x: 'Mar', y: 1),
+              UPoint(x: 'Apr', y: 2),
+            ],
+          ),
+        ]),
+      ),
+      'valueMin and valueMax': (
+        line(janFeb),
+        line(const [
+          USeries(
+            name: 'A',
+            points: [
+              UPoint(x: 'Jan', y: 3),
+              UPoint(x: 'Feb', y: 4),
+            ],
+          ),
+        ]),
+      ),
+      'pointCount and categoryCount': (
+        line(janFeb),
+        line(const [
+          USeries(
+            name: 'A',
+            points: [
+              UPoint(x: 'Jan', y: 1),
+              UPoint(x: 'Feb', y: 2),
+              UPoint(x: 'Mar', y: 2),
+            ],
+          ),
+        ]),
+      ),
+      'sizeMin': (bubble(5), bubble(6)),
+      // Same labels, same range, same count — only which slice is biggest.
+      'largestSliceLabel': (
+        pie(const [UPoint(x: 'Chrome', y: 60), UPoint(x: 'Safari', y: 40)]),
+        pie(const [UPoint(x: 'Chrome', y: 40), UPoint(x: 'Safari', y: 60)]),
+      ),
+      // Same biggest slice and same range; only the total it is a share of.
+      'largestSlicePercent': (
+        pie(const [UPoint(x: 'Chrome', y: 60), UPoint(x: 'Safari', y: 40), UPoint(x: 'Edge', y: 40)]),
+        pie(const [UPoint(x: 'Chrome', y: 60), UPoint(x: 'Safari', y: 40), UPoint(x: 'Edge', y: 60)]),
+      ),
+    };
+
+    for (final entry in pairs.entries) {
+      test('${entry.key} separates two summaries', () {
+        final (a, b) = entry.value;
+        final (factsA, factsB) = (facts(a), facts(b));
+        expect(factsA, isNot(factsB));
+        expect(factsA.hashCode, isNot(factsB.hashCode));
+      });
+    }
+  });
+
   group('DefaultAITranslations.chartSemanticsLabel', () {
     test('describes every kind', () {
       expect(_label(_lineSpec), 'Line chart, Sales, 3 points, values 10 to 25');
