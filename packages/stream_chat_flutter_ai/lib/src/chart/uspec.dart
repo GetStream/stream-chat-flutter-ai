@@ -63,7 +63,12 @@ class USeries {
   /// Creates a [USeries].
   const USeries({required this.name, required this.points});
 
-  /// The series name (shown in legends).
+  /// The series name, or `''` when the data didn't name one.
+  ///
+  /// [USpecParser] leaves it empty rather than inventing an English default,
+  /// so anything displaying it substitutes `AITranslations.unnamedChartSeries`
+  /// first — `HeatmapChartView` does this for its row labels, and
+  /// `ChartSemantics` for the spoken summary. This package draws no legend.
   final String name;
 
   /// The data points that make up this series.
@@ -246,7 +251,7 @@ class USpecParser {
       return USpec(
         title: json['title']?.toString(),
         kind: USpecKind.pie,
-        series: [USeries(name: ds['label']?.toString() ?? 'Pie', points: points)],
+        series: [USeries(name: ds['label']?.toString() ?? '', points: points)],
       );
     }
 
@@ -296,7 +301,7 @@ class USpecParser {
       // through to one that can — or to a plain code block — rather than being
       // claimed here and rendered as a chart with bare axes.
       if (points.isEmpty) continue;
-      series.add(USeries(name: ds['label']?.toString() ?? 'Series', points: points));
+      series.add(USeries(name: ds['label']?.toString() ?? '', points: points));
     }
     if (series.isEmpty) return null;
 
@@ -439,7 +444,7 @@ class USpecParser {
       // didn't understand the payload, and claiming it renders bare axes
       // instead of falling through to one that does.
       if (points.isEmpty) continue;
-      series.add(USeries(name: s['name']?.toString() ?? 'Series', points: points));
+      series.add(USeries(name: s['name']?.toString() ?? '', points: points));
     }
     if (series.isEmpty) return null;
 
@@ -496,7 +501,7 @@ class USpecParser {
       // didn't understand the payload, and claiming it renders bare axes
       // instead of falling through to one that does.
       if (points.isEmpty) continue;
-      series.add(USeries(name: s['name']?.toString() ?? 'Series', points: points));
+      series.add(USeries(name: s['name']?.toString() ?? '', points: points));
     }
     if (series.isEmpty) return null;
 
@@ -553,7 +558,7 @@ class USpecParser {
       // a plain code block.
       final y = _asDouble(r[yField]);
       if (y == null) continue;
-      final key = colorField != null ? (r[colorField]?.toString() ?? 'Series') : 'Series';
+      final key = colorField != null ? (r[colorField]?.toString() ?? '') : '';
       final size = sizeField != null ? _asDouble(r[sizeField]) : null;
       (groups[key] ??= []).add(UPoint(x: xStr, y: y, size: size));
     }
@@ -617,7 +622,7 @@ class USpecParser {
     return USpec(
       title: title,
       kind: USpecKind.pie,
-      series: [USeries(name: title ?? 'Pie', points: points)],
+      series: [USeries(name: title ?? '', points: points)],
     );
   }
 

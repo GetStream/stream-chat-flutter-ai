@@ -13,6 +13,7 @@ export 'package:speech_to_text/speech_recognition_error.dart' show SpeechRecogni
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';
+export 'src/chart/chart_semantics.dart';
 export 'src/chart/chart_view.dart';
 export 'src/chart/heatmap_chart_view.dart';
 export 'src/chart/uspec.dart';
@@ -31,6 +32,9 @@ export 'src/composer/suggestions_view.dart';
 export 'src/localization/ai_translations.dart';
 export 'src/markdown/math_syntax.dart';
 export 'src/streaming_message_view.dart';
+export 'src/theme/ai_theme.dart';
+export 'src/theme/components/chart_theme.dart';
+
 export 'src/tools/ai_tool_definition.dart';
 export 'src/tools/ai_tool_invocation.dart';
 export 'src/tools/ai_tool_registry.dart';

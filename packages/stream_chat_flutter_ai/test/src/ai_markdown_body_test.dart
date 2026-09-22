@@ -183,6 +183,53 @@ void main() {
         expect(find.byTooltip('Copy code'), findsNothing);
       });
 
+      testWidgets('a chart theme reaches a cached fence', (tester) async {
+        // Same claim as the translations test above, for the chart palette.
+        // ChartThemeData is deliberately absent from the fence cache key and
+        // from AIMarkdownBody's parameters: ChartView resolves it from its own
+        // context, so one cached instance renders correctly under two themes.
+        // Threading it as a constructor argument without extending the key
+        // would instead let two differently-themed bodies share one palette.
+        debugClearFenceCaches();
+
+        Widget app(Color color) => MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            extensions: [
+              AITheme(chartTheme: ChartThemeData(seriesColors: [color])),
+            ],
+          ),
+          home: const Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: AIMarkdownBody(data: _chartFence),
+            ),
+          ),
+        );
+
+        Color? rodColor() => tester.widget<BarChart>(find.byType(BarChart)).data.barGroups.first.barRods.first.color;
+
+        await tester.pumpWidget(app(const Color(0xFFFF0000)));
+        final cached = tester.element(find.byType(ChartView)).widget;
+        expect(rodColor(), const Color(0xFFFF0000));
+
+        await tester.pumpWidget(app(const Color(0xFF00FF00)));
+        // MaterialApp animates its ThemeData, so the palette is mid-lerp until
+        // the transition finishes.
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.element(find.byType(ChartView)).widget,
+          same(cached),
+          reason: 'the fence cache still hands back one widget instance',
+        );
+        expect(
+          rodColor(),
+          const Color(0xFF00FF00),
+          reason: 'the palette comes from context, so the identical widget repaints anyway',
+        );
+      });
+
       testWidgets('codeHighlighter reaches the fence', (tester) async {
         // The fence is built by a private builder, so without the forwarding
         // this parameter would be unreachable for the main use case.

@@ -1,5 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:stream_chat_flutter_ai/src/chart/chart_semantics.dart';
+// Here for the [ChartView] doc link below only; nothing in this file's code
+// uses it.
+import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
+import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 
 /// The user-facing strings the package renders itself.
 ///
@@ -110,6 +115,22 @@ abstract class AITranslations {
   /// Tooltip on a code block's copy button for the two seconds after a copy,
   /// while it shows its confirmation.
   String get codeCopied;
+
+  /// The name to use for a chart series the data didn't name. Reaches the
+  /// screen as a heatmap's row label, and is read out by
+  /// [chartSemanticsLabel].
+  String get unnamedChartSeries;
+
+  /// The screen-reader summary of a chart.
+  ///
+  /// [ChartView] paints to a canvas, so this is the only thing a reader has to
+  /// go on; [ChartSemantics] carries the facts, already formatted.
+  ///
+  /// One method rather than a dozen phrase-sized ones, because a sentence's
+  /// word order varies far more between languages than a tooltip's. Switch on
+  /// [ChartSemantics.kind] and drop any clause whose fact is absent, the way
+  /// [DefaultAITranslations] does.
+  String chartSemanticsLabel(ChartSemantics chart);
 }
 
 /// The English strings this package ships, and what every widget renders when
@@ -162,6 +183,82 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get codeCopied => 'Copied!';
+
+  @override
+  String get unnamedChartSeries => 'Series';
+
+  @override
+  String chartSemanticsLabel(ChartSemantics chart) {
+    final parts = <String>[
+      switch (chart.kind) {
+        USpecKind.line => 'Line chart',
+        USpecKind.area => 'Area chart',
+        USpecKind.bar => 'Bar chart',
+        USpecKind.pie => 'Pie chart',
+        USpecKind.scatter => 'Scatter chart',
+        USpecKind.bubble => 'Bubble chart',
+        USpecKind.heatmap => 'Heatmap',
+        USpecKind.histogram => 'Histogram',
+      },
+      if (chart.title case final title?) title,
+    ];
+
+    if (chart.isEmpty) return [...parts, 'no data'].join(', ');
+
+    // A pie has one series and no axes, and a histogram's x axis is the buckets
+    // it derived rather than anything the data named.
+    if (chart.kind != USpecKind.pie && chart.kind != USpecKind.histogram) {
+      if (chart.xLabel case final label?) parts.add('$label on the x axis');
+      if (chart.yLabel case final label?) parts.add('$label on the y axis');
+      // Skipped for one series, whose name almost always repeats the title or
+      // the y label, and for a heatmap, whose series *are* its rows and are
+      // named as such below.
+      if (chart.seriesNames.length > 1 && chart.kind != USpecKind.heatmap) {
+        parts.add('${chart.seriesNames.length} series: ${chart.seriesNames.join(', ')}');
+      }
+    }
+
+    switch (chart.kind) {
+      case USpecKind.pie:
+        parts.add(_count(chart.pointCount, 'slice'));
+        if (chart.largestSliceLabel case final label? when chart.largestSlicePercent != null) {
+          parts.add('largest $label at ${chart.largestSlicePercent} percent');
+        }
+      case USpecKind.bar:
+        parts
+          ..add(_count(chart.categoryCount, 'category', plural: 'categories'))
+          ..add(_range(chart));
+      case USpecKind.histogram:
+        parts
+          ..add(_count(chart.pointCount, 'sample'))
+          ..add(_range(chart));
+      case USpecKind.heatmap:
+        // A heatmap rarely names its axes, and the painted row and column
+        // labels are excluded from the tree — so naming them here is the only
+        // way a reader learns the rows are Mon and Tue, not just that there
+        // are two.
+        parts
+          ..add('${_count(chart.rowCount, 'row')} by ${_count(chart.columnCount, 'column')}')
+          ..add('rows: ${chart.seriesNames.join(', ')}')
+          ..add('columns: ${chart.columnLabels.join(', ')}')
+          ..add(_range(chart));
+      case USpecKind.line || USpecKind.area || USpecKind.scatter || USpecKind.bubble:
+        parts
+          ..add(_count(chart.pointCount, 'point'))
+          ..add(_range(chart));
+        // Null for everything but a bubble — see [ChartSemantics.sizeMin].
+        if (chart.sizeMin case final min?) parts.add('sizes $min to ${chart.sizeMax}');
+    }
+
+    return parts.join(', ');
+  }
+
+  static String _range(ChartSemantics chart) => 'values ${chart.valueMin} to ${chart.valueMax}';
+
+  /// `'1 row'`, `'4 columns'`. English pluralization, which a subclass replaces
+  /// along with the rest of the sentence.
+  static String _count(int count, String singular, {String? plural}) =>
+      '$count ${count == 1 ? singular : plural ?? '${singular}s'}';
 }
 
 /// Provides [translations] to the widgets below it.
