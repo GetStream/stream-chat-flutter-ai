@@ -101,9 +101,15 @@ final class AIToolDefinition {
   /// fires. The result is a plain map, so remapping the keys is a couple of
   /// lines if yours differ.
   ///
-  /// [parameters] is copied out rather than aliased, so a host that rewrites
-  /// its payload before sending does not also rewrite the definition it
-  /// registered.
+  /// [parameters] is copied one level deep, so adding or replacing a top-level
+  /// key of the payload leaves the registered definition alone. Only one level:
+  /// the nested schema objects are shared, so rewriting
+  /// `payload['parameters']['properties']` rewrites the definition's schema too
+  /// — and changes its [hashCode], since [parameters] is compared deeply. With
+  /// the default empty schema it throws instead, the nested map there being
+  /// `const`. Build a new map rather than editing this one in place; deep
+  /// copying every payload to promise otherwise would cost more than it is
+  /// worth on a schema of any size.
   Map<String, Object?> toJson() => <String, Object?>{
     'name': name,
     'description': description,

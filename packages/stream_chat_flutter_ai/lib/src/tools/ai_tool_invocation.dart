@@ -51,7 +51,8 @@ final class AIInvokedTool {
   /// "the event didn't echo a schema", while an empty schema there means "this
   /// tool declares no arguments". Collapsing the two would lose that.
   ///
-  /// Unmodifiable when produced by [AIToolInvocation.tryParse].
+  /// Unmodifiable when produced by [AIToolInvocation.tryParse] — at the top
+  /// level, as with [AIToolInvocation.args].
   final Map<String, Object?>? parameters;
 
   @override
@@ -199,6 +200,10 @@ final class AIToolInvocation {
   ///
   /// Empty when the invocation carried none, never null, and unmodifiable when
   /// produced by [tryParse] — one contract rather than one per input shape.
+  ///
+  /// Unmodifiable at the top level only. An argument that is itself an object
+  /// or a list is the decoded value as it arrived, and nothing stops a host
+  /// mutating that; copy it if you intend to.
   final Map<String, Object?> args;
 
   @override

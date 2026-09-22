@@ -94,6 +94,26 @@ void main() {
         expect(schema, isNot(contains('additionalProperties')));
       });
 
+      test('copies one level only, which is what the payload documents', () {
+        // Pinned rather than fixed: deep copying every payload costs more than
+        // it is worth on a real schema. The doc on toJson says to build a new
+        // map instead of editing a nested one, and this is what it is warning
+        // about.
+        final schema = <String, Object?>{
+          'type': 'object',
+          'properties': <String, Object?>{
+            'query': <String, Object?>{'type': 'string'},
+          },
+        };
+        final definition = AIToolDefinition(name: 'search', description: 'Search', parameters: schema);
+
+        final payload = definition.toJson();
+        final properties = (payload['parameters']! as Map<String, Object?>)['properties']! as Map<String, Object?>;
+        properties['limit'] = <String, Object?>{'type': 'integer'};
+
+        expect(definition.parameters['properties'], contains('limit'));
+      });
+
       test('produces something jsonEncode accepts', () {
         // Cheap guard on the whole payload: the host hands this straight to an
         // HTTP body, where anything non-encodable surfaces as a throw far from
