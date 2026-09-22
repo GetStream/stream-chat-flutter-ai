@@ -25,6 +25,8 @@ environment:
 resolution: workspace
 
 dependencies:
+  # Deep and list equality for the public value types, whose fields include
+  # lists and maps.
   collection: ^1.19.0
   # Depended on directly, not just via image_picker: `XFile` appears in this
   # package's own public API (`ChatComposerSendCallback`, and

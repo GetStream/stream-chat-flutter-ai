@@ -37,6 +37,16 @@ First release of `stream_chat_flutter_ai`.
 
 ✅ Added
 
+- **`UPoint`, `USeries` and `USpec` are value types.** All three now implement `==`/`hashCode`,
+  comparing their nested lists by value, so two specs parsed from the same JSON are equal and a spec
+  works as a map key or set member. Previously they used identity, which made a host asserting on a
+  parse result compare two structurally identical charts as different. `ChatOption` (id-based, by
+  design) and `TypewriterValue` already had equality; this brings the chart types in line.
+
+- `collection` is now a direct dependency, for the list equality above. It was already resolved
+  transitively through the Flutter SDK, so this adds nothing to a host's dependency graph — it is
+  declared because the package imports it directly, which `flutter pub publish` requires.
+
 - **`ChatComposerFactory` now covers all four composer regions**, not two.
   `ChatComposerFactory.buildInput` supplies the input field and
   `ChatComposerFactory.buildAttachmentSheet` supplies the contents of the sheet the default
@@ -244,11 +254,9 @@ First release of `stream_chat_flutter_ai`.
 
 - `AIToolDefinition`, `AIToolInvocation` and `AIInvokedTool` are value types: two with the same
   fields are `==`, with `parameters` and `args` compared deeply, so a host can assert on a parsed
-  invocation or a registered definition directly. `collection` becomes a direct dependency for that
-  deep comparison — it was already resolved transitively through the Flutter SDK, and already
-  imported undeclared by `src/chart/uspec.dart`, so a host's dependency graph is unchanged and one
-  undeclared import is now declared. An absent echoed schema stays distinct from an empty one, which is
-  the asymmetry `AIInvokedTool.parameters` documents.
+  invocation or a registered definition directly. The deep comparison uses `collection`, already a
+  direct dependency for the chart value types above. An absent echoed schema stays distinct from an
+  empty one, which is the asymmetry `AIInvokedTool.parameters` documents.
 
 - `AIToolInvocation.args` is unmodifiable however the event spelled its arguments, and
   `AIToolDefinition.toJson()` copies `parameters` out rather than aliasing them. Also new:
