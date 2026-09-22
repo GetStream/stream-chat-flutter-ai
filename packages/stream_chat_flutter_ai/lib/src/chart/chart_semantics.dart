@@ -21,7 +21,7 @@ class ChartSemantics {
     required this.pointCount,
     required this.categoryCount,
     required this.rowCount,
-    required this.columnCount,
+    required this.columnLabels,
     this.title,
     this.xLabel,
     this.yLabel,
@@ -56,7 +56,8 @@ class ChartSemantics {
     final xLabel = spec.xLabel?.trim();
     final yLabel = spec.yLabel?.trim();
 
-    final columns = <String>{for (final series in drawn) ...series.points.map((p) => p.x)};
+    // A set literal keeps insertion order, so these come out left to right.
+    final columns = <String>{for (final series in drawn) ...series.points.map((p) => p.x)}.toList(growable: false);
 
     if (points.isEmpty) {
       return ChartSemantics._(
@@ -65,7 +66,7 @@ class ChartSemantics {
         pointCount: 0,
         categoryCount: 0,
         rowCount: drawn.length,
-        columnCount: columns.length,
+        columnLabels: columns,
         title: _orNull(title),
         xLabel: _orNull(xLabel),
         yLabel: _orNull(yLabel),
@@ -75,7 +76,14 @@ class ChartSemantics {
     // A heatmap encodes its value in `z`, falling back to `y` the same way the
     // grid does.
     final values = spec.kind == USpecKind.heatmap ? points.map((p) => p.z ?? p.y) : points.map((p) => p.y);
-    final sizes = points.map((p) => p.size).whereType<double>();
+    // Only a bubble chart maps `UPoint.size` onto anything — every other kind
+    // draws its points at the flat `scatterRadius`. The parsers fill `size` in
+    // regardless of the mark (a Vega-Lite `{"mark": "point", "encoding":
+    // {"size": ...}}` is a scatter), so without this a chart of a dozen
+    // identical dots announced the size range it never drew.
+    final sizes = spec.kind == USpecKind.bubble
+        ? points.map((p) => p.size).whereType<double>()
+        : const Iterable<double>.empty();
 
     String? largestLabel;
     String? largestPercent;
@@ -96,7 +104,7 @@ class ChartSemantics {
       pointCount: points.length,
       categoryCount: _categoryCount(drawn),
       rowCount: drawn.length,
-      columnCount: columns.length,
+      columnLabels: columns,
       title: _orNull(title),
       xLabel: _orNull(xLabel),
       yLabel: _orNull(yLabel),
@@ -136,10 +144,21 @@ class ChartSemantics {
   final int categoryCount;
 
   /// One per described series — a [USpecKind.heatmap]'s row count.
+  ///
+  /// The rows themselves are named in [seriesNames], in the same order.
   final int rowCount;
 
-  /// The distinct x positions — a [USpecKind.heatmap]'s column count.
-  final int columnCount;
+  /// The distinct x positions, left to right — a [USpecKind.heatmap]'s column
+  /// labels.
+  ///
+  /// A heatmap draws these down the side and along the bottom, and the
+  /// semantics node excludes them, so the summary is where a screen reader
+  /// hears which cell is which.
+  final List<String> columnLabels;
+
+  /// How many distinct x positions there are — a [USpecKind.heatmap]'s column
+  /// count.
+  int get columnCount => columnLabels.length;
 
   /// The smallest value plotted, formatted, or null when there is no data.
   final String? valueMin;
@@ -149,6 +168,9 @@ class ChartSemantics {
 
   /// The smallest [UPoint.size] among [USpecKind.bubble] points, formatted, or
   /// null when no point carries one.
+  ///
+  /// Always null for every other kind: they draw all points at one radius, so
+  /// a size range would describe an encoding that isn't on screen.
   final String? sizeMin;
 
   /// The largest [UPoint.size] among [USpecKind.bubble] points, formatted, or
@@ -171,12 +193,17 @@ class ChartSemantics {
   /// zero", so whole numbers lose their decimal and the rest keep at most two.
   static String _formatValue(double value) {
     if (!value.isFinite) return value.toString();
-    // Also normalizes -0.0, which toStringAsFixed(0) renders as '-0'.
-    if (value == 0) return '0';
-    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
-    // The `\.?` matters: without it the trailing zeros go but the point stays,
-    // so 99.999 formats as '100.' and a reader hears "one hundred point".
-    return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+    // Round first, then decide how to render — deciding first got both edges
+    // wrong. 99.999 is not whole but rounds to one, and -0.001 is neither zero
+    // nor whole, so it reached the last branch as '-0.00' -> '-0', voiced as
+    // "minus zero" for every value in (-0.005, 0).
+    final rounded = double.parse(value.toStringAsFixed(2));
+    // Covers -0.0, whose toStringAsFixed(0) is '-0'.
+    if (rounded == 0) return '0';
+    if (rounded == rounded.roundToDouble()) return rounded.toStringAsFixed(0);
+    // Always has a fraction past the guard above, so stripping its trailing
+    // zeros can never leave a dangling point.
+    return rounded.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
   }
 
   /// How many x positions [series] occupies. Mirrors `ChartView._categoryLabels`

@@ -11,10 +11,10 @@ First release of `stream_chat_flutter_ai`.
 🔄 Changed
 
 - **Pie slice labels now pick black or white per slice** instead of always being white. White
-  disappears on a light slice, and a host palette is free to contain one — so the colour is chosen
-  for contrast against each slice's own fill. Under the default palette this makes every label
-  dark where it used to be white. Setting a colour on `ChartThemeData.pieLabelStyle` takes the
-  choice back.
+  disappears on a light slice, and a host palette is free to contain one — so the colour is the one
+  of the two with the better WCAG contrast against that slice's own fill. Under the default palette
+  five of the six flip dark; purple keeps white, which reads better on it. Setting a colour on
+  `ChartThemeData.pieLabelStyle` takes the choice back.
 
 - **`USpecParser` leaves an unnamed series' name empty** instead of substituting `'Series'` or
   `'Pie'`. Those were English strings assigned in a parser that has no `BuildContext`, and
@@ -84,7 +84,9 @@ First release of `stream_chat_flutter_ai`.
   the heatmap's three ramp stops. Every field is nullable and an unset one derives from the ambient
   `ColorScheme`, so overriding the palette leaves everything else following the app in both
   brightnesses. `ChartTheme` overrides it for one subtree and `ChartView.theme` /
-  `HeatmapChartView.theme` for one chart; the three compose, most specific first.
+  `HeatmapChartView.theme` for one chart; those three compose, most specific first. Nesting one
+  `ChartTheme` inside another replaces rather than layers, the way `IconTheme` does — use
+  `ChartTheme.merge` to add to an enclosing scope instead of shadowing it.
 
   Note that `ThemeData.copyWith(extensions:)` replaces the whole extension set, so an app that
   already registers others has to re-list them.
@@ -116,6 +118,12 @@ First release of `stream_chat_flutter_ai`.
   legend labels are real `Text` widgets, and letting a reader walk them yields a run of bare
   numbers with nothing saying which axis they belong to or how they pair up; the summary already
   carries the range, the counts and — where the data named them — the axis labels.
+
+  A heatmap is the one kind whose summary also names things rather than only counting them. It
+  rarely has axis labels, and what identifies a cell is the row and column it sits in, so it reads
+  "Heatmap, 2 rows by 4 columns, rows: Mon, Tue, columns: 9am, 12pm, 3pm, 6pm, values 2 to 14".
+  The row names come from `ChartSemantics.seriesNames` and the column names from its new
+  `columnLabels`.
 
   This is also the first thing in the package to read `USpec.xLabel` and `USpec.yLabel`, which the
   parsers have been filling in for nobody.
@@ -273,7 +281,13 @@ First release of `stream_chat_flutter_ai`.
   reader voices as "one hundred point". Charts whose values all sit below `0.005` fared worst: both
   ends of the range collapsed to `0.`, so the range clause said nothing at all. Since the chart's
   `Semantics` node excludes the painted axis labels, that sentence is the only thing a screen-reader
-  user gets.
+  user gets. The same rewrite fixed the other end of the rounding: a value in `(-0.005, 0)` is
+  neither zero nor whole, so it formatted as `-0.00` and was stripped to `-0` — voiced as "minus
+  zero". A chart of small negative deltas announced "values -0 to -0".
+- **A line, area or scatter chart announced a size range it never drew.** Only a bubble chart maps
+  `UPoint.size` onto anything; every other kind draws its points at one flat radius. The parsers
+  fill `size` in regardless of the mark, so a Vega-Lite `{"mark": "point", "encoding": {"size":
+  …}}` — a scatter — described "sizes 1000000 to 9000000" over a dozen identical dots.
 - **A pie or histogram described series it doesn't draw.** `ChartView` plots the first series and
   ignores the rest for both kinds, but `ChartSemantics.fromSpec` flattened every series — so a
   two-series pie showing four slices was announced as eight, with the largest slice's share computed

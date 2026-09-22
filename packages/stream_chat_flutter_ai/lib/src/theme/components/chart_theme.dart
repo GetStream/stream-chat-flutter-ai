@@ -282,9 +282,40 @@ class ChartThemeData {
 /// ```
 ///
 /// For one chart, [ChartView.theme] is shorter and wins over this.
+///
+/// **Nesting replaces rather than layers.** [of] reads the nearest scope only,
+/// so a `ChartTheme` inside another drops the outer one's overrides — the same
+/// way `IconTheme` behaves, and for the same reason. Use [ChartTheme.merge] to
+/// add to an enclosing scope instead of shadowing it.
 class ChartTheme extends InheritedTheme {
   /// Creates a [ChartTheme].
   const ChartTheme({super.key, required this.data, required super.child});
+
+  /// A scope layering [data] over whatever is already in force at this point
+  /// in the tree, rather than replacing it.
+  ///
+  /// Use this inside another [ChartTheme] — a plain one would drop the outer
+  /// scope's fields:
+  ///
+  /// ```dart
+  /// ChartTheme(
+  ///   data: const ChartThemeData(seriesColors: [Colors.teal, Colors.amber]),
+  ///   child: ChartTheme.merge(
+  ///     // Keeps the palette above; a plain ChartTheme here would lose it.
+  ///     data: const ChartThemeData(height: 320),
+  ///     child: AIMarkdownBody(data: message),
+  ///   ),
+  /// )
+  /// ```
+  static Widget merge({Key? key, required ChartThemeData data, required Widget child}) => Builder(
+    builder: (context) {
+      // Only the enclosing scope, not [of]'s result: folding [AITheme]'s
+      // resolved fields in here would bake them into a widget that outlives a
+      // change to them. [of] layers over [AITheme] on every read anyway.
+      final outer = context.dependOnInheritedWidgetOfExactType<ChartTheme>()?.data;
+      return ChartTheme(key: key, data: outer?.merge(data) ?? data, child: child);
+    },
+  );
 
   /// The overrides applied to the subtree.
   final ChartThemeData data;

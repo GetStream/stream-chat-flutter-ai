@@ -185,12 +185,29 @@ class ChartView extends StatelessWidget {
     return PieChart(PieChartData(sections: sections, sectionsSpace: 2));
   }
 
-  /// The readable color for a label drawn on top of [slice].
+  /// The readable color for a label drawn on top of [slice] — whichever of
+  /// white and `black87` contrasts better against it.
   ///
-  /// Material's own threshold, so a slice that reads as a dark surface gets
-  /// light text and vice versa.
+  /// Deliberately not [ThemeData.estimateBrightnessForColor]: it compares its
+  /// `kThreshold` of 0.15 to `(luminance + 0.05)²`, so it actually switches at
+  /// a luminance of 0.34, and its own comment concedes it "biases more towards
+  /// using light text than WCAG20 recommends". Four of the six colors in
+  /// [kDefaultChartSeriesColors] sit below that line, so it kept white on mid
+  /// blue (3.3:1), orange (2.9:1) and red (3.8:1) — all under the 4.5:1 the
+  /// 11px label needs — where black87 gives 5.6, 6.5 and 5.0.
   static Color _onSlice(Color slice) =>
-      ThemeData.estimateBrightnessForColor(slice) == Brightness.dark ? Colors.white : Colors.black87;
+      _contrast(slice, Colors.white) >= _contrast(slice, Colors.black87) ? Colors.white : Colors.black87;
+
+  /// The WCAG contrast ratio of [label] drawn over [slice], from 1 to 21.
+  ///
+  /// [label] is composited onto the slice first: `black87` is `0xDD000000`, so
+  /// what lands on screen is 87% black over the fill, not pure black.
+  static double _contrast(Color slice, Color label) {
+    final slices = slice.computeLuminance();
+    final labels = Color.alphaBlend(label, slice).computeLuminance();
+    final (lighter, darker) = slices > labels ? (slices, labels) : (labels, slices);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
 
   // ---------------------------------------------------------------------------
   // Scatter / bubble chart

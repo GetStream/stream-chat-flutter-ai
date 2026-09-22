@@ -556,6 +556,30 @@ void main() {
           expect(sections[1].titleStyle?.color, Colors.black87, reason: 'yellow slice');
         });
 
+        // The navy/yellow pair above is far enough apart that any threshold
+        // passes it. This is the case that caught the real bug: every color in
+        // the shipped palette, whose mid tones are exactly where a threshold
+        // goes wrong.
+        testWidgets('clear 4.5:1 on every default palette color', (tester) async {
+          await tester.pumpWidget(
+            _wrapThemed(
+              const ChartView(spec: _sixSliceSpec),
+              const ChartThemeData(seriesColors: kDefaultChartSeriesColors),
+            ),
+          );
+
+          final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+          for (final section in sections) {
+            final slice = section.color;
+            final label = Color.alphaBlend(section.titleStyle!.color!, slice);
+            expect(
+              _contrast(slice.computeLuminance(), label.computeLuminance()),
+              greaterThanOrEqualTo(4.5),
+              reason: 'the 11px label on ${section.title} must clear WCAG AA for small text',
+            );
+          }
+        });
+
         testWidgets('take a color the host set outright', (tester) async {
           await tester.pumpWidget(
             _wrapThemed(
@@ -641,7 +665,12 @@ void main() {
 
         await tester.pumpWidget(_wrap(const ChartView(spec: _heatmapSpec)));
 
-        expect(tester.getSemantics(find.byType(ChartView)).label, 'Heatmap, 2 rows by 2 columns, values 1 to 9');
+        expect(
+          tester.getSemantics(find.byType(ChartView)).label,
+          'Heatmap, 2 rows by 2 columns, rows: Row 1, Row 2, columns: A, B, values 1 to 9',
+        );
+        // The row name reaches the reader inside that summary; what must not
+        // exist is a node of its own for the painted label.
         expect(find.bySemanticsLabel('Row 1'), findsNothing);
         handle.dispose();
       });
@@ -653,7 +682,7 @@ void main() {
 
         expect(
           tester.getSemantics(find.byType(HeatmapChartView)).label,
-          'Heatmap, 2 rows by 2 columns, values 1 to 9',
+          'Heatmap, 2 rows by 2 columns, rows: Row 1, Row 2, columns: A, B, values 1 to 9',
         );
         handle.dispose();
       });
@@ -1005,3 +1034,26 @@ class _TestTranslations extends DefaultAITranslations {
   @override
   String chartSemanticsLabel(ChartSemantics chart) => 'STAAFDIAGRAM';
 }
+
+/// The WCAG contrast ratio between two relative luminances, from 1 to 21.
+double _contrast(double a, double b) {
+  final (lighter, darker) = a > b ? (a, b) : (b, a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+const _sixSliceSpec = USpec(
+  kind: USpecKind.pie,
+  series: [
+    USeries(
+      name: 'Share',
+      points: [
+        UPoint(x: 'Blue', y: 1),
+        UPoint(x: 'Orange', y: 1),
+        UPoint(x: 'Green', y: 1),
+        UPoint(x: 'Red', y: 1),
+        UPoint(x: 'Purple', y: 1),
+        UPoint(x: 'Teal', y: 1),
+      ],
+    ),
+  ],
+);

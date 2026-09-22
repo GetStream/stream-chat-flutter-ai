@@ -290,6 +290,75 @@ void main() {
       expect(resolved, const ChartThemeData());
     });
 
+    testWidgets('a nested scope replaces the one above it', (tester) async {
+      // Documented rather than fixed: `of` reads the nearest scope only, the
+      // same way IconTheme does. ChartTheme.merge is the way to layer.
+      late ChartThemeData resolved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChartTheme(
+            data: const ChartThemeData(seriesColors: [Color(0xFF00FF00)]),
+            child: ChartTheme(
+              data: const ChartThemeData(height: 400),
+              child: Builder(
+                builder: (context) {
+                  resolved = ChartTheme.of(context);
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(resolved.height, 400);
+      expect(resolved.seriesColors, isNull, reason: 'the outer palette is shadowed, not merged');
+    });
+
+    testWidgets('merge layers over the scope above it', (tester) async {
+      late ChartThemeData resolved;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(extensions: const [AITheme(chartTheme: ChartThemeData(histogramBinCount: 4))]),
+          home: ChartTheme(
+            data: const ChartThemeData(seriesColors: [Color(0xFF00FF00)], height: 300),
+            child: ChartTheme.merge(
+              data: const ChartThemeData(height: 400),
+              child: Builder(
+                builder: (context) {
+                  resolved = ChartTheme.of(context);
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(resolved.height, 400, reason: 'the merged data wins its own field');
+      expect(resolved.seriesColors, [const Color(0xFF00FF00)], reason: 'the outer scope survives');
+      expect(resolved.histogramBinCount, 4, reason: 'AITheme still fills in what neither scope set');
+    });
+
+    testWidgets('merge with no scope above it is just a scope', (tester) async {
+      late ChartThemeData resolved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChartTheme.merge(
+            data: const ChartThemeData(height: 400),
+            child: Builder(
+              builder: (context) {
+                resolved = ChartTheme.of(context);
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(resolved.height, 400);
+    });
+
     test('notifies only when its data changes', () {
       const a = ChartTheme(data: ChartThemeData(height: 100), child: SizedBox.shrink());
       const b = ChartTheme(data: ChartThemeData(height: 200), child: SizedBox.shrink());

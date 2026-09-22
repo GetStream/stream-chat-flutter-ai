@@ -213,7 +213,7 @@ class DefaultAITranslations extends AITranslations {
       if (chart.yLabel case final label?) parts.add('$label on the y axis');
       // Skipped for one series, whose name almost always repeats the title or
       // the y label, and for a heatmap, whose series *are* its rows and are
-      // already counted as such below.
+      // named as such below.
       if (chart.seriesNames.length > 1 && chart.kind != USpecKind.heatmap) {
         parts.add('${chart.seriesNames.length} series: ${chart.seriesNames.join(', ')}');
       }
@@ -221,26 +221,34 @@ class DefaultAITranslations extends AITranslations {
 
     switch (chart.kind) {
       case USpecKind.pie:
-        parts.add('${chart.pointCount} slices');
+        parts.add(_count(chart.pointCount, 'slice'));
         if (chart.largestSliceLabel case final label? when chart.largestSlicePercent != null) {
           parts.add('largest $label at ${chart.largestSlicePercent} percent');
         }
       case USpecKind.bar:
         parts
-          ..add('${chart.categoryCount} categories')
+          ..add(_count(chart.categoryCount, 'category', plural: 'categories'))
           ..add(_range(chart));
       case USpecKind.histogram:
         parts
-          ..add('${chart.pointCount} samples')
+          ..add(_count(chart.pointCount, 'sample'))
           ..add(_range(chart));
       case USpecKind.heatmap:
+        // A heatmap rarely names its axes, and what identifies a cell is the
+        // row and column it sits in. The painted labels are excluded from the
+        // tree, so naming them here is the only way a reader learns that the
+        // two rows are Mon and Tue rather than just that there are two.
         parts
-          ..add('${chart.rowCount} rows by ${chart.columnCount} columns')
+          ..add('${_count(chart.rowCount, 'row')} by ${_count(chart.columnCount, 'column')}')
+          ..add('rows: ${chart.seriesNames.join(', ')}')
+          ..add('columns: ${chart.columnLabels.join(', ')}')
           ..add(_range(chart));
       case USpecKind.line || USpecKind.area || USpecKind.scatter || USpecKind.bubble:
         parts
-          ..add('${chart.pointCount} points')
+          ..add(_count(chart.pointCount, 'point'))
           ..add(_range(chart));
+        // Null for everything but a bubble, which is the one kind that draws
+        // the size — see [ChartSemantics.sizeMin].
         if (chart.sizeMin case final min?) parts.add('sizes $min to ${chart.sizeMax}');
     }
 
@@ -248,6 +256,11 @@ class DefaultAITranslations extends AITranslations {
   }
 
   static String _range(ChartSemantics chart) => 'values ${chart.valueMin} to ${chart.valueMax}';
+
+  /// `'1 row'`, `'4 columns'`. English pluralization belongs to this class
+  /// alone — a subclass composes the whole sentence its own way.
+  static String _count(int count, String singular, {String? plural}) =>
+      '$count ${count == 1 ? singular : plural ?? '${singular}s'}';
 }
 
 /// Provides [translations] to the widgets below it.

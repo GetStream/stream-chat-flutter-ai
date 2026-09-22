@@ -290,6 +290,127 @@ void main() {
 
         expect(ChartSemantics.fromSpec(spec, unnamedSeries: 'Series').valueMin, '0');
       });
+
+      test('renders a value that rounds to zero as zero, sign and all', () {
+        // -0 above is the one negative the old short-circuit caught. Everything
+        // in (-0.005, 0) went the other way and came back '-0', which a reader
+        // voices as "minus zero".
+        for (final tiny in [-0.001, -0.004, -1e-9]) {
+          final spec = USpec(
+            kind: USpecKind.line,
+            series: [
+              USeries(
+                name: 'A',
+                points: [
+                  UPoint(x: 'Jan', y: tiny),
+                  const UPoint(x: 'Feb', y: 1),
+                ],
+              ),
+            ],
+          );
+
+          expect(ChartSemantics.fromSpec(spec, unnamedSeries: 'Series').valueMin, '0', reason: '$tiny');
+        }
+      });
+
+      test('keeps a negative that survives rounding', () {
+        const spec = USpec(
+          kind: USpecKind.line,
+          series: [
+            USeries(
+              name: 'A',
+              points: [
+                UPoint(x: 'Jan', y: -0.006),
+                UPoint(x: 'Feb', y: -2),
+              ],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+        expect(chart.valueMin, '-2');
+        expect(chart.valueMax, '-0.01');
+      });
+    });
+
+    group('point sizes', () {
+      test('are gathered for a bubble chart', () {
+        final chart = ChartSemantics.fromSpec(_bubbleSpec, unnamedSeries: 'Series');
+        expect(chart.sizeMin, '5');
+        expect(chart.sizeMax, '50');
+      });
+
+      test('are left off every other kind, which draws one radius', () {
+        // A Vega-Lite `{"mark": "point", "encoding": {"size": ...}}` parses to a
+        // scatter whose points carry a size ChartView never draws, so
+        // describing the range would announce an encoding that isn't there.
+        for (final kind in [USpecKind.scatter, USpecKind.line, USpecKind.area]) {
+          final spec = USpec(
+            kind: kind,
+            series: const [
+              USeries(
+                name: 'A',
+                points: [
+                  UPoint(x: '1', y: 1, size: 1000000),
+                  UPoint(x: '2', y: 4, size: 9000000),
+                ],
+              ),
+            ],
+          );
+
+          final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+          expect(chart.sizeMin, isNull, reason: '$kind');
+          expect(_label(spec), isNot(contains('sizes')), reason: '$kind');
+        }
+      });
+    });
+
+    group('heatmap rows and columns', () {
+      test('are named, not just counted', () {
+        final chart = ChartSemantics.fromSpec(_heatmapSpec, unnamedSeries: 'Series');
+        expect(chart.seriesNames, ['Row 1', 'Row 2']);
+        expect(chart.columnLabels, ['A', 'B', 'C']);
+        expect(chart.columnCount, 3);
+      });
+
+      test('keep the order they are drawn in', () {
+        const spec = USpec(
+          kind: USpecKind.heatmap,
+          series: [
+            USeries(
+              name: 'Mon',
+              points: [
+                UPoint(x: '9am', y: 0, z: 1),
+                UPoint(x: '12pm', y: 0, z: 5),
+              ],
+            ),
+            USeries(
+              name: 'Tue',
+              points: [
+                // Repeats 9am, and introduces 3pm after it.
+                UPoint(x: '9am', y: 0, z: 2),
+                UPoint(x: '3pm', y: 0, z: 7),
+              ],
+            ),
+          ],
+        );
+
+        expect(ChartSemantics.fromSpec(spec, unnamedSeries: 'Series').columnLabels, ['9am', '12pm', '3pm']);
+      });
+
+      test('fall back to the translated name for an unnamed row', () {
+        const spec = USpec(
+          kind: USpecKind.heatmap,
+          series: [
+            USeries(
+              name: '',
+              points: [UPoint(x: 'A', y: 0, z: 1)],
+            ),
+          ],
+        );
+
+        expect(_label(spec), contains('rows: Series'));
+      });
     });
   });
 
@@ -301,7 +422,10 @@ void main() {
       expect(_label(_pieSpec), 'Pie chart, Browser share, 4 slices, largest Chrome at 60 percent');
       expect(_label(_scatterSpec), 'Scatter chart, 2 series: A, B, 4 points, values 1 to 8');
       expect(_label(_bubbleSpec), 'Bubble chart, 3 points, values 1 to 3, sizes 5 to 50');
-      expect(_label(_heatmapSpec), 'Heatmap, 2 rows by 3 columns, values 1 to 9');
+      expect(
+        _label(_heatmapSpec),
+        'Heatmap, 2 rows by 3 columns, rows: Row 1, Row 2, columns: A, B, C, values 1 to 9',
+      );
       expect(_label(_histogramSpec), 'Histogram, 5 samples, values 1 to 9');
     });
 
@@ -357,6 +481,35 @@ void main() {
       );
 
       expect(_label(spec), 'Pie chart, 2 slices');
+    });
+
+    test('counts a single anything in the singular', () {
+      const one = [UPoint(x: 'A', y: 1)];
+      String labelOf(USpecKind kind) => _label(
+        USpec(
+          kind: kind,
+          series: const [USeries(name: 'A', points: one)],
+        ),
+      );
+
+      expect(labelOf(USpecKind.pie), 'Pie chart, 1 slice, largest A at 100 percent');
+      expect(labelOf(USpecKind.bar), 'Bar chart, 1 category, values 1 to 1');
+      expect(labelOf(USpecKind.histogram), 'Histogram, 1 sample, values 1 to 1');
+      expect(labelOf(USpecKind.line), 'Line chart, 1 point, values 1 to 1');
+      expect(
+        _label(
+          const USpec(
+            kind: USpecKind.heatmap,
+            series: [
+              USeries(
+                name: 'Mon',
+                points: [UPoint(x: '9am', y: 0, z: 1)],
+              ),
+            ],
+          ),
+        ),
+        'Heatmap, 1 row by 1 column, rows: Mon, columns: 9am, values 1 to 1',
+      );
     });
   });
 }

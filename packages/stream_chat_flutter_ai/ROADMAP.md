@@ -500,9 +500,13 @@ an empty box.
   three `heatmap*Color` ramp stops) plus `ChartTheme`, an `InheritedTheme` whose `of` merges a
   subtree's overrides over `AITheme`'s. `kDefaultChartSeriesColors` is the old six-color palette,
   exported so a host can extend rather than replace it.
-- `ChartView.theme` / `HeatmapChartView.theme` override it for one chart. The three compose, most
+- `ChartView.theme` / `HeatmapChartView.theme` override it for one chart. Those three compose, most
   specific first, and `lib/src/chart/resolved_chart_theme.dart` (unexported) fills in every default
-  in one place.
+  in one place. *Sibling* scopes don't: `of` reads the nearest `ChartTheme` only, so nesting one
+  inside another shadows the outer palette rather than layering onto it. That's `IconTheme`'s
+  behaviour, kept rather than fixed, and `ChartTheme.merge` is the way to layer — same shape as
+  `IconTheme.merge`, merging the enclosing scope's data only so `AITheme`'s resolved fields aren't
+  baked into a widget that outlives a change to them.
 - `ChartView.semanticsLabel`, `ChartSemantics.fromSpec`, and two new `AITranslations` members —
   `unnamedChartSeries` and `chartSemanticsLabel(ChartSemantics)`.
 
@@ -555,23 +559,50 @@ labels *are* real `Text` widgets, and letting a reader walk them yields a run of
 nothing saying which axis they belong to. The summary already carries the range, the counts and the
 axis names. A host can only undo this by passing `semanticsLabel: ''` and wrapping the chart itself.
 
+The exclusion is also why the heatmap's sentence is the one that *names* rather than counts. A
+heatmap rarely carries `xLabel`/`yLabel`, and the thing identifying a cell is the row and column it
+sits in — so "2 rows by 4 columns" alone told a reader how big the grid was and nothing about what
+was in it. It now reads its rows from `ChartSemantics.seriesNames` and its columns from the new
+`columnLabels`, which keeps the drawn left-to-right order because a set literal preserves insertion
+order.
+
 The summary is split in two so only the half that needs translating is translatable:
 `ChartSemantics.fromSpec` gathers the facts (and formats the numbers for speech — `10.0` reads as
-"10"), `AITranslations.chartSemanticsLabel` composes the sentence. That is one method rather than a
+"10", and a value that rounds to zero loses its sign, or `-0.001` is voiced as "minus zero"),
+`AITranslations.chartSemanticsLabel` composes the sentence. That is one method rather than a
 dozen phrase-sized ones because a whole sentence's word order varies far more between languages than
 a tooltip's does. Sentences are `USpecKind`-aware; the heatmap's omits the series clause, since its
-series *are* the rows it already counts. Per-point or per-series child nodes were not built — there
-is no geometry to attach them to in a canvas-painted chart, and the summary is the large win.
+series *are* its rows and are named as such. Per-point or per-series child nodes were not built —
+there is no geometry to attach them to in a canvas-painted chart, and the summary is the large win.
+
+Two clauses had to be walked back to what is actually drawn. The size range is emitted only for a
+bubble chart: every other kind draws its points at one flat radius, and the parsers fill `UPoint.size`
+in regardless of the mark, so a Vega-Lite `{"mark": "point", "encoding": {"size": …}}` — a scatter —
+announced a size range over a dozen identical dots. The gate sits in `fromSpec` rather than in the
+English sentence, so `sizeMin` is null for every other kind and no translation can reintroduce it.
+Counts are also singularised (`1 slice`, not `1 slices`), which is `DefaultAITranslations`' business
+alone — a subclass composes its own sentence and its own plurals.
 
 This is also the first thing in the package to read `USpec.xLabel` / `USpec.yLabel`, which the
 parsers had been filling in for nobody.
 
 **Pie labels changed appearance.** White-on-slice is a contrast bug the moment a host supplies a pale
-color, so the label now picks black or white per slice via
-`ThemeData.estimateBrightnessForColor`. Under the shipped palette that flips every default pie label
-from white to dark — a deliberate behaviour change, recorded in the CHANGELOG. The committed CI
-goldens don't move: alchemist blocks `fl_chart`'s canvas-painted slice titles with an opaque paint
-that ignores the text color.
+color, so the label now picks whichever of white and `black87` has the better WCAG contrast against
+that slice's own fill, computed from `Color.computeLuminance` with the label composited on first —
+`black87` is `0xDD000000`, so what lands on screen is 87% black over the slice.
+
+Deliberately *not* `ThemeData.estimateBrightnessForColor`, which the first cut of this used. It
+compares its `kThreshold` of 0.15 to `(luminance + 0.05)²`, so it actually switches at a luminance of
+0.34, and its own comment concedes it "biases more towards using light text than WCAG20 recommends".
+Four of the six shipped colors sit below that line, so it left white on mid blue (3.3:1), orange
+(2.9:1) and red (3.8:1) — all under the 4.5:1 the 11px semibold label needs as small text. Five of
+the six now flip dark; purple keeps white, which genuinely reads better on it at 4.67:1 against
+`black87`'s 4.10:1. A deliberate behaviour change, recorded in the CHANGELOG.
+
+The committed CI goldens don't move: alchemist blocks `fl_chart`'s canvas-painted slice titles with
+an opaque paint that ignores the text color. That is exactly why the widget test asserts the ratio
+rather than the color, and does it over `kDefaultChartSeriesColors` — the first version used a navy
+and a yellow, far enough apart that any threshold passes.
 
 **The parser's fallback names** are gone: `USpecParser` now leaves an unnamed series' `name` empty
 and the render side substitutes `AITranslations.unnamedChartSeries`. The `'Pie'` variant was dropped
