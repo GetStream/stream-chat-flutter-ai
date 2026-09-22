@@ -29,7 +29,7 @@ channel is documented as an optional integration.
 | [`stream_chat_flutter_ai`](packages/stream_chat_flutter_ai) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai) | AI chat UI components: `StreamingMessageView`, `ChatComposer`, `AITypingIndicatorView`, `ChartView`, `CodeBlockView` and more. |
 
 See the [package README](packages/stream_chat_flutter_ai/README.md) for the full component
-reference, and [`ROADMAP.md`](packages/stream_chat_flutter_ai/ROADMAP.md) for what's planned.
+reference.
 
 ## Getting Started
 

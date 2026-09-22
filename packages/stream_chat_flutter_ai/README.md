@@ -53,7 +53,6 @@ it 😎.
 - [Flutter Chat Tutorial](https://getstream.io/chat/flutter/tutorial/)
 - [Sample apps](https://github.com/GetStream/chat-ai-samples) — backend-connected samples across
   Flutter, React, React Native, iOS and Android
-- [`ROADMAP.md`](ROADMAP.md) — what's planned next
 
 ## 📦 Installation
 
