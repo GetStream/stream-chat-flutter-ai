@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
@@ -16,6 +17,7 @@ const _kDarkScale = (low: Color(0xFF12283F), mid: Color(0xFF3B7CB8), high: Color
 /// a concrete value for each, so resolving once at the top of `build` keeps the
 /// fallback table in one place.
 @immutable
+@internal
 class ResolvedChartTheme {
   const ResolvedChartTheme._({
     required this.seriesColors,

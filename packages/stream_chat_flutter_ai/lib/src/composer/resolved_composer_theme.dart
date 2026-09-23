@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
@@ -8,6 +9,7 @@ import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 /// widgets need a concrete value for each, so resolving once at the top of
 /// `build` keeps the fallback table in one place.
 @immutable
+@internal
 class ResolvedComposerTheme {
   const ResolvedComposerTheme._({
     required this.fillColor,
