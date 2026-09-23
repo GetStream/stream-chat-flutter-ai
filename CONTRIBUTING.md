@@ -82,8 +82,6 @@ Didn't find an existing issue? Go ahead and file a new bug using one of our pre-
 
 Have an idea for a new feature? We would love to hear about it. Before opening a new topic, please check our existing issues and pull requests to ensure the feature you are suggesting is not already in progress.
 
-[`ROADMAP.md`](packages/stream_chat_flutter_ai/ROADMAP.md) tracks planned work, largely parity with [`stream-chat-swift-ai`](https://github.com/GetStream/stream-chat-swift-ai) — it's worth a look before filing.
-
 ## Pull Request 🎉
 
 Thank you for taking the time to submit a patch and contribute to our codebase. You rock.

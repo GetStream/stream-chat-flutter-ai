@@ -1,26 +1,69 @@
-# Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
+![Integrating Stream Chat with AI](https://raw.githubusercontent.com/GetStream/stream-chat-flutter-ai/main/assets/repo_cover.png)
 
-> A standalone set of Flutter components for building LLM-driven chat experiences:
-> streaming text, animated typing indicators, labelled code blocks, charts, a
-> purpose-built AI composer, speech-to-text input, and client-side tool calling. This
-> package has **no dependency on `stream_chat`, `stream_chat_flutter`, or any other
-> Stream Chat package** — every widget operates on plain strings, callbacks, and
-> controllers, so it can be dropped into any Flutter app or paired with any
-> backend/LLM provider. See [Using with Stream Chat](#using-with-stream-chat) below
-> for wiring it up to a Stream Chat channel.
+# AI components for the [Stream Flutter Chat SDK](https://getstream.io/chat/sdk/flutter/)
 
-[![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dartlang.org/packages/stream_chat_flutter_ai)
+[![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai)
 [![CI](https://github.com/GetStream/stream-chat-flutter-ai/actions/workflows/stream_flutter_ai_workflow.yml/badge.svg?branch=main)](https://github.com/GetStream/stream-chat-flutter-ai/actions/workflows/stream_flutter_ai_workflow.yml)
+
+This official repository for Stream Chat's UI components is designed specifically for AI-first
+applications written in Flutter. When paired with our real-time [Chat API](https://getstream.io/chat/),
+it makes integrating with and rendering responses from LLM providers such as ChatGPT, Gemini,
+Anthropic or any custom backend easier, by providing rich out-of-the-box components able to render
+Markdown, code blocks, tables, charts, thinking indicators and more.
+
+The package has **no dependency on `stream_chat`, `stream_chat_flutter` or any other Stream Chat
+package** — every widget operates on plain strings, callbacks and controllers, so it drops into any
+Flutter app and pairs with any backend or LLM provider. See
+[Using with Stream Chat](#using-with-stream-chat) below for wiring it up to a Stream Chat channel.
+
+To start, this library includes the following components:
+
+**`StreamingMessageView`** — renders text, markdown and code in real time with a
+character-by-character animation, similar to ChatGPT.
+
+**`AITypingIndicatorView`** — displays the different states of the LLM (thinking, checking external
+sources, etc) with animated dots.
+
+**`ChatComposer`** — a fully featured prompt composer with attachments, chat options, speech input,
+and a send button that turns into a stop button while a response streams.
+
+**`ChartView`** — renders line, bar, area, scatter, bubble, pie, histogram and heatmap charts from
+the JSON an LLM emits, themed from your app and described to a screen reader.
+
+**`CodeBlockView`** — a framed code fence with a language label, a copy button and opt-in syntax
+highlighting.
+
+**`SpeechToTextButton`** — records voice input and streams the recognized transcript into the
+composer.
+
+**`AIToolRegistry`** — client-side tool calling, letting the agent reach into your app to open a
+screen, show an alert or read a sensor.
+
+This repository also includes a [showcase app](example) demonstrating every component, which needs
+no API key to run.
+
+Our team plans to keep iterating and adding more components over time. If there's a component you
+use every day in your apps and would like to see added, please open an issue and we will try to add
+it 😎.
 
 **Quick Links**
 
 - [Register](https://getstream.io/chat/trial/) to get an API key for Stream Chat
-- [Flutter Chat Tutorial](https://getstream.io/chat/flutter/tutorial/)
 - [Flutter AI Assistant Tutorial](https://getstream.io/blog/flutter-assistant/)
+- [Flutter Chat Tutorial](https://getstream.io/chat/flutter/tutorial/)
+- [Sample apps](https://github.com/GetStream/chat-ai-samples) — backend-connected samples across
+  Flutter, React, React Native, iOS and Android
 
----
+## 📦 Installation
 
-## Components
+`stream_chat_flutter_ai` has no dependency on Stream Chat — install it on its own:
+
+```yaml
+dependencies:
+  stream_chat_flutter_ai: ^0.1.0
+```
+
+## ⚙️ Usage
 
 ### `StreamingMessageView`
 
@@ -756,15 +799,6 @@ string added in a later version arrives as an untranslated default rather than a
 
 ---
 
-## Installation
-
-`stream_chat_flutter_ai` has no dependency on Stream Chat — install it on its own:
-
-```yaml
-dependencies:
-  stream_chat_flutter_ai: ^0.0.1
-```
-
 ## Using with Stream Chat
 
 The components in this package are provider-agnostic: they take plain text, callbacks,
@@ -835,4 +869,50 @@ for a complete, working integration.
 
 ## Changelog
 
-Check out the [changelog on pub.dev](https://pub.dev/packages/stream_chat_flutter_ai/changelog) to see the latest changes in the package.
+Check out the [changelog on pub.dev](https://pub.dev/packages/stream_chat_flutter_ai/changelog) to
+see the latest changes in the package.
+
+## 🛥 What is Stream?
+
+Stream allows developers to rapidly deploy scalable feeds, chat messaging and video with an industry
+leading 99.999% uptime SLA guarantee.
+
+Stream provides UI components and state handling that make it easy to build real-time chat and video
+calling for your app. Stream runs and maintains a global network of edge servers around the world,
+ensuring optimal latency and reliability regardless of where your users are located.
+
+## 📕 Tutorials
+
+To learn more about integrating AI and chatbots into your application, we recommend checking out the
+full list of tutorials across all of our supported frontend SDKs and providers. Stream's Chat SDK is
+natively supported across:
+
+* [React](https://getstream.io/chat/react-chat/tutorial/)
+* [React Native](https://getstream.io/chat/react-native-chat/tutorial/)
+* [Angular](https://getstream.io/chat/angular/tutorial/)
+* [Jetpack Compose](https://getstream.io/tutorials/android-chat/)
+* [SwiftUI](https://getstream.io/tutorials/ios-chat/)
+* [Flutter](https://getstream.io/chat/flutter/tutorial/)
+* [Javascript/Bring your own](https://getstream.io/chat/docs/javascript/)
+
+The sibling AI component libraries live in
+[stream-chat-android-ai](https://github.com/GetStream/stream-chat-android-ai) and
+[stream-chat-swift-ai](https://github.com/GetStream/stream-chat-swift-ai).
+
+## 👩‍💻 Free for Makers 👨‍💻
+
+Stream is free for most side and hobby projects. To qualify, your project/company needs to have
+< 5 team members and < $10k in monthly revenue. Makers get $100 in monthly credit for video for free.
+For more details, check out the [Maker Account](https://getstream.io/maker-account).
+
+## 💼 We are hiring!
+
+We've recently closed a [\$38 million Series B funding round](https://techcrunch.com/2021/03/04/stream-raises-38m-as-its-chat-and-activity-feed-apis-power-communications-for-1b-users/)
+and we keep actively growing. Our APIs are used by more than a billion end-users, and you'll have a
+chance to make a huge impact on the product within a team of the strongest engineers all over the
+world. Check out our current openings and apply via [Stream's website](https://getstream.io/team/#jobs).
+
+## License
+
+`stream_chat_flutter_ai` is released under the Stream Source Code License Agreement. See
+[`LICENSE`](LICENSE) for the full text.

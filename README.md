@@ -1,3 +1,5 @@
+![Integrating Stream Chat with AI](/assets/repo_cover.png)
+
 # Flutter AI components by [Stream](https://getstream.io/chat/sdk/flutter/)
 
 [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai)
@@ -27,7 +29,7 @@ channel is documented as an optional integration.
 | [`stream_chat_flutter_ai`](packages/stream_chat_flutter_ai) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai) | AI chat UI components: `StreamingMessageView`, `ChatComposer`, `AITypingIndicatorView`, `ChartView`, `CodeBlockView` and more. |
 
 See the [package README](packages/stream_chat_flutter_ai/README.md) for the full component
-reference, and [`ROADMAP.md`](packages/stream_chat_flutter_ai/ROADMAP.md) for what's planned.
+reference.
 
 ## Getting Started
 
@@ -35,7 +37,7 @@ Add the package to your app:
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.0.1
+  stream_chat_flutter_ai: ^0.1.0
 ```
 
 Then render a streaming AI response:
@@ -70,5 +72,43 @@ melos run update:goldens         # regenerate golden files
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). We're also
-[hiring](https://getstream.io/team/#jobs)!
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## 🛥 What is Stream?
+
+Stream allows developers to rapidly deploy scalable feeds, chat messaging and video with an industry
+leading 99.999% uptime SLA guarantee.
+
+Stream provides UI components and state handling that make it easy to build real-time chat and video
+calling for your app. Stream runs and maintains a global network of edge servers around the world,
+ensuring optimal latency and reliability regardless of where your users are located.
+
+## 📕 Tutorials
+
+Stream's Chat SDK is natively supported across
+[React](https://getstream.io/chat/react-chat/tutorial/),
+[React Native](https://getstream.io/chat/react-native-chat/tutorial/),
+[Angular](https://getstream.io/chat/angular/tutorial/),
+[Jetpack Compose](https://getstream.io/tutorials/android-chat/),
+[SwiftUI](https://getstream.io/tutorials/ios-chat/),
+[Flutter](https://getstream.io/chat/flutter/tutorial/) and
+[Javascript](https://getstream.io/chat/docs/javascript/). The sibling AI component libraries live in
+[stream-chat-android-ai](https://github.com/GetStream/stream-chat-android-ai) and
+[stream-chat-swift-ai](https://github.com/GetStream/stream-chat-swift-ai).
+
+## 👩‍💻 Free for Makers 👨‍💻
+
+Stream is free for most side and hobby projects. To qualify, your project/company needs to have
+< 5 team members and < $10k in monthly revenue. For more details, check out the
+[Maker Account](https://getstream.io/maker-account).
+
+## 💼 We are hiring!
+
+We've recently closed a [\$38 million Series B funding round](https://techcrunch.com/2021/03/04/stream-raises-38m-as-its-chat-and-activity-feed-apis-power-communications-for-1b-users/)
+and we keep actively growing. Check out our current openings and apply via
+[Stream's website](https://getstream.io/team/#jobs).
+
+## License
+
+Released under the Stream Source Code License Agreement. See [`LICENSE`](LICENSE) for the full
+text.
