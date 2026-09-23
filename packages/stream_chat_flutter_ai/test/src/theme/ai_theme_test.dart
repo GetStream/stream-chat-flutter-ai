@@ -72,5 +72,60 @@ void main() {
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(const AITheme()));
     });
+    group('composer and suggestions themes', () {
+      // Each case is one component field on AITheme. A field left out of `==`
+      // would let Theme.updateShouldNotify skip the rebuild after a host changed
+      // only that component; one left out of `lerp` would drop it for the whole
+      // light/dark animation MaterialApp runs.
+      const composer = ComposerThemeData(sendButtonColor: Color(0xFF0000AA));
+      const composer2 = ComposerThemeData(sendButtonColor: Color(0xFF0000CC));
+      const suggestions = SuggestionsThemeData(backgroundColor: Color(0xFF00AA00));
+      const suggestions2 = SuggestionsThemeData(backgroundColor: Color(0xFF00CC00));
+      const chart = ChartThemeData(height: 300);
+
+      test('default to empty data', () {
+        expect(const AITheme().composerTheme, const ComposerThemeData());
+        expect(const AITheme().suggestionsTheme, const SuggestionsThemeData());
+      });
+
+      test('take part in equality and hashCode', () {
+        const withComposer = AITheme(composerTheme: composer);
+        const withSuggestions = AITheme(suggestionsTheme: suggestions);
+
+        expect(withComposer, isNot(const AITheme()));
+        expect(withComposer.hashCode, isNot(const AITheme().hashCode));
+        expect(withSuggestions, isNot(const AITheme()));
+        expect(withSuggestions.hashCode, isNot(const AITheme().hashCode));
+        expect(withComposer, const AITheme(composerTheme: composer));
+        expect(withSuggestions, const AITheme(suggestionsTheme: suggestions));
+      });
+
+      test('copyWith replaces one component and keeps the others', () {
+        const theme = AITheme(chartTheme: chart, composerTheme: composer, suggestionsTheme: suggestions);
+
+        final composerOnly = theme.copyWith(composerTheme: composer2);
+        expect(composerOnly.composerTheme, composer2);
+        expect(composerOnly.suggestionsTheme, suggestions);
+        expect(composerOnly.chartTheme, chart);
+
+        final suggestionsOnly = theme.copyWith(suggestionsTheme: suggestions2);
+        expect(suggestionsOnly.suggestionsTheme, suggestions2);
+        expect(suggestionsOnly.composerTheme, composer);
+        expect(suggestionsOnly.chartTheme, chart);
+
+        expect(theme.copyWith(), theme);
+      });
+
+      test('lerp delegates to each component', () {
+        const a = AITheme(composerTheme: composer, suggestionsTheme: suggestions);
+        const b = AITheme(composerTheme: composer2, suggestionsTheme: suggestions2);
+
+        final mid = a.lerp(b, 0.5);
+        expect(mid.composerTheme, ComposerThemeData.lerp(composer, composer2, 0.5));
+        expect(mid.suggestionsTheme, SuggestionsThemeData.lerp(suggestions, suggestions2, 0.5));
+        expect(a.lerp(b, 0), a);
+        expect(a.lerp(b, 1), b);
+      });
+    });
   });
 }

@@ -377,7 +377,7 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
                       child: Icon(
                         Icons.broken_image_outlined,
                         size: 24,
-                        color: theme.iconColor,
+                        color: theme.brokenAttachmentIconColor,
                       ),
                     );
                   }

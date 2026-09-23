@@ -598,7 +598,7 @@ the appearance the package has always had; theming is opt-in.
 `borderColor` (the pill, the leading "+" button and the sheet's tiles — the surfaces meant to read
 as one control), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
 `stopButtonColor`, `recordingButtonColor`, `actionButtonForegroundColor` (the glyph on that filled
-circle), `selectedOptionColor` and `selectedOptionForegroundColor`, `selectionColor` (the photo
+circle), `selectedOptionColor` and `selectedOptionForegroundColor`, `photoSelectionColor` (the photo
 grid's ring and check) and `attachmentPlaceholderColor`. `SuggestionsThemeData` has three:
 `backgroundColor`, `borderColor` and `textStyle`.
 

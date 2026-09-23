@@ -30,7 +30,7 @@ import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 /// Narrow it to a subtree with [SuggestionsTheme]. [copyWith] cannot unset a
 /// field — a `null` argument keeps the current value.
 @immutable
-class SuggestionsThemeData {
+class SuggestionsThemeData with Diagnosticable {
   /// Creates a [SuggestionsThemeData].
   const SuggestionsThemeData({this.backgroundColor, this.borderColor, this.textStyle});
 
@@ -42,8 +42,9 @@ class SuggestionsThemeData {
   /// matching [ComposerThemeData.borderColor]'s default.
   final Color? borderColor;
 
-  /// The style of a chip's text. Falls back to the ambient [DefaultTextStyle]
-  /// in [ColorScheme.onSurface].
+  /// The style of a chip's text, merged over the ambient [DefaultTextStyle] in
+  /// [ColorScheme.onSurface]: a style that sets only a weight keeps the app's
+  /// font, size and that color.
   ///
   /// Chips are measured before they are laid out — each one shrinks to fit its
   /// own two lines — so this style is what that measurement uses. A style that
@@ -81,6 +82,15 @@ class SuggestionsThemeData {
       borderColor: lerpColorOrSwap(a.borderColor, b.borderColor, t),
       textStyle: lerpTextStyleOrSwap(a.textStyle, b.textStyle, t),
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(ColorProperty('backgroundColor', backgroundColor, defaultValue: null))
+      ..add(ColorProperty('borderColor', borderColor, defaultValue: null))
+      ..add(DiagnosticsProperty<TextStyle>('textStyle', textStyle, defaultValue: null));
   }
 
   @override

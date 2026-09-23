@@ -31,7 +31,7 @@ import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 /// because the composer's states have to keep occupying the same footprint as
 /// they morph between mic, send and stop.
 @immutable
-class ComposerThemeData {
+class ComposerThemeData with Diagnosticable {
   /// Creates a [ComposerThemeData].
   const ComposerThemeData({
     this.fillColor,
@@ -45,13 +45,14 @@ class ComposerThemeData {
     this.actionButtonForegroundColor,
     this.selectedOptionColor,
     this.selectedOptionForegroundColor,
-    this.selectionColor,
+    this.photoSelectionColor,
     this.attachmentPlaceholderColor,
   });
 
   /// The fill behind the input pill, the leading "+" button and the attachment
-  /// sheet's tiles — the surfaces that read as one connected control. Falls
-  /// back to [ColorScheme.surfaceContainerHigh].
+  /// sheet's tiles — the surfaces that read as one connected control — and
+  /// behind a sheet photo tile while its thumbnail loads. Falls back to
+  /// [ColorScheme.surfaceContainerHigh].
   final Color? fillColor;
 
   /// The hairline around the input pill, the leading button, the attachment
@@ -59,8 +60,9 @@ class ComposerThemeData {
   /// [ColorScheme.outlineVariant].
   final Color? borderColor;
 
-  /// The style of the placeholder in the text field. Falls back to
-  /// [ColorScheme.onSurfaceVariant] at 60% opacity.
+  /// The style of the placeholder in the text field, merged over a default of
+  /// [ColorScheme.onSurfaceVariant] at 60% opacity: a style that sets only a
+  /// `fontSize` keeps the default color, and so does one with no color at all.
   ///
   /// This is the placeholder's *appearance*; its text comes from
   /// [ChatComposer.hintText] or `AITranslations.composerHint`.
@@ -70,13 +72,17 @@ class ComposerThemeData {
   /// tile and option icons, and an attachment thumbnail's remove "×". Falls
   /// back to [ColorScheme.onSurface].
   ///
+  /// Also the glyph on an attachment thumbnail that failed to decode, which
+  /// falls back to the quieter [ColorScheme.onSurfaceVariant] instead.
+  ///
   /// Not the icon inside the filled send/stop/mic circle — that is
   /// [actionButtonForegroundColor], which sits on a saturated fill instead.
   final Color? iconColor;
 
   /// The color of those same icons while their control is disabled — the
-  /// leading button and the sheet's tiles while the AI is generating or the
-  /// composer is full. Falls back to [iconColor] at 30% opacity.
+  /// leading button while the AI is generating, and the sheet's camera tile
+  /// once the composer is full. Falls back to [iconColor] with its opacity
+  /// scaled to 30%.
   final Color? disabledIconColor;
 
   /// The fill of the send button. Falls back to [ColorScheme.primary].
@@ -96,8 +102,9 @@ class ComposerThemeData {
   /// button's slot, and the two read as one control morphing in place.
   final Color? recordingButtonColor;
 
-  /// The color of the icon inside the filled send/stop/mic circle. Falls back
-  /// to white, which is what the three default fills are legible against.
+  /// The color of the icon inside the filled send/stop/mic circle, and of the
+  /// check on a selected photo's [photoSelectionColor] badge. Falls back to
+  /// white, which is what the default fills are legible against.
   ///
   /// Set this alongside a pale [sendButtonColor]; white on pale is the one
   /// combination the defaults cannot anticipate.
@@ -111,9 +118,11 @@ class ComposerThemeData {
   /// [ColorScheme.onPrimaryContainer].
   final Color? selectedOptionForegroundColor;
 
-  /// The ring and check badge marking a selected photo in the attachment
-  /// sheet's grid. Falls back to [ColorScheme.primary].
-  final Color? selectionColor;
+  /// The ring and the check badge's fill marking a selected photo in the
+  /// attachment sheet's grid. Falls back to [ColorScheme.primary].
+  ///
+  /// The check itself is [actionButtonForegroundColor].
+  final Color? photoSelectionColor;
 
   /// The placeholder behind an attachment thumbnail that is still decoding or
   /// failed to, and the fill of its remove badge. Falls back to
@@ -134,7 +143,7 @@ class ComposerThemeData {
     Color? actionButtonForegroundColor,
     Color? selectedOptionColor,
     Color? selectedOptionForegroundColor,
-    Color? selectionColor,
+    Color? photoSelectionColor,
     Color? attachmentPlaceholderColor,
   }) {
     return ComposerThemeData(
@@ -149,7 +158,7 @@ class ComposerThemeData {
       actionButtonForegroundColor: actionButtonForegroundColor ?? this.actionButtonForegroundColor,
       selectedOptionColor: selectedOptionColor ?? this.selectedOptionColor,
       selectedOptionForegroundColor: selectedOptionForegroundColor ?? this.selectedOptionForegroundColor,
-      selectionColor: selectionColor ?? this.selectionColor,
+      photoSelectionColor: photoSelectionColor ?? this.photoSelectionColor,
       attachmentPlaceholderColor: attachmentPlaceholderColor ?? this.attachmentPlaceholderColor,
     );
   }
@@ -170,7 +179,7 @@ class ComposerThemeData {
       actionButtonForegroundColor: other.actionButtonForegroundColor,
       selectedOptionColor: other.selectedOptionColor,
       selectedOptionForegroundColor: other.selectedOptionForegroundColor,
-      selectionColor: other.selectionColor,
+      photoSelectionColor: other.photoSelectionColor,
       attachmentPlaceholderColor: other.attachmentPlaceholderColor,
     );
   }
@@ -195,9 +204,28 @@ class ComposerThemeData {
         b.selectedOptionForegroundColor,
         t,
       ),
-      selectionColor: lerpColorOrSwap(a.selectionColor, b.selectionColor, t),
+      photoSelectionColor: lerpColorOrSwap(a.photoSelectionColor, b.photoSelectionColor, t),
       attachmentPlaceholderColor: lerpColorOrSwap(a.attachmentPlaceholderColor, b.attachmentPlaceholderColor, t),
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(ColorProperty('fillColor', fillColor, defaultValue: null))
+      ..add(ColorProperty('borderColor', borderColor, defaultValue: null))
+      ..add(DiagnosticsProperty<TextStyle>('hintStyle', hintStyle, defaultValue: null))
+      ..add(ColorProperty('iconColor', iconColor, defaultValue: null))
+      ..add(ColorProperty('disabledIconColor', disabledIconColor, defaultValue: null))
+      ..add(ColorProperty('sendButtonColor', sendButtonColor, defaultValue: null))
+      ..add(ColorProperty('stopButtonColor', stopButtonColor, defaultValue: null))
+      ..add(ColorProperty('recordingButtonColor', recordingButtonColor, defaultValue: null))
+      ..add(ColorProperty('actionButtonForegroundColor', actionButtonForegroundColor, defaultValue: null))
+      ..add(ColorProperty('selectedOptionColor', selectedOptionColor, defaultValue: null))
+      ..add(ColorProperty('selectedOptionForegroundColor', selectedOptionForegroundColor, defaultValue: null))
+      ..add(ColorProperty('photoSelectionColor', photoSelectionColor, defaultValue: null))
+      ..add(ColorProperty('attachmentPlaceholderColor', attachmentPlaceholderColor, defaultValue: null));
   }
 
   @override
@@ -215,7 +243,7 @@ class ComposerThemeData {
         other.actionButtonForegroundColor == actionButtonForegroundColor &&
         other.selectedOptionColor == selectedOptionColor &&
         other.selectedOptionForegroundColor == selectedOptionForegroundColor &&
-        other.selectionColor == selectionColor &&
+        other.photoSelectionColor == photoSelectionColor &&
         other.attachmentPlaceholderColor == attachmentPlaceholderColor;
   }
 
@@ -232,7 +260,7 @@ class ComposerThemeData {
     actionButtonForegroundColor,
     selectedOptionColor,
     selectedOptionForegroundColor,
-    selectionColor,
+    photoSelectionColor,
     attachmentPlaceholderColor,
   );
 }

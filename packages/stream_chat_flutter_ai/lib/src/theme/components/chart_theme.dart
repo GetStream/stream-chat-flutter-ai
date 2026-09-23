@@ -46,7 +46,7 @@ const kDefaultChartSeriesColors = [
 /// `reservedSize` values [ChartView] hands `fl_chart`. So a taller [height]
 /// leaves the pie undersized.
 @immutable
-class ChartThemeData {
+class ChartThemeData with Diagnosticable {
   /// Creates a [ChartThemeData].
   const ChartThemeData({
     this.seriesColors,
@@ -206,6 +206,25 @@ class ChartThemeData {
       (i) => Color.lerp(a[i % a.length], b[i % b.length], t)!,
       growable: false,
     );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(IterableProperty<Color>('seriesColors', seriesColors, defaultValue: null))
+      ..add(DoubleProperty('height', height, defaultValue: null))
+      ..add(DoubleProperty('scatterRadius', scatterRadius, defaultValue: null))
+      ..add(DoubleProperty('bubbleMinRadius', bubbleMinRadius, defaultValue: null))
+      ..add(DoubleProperty('bubbleMaxRadius', bubbleMaxRadius, defaultValue: null))
+      ..add(IntProperty('histogramBinCount', histogramBinCount, defaultValue: null))
+      ..add(DiagnosticsProperty<TextStyle>('axisLabelStyle', axisLabelStyle, defaultValue: null))
+      ..add(DiagnosticsProperty<TextStyle>('pieLabelStyle', pieLabelStyle, defaultValue: null))
+      ..add(DiagnosticsProperty<TextStyle>('titleTextStyle', titleTextStyle, defaultValue: null))
+      ..add(ColorProperty('gridLineColor', gridLineColor, defaultValue: null))
+      ..add(ColorProperty('heatmapLowColor', heatmapLowColor, defaultValue: null))
+      ..add(ColorProperty('heatmapMidColor', heatmapMidColor, defaultValue: null))
+      ..add(ColorProperty('heatmapHighColor', heatmapHighColor, defaultValue: null));
   }
 
   @override

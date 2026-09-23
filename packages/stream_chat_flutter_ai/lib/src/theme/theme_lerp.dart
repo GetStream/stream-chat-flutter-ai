@@ -37,12 +37,10 @@ Color? lerpColorOrSwap(Color? a, Color? b, double t) => bothSet(a, b) ? Color.le
 TextStyle? lerpTextStyleOrSwap(TextStyle? a, TextStyle? b, double t) =>
     bothSet(a, b) ? TextStyle.lerp(a, b, t) : swapAtMidpoint(a, b, t);
 
-/// Lays [override] over [base].
+/// Lays [override] over [base]; a `null` override leaves [base] as it is.
 ///
-/// [TextStyle.merge] asserts on an `inherit: false` style, which a host is free
-/// to build, so such a style replaces the base outright.
+/// As with [TextStyle.merge], an `inherit: false` override replaces [base]
+/// outright — so a caller that needs a property to survive, such as a color,
+/// has to restore it afterwards.
 @internal
-TextStyle mergeTextStyle(TextStyle base, TextStyle? override) {
-  if (override == null) return base;
-  return override.inherit ? base.merge(override) : override;
-}
+TextStyle mergeTextStyle(TextStyle base, TextStyle? override) => base.merge(override);

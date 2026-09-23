@@ -412,7 +412,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
               DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.selectionColor, width: 3),
+                  border: Border.all(color: theme.photoSelectionColor, width: 3),
                 ),
               ),
             if (selected)
@@ -422,7 +422,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
                 child: Container(
                   width: 20,
                   height: 20,
-                  decoration: BoxDecoration(color: theme.selectionColor, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: theme.photoSelectionColor, shape: BoxShape.circle),
                   child: Icon(Icons.check, size: 14, color: theme.actionButtonForegroundColor),
                 ),
               ),

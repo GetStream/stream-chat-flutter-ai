@@ -6,8 +6,8 @@ import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 /// A [ComposerThemeData] with every field resolved.
 ///
 /// Internal. [ComposerThemeData]'s fields are nullable, but the composer
-/// widgets need a concrete value for each, so resolving once at the top of
-/// `build` keeps the fallback table in one place.
+/// widgets need a concrete value for each. Each widget resolves its own copy in
+/// `build`, which is cheap and keeps the fallback table in one place.
 @immutable
 @internal
 class ResolvedComposerTheme {
@@ -23,8 +23,9 @@ class ResolvedComposerTheme {
     required this.actionButtonForegroundColor,
     required this.selectedOptionColor,
     required this.selectedOptionForegroundColor,
-    required this.selectionColor,
+    required this.photoSelectionColor,
     required this.attachmentPlaceholderColor,
+    required this.brokenAttachmentIconColor,
   });
 
   /// Resolves the theme at [context].
@@ -33,27 +34,32 @@ class ResolvedComposerTheme {
     final colorScheme = Theme.of(context).colorScheme;
 
     final iconColor = theme.iconColor ?? colorScheme.onSurface;
+    final hintColor = colorScheme.onSurfaceVariant.withValues(alpha: 0.6);
+    final hintStyle = mergeTextStyle(TextStyle(color: hintColor), theme.hintStyle);
 
     return ResolvedComposerTheme._(
       fillColor: theme.fillColor ?? colorScheme.surfaceContainerHigh,
       borderColor: theme.borderColor ?? colorScheme.outlineVariant,
-      hintStyle: mergeTextStyle(
-        TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
-        theme.hintStyle,
-      ),
+      // An `inherit: false` override replaces the base outright, color and all.
+      hintStyle: hintStyle.color == null ? hintStyle.copyWith(color: hintColor) : hintStyle,
       iconColor: iconColor,
       // Derived from the *resolved* icon color, not the scheme's: a host that
       // sets only `iconColor` gets a matching disabled shade for free, rather
-      // than a dimmed `onSurface` that no longer relates to it.
-      disabledIconColor: theme.disabledIconColor ?? iconColor.withValues(alpha: 0.3),
+      // than a dimmed `onSurface` that no longer relates to it. Scaled rather
+      // than replaced, so a translucent `iconColor` never gets a disabled shade
+      // more opaque than itself.
+      disabledIconColor: theme.disabledIconColor ?? iconColor.withValues(alpha: iconColor.a * 0.3),
       sendButtonColor: theme.sendButtonColor ?? colorScheme.primary,
       stopButtonColor: theme.stopButtonColor ?? colorScheme.error,
       recordingButtonColor: theme.recordingButtonColor ?? colorScheme.error,
       actionButtonForegroundColor: theme.actionButtonForegroundColor ?? Colors.white,
       selectedOptionColor: theme.selectedOptionColor ?? colorScheme.primaryContainer,
       selectedOptionForegroundColor: theme.selectedOptionForegroundColor ?? colorScheme.onPrimaryContainer,
-      selectionColor: theme.selectionColor ?? colorScheme.primary,
+      photoSelectionColor: theme.photoSelectionColor ?? colorScheme.primary,
       attachmentPlaceholderColor: theme.attachmentPlaceholderColor ?? colorScheme.surface,
+      // Follows a host `iconColor`, but defaults to the quieter
+      // `onSurfaceVariant` the placeholder glyph has always used.
+      brokenAttachmentIconColor: theme.iconColor ?? colorScheme.onSurfaceVariant,
     );
   }
 
@@ -90,11 +96,15 @@ class ResolvedComposerTheme {
   /// See [ComposerThemeData.selectedOptionForegroundColor].
   final Color selectedOptionForegroundColor;
 
-  /// See [ComposerThemeData.selectionColor].
-  final Color selectionColor;
+  /// See [ComposerThemeData.photoSelectionColor].
+  final Color photoSelectionColor;
 
   /// See [ComposerThemeData.attachmentPlaceholderColor].
   final Color attachmentPlaceholderColor;
+
+  /// The glyph on an attachment thumbnail that failed to decode. See
+  /// [ComposerThemeData.iconColor].
+  final Color brokenAttachmentIconColor;
 
   /// The icon color for a control in the given enabled state.
   Color iconColorFor({required bool enabled}) => enabled ? iconColor : disabledIconColor;

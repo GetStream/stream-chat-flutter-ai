@@ -4,6 +4,14 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() {
   group('SuggestionsThemeData', () {
+    test('describes only the fields it sets to DevTools', () {
+      final description = const SuggestionsThemeData(
+        backgroundColor: Color(0xFF123456),
+      ).toDiagnosticsNode().toStringDeep();
+      expect(description, contains('backgroundColor'));
+      expect(description, isNot(contains('borderColor')), reason: 'unset fields stay out of the tree');
+    });
+
     group('every field', () {
       const base = SuggestionsThemeData(
         backgroundColor: Color(0xFF111111),
@@ -64,6 +72,21 @@ void main() {
           expect(copied, merged, reason: 'copyWith and merge disagree on ${field.name}');
           expect(copied, isNot(base), reason: '== ignores ${field.name}');
           expect(copied.hashCode, isNot(base.hashCode), reason: 'hashCode ignores ${field.name}');
+        });
+
+        test('${field.name} survives lerp', () {
+          // Only this field is set on both sides, so it alone interpolates;
+          // every other field swaps from base's value to null at the midpoint.
+          final early = SuggestionsThemeData.lerp(base, field.only, 0.25);
+          final end = SuggestionsThemeData.lerp(base, field.only, 1);
+
+          expect(field.read(early), isNotNull, reason: 'lerp dropped ${field.name}');
+          expect(field.read(early), isNot(field.read(base)), reason: 'lerp did not move ${field.name}');
+          expect(field.read(end), field.read(field.only), reason: 'lerp did not reach ${field.name}');
+          for (final other in fields.where((f) => f.name != field.name)) {
+            expect(other.read(early), other.read(base), reason: 'lerp(${field.name}) disturbed ${other.name}');
+            expect(other.read(end), isNull, reason: 'lerp(${field.name}) disturbed ${other.name}');
+          }
         });
       }
     });
