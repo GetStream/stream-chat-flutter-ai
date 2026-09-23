@@ -64,9 +64,12 @@ class AISuggestionsView extends StatelessWidget {
     // Merged onto the ambient DefaultTextStyle rather than used raw, so a theme
     // setting only a color or weight keeps the app's font and size. The chips
     // are measured with this exact style — see `_measureContentWidth`.
-    final textStyle = DefaultTextStyle.of(
+    final merged = DefaultTextStyle.of(
       context,
     ).style.merge(TextStyle(color: colorScheme.onSurface)).merge(theme.textStyle);
+    // An `inherit: false` override replaces the base outright, color and all —
+    // restore it, as the composer does for its hint.
+    final textStyle = merged.color == null ? merged.copyWith(color: colorScheme.onSurface) : merged;
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
 

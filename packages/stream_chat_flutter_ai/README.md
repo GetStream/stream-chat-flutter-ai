@@ -599,8 +599,10 @@ the appearance the package has always had; theming is opt-in.
 as one control), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
 `stopButtonColor`, `recordingButtonColor`, `actionButtonForegroundColor` (the glyph on that filled
 circle), `selectedOptionColor` and `selectedOptionForegroundColor`, `photoSelectionColor` (the photo
-grid's ring and check) and `attachmentPlaceholderColor`. `SuggestionsThemeData` has three:
-`backgroundColor`, `borderColor` and `textStyle`.
+grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceholderForegroundColor`
+(a thumbnail's placeholder and remove badge, and the glyphs on them). Each foreground field is paired
+with the surface it is drawn on, so overriding one pair never leaves an icon on a surface it wasn't
+chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
 
 Narrow either to a subtree with `ComposerTheme` / `SuggestionsTheme`, the way `ChartTheme` does:
 

@@ -47,6 +47,7 @@ class ComposerThemeData with Diagnosticable {
     this.selectedOptionForegroundColor,
     this.photoSelectionColor,
     this.attachmentPlaceholderColor,
+    this.attachmentPlaceholderForegroundColor,
   });
 
   /// The fill behind the input pill, the leading "+" button and the attachment
@@ -68,12 +69,14 @@ class ComposerThemeData with Diagnosticable {
   /// [ChatComposer.hintText] or `AITranslations.composerHint`.
   final TextStyle? hintStyle;
 
-  /// The color of the icons drawn on [fillColor]: the leading "+", the sheet's
-  /// tile and option icons, and an attachment thumbnail's remove "×". Falls
-  /// back to [ColorScheme.onSurface].
+  /// The color of the icons drawn on [fillColor]: the leading "+" and the
+  /// sheet's camera tile. Falls back to [ColorScheme.onSurface].
   ///
-  /// Also the glyph on an attachment thumbnail that failed to decode, which
-  /// falls back to the quieter [ColorScheme.onSurfaceVariant] instead.
+  /// Only those, so it need only contrast with [fillColor]. An attachment
+  /// thumbnail's glyphs sit on [attachmentPlaceholderColor] and take
+  /// [attachmentPlaceholderForegroundColor]; the sheet's chat-option icons sit
+  /// on the sheet's own background, which this theme does not set, and follow
+  /// [ColorScheme.onSurface].
   ///
   /// Not the icon inside the filled send/stop/mic circle — that is
   /// [actionButtonForegroundColor], which sits on a saturated fill instead.
@@ -129,6 +132,13 @@ class ComposerThemeData with Diagnosticable {
   /// [ColorScheme.surface].
   final Color? attachmentPlaceholderColor;
 
+  /// The glyphs drawn on [attachmentPlaceholderColor]: the remove badge's "×"
+  /// and the icon on a thumbnail that failed to decode.
+  ///
+  /// Unset, the "×" falls back to [ColorScheme.onSurface] and the broken-image
+  /// icon to the quieter [ColorScheme.onSurfaceVariant]; set, both take it.
+  final Color? attachmentPlaceholderForegroundColor;
+
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
   /// current value.
   ComposerThemeData copyWith({
@@ -145,6 +155,7 @@ class ComposerThemeData with Diagnosticable {
     Color? selectedOptionForegroundColor,
     Color? photoSelectionColor,
     Color? attachmentPlaceholderColor,
+    Color? attachmentPlaceholderForegroundColor,
   }) {
     return ComposerThemeData(
       fillColor: fillColor ?? this.fillColor,
@@ -160,6 +171,8 @@ class ComposerThemeData with Diagnosticable {
       selectedOptionForegroundColor: selectedOptionForegroundColor ?? this.selectedOptionForegroundColor,
       photoSelectionColor: photoSelectionColor ?? this.photoSelectionColor,
       attachmentPlaceholderColor: attachmentPlaceholderColor ?? this.attachmentPlaceholderColor,
+      attachmentPlaceholderForegroundColor:
+          attachmentPlaceholderForegroundColor ?? this.attachmentPlaceholderForegroundColor,
     );
   }
 
@@ -181,6 +194,7 @@ class ComposerThemeData with Diagnosticable {
       selectedOptionForegroundColor: other.selectedOptionForegroundColor,
       photoSelectionColor: other.photoSelectionColor,
       attachmentPlaceholderColor: other.attachmentPlaceholderColor,
+      attachmentPlaceholderForegroundColor: other.attachmentPlaceholderForegroundColor,
     );
   }
 
@@ -206,6 +220,11 @@ class ComposerThemeData with Diagnosticable {
       ),
       photoSelectionColor: lerpColorOrSwap(a.photoSelectionColor, b.photoSelectionColor, t),
       attachmentPlaceholderColor: lerpColorOrSwap(a.attachmentPlaceholderColor, b.attachmentPlaceholderColor, t),
+      attachmentPlaceholderForegroundColor: lerpColorOrSwap(
+        a.attachmentPlaceholderForegroundColor,
+        b.attachmentPlaceholderForegroundColor,
+        t,
+      ),
     );
   }
 
@@ -225,7 +244,10 @@ class ComposerThemeData with Diagnosticable {
       ..add(ColorProperty('selectedOptionColor', selectedOptionColor, defaultValue: null))
       ..add(ColorProperty('selectedOptionForegroundColor', selectedOptionForegroundColor, defaultValue: null))
       ..add(ColorProperty('photoSelectionColor', photoSelectionColor, defaultValue: null))
-      ..add(ColorProperty('attachmentPlaceholderColor', attachmentPlaceholderColor, defaultValue: null));
+      ..add(ColorProperty('attachmentPlaceholderColor', attachmentPlaceholderColor, defaultValue: null))
+      ..add(
+        ColorProperty('attachmentPlaceholderForegroundColor', attachmentPlaceholderForegroundColor, defaultValue: null),
+      );
   }
 
   @override
@@ -244,7 +266,8 @@ class ComposerThemeData with Diagnosticable {
         other.selectedOptionColor == selectedOptionColor &&
         other.selectedOptionForegroundColor == selectedOptionForegroundColor &&
         other.photoSelectionColor == photoSelectionColor &&
-        other.attachmentPlaceholderColor == attachmentPlaceholderColor;
+        other.attachmentPlaceholderColor == attachmentPlaceholderColor &&
+        other.attachmentPlaceholderForegroundColor == attachmentPlaceholderForegroundColor;
   }
 
   @override
@@ -262,6 +285,7 @@ class ComposerThemeData with Diagnosticable {
     selectedOptionForegroundColor,
     photoSelectionColor,
     attachmentPlaceholderColor,
+    attachmentPlaceholderForegroundColor,
   );
 }
 

@@ -11,7 +11,7 @@ void main() {
     });
 
     // Every field, rather than a spot-check: copyWith, merge, lerp, == and
-    // hashCode are five hand-written 13-line tables, and a crossed line in any
+    // hashCode are five hand-written 14-line tables, and a crossed line in any
     // of them is invisible until someone themes that particular field. The loop
     // below is what makes a 14th field added to only some of them fail loudly.
     group('every field', () {
@@ -29,6 +29,7 @@ void main() {
         selectedOptionForegroundColor: Color(0xFFAAAAAA),
         photoSelectionColor: Color(0xFFBBBBBB),
         attachmentPlaceholderColor: Color(0xFFCCCCCC),
+        attachmentPlaceholderForegroundColor: Color(0xFFDDDDDD),
       );
 
       /// One per field: how to set it to a second value, and how to read it.
@@ -119,13 +120,19 @@ void main() {
               copied: () => base.copyWith(attachmentPlaceholderColor: const Color(0xFF0000AC)),
               read: (t) => t.attachmentPlaceholderColor,
             ),
+            (
+              name: 'attachmentPlaceholderForegroundColor',
+              only: const ComposerThemeData(attachmentPlaceholderForegroundColor: Color(0xFF0000AD)),
+              copied: () => base.copyWith(attachmentPlaceholderForegroundColor: const Color(0xFF0000AD)),
+              read: (t) => t.attachmentPlaceholderForegroundColor,
+            ),
           ];
 
       test('the table covers every field the class declares', () {
         // Guards the loop itself: add a field without a row here and this
         // fails rather than silently leaving the new field untested.
-        expect(fields, hasLength(13));
-        expect(fields.map((f) => f.name).toSet(), hasLength(13));
+        expect(fields, hasLength(14));
+        expect(fields.map((f) => f.name).toSet(), hasLength(14));
       });
 
       for (final field in fields) {

@@ -180,6 +180,35 @@ void main() {
       expect(sendIcon.color, _actionForeground);
     });
 
+    testWidgets("a ComposerActionButton's own foregroundColor wins over the theme", (tester) async {
+      const own = Color(0xFF0F0F0F);
+
+      await tester.pumpWidget(
+        _app(
+          extension: const AITheme(composerTheme: _composerTheme),
+          child: Column(
+            children: [
+              ComposerActionButton(
+                icon: Icons.star,
+                onPressed: () {},
+                tooltip: 'own',
+                color: _send,
+                foregroundColor: own,
+              ),
+              ComposerActionButton(icon: Icons.favorite, onPressed: () {}, tooltip: 'themed', color: _send),
+            ],
+          ),
+        ),
+      );
+
+      expect(tester.widget<Icon>(find.byIcon(Icons.star)).color, own);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.favorite)).color,
+        _actionForeground,
+        reason: 'unset, it follows the theme',
+      );
+    });
+
     testWidgets('paints the selected-option chip in its own colors', (tester) async {
       final controller = ChatComposerController()
         ..selectChatOption(const ChatOption(id: 'a', text: 'Summarize', icon: Icons.summarize));
@@ -297,6 +326,7 @@ void main() {
     group('attachment thumbnails', () {
       testWidgets('draw the placeholder, badge and glyphs from the theme', (tester) async {
         const placeholder = Color(0xFF0C0D0E);
+        const glyph = Color(0xFF0E0D0C);
         final controller = ChatComposerController()..addAttachments([XFile('does-not-exist.png')]);
         addTearDown(controller.dispose);
 
@@ -307,6 +337,7 @@ void main() {
                 iconColor: _icon,
                 borderColor: _border,
                 attachmentPlaceholderColor: placeholder,
+                attachmentPlaceholderForegroundColor: glyph,
               ),
             ),
             child: ChatComposer(controller: controller, onSendPressed: (_, _, _) {}),
@@ -319,30 +350,37 @@ void main() {
 
         final broken = find.byIcon(Icons.broken_image_outlined);
         expect(broken, findsOneWidget);
-        expect(tester.widget<Icon>(broken).color, _icon, reason: 'a host iconColor reaches the error glyph');
+        expect(tester.widget<Icon>(broken).color, glyph, reason: 'the error glyph takes the placeholder foreground');
         expect(
           tester.widget<ColoredBox>(find.ancestor(of: broken, matching: find.byType(ColoredBox)).first).color,
           placeholder,
         );
-        expect(tester.widget<Icon>(find.byIcon(Icons.close)).color, _icon, reason: 'the remove "×" takes iconColor');
+        expect(tester.widget<Icon>(find.byIcon(Icons.close)).color, glyph, reason: 'so does the remove "×"');
       });
 
-      testWidgets('keep the quieter default on the error glyph', (tester) async {
+      testWidgets('keep their scheme defaults under a host iconColor', (tester) async {
         final controller = ChatComposerController()..addAttachments([XFile('does-not-exist.png')]);
         addTearDown(controller.dispose);
 
+        // A dark pill with white icons. The glyphs sit on the placeholder, not
+        // the pill, so white would vanish on its default `surface`.
         await tester.pumpWidget(
           _app(
+            extension: const AITheme(
+              composerTheme: ComposerThemeData(fillColor: Color(0xFF0A1A3A), iconColor: Colors.white),
+            ),
             child: ChatComposer(controller: controller, onSendPressed: (_, _, _) {}),
           ),
         );
         await _failThumbnail(tester);
         expect(tester.takeException(), isA<Exception>());
 
-        // onSurfaceVariant, as before theming — not iconColor's onSurface.
+        final scheme = ThemeData().colorScheme;
+        expect(tester.widget<Icon>(find.byIcon(Icons.close)).color, scheme.onSurface);
+        // The quieter onSurfaceVariant, as before theming.
         expect(
           tester.widget<Icon>(find.byIcon(Icons.broken_image_outlined)).color,
-          ThemeData().colorScheme.onSurfaceVariant,
+          scheme.onSurfaceVariant,
         );
       });
     });
@@ -378,7 +416,11 @@ void main() {
           _border,
           reason: 'the divider takes borderColor',
         );
-        expect(tester.widget<Icon>(find.byIcon(Icons.science)).color, _icon, reason: 'option icons take iconColor');
+        expect(
+          tester.widget<Icon>(find.byIcon(Icons.science)).color,
+          ThemeData().colorScheme.onSurface,
+          reason: 'option icons sit on the unthemed sheet background, so they follow the scheme, not iconColor',
+        );
       });
 
       testWidgets('dims the camera tile once the composer is full', (tester) async {
@@ -458,6 +500,21 @@ void main() {
         ThemeData().colorScheme.onSurface,
         reason: 'a partial override keeps the derived color',
       );
+    });
+
+    testWidgets('keeps the derived color through an inherit: false textStyle', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          extension: const AITheme(
+            suggestionsTheme: SuggestionsThemeData(textStyle: TextStyle(inherit: false, fontWeight: FontWeight.bold)),
+          ),
+          child: AISuggestionsView(suggestions: const ['Tell me a joke'], onSuggestionSelected: (_) {}),
+        ),
+      );
+
+      final text = tester.widget<Text>(find.text('Tell me a joke'));
+      expect(text.style?.fontWeight, FontWeight.bold);
+      expect(text.style?.color, ThemeData().colorScheme.onSurface);
     });
 
     testWidgets('resizes the chips to a larger textStyle rather than overflowing', (tester) async {

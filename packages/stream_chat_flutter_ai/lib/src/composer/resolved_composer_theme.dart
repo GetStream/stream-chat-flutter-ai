@@ -25,7 +25,9 @@ class ResolvedComposerTheme {
     required this.selectedOptionForegroundColor,
     required this.photoSelectionColor,
     required this.attachmentPlaceholderColor,
+    required this.removeAttachmentIconColor,
     required this.brokenAttachmentIconColor,
+    required this.chatOptionIconColor,
   });
 
   /// Resolves the theme at [context].
@@ -57,9 +59,11 @@ class ResolvedComposerTheme {
       selectedOptionForegroundColor: theme.selectedOptionForegroundColor ?? colorScheme.onPrimaryContainer,
       photoSelectionColor: theme.photoSelectionColor ?? colorScheme.primary,
       attachmentPlaceholderColor: theme.attachmentPlaceholderColor ?? colorScheme.surface,
-      // Follows a host `iconColor`, but defaults to the quieter
-      // `onSurfaceVariant` the placeholder glyph has always used.
-      brokenAttachmentIconColor: theme.iconColor ?? colorScheme.onSurfaceVariant,
+      // One field for both glyphs on the placeholder, with the defaults each
+      // has always had: the broken-image icon is the quieter of the two.
+      removeAttachmentIconColor: theme.attachmentPlaceholderForegroundColor ?? colorScheme.onSurface,
+      brokenAttachmentIconColor: theme.attachmentPlaceholderForegroundColor ?? colorScheme.onSurfaceVariant,
+      chatOptionIconColor: colorScheme.onSurface,
     );
   }
 
@@ -102,9 +106,19 @@ class ResolvedComposerTheme {
   /// See [ComposerThemeData.attachmentPlaceholderColor].
   final Color attachmentPlaceholderColor;
 
+  /// The remove badge's "×". See [ComposerThemeData.attachmentPlaceholderForegroundColor].
+  final Color removeAttachmentIconColor;
+
   /// The glyph on an attachment thumbnail that failed to decode. See
-  /// [ComposerThemeData.iconColor].
+  /// [ComposerThemeData.attachmentPlaceholderForegroundColor].
   final Color brokenAttachmentIconColor;
+
+  /// A chat option's icon in the attachment sheet.
+  ///
+  /// Not themed: it sits on the sheet's own background, which follows the
+  /// ambient [ColorScheme] rather than [ComposerThemeData], so the icon has to
+  /// follow the scheme too to stay legible against it.
+  final Color chatOptionIconColor;
 
   /// The icon color for a control in the given enabled state.
   Color iconColorFor({required bool enabled}) => enabled ? iconColor : disabledIconColor;

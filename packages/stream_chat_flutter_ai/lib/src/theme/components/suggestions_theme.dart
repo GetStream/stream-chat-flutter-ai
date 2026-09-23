@@ -44,7 +44,8 @@ class SuggestionsThemeData with Diagnosticable {
 
   /// The style of a chip's text, merged over the ambient [DefaultTextStyle] in
   /// [ColorScheme.onSurface]: a style that sets only a weight keeps the app's
-  /// font, size and that color.
+  /// font, size and that color. An `inherit: false` style replaces the rest,
+  /// but still keeps that color unless it sets its own.
   ///
   /// Chips are measured before they are laid out — each one shrinks to fit its
   /// own two lines — so this style is what that measurement uses. A style that

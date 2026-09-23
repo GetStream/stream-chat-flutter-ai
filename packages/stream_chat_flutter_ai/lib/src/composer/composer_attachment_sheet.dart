@@ -443,7 +443,7 @@ class _ChatOptionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
     return ListTile(
-      leading: option.icon != null ? Icon(option.icon, color: theme.iconColor) : null,
+      leading: option.icon != null ? Icon(option.icon, color: theme.chatOptionIconColor) : null,
       title: Text(option.text),
       subtitle: option.description != null ? Text(option.description!) : null,
       onTap: onTap,

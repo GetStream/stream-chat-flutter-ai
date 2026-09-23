@@ -7,7 +7,8 @@
   color from the ambient `ColorScheme` or hard-coded white, with no seam for a host to intervene;
   they now take the pill's fill and border, the hint style, icon and disabled-icon colors, the send,
   stop and recording button fills and the glyph on them, the selected-option chip, the photo grid's
-  selection ring, the attachment placeholder, and the chips' fill, border and text style. Narrow either to a
+  selection ring, the attachment placeholder and the glyphs on it, and the chips' fill, border and
+  text style. Narrow either to a
   subtree with `ComposerTheme` / `SuggestionsTheme`, which layer over the extension and cross a
   `Navigator` the way `ChartTheme` does — so a scope above the composer reaches its attachment
   sheet.

@@ -415,7 +415,7 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
                     child: Icon(
                       Icons.close,
                       size: 14,
-                      color: theme.iconColor,
+                      color: theme.removeAttachmentIconColor,
                     ),
                   ),
                 ),
