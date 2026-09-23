@@ -569,6 +569,70 @@ the agent will report a "checking external sources" state while it runs. This pa
 never reads the flag; to surface the state, pass your own caption for it to
 [`AITypingIndicatorView`](#aitypingindicatorview), whose `text` is an ordinary string.
 
+### Theming
+
+Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
+data class per component — `ChartThemeData`, `ComposerThemeData` and `SuggestionsThemeData`:
+
+```dart
+MaterialApp(
+  theme: ThemeData(
+    colorSchemeSeed: brandBlue,
+    extensions: const [
+      AITheme(
+        composerTheme: ComposerThemeData(sendButtonColor: Color(0xFF005FFF)),
+        suggestionsTheme: SuggestionsThemeData(backgroundColor: Color(0xFFEFF4FF)),
+      ),
+    ],
+  ),
+  ...
+)
+```
+
+Every field on every one of them is nullable, and leaving one unset means "derive it from the
+ambient `ThemeData`" — so overriding the send button leaves the pill, the border, the hint and the
+attachment sheet following your app, in light and dark alike. Registering no extension at all gets
+the appearance the package has always had; theming is opt-in.
+
+`ComposerThemeData` covers `ChatComposer` and `ComposerAttachmentSheet`: `fillColor` and
+`borderColor` (the pill, the leading "+" button and the sheet's tiles — the surfaces meant to read
+as one control), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
+`stopButtonColor`, `recordingButtonColor`, `actionButtonForegroundColor` (the glyph on that filled
+circle), `selectedOptionColor` and `selectedOptionForegroundColor`, `photoSelectionColor` (the photo
+grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceholderForegroundColor`
+(a thumbnail's placeholder and remove badge, and the glyphs on them). Each foreground field is paired
+with the surface it is drawn on, so overriding one pair never leaves an icon on a surface it wasn't
+chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
+
+Narrow either to a subtree with `ComposerTheme` / `SuggestionsTheme`, the way `ChartTheme` does:
+
+```dart
+ComposerTheme(
+  data: const ComposerThemeData(sendButtonColor: Colors.teal),
+  child: ChatComposer(onSendPressed: send),
+)
+```
+
+Four things worth knowing:
+
+- **`ThemeData.copyWith(extensions:)` replaces the whole extension set.** If your app already
+  registers others, re-list them:
+  `theme.copyWith(extensions: [...theme.extensions.values, const AITheme()])`.
+- **`disabledIconColor` derives from the *resolved* `iconColor`.** Set only `iconColor` and the
+  disabled states dim to match it, rather than to a dimmed `onSurface` that no longer relates.
+- **The idle microphone uses `sendButtonColor`, not `recordingButtonColor`.** It occupies the send
+  button's slot, and the two are meant to read as one control morphing in place;
+  `recordingButtonColor` applies only while it is listening.
+- **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
+  `ComposerTheme.merge` / `SuggestionsTheme.merge` to add to an enclosing scope instead of
+  shadowing it. Both are `InheritedTheme`s, so like `ChartTheme` they carry across a `Navigator` —
+  a scope above the composer still reaches the attachment sheet that `showModalBottomSheet` pushes.
+
+The suggestion chips default to the same tokens as the composer's input pill, since a suggestion
+row is normally docked directly above it. Recolor that surface and you want both.
+
+---
+
 ### Localization
 
 Every string the package renders itself resolves through an `AITranslations` instance. Register

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
 
 /// Padding inside each suggestion chip — matched when measuring text (see
 /// [_SuggestionChip._measureContentWidth]) so the computed width leaves
@@ -59,9 +60,16 @@ class AISuggestionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textStyle = DefaultTextStyle.of(
+    final theme = SuggestionsTheme.of(context);
+    // Merged onto the ambient DefaultTextStyle rather than used raw, so a theme
+    // setting only a color or weight keeps the app's font and size. The chips
+    // are measured with this exact style — see `_measureContentWidth`.
+    final merged = DefaultTextStyle.of(
       context,
-    ).style.merge(TextStyle(color: colorScheme.onSurface));
+    ).style.merge(TextStyle(color: colorScheme.onSurface)).merge(theme.textStyle);
+    // An `inherit: false` override replaces the base outright, color and all —
+    // restore it, as the composer does for its hint.
+    final textStyle = merged.color == null ? merged.copyWith(color: colorScheme.onSurface) : merged;
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
 
@@ -83,8 +91,8 @@ class AISuggestionsView extends StatelessWidget {
                 textScaler: textScaler,
                 textDirection: textDirection,
                 maxWidth: itemMaxWidth,
-                color: colorScheme.surfaceContainerHigh,
-                borderColor: colorScheme.outlineVariant,
+                color: theme.backgroundColor ?? colorScheme.surfaceContainerHigh,
+                borderColor: theme.borderColor ?? colorScheme.outlineVariant,
                 onTap: () => onSuggestionSelected(suggestion),
               ),
               const SizedBox(width: 8),

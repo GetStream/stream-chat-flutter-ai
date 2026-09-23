@@ -8,6 +8,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
 
@@ -231,7 +232,7 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
   }
 
   Widget _buildSheet(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     final translations = AITranslations.of(context);
     final chatOptions = widget.controller.chatOptions;
     final atCapacity = widget.controller.remainingAttachmentSlots <= 0;
@@ -295,7 +296,7 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
               ),
             ),
             if (chatOptions.isNotEmpty) ...[
-              Divider(height: 24, color: colorScheme.outlineVariant),
+              Divider(height: 24, color: theme.borderColor),
               for (final option in chatOptions) _ChatOptionTile(option: option, onTap: () => _selectChatOption(option)),
             ],
           ],
@@ -314,14 +315,14 @@ class _CameraTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     final borderRadius = BorderRadius.circular(12);
-    final iconColor = onTap == null ? colorScheme.onSurface.withValues(alpha: 0.3) : colorScheme.onSurface;
+    final iconColor = theme.iconColorFor(enabled: onTap != null);
     return Container(
       width: 72,
       height: 72,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
+        color: theme.fillColor,
         borderRadius: borderRadius,
       ),
       // Above the fill, so the ink splash is actually visible.
@@ -378,7 +379,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     final selected = widget.selected;
     return InkWell(
       onTap: widget.onTap,
@@ -400,7 +401,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
                   builder: (context, snapshot) {
                     final bytes = snapshot.data;
                     if (bytes == null) {
-                      return ColoredBox(color: colorScheme.surfaceContainerHigh);
+                      return ColoredBox(color: theme.fillColor);
                     }
                     return Image.memory(bytes, fit: BoxFit.cover);
                   },
@@ -411,7 +412,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
               DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.primary, width: 3),
+                  border: Border.all(color: theme.photoSelectionColor, width: 3),
                 ),
               ),
             if (selected)
@@ -421,8 +422,8 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
                 child: Container(
                   width: 20,
                   height: 20,
-                  decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
-                  child: const Icon(Icons.check, size: 14, color: Colors.white),
+                  decoration: BoxDecoration(color: theme.photoSelectionColor, shape: BoxShape.circle),
+                  child: Icon(Icons.check, size: 14, color: theme.actionButtonForegroundColor),
                 ),
               ),
           ],
@@ -440,9 +441,9 @@ class _ChatOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     return ListTile(
-      leading: option.icon != null ? Icon(option.icon, color: colorScheme.onSurface) : null,
+      leading: option.icon != null ? Icon(option.icon, color: theme.chatOptionIconColor) : null,
       title: Text(option.text),
       subtitle: option.description != null ? Text(option.description!) : null,
       onTap: onTap,

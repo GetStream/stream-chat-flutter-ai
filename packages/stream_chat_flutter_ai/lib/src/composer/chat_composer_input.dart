@@ -11,6 +11,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
+import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
@@ -106,8 +107,7 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
   }
 
   Widget _buildPill(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = colorScheme.outlineVariant;
+    final theme = ResolvedComposerTheme.resolve(context);
     final controller = props.controller;
     // Hoisted: the getter hands back a fresh `List.unmodifiable` copy on every
     // call, and this build runs per keystroke.
@@ -115,9 +115,9 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
+        color: theme.fillColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: theme.borderColor),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -149,11 +149,7 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
                   textInputAction: props.textInputAction,
                   decoration: InputDecoration(
                     hintText: props.hintText ?? AITranslations.of(context).composerHint,
-                    hintStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.6,
-                      ),
-                    ),
+                    hintStyle: theme.hintStyle,
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
                   ),
@@ -228,7 +224,7 @@ class _TrailingControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     final translations = AITranslations.of(context);
 
     if (controller.isGenerating) {
@@ -236,7 +232,7 @@ class _TrailingControl extends StatelessWidget {
         icon: Icons.stop_rounded,
         onPressed: onStop,
         tooltip: translations.stopGenerating,
-        color: colorScheme.error,
+        color: theme.stopButtonColor,
       );
     }
 
@@ -252,7 +248,7 @@ class _TrailingControl extends StatelessWidget {
       icon: Icons.arrow_upward_rounded,
       onPressed: controller.hasContent ? onSend : null,
       tooltip: translations.send,
-      color: colorScheme.primary,
+      color: theme.sendButtonColor,
     );
   }
 }
@@ -357,7 +353,7 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     // Decode at thumbnail resolution instead of full camera resolution.
     final cacheWidth = (_size * MediaQuery.devicePixelRatioOf(context)).round();
 
@@ -377,17 +373,17 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return ColoredBox(
-                      color: colorScheme.surface,
+                      color: theme.attachmentPlaceholderColor,
                       child: Icon(
                         Icons.broken_image_outlined,
                         size: 24,
-                        color: colorScheme.onSurfaceVariant,
+                        color: theme.brokenAttachmentIconColor,
                       ),
                     );
                   }
                   final bytes = snapshot.data;
                   if (bytes == null) {
-                    return ColoredBox(color: colorScheme.surface);
+                    return ColoredBox(color: theme.attachmentPlaceholderColor);
                   }
                   return Image.memory(bytes, fit: BoxFit.cover, cacheWidth: cacheWidth);
                 },
@@ -401,9 +397,9 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: colorScheme.surface,
+                color: theme.attachmentPlaceholderColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: colorScheme.outlineVariant),
+                border: Border.all(color: theme.borderColor),
               ),
               // The Material sits *above* the fill so the ink splash is
               // visible — an InkWell wrapped around an opaque decoration
@@ -419,7 +415,7 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
                     child: Icon(
                       Icons.close,
                       size: 14,
-                      color: colorScheme.onSurface,
+                      color: theme.removeAttachmentIconColor,
                     ),
                   ),
                 ),
@@ -444,14 +440,14 @@ class _SelectedOptionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
       child: Align(
         alignment: Alignment.centerLeft,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
+            color: theme.selectedOptionColor,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Padding(
@@ -460,13 +456,13 @@ class _SelectedOptionChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (option.icon != null) ...[
-                  Icon(option.icon, size: 18, color: colorScheme.onPrimaryContainer),
+                  Icon(option.icon, size: 18, color: theme.selectedOptionForegroundColor),
                   const SizedBox(width: 6),
                 ],
                 Text(
                   option.text,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
+                    color: theme.selectedOptionForegroundColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -479,7 +475,7 @@ class _SelectedOptionChip extends StatelessWidget {
                     onTap: onDismiss,
                     child: Tooltip(
                       message: AITranslations.of(context).clearOption(option.text),
-                      child: Icon(Icons.close, size: 18, color: colorScheme.onPrimaryContainer),
+                      child: Icon(Icons.close, size: 18, color: theme.selectedOptionForegroundColor),
                     ),
                   ),
                 ),

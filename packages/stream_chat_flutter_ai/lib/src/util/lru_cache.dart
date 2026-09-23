@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// A fixed-capacity cache that evicts the *least recently used* entry.
 ///
 /// Internal to this package, and deliberately minimal: [get], [peek], [set] and
@@ -12,6 +14,7 @@
 /// are exactly the entries the cache exists to keep. Touching an entry on
 /// every hit inverts that — a snapshot is never looked up twice, so it ages out
 /// on its own while anything still being read stays resident.
+@internal
 class LruCache<K, V> {
   /// Creates a cache holding at most [capacity] entries.
   LruCache(this.capacity) : assert(capacity > 0, 'capacity must be at least 1');

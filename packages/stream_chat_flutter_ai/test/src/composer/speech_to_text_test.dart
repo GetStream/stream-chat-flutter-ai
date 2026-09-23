@@ -583,6 +583,46 @@ void main() {
     });
   });
 
+  group('SpeechToTextButton theming', () {
+    Future<void> settle(WidgetTester tester) => tester.pump(const Duration(milliseconds: 200));
+
+    Color? micFill(WidgetTester tester) {
+      final box = tester.widget<DecoratedBox>(
+        find.ancestor(of: find.byType(InkWell), matching: find.byType(DecoratedBox)).first,
+      );
+      return (box.decoration as BoxDecoration).color;
+    }
+
+    testWidgets('idles in sendButtonColor and listens in recordingButtonColor', (tester) async {
+      const send = Color(0xFF123456);
+      const recording = Color(0xFF654321);
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ComposerTheme(
+            data: const ComposerThemeData(sendButtonColor: send, recordingButtonColor: recording),
+            child: SpeechToTextButton(controller: controller),
+          ),
+        ),
+      );
+
+      // Idle, the mic takes the send button's slot and its color, so the two
+      // read as one control morphing in place.
+      expect(micFill(tester), send);
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+      expect(micFill(tester), recording);
+
+      await SpeechToTextController.instance.stop();
+      await tester.pump(const Duration(seconds: 3));
+    });
+  });
+
   group('SpeechToTextButton localization', () {
     Future<void> settle(WidgetTester tester) => tester.pump(const Duration(milliseconds: 200));
 

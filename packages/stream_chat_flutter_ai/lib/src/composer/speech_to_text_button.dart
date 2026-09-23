@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
+import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
@@ -189,9 +190,11 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = ResolvedComposerTheme.resolve(context);
     final listening = _speech.isListening;
-    final color = listening ? colorScheme.error : colorScheme.primary;
+    // Idle, the mic occupies the send button's slot and takes its color, so the
+    // two read as one control morphing in place rather than two buttons.
+    final color = listening ? theme.recordingButtonColor : theme.sendButtonColor;
 
     // Rendered even before the recognizer has been initialized, and even when it
     // turns out to be unavailable (disabled, in that case). Hiding it outright

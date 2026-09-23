@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
 /// The heatmap ramp on a light [Brightness]: higher values darker.
 const _kLightScale = (low: Color(0xFFEAF2FB), mid: Color(0xFF4A90D9), high: Color(0xFF1B4F8A));
@@ -15,6 +17,7 @@ const _kDarkScale = (low: Color(0xFF12283F), mid: Color(0xFF3B7CB8), high: Color
 /// a concrete value for each, so resolving once at the top of `build` keeps the
 /// fallback table in one place.
 @immutable
+@internal
 class ResolvedChartTheme {
   const ResolvedChartTheme._({
     required this.seriesColors,
@@ -41,7 +44,7 @@ class ResolvedChartTheme {
     final scale = themeData.brightness == Brightness.dark ? _kDarkScale : _kLightScale;
     final palette = theme.seriesColors;
 
-    final axisLabel = _merge(const TextStyle(fontSize: 10), theme.axisLabelStyle);
+    final axisLabel = mergeTextStyle(const TextStyle(fontSize: 10), theme.axisLabelStyle);
 
     return ResolvedChartTheme._(
       // An empty palette would make `seriesColor` divide by zero, and cycling
@@ -55,7 +58,7 @@ class ResolvedChartTheme {
       axisLabelStyle: axisLabel.color == null ? axisLabel.copyWith(color: colorScheme.onSurfaceVariant) : axisLabel,
       // The color is deliberately left unset when the host set none: the pie
       // builder then picks one per slice, since each slice is a different fill.
-      pieLabelStyle: _merge(const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), theme.pieLabelStyle),
+      pieLabelStyle: mergeTextStyle(const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), theme.pieLabelStyle),
       titleTextStyle: theme.titleTextStyle ?? themeData.textTheme.titleSmall?.copyWith(color: colorScheme.onSurface),
       gridLineColor: theme.gridLineColor ?? colorScheme.outlineVariant,
       heatmapLowColor: theme.heatmapLowColor ?? scale.low,
@@ -108,13 +111,4 @@ class ResolvedChartTheme {
   /// The color for the [index]-th series, cycling when there are more series
   /// than colors.
   Color seriesColor(int index) => seriesColors[index % seriesColors.length];
-
-  /// Lays [override] over [base].
-  ///
-  /// [TextStyle.merge] asserts on an `inherit: false` style, which a host is
-  /// free to build, so such a style replaces the base outright.
-  static TextStyle _merge(TextStyle base, TextStyle? override) {
-    if (override == null) return base;
-    return override.inherit ? base.merge(override) : override;
-  }
 }
