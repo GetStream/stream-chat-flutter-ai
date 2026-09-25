@@ -31,6 +31,8 @@ class StreamingMessageView extends StatefulWidget {
     this.onTapLink,
     this.typingSpeed = const Duration(milliseconds: 10),
     this.onTypewriterStateChanged,
+    this.expectMoreText = false,
+    this.onFinished,
     this.styleSheet,
     this.mathBuilder,
     this.useDollarDelimitersForMath = false,
@@ -73,7 +75,35 @@ class StreamingMessageView extends StatefulWidget {
   final MarkdownTapLinkCallback? onTapLink;
 
   /// A callback that is called whenever the typewriter state changes.
+  ///
+  /// [TypewriterState.idle] only means the typewriter has caught up with the
+  /// text received so far, which also happens mid-stream whenever it overtakes
+  /// the backend. To learn when a reply is completely on screen, use
+  /// [onFinished].
   final ValueChanged<TypewriterState>? onTypewriterStateChanged;
+
+  /// Whether more [text] for this message may still arrive, e.g. while the
+  /// backend is generating the reply.
+  ///
+  /// The view can't tell a finished reply from a pause in the stream by its
+  /// [text] alone, so [onFinished] waits until this is `false`. Typically
+  /// driven by the backend's AI state, or a "generating" flag on the message.
+  ///
+  /// Defaults to `false`.
+  final bool expectMoreText;
+
+  /// Called once the reply is completely on screen: [expectMoreText] is `false`
+  /// and the typewriter has revealed every character of [text].
+  ///
+  /// The backend usually finishes well before the typewriter does, so this
+  /// fires later than the end of generation. It is called after the frame in
+  /// which the reply finished, so the host is free to rebuild in response.
+  ///
+  /// Fires once per reply, and again only if the text grows or [expectMoreText]
+  /// turns back to `true` and then `false`. A view built with its complete
+  /// text and `expectMoreText: false`, such as a message from history, reports
+  /// it after its first frame.
+  final VoidCallback? onFinished;
 
   @override
   State<StreamingMessageView> createState() => _StreamingMessageViewState();
@@ -82,11 +112,29 @@ class StreamingMessageView extends StatefulWidget {
 class _StreamingMessageViewState extends State<StreamingMessageView> {
   late String _displayText;
   late final TypewriterController _controller;
+  var _finishReported = false;
 
   void _onTypewriterValueChanged() {
     final value = _controller.value;
     widget.onTypewriterStateChanged?.call(value.state);
+    if (value.state == TypewriterState.typing) _finishReported = false;
     setState(() => _displayText = value.text);
+    _scheduleFinishCheck();
+  }
+
+  bool get _isFinished =>
+      !widget.expectMoreText &&
+      _controller.value.state != TypewriterState.typing &&
+      _controller.value.text == widget.text;
+
+  /// Reports [StreamingMessageView.onFinished] after the current frame, since
+  /// the check can run during a build (from [didUpdateWidget]).
+  void _scheduleFinishCheck() {
+    if (_finishReported || widget.onFinished == null || !_isFinished) return;
+    _finishReported = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onFinished?.call();
+    });
   }
 
   @override
@@ -109,6 +157,7 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onTypewriterStateChanged?.call(_controller.value.state);
     });
+    _scheduleFinishCheck();
   }
 
   @override
@@ -117,6 +166,8 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     if (widget.text != oldWidget.text) {
       _controller.updateText(widget.text);
     }
+    if (widget.expectMoreText && !oldWidget.expectMoreText) _finishReported = false;
+    _scheduleFinishCheck();
   }
 
   @override

@@ -84,6 +84,20 @@ StreamingMessageView(
 );
 ```
 
+The typewriter usually falls behind the backend, so the reply is still being revealed after
+generation ends. To know when it is completely on screen — to swap a stop button back to send,
+say — pass `expectMoreText` and listen to `onFinished`:
+
+```dart
+StreamingMessageView(
+  text: markdownText,
+  expectMoreText: isGenerating,  // true while the backend may still send text
+  onFinished: () {
+    // Generation has ended and every character has been revealed.
+  },
+);
+```
+
 ### `AITypingIndicatorView`
 
 Shows the current AI state ("Thinking…", "Checking sources…") with animated pulsing dots.
