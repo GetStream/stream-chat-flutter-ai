@@ -1,3 +1,12 @@
+## Upcoming
+
+✅ Added
+
+- `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
+  `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
+  usually falls behind the backend, so this fires later than the end of generation, which
+  `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
+
 ## 0.1.0
 
 First release of `stream_chat_flutter_ai` — Flutter UI components for building LLM-driven chat

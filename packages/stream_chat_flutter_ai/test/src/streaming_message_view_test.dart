@@ -104,6 +104,76 @@ void main() {
       },
     );
 
+    group('onFinished', () {
+      const typingSpeed = Duration(milliseconds: 10);
+
+      Widget build(String text, {required bool expectMoreText, required VoidCallback onFinished}) => MaterialApp(
+        home: Scaffold(
+          body: StreamingMessageView(
+            text: text,
+            typingSpeed: typingSpeed,
+            expectMoreText: expectMoreText,
+            onFinished: onFinished,
+          ),
+        ),
+      );
+
+      testWidgets('waits for the typewriter after generation ends', (WidgetTester tester) async {
+        var finished = 0;
+        void onFinished() => finished++;
+        const reply = 'Hello, world! How are you today?';
+
+        await tester.pumpWidget(build('', expectMoreText: true, onFinished: onFinished));
+        await tester.pumpWidget(build('Hello', expectMoreText: true, onFinished: onFinished));
+
+        // Caught up mid-stream: the typewriter is idle, but more text may come.
+        await tester.pump(typingSpeed * 10);
+        expect(finished, 0);
+
+        // The backend finishes well before the typewriter does.
+        await tester.pumpWidget(build(reply, expectMoreText: false, onFinished: onFinished));
+        await tester.pump(typingSpeed * 5);
+        expect(find.text(reply), findsNothing);
+        expect(finished, 0);
+
+        await tester.pump(typingSpeed * reply.length);
+        await tester.pump();
+        expect(find.text(reply), findsOneWidget);
+        expect(finished, 1);
+
+        // Rebuilding a finished reply doesn't report it again.
+        await tester.pumpWidget(build(reply, expectMoreText: false, onFinished: onFinished));
+        await tester.pump();
+        expect(finished, 1);
+      });
+
+      testWidgets('reports a complete message after its first frame', (WidgetTester tester) async {
+        var finished = 0;
+
+        // `pumpWidget` runs the first frame, post-frame callbacks included.
+        await tester.pumpWidget(build('A reply from history.', expectMoreText: false, onFinished: () => finished++));
+        expect(finished, 1);
+
+        await tester.pump(const Duration(seconds: 1));
+        expect(finished, 1);
+      });
+
+      testWidgets('reports again after the reply is regenerated', (WidgetTester tester) async {
+        var finished = 0;
+        void onFinished() => finished++;
+
+        await tester.pumpWidget(build('First reply.', expectMoreText: false, onFinished: onFinished));
+        await tester.pump();
+        expect(finished, 1);
+
+        await tester.pumpWidget(build('First reply.', expectMoreText: true, onFinished: onFinished));
+        await tester.pumpWidget(build('First reply. Second.', expectMoreText: false, onFinished: onFinished));
+        await tester.pump(typingSpeed * 20);
+        await tester.pump();
+        expect(finished, 2);
+      });
+    });
+
     testWidgets(
       'renders a code block while its fence is still streaming',
       (WidgetTester tester) async {
