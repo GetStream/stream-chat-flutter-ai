@@ -1,15 +1,15 @@
 ## Upcoming
 
+💥 Breaking
+
+- `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
+
 ✅ Added
 
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
   `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
-
-🔄 Changed
-
-- **Breaking:** `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
 
 ## 0.1.0
 
