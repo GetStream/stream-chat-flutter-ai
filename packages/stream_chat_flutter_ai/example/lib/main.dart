@@ -70,7 +70,13 @@ class ExampleApp extends StatelessWidget {
 /// through [StreamingMessageView] so markdown, code fences and chart fences
 /// are all handled.
 class _Message {
-  const _Message({required this.text, required this.isUser, this.reasoning = '', this.isThinking = false});
+  const _Message({
+    required this.text,
+    required this.isUser,
+    this.reasoning = '',
+    this.isThinking = false,
+    this.toolCalls = const [],
+  });
 
   final String text;
   final bool isUser;
@@ -82,13 +88,34 @@ class _Message {
   /// Whether the fake model is still thinking about this reply.
   final bool isThinking;
 
-  _Message copyWith({String? text, String? reasoning, bool? isThinking}) => _Message(
+  /// The tools the fake model called before answering, shown as rows by
+  /// [AIMessagePartsView] between the reasoning and the reply.
+  final List<AIToolCallPart> toolCalls;
+
+  _Message copyWith({String? text, String? reasoning, bool? isThinking, List<AIToolCallPart>? toolCalls}) => _Message(
     text: text ?? this.text,
     isUser: isUser,
     reasoning: reasoning ?? this.reasoning,
     isThinking: isThinking ?? this.isThinking,
+    toolCalls: toolCalls ?? this.toolCalls,
   );
 }
+
+/// The canned tool calls run after the reasoning, each with how long it takes
+/// and the summary it finishes with.
+const _cannedToolCalls = [
+  (
+    call: AIToolCallPart(id: 'call_search', name: 'search_web', displayTitle: 'Searching the web'),
+    takes: Duration(milliseconds: 1600),
+    summary: 'Found 3 pages about Flutter rendering',
+  ),
+  // No display title: the row falls back to the tool's name, "load chart examples".
+  (
+    call: AIToolCallPart(id: 'call_charts', name: 'load_chart_examples'),
+    takes: Duration(milliseconds: 400),
+    summary: 'Loaded a bar, a pie and a heatmap',
+  ),
+];
 
 /// The canned reasoning streamed before the reply, the way a reasoning model
 /// "thinks out loud" before it answers.
@@ -251,6 +278,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// Non-null while chunks of the reasoning are still being delivered.
   Timer? _reasoningTimer;
 
+  /// Non-null while a canned tool call is running.
+  Timer? _toolTimer;
+
   /// Non-null while chunks of the reply are still being delivered.
   Timer? _streamTimer;
 
@@ -289,6 +319,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   void dispose() {
     _thinkingTimer?.cancel();
     _reasoningTimer?.cancel();
+    _toolTimer?.cancel();
     _streamTimer?.cancel();
     _composerController.dispose();
     _scrollController.dispose();
@@ -316,7 +347,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   /// Streams the canned reasoning into a new assistant message for a few
   /// seconds, then ends the thinking — which folds the reasoning panel — and
-  /// starts the answer once the fold is done, so the two don't move at once.
+  /// runs the tools once the fold is done, so the two don't move at once.
   void _streamReasoning() {
     if (!mounted) return;
     setState(() => _messages.add(const _Message(text: '', isUser: false, isThinking: true)));
@@ -332,8 +363,33 @@ class _AssistantScreenState extends State<AssistantScreen> {
       if (delivered == _cannedReasoning.length) {
         timer.cancel();
         setState(() => _messages.last = _messages.last.copyWith(isThinking: false));
-        _thinkingTimer = Timer(StreamingReasoningView.foldDuration, _streamReply);
+        _thinkingTimer = Timer(StreamingReasoningView.foldDuration, () => _runTool(0));
       }
+    });
+  }
+
+  /// Runs the canned tool call at [index] — a row that spins, then completes
+  /// with its summary and duration — and the next one after it, then streams
+  /// the reply.
+  void _runTool(int index) {
+    if (!mounted) return;
+    if (index == _cannedToolCalls.length) return _streamReply();
+
+    final (:call, :takes, :summary) = _cannedToolCalls[index];
+    setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
+    _scrollToEnd();
+
+    _toolTimer = Timer(takes, () {
+      if (!mounted) return;
+      final done = call.copyWith(
+        status: AIToolCallStatus.completed,
+        summary: summary,
+        durationMs: takes.inMilliseconds,
+      );
+      setState(
+        () => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls]..[index] = done),
+      );
+      _runTool(index + 1);
     });
   }
 
@@ -364,10 +420,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
   void _stop() {
     _thinkingTimer?.cancel();
     _reasoningTimer?.cancel();
+    _toolTimer?.cancel();
     _streamTimer?.cancel();
     setState(() {
-      if (_messages.lastOrNull case final last? when last.isThinking) {
-        _messages.last = last.copyWith(isThinking: false);
+      // Stopping mid-reply ends the thinking and cancels a tool still running.
+      if (_messages.lastOrNull case final last? when !last.isUser) {
+        _messages.last = last.copyWith(
+          isThinking: false,
+          toolCalls: [
+            for (final call in last.toolCalls)
+              if (call.status.isFinished) call else call.copyWith(status: AIToolCallStatus.cancelled),
+          ],
+        );
       }
       _streamComplete = true;
       _composerController.isGenerating = false;
@@ -426,17 +490,20 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           // color them live here. See `code_highlighter.dart`.
                           codeHighlighter: highlightCode,
                         );
-                        if (message.reasoning.isEmpty) return reply;
+                        if (message.reasoning.isEmpty && message.toolCalls.isEmpty) return reply;
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           spacing: 12,
                           children: [
-                            StreamingReasoningView(
-                              text: message.reasoning,
-                              isThinking: message.isThinking,
-                              summary: _reasoningSummary,
-                              footnote: 'Reasoning is generated by the model and may be incomplete.',
-                            ),
+                            if (message.reasoning.isNotEmpty)
+                              StreamingReasoningView(
+                                text: message.reasoning,
+                                isThinking: message.isThinking,
+                                summary: _reasoningSummary,
+                                footnote: 'Reasoning is generated by the model and may be incomplete.',
+                              ),
+                            if (message.toolCalls.isNotEmpty)
+                              AIMessagePartsView(parts: [...message.toolCalls.map(AIMessagePart.fromToolCall)]),
                             if (message.text.isNotEmpty) reply,
                           ],
                         );
@@ -446,9 +513,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
             ListenableBuilder(
               listenable: _composerController,
               builder: (context, child) {
-                // The reasoning panel says "Thinking…" itself while it streams.
-                final thinking = _messages.lastOrNull?.isThinking ?? false;
-                if (!_composerController.isGenerating || thinking) return const SizedBox.shrink();
+                // The reasoning panel says "Thinking…" itself while it
+                // streams, and a running tool's row spins.
+                final last = _messages.lastOrNull;
+                final busy = last != null && (last.isThinking || last.toolCalls.any((c) => !c.status.isFinished));
+                if (!_composerController.isGenerating || busy) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Align(
@@ -634,4 +703,36 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get reasoningHideHint => 'Verbergt de redenering van het model';
+
+  @override
+  String get toolCallFallbackTitle => 'Hulpmiddel';
+
+  @override
+  String get toolCallRunning => 'Bezig';
+
+  @override
+  String get toolCallCompleted => 'Voltooid';
+
+  @override
+  String get toolCallAwaitingApproval => 'Wacht op toestemming';
+
+  @override
+  String get toolCallAwaitingClient => 'Wacht op het apparaat';
+
+  @override
+  String get toolCallFailed => 'Niet gelukt';
+
+  @override
+  String get toolCallCancelled => 'Geannuleerd';
+
+  @override
+  String get toolCallDeclined => 'Geweigerd';
+
+  @override
+  String toolCallDuration(Duration duration) {
+    // A decimal comma, as Dutch writes it; whole seconds as for reasoning.
+    final tenths = (duration.inMilliseconds / 100).round();
+    if (tenths < 10) return '0,${tenths}s';
+    return _duration(Duration(seconds: (duration.inMilliseconds / 1000).round()));
+  }
 }
