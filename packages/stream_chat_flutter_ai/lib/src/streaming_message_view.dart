@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
 import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
+// Imported for the doc links below too.
+import 'package:stream_chat_flutter_ai/src/ai_typing_indicator_view.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
@@ -23,6 +25,18 @@ bool get _isDesktopDeviceOrWeb =>
 ///   close.
 /// - JSON / chart blocks rendered as interactive charts.
 /// - LaTeX, when a [mathBuilder] is supplied.
+///
+/// **Accessibility.** With reduced motion on
+/// ([MediaQueryData.disableAnimations]) there is no typewriter: each new [text]
+/// is shown in full at once, and [onTypewriterStateChanged] reports
+/// [TypewriterState.idle] for it. Turning reduced motion on mid-reveal
+/// finishes the reveal.
+///
+/// The view is deliberately *not* a live region. A streamed reply changes
+/// many times a second, and announcing every chunk would bury the user in
+/// half-sentences; a screen reader reads the finished message when the user
+/// moves to it. Pair it with an [AITypingIndicatorView], whose live region
+/// announces the AI's state while the reply is being produced.
 /// {@endtemplate}
 class StreamingMessageView extends StatefulWidget {
   /// {@macro streamingMessageView}
@@ -109,11 +123,28 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     });
   }
 
+  bool get _reduceMotion => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reduced motion switched on mid-reveal: show what has arrived rather than
+    // carrying on animating it.
+    if (_reduceMotion && _controller.value.state == TypewriterState.typing) {
+      _controller.finishTyping();
+    }
+  }
+
   @override
   void didUpdateWidget(covariant StreamingMessageView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.text != oldWidget.text) {
-      _controller.updateText(widget.text);
+      if (_reduceMotion) {
+        // Reveals the whole text at once and reports `idle`, with no timer.
+        _controller.text = widget.text;
+      } else {
+        _controller.updateText(widget.text);
+      }
     }
   }
 

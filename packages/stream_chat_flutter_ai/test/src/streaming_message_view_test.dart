@@ -205,6 +205,62 @@ void main() {
         expect(tappedLink, equals('https://example.com'));
       },
     );
+
+    group('reduced motion', () {
+      void reduceMotion(WidgetTester tester) {
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+          disableAnimations: true,
+        );
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      }
+
+      Widget view(String text, List<TypewriterState> states) => MaterialApp(
+        home: Scaffold(
+          body: StreamingMessageView(
+            text: text,
+            typingSpeed: const Duration(milliseconds: 20),
+            onTypewriterStateChanged: states.add,
+          ),
+        ),
+      );
+
+      testWidgets('shows each new text in full at once and reports idle', (tester) async {
+        reduceMotion(tester);
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(view('Hello', states));
+        await tester.pumpWidget(view('Hello, world!', states));
+
+        // One frame, not 13 × 20ms of typing.
+        expect(find.text('Hello, world!'), findsOneWidget);
+        expect(states, isNot(contains(TypewriterState.typing)));
+        expect(states.last, TypewriterState.idle);
+
+        // A replacement, not a continuation, is shown in full just the same.
+        await tester.pumpWidget(view('Bye.', states));
+        expect(find.text('Bye.'), findsOneWidget);
+        expect(states, isNot(contains(TypewriterState.typing)));
+
+        // Nothing left running: no typewriter timer.
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('switching it on mid-reveal shows the rest at once', (tester) async {
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(view('', states));
+        await tester.pumpWidget(view('Hello, world!', states));
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(find.text('Hello, world!'), findsNothing, reason: 'still typing');
+        expect(states.last, TypewriterState.typing);
+
+        reduceMotion(tester);
+        await tester.pump();
+
+        expect(find.text('Hello, world!'), findsOneWidget);
+        expect(states.last, TypewriterState.idle);
+      });
+    });
   });
 }
 
