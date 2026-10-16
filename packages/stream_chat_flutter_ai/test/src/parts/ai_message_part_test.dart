@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 const _reasoning = <String, Object?>{
@@ -43,6 +45,14 @@ AIMessagePart _single(String type, Map<String, Object?> payload) =>
     AIMessagePart.parseAll([(type: type, payload: payload)]).single;
 
 void main() {
+  // Every debug report the parser makes, captured rather than printed.
+  final reports = <String>[];
+  setUp(() {
+    reports.clear();
+    debugPartIssueReporter = reports.add;
+  });
+  tearDown(() => debugPartIssueReporter = null);
+
   group('AIMessagePart.parseAll', () {
     test('decodes AI steps in order and skips other attachments', () {
       final parts = AIMessagePart.parseAll([
@@ -126,7 +136,8 @@ void main() {
 
       expect(parts[1].id, 'ai_tool_call-1');
       final call = parts[1].toolCall!;
-      expect(call, const AIToolCallPart(id: 'ai_tool_call-1', name: ''));
+      expect(call, const AIToolCallPart(id: 'ai_tool_call-1', name: '', hasPayloadId: false));
+      expect(parts[0].hasPayloadId, isFalse);
       expect(call.status, AIToolCallStatus.running);
       expect(call.executor, AIToolExecutor.server);
       expect(call.approval, isNull);
@@ -137,20 +148,57 @@ void main() {
     test('reads wrong-typed fields as missing, without throwing', () {
       final part = _single('ai_tool_call', const {
         'id': 42,
-        'v': 'one',
         'name': ['get_weather'],
         'display_title': '',
         'status': 3,
         'executor': true,
         'target_user_id': {'id': 'alice'},
         'arguments': 'not json',
-        'duration_ms': '800',
+        'duration_ms': 'eight hundred',
         'approval': 'yes',
       });
 
       expect(part.id, 'ai_tool_call-0');
       expect(part.version, 1);
-      expect(part.toolCall, const AIToolCallPart(id: 'ai_tool_call-0', name: ''));
+      expect(part.toolCall, const AIToolCallPart(id: 'ai_tool_call-0', name: '', hasPayloadId: false));
+      for (final key in [
+        'id',
+        'name',
+        'status',
+        'executor',
+        'target_user_id',
+        'arguments',
+        'duration_ms',
+        'approval',
+      ]) {
+        expect(reports, contains(contains('`$key`')), reason: key);
+      }
+      expect(reports, contains(contains('has no `id`')));
+    });
+
+    test('reads integer strings as durations and drops negative ones', () {
+      final parts = AIMessagePart.parseAll([
+        (type: 'ai_reasoning', payload: const {'duration_ms': '2400'}),
+        (type: 'ai_reasoning', payload: const {'duration_ms': -5}),
+        (type: 'ai_tool_call', payload: const {'id': 'c', 'duration_ms': '-5'}),
+      ]);
+
+      expect(parts[0].reasoning!.durationMs, 2400);
+      expect(parts[1].reasoning!.durationMs, isNull);
+      expect(parts[2].toolCall!.durationMs, isNull);
+      expect(reports.where((report) => report.contains('`duration_ms`')), hasLength(2));
+    });
+
+    test('a v that is not a positive whole number means no typed view', () {
+      for (final v in <Object>['2', '1', 2.5, 0, -1, true]) {
+        final part = _single('ai_reasoning', {'id': 'r1', 'v': v});
+        expect(part.version, 0, reason: '$v');
+        expect(part.isSupported, isFalse, reason: '$v');
+        expect(part.reasoning, isNull, reason: '$v');
+      }
+      expect(reports.where((report) => report.contains('`v`')), hasLength(6));
+      expect(_single('ai_reasoning', const {'v': 1}).isSupported, isTrue);
+      expect(_single('ai_reasoning', const {}).version, 1);
     });
 
     test('reads integral doubles as ints and drops fractional ones', () {
@@ -188,12 +236,27 @@ void main() {
       expect(parts[2].toolCall!.arguments, isNull);
     });
 
-    test('drops an approval without a title', () {
+    test('keeps an approval without a title', () {
       final call = _single('ai_tool_call', const {
-        'approval': {'message': 'No question here'},
+        'approval': {'message': 'Only your city is shared.'},
       }).toolCall!;
 
-      expect(call.approval, isNull);
+      expect(call.approval, const AIToolApproval(message: 'Only your city is shared.'));
+      expect(call.approval!.title, isNull);
+    });
+
+    test('decodes a JSON-encoded approval', () {
+      final call = _single('ai_tool_call', {
+        'approval': jsonEncode({'title': 'Allow?', 'decision': 'declined'}),
+      }).toolCall!;
+
+      expect(call.approval, const AIToolApproval(title: 'Allow?', decision: AIToolApprovalDecision.declined));
+    });
+
+    test('reports a call awaiting approval without one', () {
+      _single('ai_tool_call', const {'id': 'c', 'status': 'awaiting_approval'});
+
+      expect(reports, [contains('awaiting approval but has no `approval`')]);
     });
 
     test('keeps unknown kinds with their payload but no typed view', () {
@@ -254,15 +317,27 @@ void main() {
       ]);
 
       expect(parts.map((part) => part.id), ['same', 'same']);
+      expect(reports, [contains('"same"')]);
     });
 
-    test('uses the attachment position, not the step index, for missing ids', () {
+    test('names a step with no id by its index among the AI steps', () {
       final parts = AIMessagePart.parseAll([
         (type: 'image', payload: const {}),
         (type: 'ai_reasoning', payload: const {}),
+        (type: 'file', payload: const {}),
+        (type: 'ai_reasoning', payload: const {}),
       ]);
 
-      expect(parts.single.id, 'ai_reasoning-1');
+      expect(parts.map((part) => part.id), ['ai_reasoning-0', 'ai_reasoning-1']);
+    });
+
+    test('clean payloads report nothing', () {
+      AIMessagePart.parseAll([
+        (type: 'ai_reasoning', payload: _reasoning),
+        (type: 'ai_tool_call', payload: _toolCall),
+      ]);
+
+      expect(reports, isEmpty);
     });
 
     test('tryParse returns null for attachments that are not AI steps', () {
@@ -271,13 +346,33 @@ void main() {
       expect(AIMessagePart.tryParse('ai_reasoning', const {}), isNotNull);
     });
 
-    test('the payload is unmodifiable and detached from the source', () {
-      final source = <String, Object?>{'id': 'r1'};
-      final part = _single('ai_reasoning', source);
-      source['id'] = 'changed';
+    test('the payload is deeply unmodifiable and detached from the source', () {
+      final arguments = <String, Object?>{
+        'city': 'Amsterdam',
+        'tags': ['a'],
+      };
+      final approval = <String, Object?>{'title': 'Allow?'};
+      final source = <String, Object?>{'id': 'call_1', 'arguments': arguments, 'approval': approval};
+      final part = _single('ai_tool_call', source);
+      final hash = part.hashCode;
+      final copy = _single('ai_tool_call', jsonDecode(jsonEncode(source)) as Map<String, Object?>);
 
-      expect(part.payload['id'], 'r1');
+      source['id'] = 'changed';
+      arguments['city'] = 'Utrecht';
+      (arguments['tags']! as List<Object?>).add('b');
+      approval['decision'] = 'allowed';
+
+      expect(part, copy);
+      expect(part.hashCode, hash);
+      expect(part.toolCall!.arguments, {
+        'city': 'Amsterdam',
+        'tags': ['a'],
+      });
+      expect(part.toolCall!.approval!.decision, isNull);
       expect(() => part.payload['id'] = 'x', throwsUnsupportedError);
+      expect(() => (part.payload['arguments']! as Map<String, Object?>)['x'] = 1, throwsUnsupportedError);
+      expect(() => part.toolCall!.arguments!['x'] = 1, throwsUnsupportedError);
+      expect(() => (part.toolCall!.arguments!['tags']! as List<Object?>).add('c'), throwsUnsupportedError);
     });
   });
 
@@ -288,11 +383,20 @@ void main() {
       expect(part.decode((json) => json['url']! as String), 'https://example.com');
     });
 
-    test('returns null when the decoder throws', () {
+    test('reports and returns null when the decoder throws', () {
       final part = _single('ai_citation', const {'id': 'c1'});
+      final errors = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = previous);
 
       expect(part.decode((json) => json['url']! as String), isNull);
       expect(part.decode<String>((json) => throw const FormatException('bad')), isNull);
+
+      expect(errors, hasLength(2));
+      expect(errors.last.exception, isA<FormatException>());
+      expect(errors.last.library, 'stream_chat_flutter_ai');
+      expect(errors.last.context.toString(), contains('ai_citation message part "c1"'));
     });
   });
 
@@ -317,6 +421,28 @@ void main() {
         _single('ai_reasoning', _reasoning),
         isNot(_single('ai_reasoning', {..._reasoning, 'v': 2})),
       );
+    });
+
+    test('a changed nested argument or approval decision makes parts unequal', () {
+      final a = _single('ai_tool_call', _toolCall);
+      final changedArgument = _single('ai_tool_call', {
+        ..._toolCall,
+        'arguments': {
+          'precision': 'city',
+          'nested': {
+            'list': [1, 3],
+          },
+        },
+      });
+      final changedDecision = _single('ai_tool_call', {
+        ..._toolCall,
+        'approval': {...(_toolCall['approval']! as Map<String, Object?>), 'decision': 'declined'},
+      });
+
+      expect(a, isNot(changedArgument));
+      expect(a.toolCall, isNot(changedArgument.toolCall));
+      expect(a, isNot(changedDecision));
+      expect(a.toolCall, isNot(changedDecision.toolCall));
     });
 
     test('open sets compare by value', () {
@@ -402,13 +528,43 @@ void main() {
       expect(clientCall.isAwaitingApproval(userId: 'alice', clientId: 'install-2'), isFalse);
       expect(clientCall.isAwaitingApproval(userId: 'alice'), isFalse);
 
+      // Without an approval object the call still waits; a view asks in its
+      // own words.
       const noQuestion = AIToolCallPart(
         id: 'call_3',
         name: 'x',
         status: AIToolCallStatus.awaitingApproval,
         targetUserId: 'alice',
       );
-      expect(noQuestion.isAwaitingApproval(userId: 'alice'), isFalse);
+      expect(noQuestion.isAwaitingApproval(userId: 'alice'), isTrue);
+
+      // As on iOS, a client tool that names no install can be answered from any.
+      const clientNoInstall = AIToolCallPart(
+        id: 'call_4',
+        name: 'x',
+        status: AIToolCallStatus.awaitingApproval,
+        executor: AIToolExecutor.client,
+        targetUserId: 'alice',
+      );
+      expect(clientNoInstall.isAwaitingApproval(userId: 'alice', clientId: 'install-9'), isTrue);
+
+      final answered = serverCall.copyWith(
+        approval: const AIToolApproval(title: 'Delete it?', decision: AIToolApprovalDecision.allowed),
+      );
+      expect(answered.isAwaitingApproval(userId: 'alice'), isFalse);
+      final oddlyAnswered = serverCall.copyWith(
+        approval: const AIToolApproval(decision: AIToolApprovalDecision('later')),
+      );
+      expect(oddlyAnswered.isAwaitingApproval(userId: 'alice'), isFalse);
+    });
+
+    test('a call without an id from the agent is never awaited', () {
+      final fallback = clientCall.copyWith(hasPayloadId: false);
+      expect(fallback.isAwaiting(userId: 'alice', clientId: 'install-1'), isFalse);
+
+      final approval = fallback.copyWith(status: AIToolCallStatus.awaitingApproval);
+      expect(approval.isAwaitingApproval(userId: 'alice', clientId: 'install-1'), isFalse);
+      expect(approval.copyWith(hasPayloadId: true).isAwaitingApproval(userId: 'alice', clientId: 'install-1'), isTrue);
     });
 
     test('isDeclined reads the approval decision', () {
@@ -436,6 +592,65 @@ void main() {
         AIToolCallStatus.values.where((status) => status.isFinished),
         [AIToolCallStatus.completed, AIToolCallStatus.failed, AIToolCallStatus.cancelled],
       );
+    });
+  });
+
+  group('copyWith and toJson', () {
+    test('typed parts round-trip through toJson', () {
+      final reasoning = _single('ai_reasoning', _reasoning).reasoning!;
+      expect(AIReasoningPart.fromJson(reasoning.toJson(), id: reasoning.id), reasoning);
+
+      final call = _single('ai_tool_call', _toolCall).toolCall!;
+      expect(AIToolCallPart.fromJson(call.toJson(), id: call.id), call);
+      expect(AIToolApproval.fromJson(call.approval!.toJson()), call.approval);
+
+      final fallback = _single('ai_tool_call', const {'name': 'x'}).toolCall!;
+      expect(fallback.toJson().containsKey('id'), isFalse);
+      expect(AIToolCallPart.fromJson(fallback.toJson(), id: fallback.id), fallback);
+    });
+
+    test('a toJson payload parses back to an equal message part', () {
+      for (final part in AIMessagePart.parseAll([
+        (type: 'ai_reasoning', payload: _reasoning),
+        (type: 'ai_tool_call', payload: _toolCall),
+        (type: 'ai_citation', payload: const {'url': 'https://example.com'}),
+      ])) {
+        expect(AIMessagePart.fromJson(part.toJson(), position: 2), part);
+      }
+      expect(AIMessagePart.fromJson(const {'type': 'image'}), isNull);
+      expect(AIMessagePart.fromJson(const {}), isNull);
+    });
+
+    test('a part built from a typed view decodes back to it', () {
+      final call = _single('ai_tool_call', _toolCall).toolCall!;
+      final updated = call.copyWith(
+        status: AIToolCallStatus.awaitingClient,
+        approval: call.approval!.copyWith(decision: AIToolApprovalDecision.allowed),
+      );
+      expect(AIMessagePart.fromToolCall(updated).toolCall, updated);
+
+      final reasoning = _single('ai_reasoning', _reasoning).reasoning!.copyWith(status: AIReasoningStatus.completed);
+      expect(AIMessagePart.fromReasoning(reasoning).reasoning, reasoning);
+    });
+
+    test('copyWith replaces only the given fields', () {
+      const reasoning = AIReasoningPart(id: 'r1', summary: 'a');
+      expect(reasoning.copyWith(), reasoning);
+      expect(reasoning.copyWith(preview: 'p'), const AIReasoningPart(id: 'r1', summary: 'a', preview: 'p'));
+
+      const approval = AIToolApproval(title: 'Allow?');
+      expect(approval.copyWith(), approval);
+      expect(
+        approval.copyWith(decision: AIToolApprovalDecision.declined),
+        const AIToolApproval(title: 'Allow?', decision: AIToolApprovalDecision.declined),
+      );
+
+      const call = AIToolCallPart(id: 'c', name: 'x');
+      expect(call.copyWith(), call);
+      final withArguments = call.copyWith(arguments: {'a': 1});
+      expect(withArguments.arguments, {'a': 1});
+      expect(() => withArguments.arguments!['b'] = 2, throwsUnsupportedError);
+      expect(withArguments.copyWith(summary: 'done').arguments, {'a': 1});
     });
   });
 }
