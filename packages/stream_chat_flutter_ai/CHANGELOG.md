@@ -1,5 +1,9 @@
 ## Upcoming
 
+✅ Added
+
+- `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments).
+
 🔄 Changed
 
 - **Breaking:** `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
