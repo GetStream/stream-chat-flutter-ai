@@ -708,9 +708,10 @@ class DutchTranslations extends DefaultAITranslations {
 
   @override
   String toolCallDuration(Duration duration) {
-    // A decimal comma, as Dutch writes it; whole seconds as for reasoning.
-    final tenths = (duration.inMilliseconds / 100).round();
-    if (tenths < 10) return '0,${tenths}s';
-    return reasoningDuration(Duration(seconds: (duration.inMilliseconds / 1000).round()));
+    // English with a decimal comma, as Dutch writes it.
+    return super.toolCallDuration(duration).replaceAll('.', ',');
   }
+
+  @override
+  String get toolCallDurationBelowTenth => '<0,1s';
 }

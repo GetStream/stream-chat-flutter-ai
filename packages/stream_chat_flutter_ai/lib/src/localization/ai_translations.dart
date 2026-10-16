@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_semantics.dart';
@@ -192,10 +194,20 @@ abstract class AITranslations {
   /// no summary.
   String get toolCallDeclined;
 
-  /// How long a finished tool call took: tenths of a second under a second
-  /// (`0.4s`), otherwise whole seconds as [reasoningDuration] writes them
-  /// (`12s`, `1m 5s`).
+  /// How long a finished tool call took.
+  ///
+  /// The default rounds to the nearest tenth of a second under a second
+  /// (`0.4s`), and to the nearest whole second from there, written as
+  /// [reasoningDuration] writes it (`13s` for 12.6s, `1m 5s`). That differs
+  /// from the reasoning header, which counts whole seconds elapsed (rounding
+  /// down) as it ticks; a finished call has no count to stay in step with.
+  /// Below 50ms it reads [toolCallDurationBelowTenth], and a negative
+  /// duration reads as zero.
   String toolCallDuration(Duration duration);
+
+  /// A tool call that took less than a twentieth of a second, which would
+  /// otherwise round to `0.0s`: `<0.1s`.
+  String get toolCallDurationBelowTenth;
 
   /// The screen-reader summary of a chart.
   ///
@@ -318,10 +330,14 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String toolCallDuration(Duration duration) {
-    final tenths = (duration.inMicroseconds / Duration.microsecondsPerSecond * 10).round();
+    final tenths = (math.max(0, duration.inMicroseconds) / (Duration.microsecondsPerSecond / 10)).round();
+    if (tenths == 0) return toolCallDurationBelowTenth;
     if (tenths < 10) return '0.${tenths}s';
     return reasoningDuration(Duration(seconds: (duration.inMilliseconds / Duration.millisecondsPerSecond).round()));
   }
+
+  @override
+  String get toolCallDurationBelowTenth => '<0.1s';
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
