@@ -14,6 +14,7 @@
 
 - **Breaking:** `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
 - **Breaking:** `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
+- README documents the agent-step widgets, tool approvals, client tool runner and local model.
 
 ## 0.1.0
 
