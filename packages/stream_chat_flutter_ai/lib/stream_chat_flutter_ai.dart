@@ -52,6 +52,8 @@ export 'src/theme/components/tool_call_theme.dart';
 export 'src/theme/components/typing_indicator_theme.dart';
 
 export 'src/tools/ai_client_identity.dart';
+export 'src/tools/ai_client_tool_result.dart';
+export 'src/tools/ai_client_tool_runner.dart';
 export 'src/tools/ai_tool_definition.dart';
 export 'src/tools/ai_tool_invocation.dart';
 export 'src/tools/ai_tool_registry.dart';

@@ -36,8 +36,8 @@ highlighting.
 **`SpeechToTextButton`** — records voice input and streams the recognized transcript into the
 composer.
 
-**`AIToolRegistry`** — client-side tool calling, letting the agent reach into your app to open a
-screen, show an alert or read a sensor.
+**`AIToolRegistry`** / **`AIClientToolRunner`** — client-side tool calling, letting the agent reach
+into your app to open a screen, show an alert or read a sensor, and get the result back.
 
 This repository also includes a [showcase app](example) demonstrating every component, which needs
 no API key to run.
@@ -606,9 +606,13 @@ Client-side tools let the AI agent reach into your app: open a screen, present a
 native alert, read a sensor. You declare each one as an `AIClientTool`, register it,
 and hand the registrations to your backend; the agent then invokes them by name.
 
-**Nothing is returned to the model.** A client tool is a side effect, not a function
-call with a result — the protocol has no channel for reporting one back, so neither
-does this API.
+There are two ways a call reaches the device, and the same tools serve both:
+
+- **Events** (`custom_client_tool_invocation`), routed with `AIToolRegistry.dispatch`
+  below. Fire-and-forget: nothing is returned to the model.
+- **Steps** (`ai_tool_call` with `executor: client`, `status: awaiting_client`), run by
+  an [`AIClientToolRunner`](#aiclienttoolrunner), which sends each tool's result back so
+  the agent can carry on with it. Use this when your agent writes steps.
 
 Declare a tool:
 
@@ -685,6 +689,63 @@ Set `showExternalSourcesIndicator: true` on a tool that consults something remot
 the agent will report a "checking external sources" state while it runs. This package
 never reads the flag; to surface the state, pass your own caption for it to
 [`AITypingIndicatorView`](#aitypingindicatorview), whose `text` is an ordinary string.
+
+### `AIClientToolRunner`
+
+For agents that write their tool calls as `ai_tool_call` steps and wait for the
+device's answer. A tool that returns something extends `AIResultClientTool`:
+
+```dart
+class LocationTool extends AIResultClientTool {
+  @override
+  AIToolDefinition get definition => const AIToolDefinition(
+    name: 'get_location',
+    description: "The user's approximate location",
+  );
+
+  @override
+  Future<AIClientToolResult> run(AIToolCallPart call) async {
+    final position = await locator.approximatePosition();
+    if (position == null) return const AIClientToolResult.failed('Location not shared');
+    return AIClientToolResult.completed(
+      {'lat': position.lat, 'lng': position.lng},
+      summary: 'Shared approximate location', // every channel member sees this
+    );
+  }
+}
+```
+
+Plain `AIClientTool`s work too: their actions run and the call completes with no output.
+
+```dart
+final runner = AIClientToolRunner(
+  identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
+  tools: [LocationTool()],
+  send: (call, result) => http.post(
+    Uri.parse('$myBackend/tool-results'),
+    headers: {'content-type': 'application/json'},
+    body: jsonEncode(result.toJson(toolCallId: call.id, clientId: installId)),
+  ),
+);
+
+// Register runner.registrations with your backend, send installId as `client_id`
+// in every message's custom data, then on every update of an AI reply:
+unawaited(runner.run(parts));
+```
+
+The round trip: the agent writes a call with `target_user_id` / `target_client_id`;
+`run` runs every call `AIClientIdentity.canRun` matches, **once per call id** — calling
+it on every streaming update is safe, in flight or not; `send` posts
+`{tool_call_id, client_id, output | failure, summary}` to *your* backend, which checks
+the caller and feeds the result to the model. A call to a tool this device doesn't have
+is answered with a failure, and a tool that throws becomes a failure too (reported to
+`FlutterError.onError` and `onToolError`). A failed `send` is retried `maxAttempts`
+times with exponential backoff, then reported through `onDeliveryError`.
+
+Keep one runner per conversation, or longer: a fresh runner doesn't know what an old
+one ran. `dispose()` stops it taking on new calls, but calls already running still
+finish and send their results — the agent is waiting for them — so `send` must not
+rely on a widget's state; `whenIdle()` completes when they are done.
 
 ### Theming
 

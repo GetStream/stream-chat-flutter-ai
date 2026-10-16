@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -120,6 +121,37 @@ const _cannedToolCalls = [
 /// Who the example's user is, and which install this is. A real app takes the
 /// user id from its chat client and keeps an install id of its own.
 const _identity = AIClientIdentity(userId: 'me', clientId: 'example-install');
+
+/// The canned call to a tool this device runs itself: the [AIClientToolRunner]
+/// picks it up because it awaits this person and this install, runs
+/// [_DeviceClockTool], and sends the result back through a fake backend.
+const _clockCall = AIToolCallPart(
+  id: 'call_clock',
+  name: 'read_device_clock',
+  displayTitle: 'Reading your clock',
+  status: AIToolCallStatus.awaitingClient,
+  executor: AIToolExecutor.client,
+  targetUserId: 'me',
+  targetClientId: 'example-install',
+);
+
+/// A client tool that returns a result to the agent: the device's local time.
+class _DeviceClockTool extends AIResultClientTool {
+  @override
+  AIToolDefinition get definition => const AIToolDefinition(
+    name: 'read_device_clock',
+    description: "The user's local time and time zone",
+  );
+
+  @override
+  Future<AIClientToolResult> run(AIToolCallPart call) async {
+    final now = DateTime.now();
+    return AIClientToolResult.completed({
+      'local_time': now.toIso8601String(),
+      'time_zone': now.timeZoneName,
+    }, summary: 'Read the local time');
+  }
+}
 
 /// The canned tool call that asks first: run after the others, it waits for
 /// the user to allow it, through [AIToolApprovalView]. No button titles, so
@@ -314,6 +346,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// it remembers where each answer is.
   late final _approver = AIToolApprover(identity: _identity, decide: _sendAnswer);
 
+  /// Runs the client tool calls addressed to [_identity], and sends their
+  /// results through [_sendToolResult]. A real app would also post
+  /// `_toolRunner.registrations` to its backend once.
+  late final _toolRunner = AIClientToolRunner(
+    identity: _identity,
+    tools: [_DeviceClockTool()],
+    send: _sendToolResult,
+  );
+
   /// Whether the fake backend has finished sending chunks for the current reply.
   ///
   /// The backend finishes well before the typewriter does, so this alone is not
@@ -352,6 +393,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _toolTimer?.cancel();
     _streamTimer?.cancel();
     _approver.dispose();
+    _toolRunner.dispose();
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -400,11 +442,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   /// Runs the canned tool call at [index] — a row that spins, then completes
-  /// with its summary and duration — and the next one after it, then asks to
-  /// email the summary.
+  /// with its summary and duration — and the next one after it, then the call
+  /// this device runs itself.
   void _runTool(int index) {
     if (!mounted) return;
-    if (index == _cannedToolCalls.length) return _askToEmail();
+    if (index == _cannedToolCalls.length) return _runClientTool();
 
     final (:call, :takes, :summary) = _cannedToolCalls[index];
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
@@ -422,6 +464,41 @@ class _AssistantScreenState extends State<AssistantScreen> {
       );
       _runTool(index + 1);
     });
+  }
+
+  /// Adds a call that waits for this device, and hands the reply's calls to
+  /// the runner — as a real app would on every update of the reply. Calling
+  /// it again with the same calls would not run the tool twice.
+  void _runClientTool() {
+    // A fresh id per reply: the runner runs each call id once, as it must for
+    // a real agent's provider-issued ids, so reusing one would never run again.
+    final call = _clockCall.copyWith(id: '${_clockCall.id}_${_messages.length}');
+    setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
+    _scrollToEnd();
+    unawaited(_toolRunner.runCalls(_messages.last.toolCalls));
+  }
+
+  /// Stands in for posting a client tool's result to the agent's backend. Once
+  /// it "arrives", the backend marks the call completed with the result's
+  /// summary, and the agent goes on to ask to email the summary.
+  Future<void> _sendToolResult(AIToolCallPart call, AIClientToolResult result) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final payload = result.toJson(toolCallId: call.id, clientId: _identity.clientId);
+    debugPrint('Sent client tool result: ${jsonEncode(payload)}');
+    if (!mounted || _messages.lastOrNull?.toolCalls.any((c) => c.id == call.id && !c.status.isFinished) != true) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sent to the agent: ${payload['output']}')));
+    _updateToolCall(
+      call.id,
+      (call) => call.copyWith(
+        status: result.isFailure ? AIToolCallStatus.failed : AIToolCallStatus.completed,
+        summary: result.summary ?? result.failure,
+        durationMs: 600,
+      ),
+    );
+    _askToEmail();
   }
 
   /// Adds the call that waits for the user's approval. [_sendAnswer] carries
