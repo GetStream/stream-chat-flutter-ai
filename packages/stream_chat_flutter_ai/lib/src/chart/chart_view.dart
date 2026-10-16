@@ -17,8 +17,11 @@ import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 /// [USpecKind.histogram], and [USpecKind.heatmap] — the last of which is drawn
 /// by [HeatmapChartView] rather than `fl_chart`, which has no heatmap widget.
 ///
-/// [USpec.title] is rendered as a heading above the plot. Colors, sizes and the
-/// histogram's bucket count come from [ChartThemeData] — app-wide through
+/// [USpec.title] is rendered as a heading above the plot. A pie, and a chart
+/// plotting two or more series, also get a legend naming each slice or series
+/// next to its color — see [ChartThemeData.showLegend] — and pie slices are
+/// labelled with their share of the whole. Colors, sizes and the histogram's
+/// bucket count come from [ChartThemeData] — app-wide through
 /// [AITheme], per subtree through [ChartTheme], or per chart through [theme].
 class ChartView extends StatelessWidget {
   /// Creates a [ChartView].
@@ -41,8 +44,11 @@ class ChartView extends StatelessWidget {
   /// walking them gives a reader bare numbers with nothing saying which axis
   /// they belong to.
   ///
+  /// The legend is excluded with them: the summary already names every series,
+  /// so reading the legend as well would say each name twice.
+  ///
   /// Pass `''` to add no node of this widget's own, which also puts those
-  /// subtree labels back in reach — the opt-out for describing the chart
+  /// subtree labels — the legend's included — back in reach — the opt-out for describing the chart
   /// yourself, not a way to hide it.
   final String? semanticsLabel;
 
@@ -50,12 +56,13 @@ class ChartView extends StatelessWidget {
   Widget build(BuildContext context) {
     final chartTheme = ResolvedChartTheme.resolve(context, override: theme);
     final translations = AITranslations.of(context);
+    final legendEntries = _legendEntries(chartTheme, translations.unnamedChartSeries);
 
     final plot = Container(
       height: chartTheme.height,
       padding: const EdgeInsets.only(top: 8, right: 16, bottom: 8),
       child: switch (spec.kind) {
-        USpecKind.pie => _buildPieChart(chartTheme),
+        USpecKind.pie => _buildPieChart(chartTheme, hasLegend: legendEntries.isNotEmpty),
         USpecKind.bar => _buildBarChart(chartTheme),
         USpecKind.scatter => _buildScatterChart(chartTheme, bubble: false),
         USpecKind.bubble => _buildScatterChart(chartTheme, bubble: true),
@@ -70,19 +77,28 @@ class ChartView extends StatelessWidget {
     );
 
     final title = spec.title?.trim();
+    final hasTitle = title != null && title.isNotEmpty;
+    final legend = legendEntries.isEmpty
+        ? null
+        : _ChartLegend(entries: legendEntries, textStyle: chartTheme.legendTextStyle);
+    final legendOnTop = chartTheme.legendPosition == ChartLegendPosition.top;
+
     final Widget content;
-    if (title == null || title.isEmpty) {
+    if (!hasTitle && legend == null) {
       content = plot;
     } else {
       content = Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(title, style: chartTheme.titleTextStyle),
-          ),
+          if (hasTitle)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(title, style: chartTheme.titleTextStyle),
+            ),
+          if (legend != null && legendOnTop) Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: legend),
           plot,
+          if (legend != null && !legendOnTop) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: legend),
         ],
       );
     }
@@ -94,6 +110,34 @@ class ChartView extends StatelessWidget {
         );
     if (label.isEmpty) return content;
     return Semantics(container: true, excludeSemantics: true, label: label, child: content);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legend
+  // ---------------------------------------------------------------------------
+
+  /// What the legend lists — one entry per pie slice, or per series on a chart
+  /// plotting two or more — or nothing when this chart gets no legend.
+  ///
+  /// A single series needs no key, a histogram draws the first series alone,
+  /// and a heatmap carries a scale legend of its own.
+  List<_LegendEntry> _legendEntries(ResolvedChartTheme theme, String unnamed) {
+    if (!theme.showLegend) return const [];
+    String name(String label) => label.trim().isEmpty ? unnamed : label;
+    switch (spec.kind) {
+      case USpecKind.pie:
+        final points = spec.series.isNotEmpty ? spec.series.first.points : const <UPoint>[];
+        return [
+          for (final (i, point) in points.indexed) (label: name(point.x), color: theme.seriesColor(i)),
+        ];
+      case USpecKind.histogram || USpecKind.heatmap:
+        return const [];
+      default:
+        if (spec.series.length < 2) return const [];
+        return [
+          for (final (i, series) in spec.series.indexed) (label: name(series.name), color: theme.seriesColor(i)),
+        ];
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -159,16 +203,22 @@ class ChartView extends StatelessWidget {
   // Pie chart
   // ---------------------------------------------------------------------------
 
-  Widget _buildPieChart(ResolvedChartTheme theme) {
+  Widget _buildPieChart(ResolvedChartTheme theme, {required bool hasLegend}) {
     // For pie charts, use the first series; each point is one slice.
     final points = spec.series.isNotEmpty ? spec.series.first.points : <UPoint>[];
     final labelStyle = theme.pieLabelStyle;
+    final total = points.fold<double>(0, (sum, p) => sum + p.y);
     final sections = points.asMap().entries.map((e) {
       final color = theme.seriesColor(e.key);
+      final percentage = _piePercentage(e.value.y, total, theme);
+      // The legend names the slices, so the slice itself carries only its
+      // share. Without a legend the name has nowhere else to go.
+      final title = hasLegend ? (percentage ?? '') : [e.value.x, ?percentage].join('\n');
       return PieChartSectionData(
         value: e.value.y,
         color: color,
-        title: e.value.x,
+        title: title,
+        showTitle: title.isNotEmpty,
         radius: 80,
         // The label was hardcoded white, which vanishes on any light slice —
         // and a host palette is free to contain one. Every slice is a different
@@ -179,6 +229,16 @@ class ChartView extends StatelessWidget {
     }).toList();
 
     return PieChart(PieChartData(sections: sections, sectionsSpace: 2));
+  }
+
+  /// [value]'s share of [total] as a rounded percentage such as `42%`, or null
+  /// when percentages are off, the slice is under the theme's threshold, or the
+  /// slices don't sum to anything positive.
+  static String? _piePercentage(double value, double total, ResolvedChartTheme theme) {
+    if (!theme.pieShowPercentages || total <= 0) return null;
+    final share = value / total;
+    if (share < theme.piePercentageThreshold) return null;
+    return '${(share * 100).round()}%';
   }
 
   /// The readable color for a label drawn on top of [slice] — whichever of
@@ -442,6 +502,46 @@ class ChartView extends StatelessWidget {
     // which is invisible against a dark surface.
     getDrawingHorizontalLine: (_) => FlLine(color: theme.gridLineColor, strokeWidth: 1),
   );
+}
+
+/// One row of a [_ChartLegend]: what it names, and the color it is drawn in.
+typedef _LegendEntry = ({String label, Color color});
+
+/// A wrapping row of color swatches, each followed by the series or slice it
+/// stands for.
+class _ChartLegend extends StatelessWidget {
+  const _ChartLegend({required this.entries, required this.textStyle});
+
+  final List<_LegendEntry> entries;
+  final TextStyle textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    // Sized off the text so a larger text scale doesn't leave a speck of color
+    // beside a big label.
+    final swatch = MediaQuery.textScalerOf(context).scale(textStyle.fontSize ?? 11) * 0.9;
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: [
+        for (final entry in entries)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: swatch,
+                height: swatch,
+                decoration: BoxDecoration(color: entry.color, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(entry.label, style: textStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
 }
 
 /// A single bucket produced by [ChartView._makeBins].

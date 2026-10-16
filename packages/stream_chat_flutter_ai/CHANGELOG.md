@@ -16,6 +16,7 @@
 - `AIToolCallView` — a tool-call row with status icon, summary and duration, themed via `ToolCallThemeData`; `AIMessagePartsView.toolCallBuilder` overrides it per tool, and `AIMessagePartsView.hidden` leaves a step out.
 - `AIToolApprovalView` / `AIToolApprovalCard` — human-in-the-loop tool approvals via an `AIToolApprover`, themed via `ToolApprovalThemeData`; `AIMessagePartsView.approver` asks under each waiting call.
 - `AIClientToolRunner` runs `awaiting_client` tool calls once and sends each `AIClientToolResult` back to the agent; `AIResultClientTool` returns one.
+- Charts show a series legend (`ChartThemeData.showLegend` / `legendPosition`), and pie slices are labelled with their percentage.
 
 ## 0.1.0
 

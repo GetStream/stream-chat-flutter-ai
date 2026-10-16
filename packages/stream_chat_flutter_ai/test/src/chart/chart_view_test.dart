@@ -597,6 +597,188 @@ void main() {
       });
     });
 
+    group('legend', () {
+      testWidgets('names every series of a multi-series chart', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec)));
+
+        expect(find.text('Sales'), findsOneWidget);
+        expect(find.text('Costs'), findsOneWidget);
+      });
+
+      testWidgets('draws each swatch in its series color', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _multiLineSpec),
+            const ChartThemeData(seriesColors: [Color(0xFFFF0000), Color(0xFF00FF00)]),
+          ),
+        );
+
+        expect(_legendSwatchColors(tester), [const Color(0xFFFF0000), const Color(0xFF00FF00)]);
+      });
+
+      testWidgets('names every slice of a pie', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _pieSpec)));
+
+        expect(find.text('A'), findsOneWidget);
+        expect(find.text('B'), findsOneWidget);
+        expect(find.text('C'), findsOneWidget);
+        expect(_legendSwatchColors(tester), kDefaultChartSeriesColors.take(3));
+      });
+
+      testWidgets('is left off a single-series chart', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _lineSpec)));
+
+        expect(find.text('Sales'), findsNothing);
+        expect(find.byType(Wrap), findsNothing);
+      });
+
+      testWidgets('is left off when the theme turns it off', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _multiLineSpec), const ChartThemeData(showLegend: false)),
+        );
+
+        expect(find.text('Sales'), findsNothing);
+        expect(find.text('Costs'), findsNothing);
+      });
+
+      testWidgets('without a legend a pie slice carries its own name', (tester) async {
+        // Otherwise turning the legend off would leave the slices anonymous.
+        await tester.pumpWidget(_wrapThemed(const ChartView(spec: _pieSpec), const ChartThemeData(showLegend: false)));
+
+        final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+        expect(sections.map((s) => s.title), ['A\n40%', 'B\n35%', 'C\n25%']);
+      });
+
+      testWidgets('sits under the plot by default', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec)));
+
+        expect(tester.getTopLeft(find.text('Sales')).dy, greaterThan(tester.getBottomLeft(find.byType(LineChart)).dy));
+      });
+
+      testWidgets('sits between the title and the plot when placed on top', (tester) async {
+        const spec = USpec(title: 'Revenue', kind: USpecKind.line, series: _multiLineSeries);
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: spec), const ChartThemeData(legendPosition: ChartLegendPosition.top)),
+        );
+
+        final legendY = tester.getCenter(find.text('Sales')).dy;
+        expect(tester.getCenter(find.text('Revenue')).dy, lessThan(legendY));
+        expect(legendY, lessThan(tester.getTopLeft(find.byType(LineChart)).dy));
+      });
+
+      testWidgets('the legend text style follows the theme', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _multiLineSpec),
+            const ChartThemeData(legendTextStyle: TextStyle(fontSize: 17, color: Color(0xFF123456))),
+          ),
+        );
+
+        final style = tester.widget<Text>(find.text('Sales')).style!;
+        expect(style.fontSize, 17);
+        expect(style.color, const Color(0xFF123456));
+      });
+
+      testWidgets('defaults its text to onSurfaceVariant', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec)));
+
+        final context = tester.element(find.byType(ChartView));
+        expect(tester.widget<Text>(find.text('Sales')).style?.color, Theme.of(context).colorScheme.onSurfaceVariant);
+      });
+
+      testWidgets('an unnamed series gets the translated fallback', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.bar,
+          series: [
+            USeries(
+              name: '',
+              points: [UPoint(x: 'Jan', y: 1)],
+            ),
+            USeries(
+              name: 'Costs',
+              points: [UPoint(x: 'Jan', y: 2)],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        expect(find.text('Series'), findsOneWidget);
+
+        await tester.pumpWidget(
+          _wrap(
+            const AITranslationsScope(
+              translations: _TestTranslations(),
+              child: ChartView(spec: spec),
+            ),
+          ),
+        );
+        expect(find.text('Reeks'), findsOneWidget);
+      });
+
+      testWidgets('is excluded from the semantics tree, which the summary already covers', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec)));
+
+        expect(tester.getSemantics(find.byType(ChartView)).label, contains('2 series: Sales, Costs'));
+        expect(find.bySemanticsLabel('Costs'), findsNothing);
+        handle.dispose();
+      });
+    });
+
+    group('pie percentages', () {
+      List<PieChartSectionData> sections(WidgetTester tester) =>
+          tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+
+      testWidgets('label each slice with its rounded share', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _sixSliceSpec)));
+
+        expect(sections(tester).map((s) => s.title), List.filled(6, '17%'));
+      });
+
+      testWidgets('leave slices under 8% unlabelled, and label one at exactly 8%', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _smallSlicesSpec)));
+
+        final drawn = sections(tester);
+        expect(drawn.map((s) => s.title), ['85%', '8%', '', '']);
+        expect(drawn.map((s) => s.showTitle), [true, true, false, false]);
+      });
+
+      testWidgets('follow a configured threshold', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _pieSpec), const ChartThemeData(piePercentageThreshold: 0.3)),
+        );
+
+        expect(sections(tester).map((s) => s.title), ['40%', '35%', '']);
+      });
+
+      testWidgets('are left off when the theme turns them off', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(const ChartView(spec: _pieSpec), const ChartThemeData(pieShowPercentages: false)),
+        );
+
+        expect(sections(tester).map((s) => s.showTitle), [false, false, false]);
+      });
+
+      testWidgets('are left off when the slices sum to nothing', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: 0),
+                UPoint(x: 'B', y: 0),
+              ],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(sections(tester).map((s) => s.title), ['', '']);
+      });
+    });
+
     group('semantics', () {
       // ensureSemantics' handle has to be disposed inside the test body: the
       // framework checks for live handles before addTearDown callbacks run.
@@ -785,6 +967,34 @@ void main() {
         builder: () => _wrapDark(const ChartView(spec: _lineSpec)),
       );
 
+      goldenTest(
+        'a multi-series line chart with its legend',
+        fileName: 'chart_view_legend_line',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrap(const ChartView(spec: _multiLineSpec)),
+      );
+
+      goldenTest(
+        'a multi-series line chart with its legend under a dark theme',
+        fileName: 'chart_view_dark_legend_line',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrapDark(const ChartView(spec: _multiLineSpec)),
+      );
+
+      goldenTest(
+        'a pie with its legend and percentages',
+        fileName: 'chart_view_legend_pie',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrap(const ChartView(spec: _smallSlicesSpec)),
+      );
+
+      goldenTest(
+        'a pie with its legend and percentages under a dark theme',
+        fileName: 'chart_view_dark_legend_pie',
+        constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+        builder: () => _wrapDark(const ChartView(spec: _smallSlicesSpec)),
+      );
+
       // The one the luminance test can only describe: the ramp runs the other
       // way on a dark surface so the busiest cells stay the brightest.
       goldenTest(
@@ -859,6 +1069,43 @@ const _pieSpec = USpec(
         UPoint(x: 'A', y: 40),
         UPoint(x: 'B', y: 35),
         UPoint(x: 'C', y: 25),
+      ],
+    ),
+  ],
+);
+
+const _multiLineSeries = [
+  USeries(
+    name: 'Sales',
+    points: [
+      UPoint(x: 'Jan', y: 10),
+      UPoint(x: 'Feb', y: 25),
+      UPoint(x: 'Mar', y: 18),
+    ],
+  ),
+  USeries(
+    name: 'Costs',
+    points: [
+      UPoint(x: 'Jan', y: 6),
+      UPoint(x: 'Feb', y: 12),
+      UPoint(x: 'Mar', y: 15),
+    ],
+  ),
+];
+
+const _multiLineSpec = USpec(kind: USpecKind.line, series: _multiLineSeries);
+
+/// Shares of 85%, 8% (exactly the default threshold), 4% and 3%.
+const _smallSlicesSpec = USpec(
+  kind: USpecKind.pie,
+  series: [
+    USeries(
+      name: 'Share',
+      points: [
+        UPoint(x: 'Chat', y: 85),
+        UPoint(x: 'Video', y: 8),
+        UPoint(x: 'Feeds', y: 4),
+        UPoint(x: 'Other', y: 3),
       ],
     ),
   ],
@@ -998,6 +1245,12 @@ int _filledCells(WidgetTester tester) {
     return decoration is BoxDecoration && decoration.color != null;
   }).length;
 }
+
+/// The legend's swatch colors, left to right.
+List<Color> _legendSwatchColors(WidgetTester tester) => tester
+    .widgetList<Container>(find.descendant(of: find.byType(Wrap), matching: find.byType(Container)))
+    .map((c) => (c.decoration! as BoxDecoration).color!)
+    .toList(growable: false);
 
 Widget _wrap(Widget child) {
   return MaterialApp(

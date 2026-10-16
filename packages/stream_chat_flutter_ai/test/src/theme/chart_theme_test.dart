@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -5,10 +6,10 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 void main() {
   group('ChartThemeData', () {
     // Every field, rather than a spot-check: copyWith, merge, == and hashCode
-    // are four hand-written 13-line tables, and a crossed line in any of them
+    // are four hand-written 18-line tables, and a crossed line in any of them
     // (`scatterRadius: bubbleMinRadius ?? this.scatterRadius`) is invisible
     // until someone themes that particular field. The loop below is what makes
-    // a 14th field added to only three of the four fail loudly.
+    // a 19th field added to only three of the four fail loudly.
     group('every field', () {
       const base = ChartThemeData(
         seriesColors: [Color(0xFF111111)],
@@ -24,6 +25,11 @@ void main() {
         heatmapLowColor: Color(0xFF333333),
         heatmapMidColor: Color(0xFF444444),
         heatmapHighColor: Color(0xFF555555),
+        showLegend: true,
+        legendPosition: ChartLegendPosition.top,
+        legendTextStyle: TextStyle(fontSize: 14),
+        pieShowPercentages: true,
+        piePercentageThreshold: 0.1,
       );
 
       /// One per field: how to set it to a second value, and how to read it.
@@ -114,13 +120,43 @@ void main() {
               copied: () => base.copyWith(heatmapHighColor: const Color(0xFFEEEEEE)),
               read: (t) => t.heatmapHighColor,
             ),
+            (
+              name: 'showLegend',
+              only: const ChartThemeData(showLegend: false),
+              copied: () => base.copyWith(showLegend: false),
+              read: (t) => t.showLegend,
+            ),
+            (
+              name: 'legendPosition',
+              only: const ChartThemeData(legendPosition: ChartLegendPosition.bottom),
+              copied: () => base.copyWith(legendPosition: ChartLegendPosition.bottom),
+              read: (t) => t.legendPosition,
+            ),
+            (
+              name: 'legendTextStyle',
+              only: const ChartThemeData(legendTextStyle: TextStyle(fontSize: 98)),
+              copied: () => base.copyWith(legendTextStyle: const TextStyle(fontSize: 98)),
+              read: (t) => t.legendTextStyle,
+            ),
+            (
+              name: 'pieShowPercentages',
+              only: const ChartThemeData(pieShowPercentages: false),
+              copied: () => base.copyWith(pieShowPercentages: false),
+              read: (t) => t.pieShowPercentages,
+            ),
+            (
+              name: 'piePercentageThreshold',
+              only: const ChartThemeData(piePercentageThreshold: 0.99),
+              copied: () => base.copyWith(piePercentageThreshold: 0.99),
+              read: (t) => t.piePercentageThreshold,
+            ),
           ];
 
       test('the table covers every field the class declares', () {
         // Guards the loop itself: add a field without a row here and this
         // fails rather than silently leaving the new field untested.
-        expect(fields, hasLength(13));
-        expect(fields.map((f) => f.name).toSet(), hasLength(13));
+        expect(fields, hasLength(18));
+        expect(fields.map((f) => f.name).toSet(), hasLength(18));
       });
 
       for (final field in fields) {
@@ -142,6 +178,25 @@ void main() {
           expect(copied.hashCode, isNot(base.hashCode), reason: 'hashCode ignores ${field.name}');
         });
       }
+    });
+
+    test('debugFillProperties lists the legend and pie percentage fields', () {
+      const theme = ChartThemeData(
+        showLegend: false,
+        legendPosition: ChartLegendPosition.top,
+        legendTextStyle: TextStyle(fontSize: 14),
+        pieShowPercentages: false,
+        piePercentageThreshold: 0.2,
+      );
+      final builder = DiagnosticPropertiesBuilder();
+      theme.debugFillProperties(builder);
+      final described = {for (final p in builder.properties) p.name: p.toDescription()};
+
+      expect(described['showLegend'], 'no legend');
+      expect(described['legendPosition'], 'top');
+      expect(described['legendTextStyle'], isNotNull);
+      expect(described['pieShowPercentages'], 'no pie percentages');
+      expect(described['piePercentageThreshold'], '0.2');
     });
 
     group('merge', () {
@@ -218,6 +273,46 @@ void main() {
 
         expect(ChartThemeData.lerp(unset, set, 0.4).height, isNull);
         expect(ChartThemeData.lerp(unset, set, 0.6).height, 300);
+      });
+
+      test('swaps the legend flags and position at the midpoint', () {
+        const a = ChartThemeData(
+          showLegend: true,
+          legendPosition: ChartLegendPosition.top,
+          pieShowPercentages: true,
+        );
+        const b = ChartThemeData(
+          showLegend: false,
+          legendPosition: ChartLegendPosition.bottom,
+          pieShowPercentages: false,
+        );
+
+        final early = ChartThemeData.lerp(a, b, 0.4);
+        final late = ChartThemeData.lerp(a, b, 0.6);
+        expect(
+          (early.showLegend, early.legendPosition, early.pieShowPercentages),
+          (
+            true,
+            ChartLegendPosition.top,
+            true,
+          ),
+        );
+        expect(
+          (late.showLegend, late.legendPosition, late.pieShowPercentages),
+          (
+            false,
+            ChartLegendPosition.bottom,
+            false,
+          ),
+        );
+      });
+
+      test('interpolates the pie percentage threshold', () {
+        const a = ChartThemeData(piePercentageThreshold: 0.1);
+        const b = ChartThemeData(piePercentageThreshold: 0.3);
+
+        expect(ChartThemeData.lerp(a, b, 0.5).piePercentageThreshold, closeTo(0.2, 1e-9));
+        expect(ChartThemeData.lerp(const ChartThemeData(), b, 0.4).piePercentageThreshold, isNull);
       });
 
       test('with identical themes returns the first', () {
