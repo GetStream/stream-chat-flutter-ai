@@ -118,6 +118,29 @@ void main() {
       });
     });
 
+    group('reasoning theme', () {
+      const reasoning = ReasoningThemeData(ruleColor: Color(0xFF0A0A0A));
+      const reasoning2 = ReasoningThemeData(ruleColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().reasoningTheme, const ReasoningThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(reasoningTheme: reasoning);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(reasoningTheme: reasoning));
+        expect(theme.copyWith(reasoningTheme: reasoning2).reasoningTheme, reasoning2);
+        expect(theme.copyWith().reasoningTheme, reasoning);
+        expect(
+          theme.lerp(const AITheme(reasoningTheme: reasoning2), 0.5).reasoningTheme,
+          ReasoningThemeData.lerp(reasoning, reasoning2, 0.5),
+        );
+      });
+    });
+
     group('composer and suggestions themes', () {
       // Each case is one component field on AITheme. A field left out of `==`
       // would let Theme.updateShouldNotify skip the rebuild after a host changed

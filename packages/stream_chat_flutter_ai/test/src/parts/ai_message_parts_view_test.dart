@@ -19,7 +19,9 @@ final _parts = AIMessagePart.parseAll([
 
 void main() {
   group('AIMessagePartsView', () {
-    testWidgets('shows the placeholder only for parts it cannot read', (tester) async {
+    testWidgets('shows reasoning as a reasoning view, and the placeholder only for parts it cannot read', (
+      tester,
+    ) async {
       final parts = [
         ..._parts,
         ...AIMessagePart.parseAll([
@@ -28,19 +30,58 @@ void main() {
       ];
       await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
 
-      // The citation (unknown kind) and the v2 reasoning (newer format). The
-      // readable reasoning and tool call have no default view yet, so they
-      // show nothing.
+      // The readable reasoning gets its view. The citation (unknown kind) and
+      // the v2 reasoning (newer format) get the placeholder. The tool call has
+      // no default view yet, so it shows nothing.
+      expect(find.byType(StreamingReasoningView), findsOneWidget);
+      expect(find.text('Thought process'), findsOneWidget);
       expect(find.byType(AIUnsupportedPartView), findsNWidgets(2));
       expect(find.text("A step this app version can't show"), findsNWidgets(2));
-      final column = tester.widget<Column>(find.byType(Column));
-      expect(column.children.map((child) => child.key), const [ValueKey<Object>('c1'), ValueKey<Object>('r2')]);
+      final column = tester.widget<Column>(find.byType(Column).first);
+      expect(column.children.map((child) => child.key), const [
+        ValueKey<Object>('r1'),
+        ValueKey<Object>('c1'),
+        ValueKey<Object>('r2'),
+      ]);
     });
 
     testWidgets('renders nothing when no part has a view', (tester) async {
-      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts.take(2).toList())));
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts.sublist(1, 2))));
 
       expect(find.byType(Column), findsNothing);
+    });
+
+    testWidgets('a reasoning part shows its status, duration, summary and preview', (tester) async {
+      final parts = AIMessagePart.parseAll([
+        (
+          type: 'ai_reasoning',
+          payload: const {
+            'id': 'r1',
+            'status': 'completed',
+            'summary': 'Compared both plans',
+            'preview': 'The user wants a plan.',
+            'duration_ms': 12400,
+          },
+        ),
+      ]);
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
+
+      expect(find.text('Thought for 12s'), findsOneWidget);
+      expect(find.text('Compared both plans'), findsOneWidget);
+
+      await tester.tap(find.text('Thought for 12s'));
+      await tester.pumpAndSettle();
+      expect(find.text('The user wants a plan.'), findsOneWidget);
+    });
+
+    testWidgets('a reasoning part in a newer format stays a placeholder', (tester) async {
+      final parts = AIMessagePart.parseAll([
+        (type: 'ai_reasoning', payload: const {'id': 'r1', 'v': 99}),
+      ]);
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
+
+      expect(find.byType(StreamingReasoningView), findsNothing);
+      expect(find.byType(AIUnsupportedPartView), findsOneWidget);
     });
 
     testWidgets('renders parts in order, keyed by id', (tester) async {
@@ -48,7 +89,7 @@ void main() {
         _wrap(AIMessagePartsView(parts: _parts, partBuilder: (context, part) => Text(part.id))),
       );
 
-      final column = tester.widget<Column>(find.byType(Column));
+      final column = tester.widget<Column>(find.byType(Column).first);
       expect(column.children.map((child) => child.key), const [
         ValueKey<Object>('r1'),
         ValueKey<Object>('call_1'),
@@ -69,6 +110,7 @@ void main() {
       );
 
       expect(find.text('citation'), findsOneWidget);
+      expect(find.byType(StreamingReasoningView), findsOneWidget);
       expect(find.byType(AIUnsupportedPartView), findsNothing);
 
       await tester.pumpWidget(
@@ -80,6 +122,7 @@ void main() {
         ),
       );
       expect(find.text('reasoning'), findsOneWidget);
+      expect(find.byType(StreamingReasoningView), findsNothing);
       expect(find.byType(AIUnsupportedPartView), findsOneWidget);
     });
 
@@ -97,7 +140,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      final column = tester.widget<Column>(find.byType(Column));
+      final column = tester.widget<Column>(find.byType(Column).first);
       expect(column.children.map((child) => child.key), const [
         ValueKey<Object>('same'),
         ValueKey<Object>(('same', 1)),
