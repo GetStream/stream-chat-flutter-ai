@@ -22,6 +22,15 @@ const kDefaultChartSeriesColors = [
   Color(0xFF1ABC9C),
 ];
 
+/// Where [ChartView] places its series legend relative to the plot.
+enum ChartLegendPosition {
+  /// Between the chart's title and the plot.
+  top,
+
+  /// Under the plot.
+  bottom,
+}
+
 /// Overrides for how [ChartView] and [HeatmapChartView] draw a chart.
 ///
 /// Every field is nullable, and `null` means "derive it from the ambient
@@ -62,6 +71,11 @@ class ChartThemeData with Diagnosticable {
     this.heatmapLowColor,
     this.heatmapMidColor,
     this.heatmapHighColor,
+    this.showLegend,
+    this.legendPosition,
+    this.legendTextStyle,
+    this.pieShowPercentages,
+    this.piePercentageThreshold,
   });
 
   /// The colors series are drawn in, cycled when there are more series than
@@ -90,7 +104,9 @@ class ChartThemeData with Diagnosticable {
   /// labels. Falls back to 10pt in [ColorScheme.onSurfaceVariant].
   final TextStyle? axisLabelStyle;
 
-  /// The style of the labels on [USpecKind.pie] slices. Falls back to 11pt
+  /// The style of the labels on [USpecKind.pie] slices — their percentage, see
+  /// [pieShowPercentages], plus the slice's name when there is no legend to
+  /// carry it. Falls back to 11pt
   /// semibold. With no [TextStyle.color] each slice picks black or white for
   /// contrast against its own fill; set one here to take that over.
   final TextStyle? pieLabelStyle;
@@ -115,6 +131,32 @@ class ChartThemeData with Diagnosticable {
   /// ramp would make the busiest cells recede.
   final Color? heatmapHighColor;
 
+  /// Whether a legend — a color swatch and a name per entry — is drawn for a
+  /// chart that needs one: a [USpecKind.pie], one entry per slice, and a chart
+  /// plotting two or more series, one entry per series. A single-series chart
+  /// never gets one, since its title already names what is drawn, nor does a
+  /// [USpecKind.histogram] or a [USpecKind.heatmap], which carries its own
+  /// scale. Falls back to `true`.
+  final bool? showLegend;
+
+  /// Where the legend goes relative to the plot. Falls back to
+  /// [ChartLegendPosition.bottom].
+  final ChartLegendPosition? legendPosition;
+
+  /// The style of the legend's entry names. Falls back to 11pt in
+  /// [ColorScheme.onSurfaceVariant].
+  final TextStyle? legendTextStyle;
+
+  /// Whether [USpecKind.pie] slices are labelled with their rounded share of
+  /// the whole, such as "42%". Only slices at or above
+  /// [piePercentageThreshold] are labelled; smaller ones have no room for it.
+  /// Falls back to `true`.
+  final bool? pieShowPercentages;
+
+  /// The smallest share of the whole, from 0 to 1, a [USpecKind.pie] slice
+  /// needs to be labelled with its percentage. Falls back to 0.08 — 8%.
+  final double? piePercentageThreshold;
+
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
   /// current value.
   ChartThemeData copyWith({
@@ -131,6 +173,11 @@ class ChartThemeData with Diagnosticable {
     Color? heatmapLowColor,
     Color? heatmapMidColor,
     Color? heatmapHighColor,
+    bool? showLegend,
+    ChartLegendPosition? legendPosition,
+    TextStyle? legendTextStyle,
+    bool? pieShowPercentages,
+    double? piePercentageThreshold,
   }) {
     return ChartThemeData(
       seriesColors: seriesColors ?? this.seriesColors,
@@ -146,6 +193,11 @@ class ChartThemeData with Diagnosticable {
       heatmapLowColor: heatmapLowColor ?? this.heatmapLowColor,
       heatmapMidColor: heatmapMidColor ?? this.heatmapMidColor,
       heatmapHighColor: heatmapHighColor ?? this.heatmapHighColor,
+      showLegend: showLegend ?? this.showLegend,
+      legendPosition: legendPosition ?? this.legendPosition,
+      legendTextStyle: legendTextStyle ?? this.legendTextStyle,
+      pieShowPercentages: pieShowPercentages ?? this.pieShowPercentages,
+      piePercentageThreshold: piePercentageThreshold ?? this.piePercentageThreshold,
     );
   }
 
@@ -167,6 +219,11 @@ class ChartThemeData with Diagnosticable {
       heatmapLowColor: other.heatmapLowColor,
       heatmapMidColor: other.heatmapMidColor,
       heatmapHighColor: other.heatmapHighColor,
+      showLegend: other.showLegend,
+      legendPosition: other.legendPosition,
+      legendTextStyle: other.legendTextStyle,
+      pieShowPercentages: other.pieShowPercentages,
+      piePercentageThreshold: other.piePercentageThreshold,
     );
   }
 
@@ -192,6 +249,11 @@ class ChartThemeData with Diagnosticable {
       heatmapLowColor: lerpColorOrSwap(a.heatmapLowColor, b.heatmapLowColor, t),
       heatmapMidColor: lerpColorOrSwap(a.heatmapMidColor, b.heatmapMidColor, t),
       heatmapHighColor: lerpColorOrSwap(a.heatmapHighColor, b.heatmapHighColor, t),
+      showLegend: swapAtMidpoint(a.showLegend, b.showLegend, t),
+      legendPosition: swapAtMidpoint(a.legendPosition, b.legendPosition, t),
+      legendTextStyle: lerpTextStyleOrSwap(a.legendTextStyle, b.legendTextStyle, t),
+      pieShowPercentages: swapAtMidpoint(a.pieShowPercentages, b.pieShowPercentages, t),
+      piePercentageThreshold: lerpDoubleOrSwap(a.piePercentageThreshold, b.piePercentageThreshold, t),
     );
   }
 
@@ -224,7 +286,19 @@ class ChartThemeData with Diagnosticable {
       ..add(ColorProperty('gridLineColor', gridLineColor, defaultValue: null))
       ..add(ColorProperty('heatmapLowColor', heatmapLowColor, defaultValue: null))
       ..add(ColorProperty('heatmapMidColor', heatmapMidColor, defaultValue: null))
-      ..add(ColorProperty('heatmapHighColor', heatmapHighColor, defaultValue: null));
+      ..add(ColorProperty('heatmapHighColor', heatmapHighColor, defaultValue: null))
+      ..add(FlagProperty('showLegend', value: showLegend, ifTrue: 'legend', ifFalse: 'no legend'))
+      ..add(EnumProperty<ChartLegendPosition>('legendPosition', legendPosition, defaultValue: null))
+      ..add(DiagnosticsProperty<TextStyle>('legendTextStyle', legendTextStyle, defaultValue: null))
+      ..add(
+        FlagProperty(
+          'pieShowPercentages',
+          value: pieShowPercentages,
+          ifTrue: 'pie percentages',
+          ifFalse: 'no pie percentages',
+        ),
+      )
+      ..add(DoubleProperty('piePercentageThreshold', piePercentageThreshold, defaultValue: null));
   }
 
   @override
@@ -243,7 +317,12 @@ class ChartThemeData with Diagnosticable {
         other.gridLineColor == gridLineColor &&
         other.heatmapLowColor == heatmapLowColor &&
         other.heatmapMidColor == heatmapMidColor &&
-        other.heatmapHighColor == heatmapHighColor;
+        other.heatmapHighColor == heatmapHighColor &&
+        other.showLegend == showLegend &&
+        other.legendPosition == legendPosition &&
+        other.legendTextStyle == legendTextStyle &&
+        other.pieShowPercentages == pieShowPercentages &&
+        other.piePercentageThreshold == piePercentageThreshold;
   }
 
   // Object.hashAll, not Object.hash: a list's identity hash would make two
@@ -263,6 +342,11 @@ class ChartThemeData with Diagnosticable {
     heatmapLowColor,
     heatmapMidColor,
     heatmapHighColor,
+    showLegend,
+    legendPosition,
+    legendTextStyle,
+    pieShowPercentages,
+    piePercentageThreshold,
   ]);
 }
 
