@@ -4,6 +4,7 @@ import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dar
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
 
@@ -41,6 +42,8 @@ import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_the
 ///    attachment sheet.
 ///  * [ReasoningThemeData] and [ReasoningTheme], for the reasoning panel.
 ///  * [SuggestionsThemeData] and [SuggestionsTheme], for the suggestion chips.
+///  * [ToolApprovalThemeData] and [ToolApprovalTheme], for tool-approval
+///    cards.
 ///  * [ToolCallThemeData] and [ToolCallTheme], for tool-call rows.
 ///  * [TypingIndicatorThemeData] and [TypingIndicatorTheme], for the typing
 ///    indicator.
@@ -53,6 +56,7 @@ class AITheme extends ThemeExtension<AITheme> {
     ComposerThemeData? composerTheme,
     ReasoningThemeData? reasoningTheme,
     SuggestionsThemeData? suggestionsTheme,
+    ToolApprovalThemeData? toolApprovalTheme,
     ToolCallThemeData? toolCallTheme,
     TypingIndicatorThemeData? typingIndicatorTheme,
   }) : chartTheme = chartTheme ?? const ChartThemeData(),
@@ -60,6 +64,7 @@ class AITheme extends ThemeExtension<AITheme> {
        composerTheme = composerTheme ?? const ComposerThemeData(),
        reasoningTheme = reasoningTheme ?? const ReasoningThemeData(),
        suggestionsTheme = suggestionsTheme ?? const SuggestionsThemeData(),
+       toolApprovalTheme = toolApprovalTheme ?? const ToolApprovalThemeData(),
        toolCallTheme = toolCallTheme ?? const ToolCallThemeData(),
        typingIndicatorTheme = typingIndicatorTheme ?? const TypingIndicatorThemeData();
 
@@ -85,6 +90,11 @@ class AITheme extends ThemeExtension<AITheme> {
   /// [ThemeData].
   final SuggestionsThemeData suggestionsTheme;
 
+  /// How tool-approval cards are drawn. Defaults to
+  /// `const ToolApprovalThemeData()`, which derives every field from the
+  /// ambient [ThemeData].
+  final ToolApprovalThemeData toolApprovalTheme;
+
   /// How tool-call rows are drawn. Defaults to `const ToolCallThemeData()`,
   /// which derives every field from the ambient [ThemeData].
   final ToolCallThemeData toolCallTheme;
@@ -107,6 +117,7 @@ class AITheme extends ThemeExtension<AITheme> {
     ComposerThemeData? composerTheme,
     ReasoningThemeData? reasoningTheme,
     SuggestionsThemeData? suggestionsTheme,
+    ToolApprovalThemeData? toolApprovalTheme,
     ToolCallThemeData? toolCallTheme,
     TypingIndicatorThemeData? typingIndicatorTheme,
   }) => AITheme(
@@ -115,6 +126,7 @@ class AITheme extends ThemeExtension<AITheme> {
     composerTheme: composerTheme ?? this.composerTheme,
     reasoningTheme: reasoningTheme ?? this.reasoningTheme,
     suggestionsTheme: suggestionsTheme ?? this.suggestionsTheme,
+    toolApprovalTheme: toolApprovalTheme ?? this.toolApprovalTheme,
     toolCallTheme: toolCallTheme ?? this.toolCallTheme,
     typingIndicatorTheme: typingIndicatorTheme ?? this.typingIndicatorTheme,
   );
@@ -128,6 +140,7 @@ class AITheme extends ThemeExtension<AITheme> {
       composerTheme: ComposerThemeData.lerp(composerTheme, other.composerTheme, t),
       reasoningTheme: ReasoningThemeData.lerp(reasoningTheme, other.reasoningTheme, t),
       suggestionsTheme: SuggestionsThemeData.lerp(suggestionsTheme, other.suggestionsTheme, t),
+      toolApprovalTheme: ToolApprovalThemeData.lerp(toolApprovalTheme, other.toolApprovalTheme, t),
       toolCallTheme: ToolCallThemeData.lerp(toolCallTheme, other.toolCallTheme, t),
       typingIndicatorTheme: TypingIndicatorThemeData.lerp(typingIndicatorTheme, other.typingIndicatorTheme, t),
     );
@@ -145,6 +158,7 @@ class AITheme extends ThemeExtension<AITheme> {
         other.composerTheme == composerTheme &&
         other.reasoningTheme == reasoningTheme &&
         other.suggestionsTheme == suggestionsTheme &&
+        other.toolApprovalTheme == toolApprovalTheme &&
         other.toolCallTheme == toolCallTheme &&
         other.typingIndicatorTheme == typingIndicatorTheme;
   }
@@ -156,6 +170,7 @@ class AITheme extends ThemeExtension<AITheme> {
     composerTheme,
     reasoningTheme,
     suggestionsTheme,
+    toolApprovalTheme,
     toolCallTheme,
     typingIndicatorTheme,
   );
