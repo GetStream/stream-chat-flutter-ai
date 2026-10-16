@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
 import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
-// Imported for the doc links below too.
+// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/ai_typing_indicator_view.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
@@ -85,6 +86,16 @@ class StreamingMessageView extends StatefulWidget {
   final MarkdownTapLinkCallback? onTapLink;
 
   /// A callback that is called whenever the typewriter state changes.
+  ///
+  /// Never called during a build: a change that happens mid-frame (a new
+  /// [text] arriving, reduced motion switching on) is reported after the frame,
+  /// with only the latest state if several pile up, so the host may call
+  /// `setState` from it.
+  ///
+  /// [TypewriterState.idle] means the view has *caught up* with [text], not
+  /// that the reply is finished — with reduced motion on it is reported after
+  /// every chunk. Combine it with your own "stream complete" signal before
+  /// treating the reply as done.
   final ValueChanged<TypewriterState>? onTypewriterStateChanged;
 
   @override
@@ -95,10 +106,45 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
   late String _displayText;
   late final TypewriterController _controller;
 
+  /// The state waiting for [_flushPendingState], when one is scheduled.
+  TypewriterState? _pendingState;
+
   void _onTypewriterValueChanged() {
     final value = _controller.value;
-    widget.onTypewriterStateChanged?.call(value.state);
+    _reportState(value.state);
     setState(() => _displayText = value.text);
+  }
+
+  /// Reports [state] to the host now, or after the frame when called from
+  /// inside one.
+  ///
+  /// The controller notifies synchronously, and some of its calls happen in
+  /// [didUpdateWidget] / [didChangeDependencies] — mid-build. A host that calls
+  /// `setState` from the callback there would throw, so those reports wait for
+  /// the frame to end. While one is waiting every later report joins it, so
+  /// states are never delivered out of order.
+  void _reportState(TypewriterState state) {
+    final inFrame = switch (SchedulerBinding.instance.schedulerPhase) {
+      SchedulerPhase.persistentCallbacks || SchedulerPhase.midFrameMicrotasks => true,
+      _ => false,
+    };
+    if (!inFrame && _pendingState == null) {
+      widget.onTypewriterStateChanged?.call(state);
+      return;
+    }
+
+    final alreadyScheduled = _pendingState != null;
+    _pendingState = state;
+    if (alreadyScheduled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingState());
+    // A post-frame callback only runs on a frame; make sure there is one.
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  void _flushPendingState() {
+    final state = _pendingState;
+    _pendingState = null;
+    if (mounted && state != null) widget.onTypewriterStateChanged?.call(state);
   }
 
   @override
@@ -118,9 +164,8 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     // hear `idle` (to flip a "generating" flag back off, say) would wait
     // forever. Deferred to post-frame so that host is free to rebuild in
     // response without doing so during this build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onTypewriterStateChanged?.call(_controller.value.state);
-    });
+    _pendingState = _controller.value.state;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingState());
   }
 
   bool get _reduceMotion => MediaQuery.maybeDisableAnimationsOf(context) ?? false;

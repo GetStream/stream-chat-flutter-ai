@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // Imported for the doc links below only; nothing in this file's code uses it.
 import 'package:stream_chat_flutter_ai/src/ai_typing_indicator_view.dart';
+// Not doc-only: [TypingIndicatorTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
@@ -34,7 +35,9 @@ class TypingIndicatorThemeData with Diagnosticable {
     this.dotSize,
     this.dotCount,
     this.dotSpacing,
-  }) : assert(dotCount == null || dotCount >= 0, 'dotCount must not be negative');
+  }) : assert(dotCount == null || dotCount >= 0, 'dotCount must not be negative'),
+       assert(dotSize == null || dotSize >= 0, 'dotSize must not be negative'),
+       assert(dotSpacing == null || dotSpacing >= 0, 'dotSpacing must not be negative');
 
   /// The caption's style, merged over [TextTheme.bodyMedium] in
   /// [ColorScheme.onSurfaceVariant].
