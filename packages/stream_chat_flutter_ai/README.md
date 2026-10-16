@@ -238,6 +238,35 @@ pick the palette from `request.brightness` — the example uses `vs2015` on a da
 final palette = request.brightness == Brightness.dark ? vs2015Theme : atomOneLightTheme;
 ```
 
+**Migrating from 0.1.0.** The loose code colors and the positional highlighter signature are
+gone:
+
+```dart
+// Before
+StreamingMessageView(
+  text: message,
+  codeBackgroundColor: background, // also on AIMarkdownBody
+  codeForegroundColor: foreground,
+);
+CodeBlockView(code: code, backgroundColor: background, foregroundColor: foreground);
+TextSpan? highlightCode(String code, String language, TextStyle baseStyle) { ... }
+
+// After
+StreamingMessageView(
+  text: message,
+  codeBlockTheme: CodeBlockThemeData(backgroundColor: background, codeTextStyle: TextStyle(color: foreground)),
+);
+CodeBlockView(
+  code: code,
+  theme: CodeBlockThemeData(backgroundColor: background, codeTextStyle: TextStyle(color: foreground)),
+);
+TextSpan? highlightCode(CodeHighlightRequest request) {
+  // request.code, request.language, request.baseStyle, plus request.brightness and request.theme
+}
+```
+
+Or set it once app-wide with `AITheme(codeBlockTheme: ...)` instead of per widget.
+
 ### `ChartView` + `USpec`
 
 Renders a `USpec` as a line, bar, area, scatter, bubble, pie, histogram or heatmap chart. All but

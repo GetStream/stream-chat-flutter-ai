@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// Imported for the doc links below only.
+// `ai_theme.dart` (the next import) is for doc links only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
@@ -39,10 +39,10 @@ class ResolvedCodeBlockTheme {
     required this.brightness,
   });
 
-  /// Resolves the theme at [context], with [overrides] (the widget's own
+  /// Resolves the theme at [context], with [override] (the widget's own
   /// theme) layered on top.
-  factory ResolvedCodeBlockTheme.resolve(BuildContext context, CodeBlockThemeData? overrides) =>
-      ResolvedCodeBlockTheme.fromData(CodeBlockTheme.of(context).merge(overrides));
+  factory ResolvedCodeBlockTheme.resolve(BuildContext context, {CodeBlockThemeData? override}) =>
+      ResolvedCodeBlockTheme.fromData(CodeBlockTheme.of(context).merge(override));
 
   /// Fills [theme]'s unset fields with the defaults.
   factory ResolvedCodeBlockTheme.fromData(CodeBlockThemeData theme) {
@@ -66,12 +66,16 @@ class ResolvedCodeBlockTheme {
       defaultCodeColor,
     );
 
-    final chromeColor = codeTextStyle.color!.withValues(alpha: _kLabelOpacity);
+    // Scaled rather than replaced, so a translucent code color never gets
+    // chrome more opaque than itself.
+    final codeColor = codeTextStyle.color!;
+    final chromeColor = codeColor.withValues(alpha: codeColor.a * _kLabelOpacity);
     final languageLabelStyle = _withColor(
       mergeTextStyle(
         TextStyle(
-          fontFamily: _kMonoFontFamily,
-          fontFamilyFallback: _kMonoFontFamilyFallback,
+          // The code's own font, so a host restyling the code restyles the label.
+          fontFamily: codeTextStyle.fontFamily,
+          fontFamilyFallback: codeTextStyle.fontFamilyFallback,
           fontSize: 12,
           color: chromeColor,
         ),

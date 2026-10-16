@@ -374,6 +374,46 @@ void main() {
         expect(reported, hasLength(1));
       });
 
+      testWidgets('reports again after a theme change or a new highlighter', (tester) async {
+        // A palette-specific failure on the new frame, or a different
+        // highlighter's failure, must not be swallowed by the first report.
+        Widget app(CodeBlockThemeData data, CodeHighlighter highlighter) => wrap(
+          CodeBlockTheme(
+            data: data,
+            child: CodeBlockView(code: 'var x', language: 'dart', highlighter: highlighter),
+          ),
+        );
+        const light = CodeBlockThemeData(backgroundColor: Color(0xFFFAFAFA));
+
+        final reported = await _collectingErrors(() async {
+          await tester.pumpWidget(app(const CodeBlockThemeData(), _boom));
+          await tester.pumpWidget(app(light, _boom));
+          await tester.pumpWidget(app(light, _boom2));
+        });
+
+        expect(reported, hasLength(3));
+        expect(reported[0].context.toString(), contains('dark background'));
+        expect(reported[1].context.toString(), contains('light background'));
+      });
+
+      testWidgets('says where a highlighter altered the text', (tester) async {
+        final reported = await _collectingErrors(
+          () => tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'var x = 1;',
+                language: 'dart',
+                highlighter: (request) => TextSpan(text: 'var y = 1;', style: request.baseStyle),
+              ),
+            ),
+          ),
+        );
+
+        final message = (reported.single.exception as StateError).message;
+        expect(message, contains('expected 10 characters, got 10'));
+        expect(message, contains('first difference at index 4'));
+      });
+
       testWidgets('uses its default colors when none are given', (tester) async {
         await tester.pumpWidget(wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')));
 
@@ -583,6 +623,19 @@ void main() {
           headerBackgroundColor: Color(0xFFEAEAEA),
         );
 
+        /// The header's own fill, identified by its top-only rounding rather
+        /// than by how many boxes Material happens to build around it.
+        Finder headerFill() => find.descendant(
+          of: find.byType(CodeBlockView),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DecoratedBox &&
+                widget.decoration is BoxDecoration &&
+                (widget.decoration as BoxDecoration).borderRadius ==
+                    const BorderRadius.vertical(top: Radius.circular(8)),
+          ),
+        );
+
         BoxDecoration frameOf(WidgetTester tester) {
           final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
           return tester.widget<Container>(container.first).decoration! as BoxDecoration;
@@ -616,11 +669,7 @@ void main() {
             final chrome = kDefaultCodeForegroundColor.withValues(alpha: 0.6);
             expect(tester.widget<Text>(find.text('dart')).style?.color, chrome);
             expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, chrome);
-            expect(
-              find.descendant(of: find.byType(CodeBlockView), matching: find.byType(DecoratedBox)),
-              findsOneWidget,
-              reason: "only the frame's own fill, no separate header fill by default",
-            );
+            expect(headerFill(), findsNothing, reason: 'no separate header fill by default');
 
             await tester.tap(find.byIcon(Icons.content_copy));
             await tester.pump();
@@ -683,12 +732,8 @@ void main() {
         testWidgets('paints a distinct header fill only when one is set', (tester) async {
           await tester.pumpWidget(wrap(const CodeBlockView(code: 'x', language: 'dart', theme: lightTheme)));
 
-          final fills = tester
-              .widgetList<DecoratedBox>(
-                find.descendant(of: find.byType(CodeBlockView), matching: find.byType(DecoratedBox)),
-              )
-              .map((box) => (box.decoration as BoxDecoration).color);
-          expect(fills, [const Color(0xFFFAFAFA), const Color(0xFFEAEAEA)]);
+          final header = tester.widget<DecoratedBox>(headerFill());
+          expect((header.decoration as BoxDecoration).color, const Color(0xFFEAEAEA));
           expect(frameOf(tester).color, const Color(0xFFFAFAFA));
         });
 
@@ -729,6 +774,25 @@ void main() {
           );
 
           expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, kDefaultCodeForegroundColor);
+        });
+
+        testWidgets('an inherit: false label style keeps a color', (tester) async {
+          await tester.pumpWidget(
+            wrap(
+              const CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(
+                  languageLabelStyle: TextStyle(inherit: false, fontSize: 12, textBaseline: TextBaseline.alphabetic),
+                ),
+              ),
+            ),
+          );
+
+          expect(
+            tester.widget<Text>(find.text('dart')).style?.color,
+            kDefaultCodeForegroundColor.withValues(alpha: 0.6),
+          );
         });
 
         testWidgets('the highlighter is told the default frame is dark', (tester) async {
@@ -800,18 +864,127 @@ void main() {
         });
       });
 
-      test('CodeHighlightRequest compares by value', () {
-        CodeHighlightRequest request(String code) => CodeHighlightRequest(
-          code: code,
-          language: 'dart',
-          baseStyle: const TextStyle(fontSize: 13),
-          brightness: Brightness.dark,
-          theme: const CodeBlockThemeData(backgroundColor: kDefaultCodeBackgroundColor),
+      group('CodeHighlightRequest', () {
+        const resolved = CodeBlockThemeData(
+          backgroundColor: Color(0xFFFAFAFA),
+          codeTextStyle: TextStyle(fontSize: 13, color: Color(0xFF111111)),
         );
 
-        expect(request('a'), request('a'));
-        expect(request('a').hashCode, request('a').hashCode);
-        expect(request('a'), isNot(request('b')));
+        test('compares by value', () {
+          CodeHighlightRequest request(String code) =>
+              CodeHighlightRequest(code: code, language: 'dart', theme: resolved);
+
+          expect(request('a'), request('a'));
+          expect(request('a').hashCode, request('a').hashCode);
+          expect(request('a'), isNot(request('b')));
+        });
+
+        test('derives baseStyle and brightness from its theme', () {
+          final request = CodeHighlightRequest(code: 'x', language: 'dart', theme: resolved);
+          expect(request.baseStyle, resolved.codeTextStyle);
+          expect(request.brightness, Brightness.light);
+        });
+
+        test('rejects an empty language or an unresolved theme', () {
+          expect(
+            () => CodeHighlightRequest(code: 'x', language: '', theme: resolved),
+            throwsAssertionError,
+          );
+          expect(
+            () => CodeHighlightRequest(code: 'x', language: 'dart', theme: const CodeBlockThemeData()),
+            throwsAssertionError,
+          );
+        });
+      });
+
+      group('theme changes', () {
+        const light = CodeBlockThemeData(backgroundColor: Color(0xFFFAFAFA));
+        const dark = CodeBlockThemeData(backgroundColor: Color(0xFF0D1117));
+
+        BoxDecoration frameOf(WidgetTester tester) {
+          final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+          return tester.widget<Container>(container.first).decoration! as BoxDecoration;
+        }
+
+        testWidgets('a const block under a changing inherited theme re-highlights', (tester) async {
+          // The parent hands over the identical widget, so only
+          // didChangeDependencies runs — no didUpdateWidget to catch it.
+          _globalRequests.clear();
+          Widget app(CodeBlockThemeData data) => wrap(CodeBlockTheme(data: data, child: _constBlock));
+
+          await tester.pumpWidget(app(dark));
+          await tester.pumpWidget(app(light));
+
+          expect(_globalRequests.map((r) => r.brightness), [Brightness.dark, Brightness.light]);
+        });
+
+        testWidgets('a color-only change repaints at once but re-highlights once, debounced', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          Widget app(Color background) => wrap(
+            CodeBlockTheme(
+              data: CodeBlockThemeData(backgroundColor: background),
+              child: CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call),
+            ),
+          );
+
+          await tester.pumpWidget(app(const Color(0xFF101010)));
+          for (var shade = 0x11; shade < 0x20; shade++) {
+            await tester.pumpWidget(app(Color(0xFF000000 | shade << 16 | shade << 8 | shade)));
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+
+          expect(frameOf(tester).color, const Color(0xFF1F1F1F), reason: 'the frame follows every step');
+          expect(highlighter.requests, hasLength(1), reason: 'color-only steps must not re-highlight per frame');
+
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(highlighter.requests, hasLength(2));
+          expect(highlighter.requests.last.theme.backgroundColor, const Color(0xFF1F1F1F));
+        });
+
+        testWidgets('a light/dark theme animation highlights a bounded number of times', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          Widget app(ThemeMode mode) => MaterialApp(
+            themeMode: mode,
+            theme: ThemeData(extensions: const [AITheme(codeBlockTheme: light)]),
+            darkTheme: ThemeData(
+              brightness: Brightness.dark,
+              extensions: const [AITheme(codeBlockTheme: dark)],
+            ),
+            home: Scaffold(
+              body: CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call),
+            ),
+          );
+
+          await tester.pumpWidget(app(ThemeMode.light));
+          expect(highlighter.requests, hasLength(1));
+
+          await tester.pumpWidget(app(ThemeMode.dark));
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 200));
+
+          // One pass when the lerped background crosses into dark, one settle
+          // pass at the end — not one per animation frame.
+          expect(highlighter.requests.length, lessThanOrEqualTo(3));
+          expect(highlighter.requests.last.brightness, Brightness.dark);
+          expect(highlighter.requests.last.theme.backgroundColor, const Color(0xFF0D1117));
+        });
+
+        testWidgets('a font change re-highlights at once', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          Widget app(double size) => wrap(
+            CodeBlockView(
+              code: 'var x;',
+              language: 'dart',
+              highlighter: highlighter.call,
+              theme: CodeBlockThemeData(codeTextStyle: TextStyle(fontSize: size)),
+            ),
+          );
+
+          await tester.pumpWidget(app(13));
+          await tester.pumpWidget(app(20));
+
+          expect(highlighter.requests.map((r) => r.baseStyle.fontSize), [13, 20]);
+        });
       });
 
       goldenTest(
@@ -865,6 +1038,21 @@ TextSpan _brightnessAwareHighlighter(CodeHighlightRequest request) {
 /// Always throws, for the report-once test — a top-level function so the widget
 /// can stay `const` across pumps.
 TextSpan? _boom(CodeHighlightRequest request) => throw StateError('boom');
+
+/// A second, distinct throwing highlighter.
+TextSpan? _boom2(CodeHighlightRequest request) => throw StateError('boom 2');
+
+/// Requests seen by [_recordGlobally], for a test that needs a `const` widget.
+final _globalRequests = <CodeHighlightRequest>[];
+
+TextSpan? _recordGlobally(CodeHighlightRequest request) {
+  _globalRequests.add(request);
+  return null;
+}
+
+/// One identical widget instance, so its parent's rebuild skips
+/// didUpdateWidget.
+const _constBlock = CodeBlockView(code: 'var x;', language: 'dart', highlighter: _recordGlobally);
 
 TextStyle? _capturedStyle;
 

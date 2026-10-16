@@ -277,6 +277,32 @@ void main() {
         );
       });
 
+      testWidgets('an equal but new code block theme keeps the fence and its highlight', (tester) async {
+        debugClearFenceCaches();
+        var calls = 0;
+        TextSpan? count(CodeHighlightRequest request) {
+          calls++;
+          return null;
+        }
+
+        // Built at runtime, so each pump gets a fresh, non-identical instance.
+        CodeBlockThemeData theme(int argb) => CodeBlockThemeData(backgroundColor: Color(argb));
+        Widget app(CodeBlockThemeData data) => _wrap(
+          AIMarkdownBody(data: '```dart\nvar x = 1;\n```', codeBlockTheme: data, codeHighlighter: count),
+        );
+
+        final first = theme(0xFF222222);
+        final second = theme(0xFF222222);
+        expect(identical(first, second), isFalse);
+
+        await tester.pumpWidget(app(first));
+        final state = tester.state(find.byType(CodeBlockView));
+        await tester.pumpWidget(app(second));
+
+        expect(tester.state(find.byType(CodeBlockView)), same(state));
+        expect(calls, 1);
+      });
+
       testWidgets('an inherited code block theme reaches a cached fence', (tester) async {
         // The fence cache keys on the widget-level theme only, so an ambient
         // one has to be read by the cached CodeBlockView itself.

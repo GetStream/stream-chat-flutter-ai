@@ -33,18 +33,22 @@ typedef CodeHighlighter = TextSpan? Function(CodeHighlightRequest request);
 ///
 /// New fields may be added in later releases without that being a breaking
 /// change, which is why the highlighter receives one object rather than
-/// positional arguments. Don't implement or extend it.
+/// positional arguments.
+///
+/// [baseStyle] and [brightness] are derived from [theme] rather than stored,
+/// so a request can't describe a frame other than the one it carries.
 @immutable
-class CodeHighlightRequest {
+final class CodeHighlightRequest {
   /// Creates a [CodeHighlightRequest]. Public so a host can unit-test its
   /// highlighter; the package builds these itself.
-  const CodeHighlightRequest({
-    required this.code,
-    required this.language,
-    required this.baseStyle,
-    required this.brightness,
-    required this.theme,
-  });
+  ///
+  /// [language] must be non-empty, and [theme] must set at least
+  /// [CodeBlockThemeData.backgroundColor] and
+  /// [CodeBlockThemeData.codeTextStyle].
+  CodeHighlightRequest({required this.code, required this.language, required this.theme})
+    : assert(language.isNotEmpty, 'a request is only made for a fence with a language'),
+      assert(theme.backgroundColor != null, 'the theme must be resolved: backgroundColor is unset'),
+      assert(theme.codeTextStyle != null, 'the theme must be resolved: codeTextStyle is unset');
 
   /// The raw code text, without the surrounding fences.
   final String code;
@@ -53,34 +57,46 @@ class CodeHighlightRequest {
   /// resolution (`js`, `py`, …) are the highlighter's job. Never empty.
   final String language;
 
-  /// The block's monospace style, [CodeBlockThemeData.codeTextStyle] resolved.
-  /// Override only what a token needs and Flutter merges the rest.
-  final TextStyle baseStyle;
-
-  /// The estimated brightness of the block's resolved background, from
-  /// [ThemeData.estimateBrightnessForColor]. Pick the token palette from this.
-  final Brightness brightness;
-
   /// The block's resolved theme, with every field set.
   final CodeBlockThemeData theme;
+
+  /// The block's monospace style: [theme]'s [CodeBlockThemeData.codeTextStyle].
+  /// Override only what a token needs and Flutter merges the rest.
+  TextStyle get baseStyle => theme.codeTextStyle!;
+
+  /// The estimated brightness of [theme]'s background, from
+  /// [ThemeData.estimateBrightnessForColor]. Pick the token palette from this.
+  Brightness get brightness => ThemeData.estimateBrightnessForColor(theme.backgroundColor!);
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CodeHighlightRequest &&
-        other.code == code &&
-        other.language == language &&
-        other.baseStyle == baseStyle &&
-        other.brightness == brightness &&
-        other.theme == theme;
+    // baseStyle and brightness derive from theme, so comparing it covers them.
+    return other is CodeHighlightRequest && other.code == code && other.language == language && other.theme == theme;
   }
 
   @override
-  int get hashCode => Object.hash(code, language, baseStyle, brightness, theme);
+  int get hashCode => Object.hash(code, language, theme);
 
   @override
   String toString() =>
       'CodeHighlightRequest(language: $language, ${code.length} characters, brightness: ${brightness.name})';
+}
+
+/// How a newly resolved theme differs from the one the current span was built
+/// with, which decides how soon the block re-highlights.
+enum _ThemeChange {
+  /// Equal; nothing to do.
+  none,
+
+  /// Only colors moved, as on every frame of a theme animation. The frame
+  /// repaints at once; the re-highlight is debounced through the settle timer.
+  colorsOnly,
+
+  /// The brightness flipped, or the base style's metrics changed — the
+  /// highlighter may pick a different palette, or the old spans would lay out
+  /// wrongly. Re-highlight at once.
+  structural,
 }
 
 /// Above this many characters [CodeBlockView.highlighter] is not called at all.
@@ -177,9 +193,10 @@ class _CodeBlockViewState extends State<CodeBlockView> {
   /// Fires the pass that picks up a tail too short to have triggered one.
   Timer? _settleTimer;
 
-  /// The language a failure was already reported for, so a still-streaming
-  /// fence reports once rather than on every rebuild.
-  String? _failureReportedFor;
+  /// The inputs a failure was already reported for, so a still-streaming fence
+  /// reports once rather than on every rebuild — but a failure under a new
+  /// highlighter or palette (after a theme change) is reported afresh.
+  ({String language, CodeHighlighter highlighter, Brightness brightness})? _failureReportedFor;
 
   /// The frame this block draws, and what the highlighter is told about it.
   ///
@@ -190,20 +207,43 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
   ResolvedCodeBlockTheme get _resolvedTheme => _theme!;
 
-  /// Re-resolves [_theme], and returns whether it changed.
-  bool _resolveTheme() {
-    final theme = ResolvedCodeBlockTheme.resolve(context, widget.theme);
-    if (theme == _theme) return false;
+  /// Re-resolves [_theme], and returns how it changed.
+  _ThemeChange _resolveTheme() {
+    final previous = _theme;
+    final theme = ResolvedCodeBlockTheme.resolve(context, override: widget.theme);
+    if (theme == previous) return _ThemeChange.none;
     _theme = theme;
-    return true;
+    if (previous == null || theme.brightness != previous.brightness) return _ThemeChange.structural;
+    // Compared with the colors masked out: a font, size or height change has to
+    // re-lay-out the spans, which carry the old base style.
+    const mask = Color(0x00000000);
+    final metricsChanged =
+        theme.codeTextStyle.copyWith(color: mask, backgroundColor: mask) !=
+        previous.codeTextStyle.copyWith(color: mask, backgroundColor: mask);
+    return metricsChanged ? _ThemeChange.structural : _ThemeChange.colorsOnly;
   }
 
+  /// (Re)arms the settle pass, which highlights once the inputs stop moving.
+  void _scheduleSettlePass() {
+    _settleTimer?.cancel();
+    _settleTimer = Timer(_kHighlightSettleDelay, () {
+      if (mounted) setState(_highlight);
+    });
+  }
+
+  // There is no `initState` override: the theme is inherited, so it can't be
+  // read before this first call, which is where the first highlight pass runs.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Runs right after `initState` too, which is where the first pass happens:
-    // the theme is inherited, so it can't be read any earlier.
-    if (_resolveTheme()) _highlight();
+    switch (_resolveTheme()) {
+      case _ThemeChange.none:
+        break;
+      case _ThemeChange.colorsOnly:
+        _scheduleSettlePass();
+      case _ThemeChange.structural:
+        _highlight();
+    }
   }
 
   @override
@@ -213,9 +253,9 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     // Anything but more of the same code leaves no colored prefix to keep.
     // The highlighter compares by identity, so hosts should hoist it rather
     // than pass a fresh closure per build.
-    final themeChanged = _resolveTheme();
+    final themeChange = _resolveTheme();
     if (widget.language != oldWidget.language ||
-        themeChanged ||
+        themeChange == _ThemeChange.structural ||
         widget.highlighter != oldWidget.highlighter ||
         !widget.code.startsWith(_highlightedCode)) {
       _highlight();
@@ -224,12 +264,10 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
     if (widget.code.length - _highlightedCode.length >= _kHighlightGrowthThreshold) {
       _highlight();
-    } else if (widget.code.length != _highlightedCode.length) {
-      // Too small a gain to pay for a pass; revisit once the fence settles.
-      _settleTimer?.cancel();
-      _settleTimer = Timer(_kHighlightSettleDelay, () {
-        if (mounted) setState(_highlight);
-      });
+    } else if (widget.code.length != _highlightedCode.length || themeChange == _ThemeChange.colorsOnly) {
+      // Too small a gain to pay for a pass, or a color-only theme step (one per
+      // frame while a theme animates); revisit once things settle.
+      _scheduleSettlePass();
     }
   }
 
@@ -256,15 +294,8 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     if (widget.code.length > _kMaxHighlightChars) return null;
 
     try {
-      final theme = _resolvedTheme;
       final span = highlighter(
-        CodeHighlightRequest(
-          code: widget.code,
-          language: language,
-          baseStyle: theme.codeTextStyle,
-          brightness: theme.brightness,
-          theme: theme.toData(),
-        ),
+        CodeHighlightRequest(code: widget.code, language: language, theme: _resolvedTheme.toData()),
       );
       // Null is the documented "I don't know this one", not a failure.
       if (span == null) return null;
@@ -273,8 +304,9 @@ class _CodeBlockViewState extends State<CodeBlockView> {
       // matters: colors are a nicety, the code is not. `re_highlight`, for
       // one, reports a mid-parse failure on its result rather than throwing,
       // handing back only the tokens it got to.
-      if (span.toPlainText(includeSemanticsLabels: false, includePlaceholders: false) != widget.code) {
-        _reportHighlightFailure(StateError('the highlighter altered the code text'), null, language);
+      final text = span.toPlainText(includeSemanticsLabels: false, includePlaceholders: false);
+      if (text != widget.code) {
+        _reportHighlightFailure(_alteredTextError(widget.code, text), null, language, highlighter);
         return null;
       }
 
@@ -282,17 +314,20 @@ class _CodeBlockViewState extends State<CodeBlockView> {
     } catch (error, stack) {
       // A code block must not take down a message list — but degrading
       // silently would look identical to a language never covered.
-      _reportHighlightFailure(error, stack, language);
+      _reportHighlightFailure(error, stack, language, highlighter);
       return null;
     }
   }
 
   /// Hands a highlighting failure to the host's [FlutterError.onError] before
   /// the block falls back to plain text.
-  void _reportHighlightFailure(Object error, StackTrace? stack, String language) {
-    // A failing fence rebuilds every tick while streaming; report once.
-    if (_failureReportedFor == language) return;
-    _failureReportedFor = language;
+  void _reportHighlightFailure(Object error, StackTrace? stack, String language, CodeHighlighter highlighter) {
+    // A failing fence rebuilds every tick while streaming; report once per
+    // highlighter, language and palette rather than once per pass.
+    final brightness = _resolvedTheme.brightness;
+    final key = (language: language, highlighter: highlighter, brightness: brightness);
+    if (_failureReportedFor == key) return;
+    _failureReportedFor = key;
 
     FlutterError.reportError(
       FlutterErrorDetails(
@@ -300,10 +335,24 @@ class _CodeBlockViewState extends State<CodeBlockView> {
         stack: stack,
         library: 'stream_chat_flutter_ai',
         context: ErrorDescription(
-          'while syntax-highlighting a $language code block of '
-          '${widget.code.length} characters; it will render as plain text',
+          'while syntax-highlighting a $language code block of ${widget.code.length} characters on a '
+          '${brightness.name} background with ${highlighter.runtimeType}; it will render as plain text',
         ),
       ),
+    );
+  }
+
+  /// Describes how a highlighter's output text differs from the code it was
+  /// given, so the report points at the spot rather than just saying so.
+  static StateError _alteredTextError(String expected, String actual) {
+    final shorter = expected.length < actual.length ? expected.length : actual.length;
+    var index = 0;
+    while (index < shorter && expected.codeUnitAt(index) == actual.codeUnitAt(index)) {
+      index++;
+    }
+    return StateError(
+      'the highlighter altered the code text: expected ${expected.length} characters, got '
+      '${actual.length}; first difference at index $index',
     );
   }
 
@@ -366,7 +415,7 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 class _Header extends StatelessWidget {
   const _Header({required this.language, required this.code, required this.theme});
 
-  final String? code;
+  final String code;
   final String? language;
   final ResolvedCodeBlockTheme theme;
 
@@ -379,7 +428,7 @@ class _Header extends StatelessWidget {
         children: [
           if (language != null && language.isNotEmpty) Text(language, style: theme.languageLabelStyle),
           const Spacer(),
-          _CopyButton(code: code ?? '', color: theme.copyIconColor, copiedColor: theme.copiedIconColor),
+          _CopyButton(code: code, color: theme.copyIconColor, copiedColor: theme.copiedIconColor),
         ],
       ),
     );

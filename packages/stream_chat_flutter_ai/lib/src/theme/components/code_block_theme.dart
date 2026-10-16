@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// Imported for the doc links below only; nothing in this file's code uses it.
+// `code_block_view.dart` (the next import) is for doc links only; the code
+// here uses none of it.
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
@@ -18,9 +19,10 @@ const kDefaultCodeForegroundColor = Color(0xFFD4D4D4);
 ///
 /// Every field is nullable, and `null` means "use the default". Unlike the
 /// other component themes the defaults do *not* follow the ambient
-/// [ThemeData]: a code block is the same dark Visual Studio 2015 frame
-/// (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike, because the
-/// token colors come from a [CodeHighlighter] the host picked for that frame.
+/// [ThemeData]: a code block is the same dark frame — a `#1E1E1E` background
+/// with `#D4D4D4` text, the VS Code Dark+ pairing — in light and dark mode
+/// alike, because the token colors come from a [CodeHighlighter] the host
+/// picked for that frame.
 ///
 /// ```dart
 /// MaterialApp(
@@ -66,14 +68,18 @@ class CodeBlockThemeData with Diagnosticable {
   /// The fill behind the header row holding the language label and the copy
   /// button. Defaults to [backgroundColor], so the header doesn't read as a
   /// separate bar unless you ask for one.
+  ///
+  /// The label, icon and text color defaults follow [backgroundColor]'s
+  /// brightness, not this one's — set [languageLabelStyle] and the icon colors
+  /// yourself if the header contrasts strongly with the body.
   final Color? headerBackgroundColor;
 
-  /// The style of the language label, merged over a 12pt monospace style in
-  /// [codeTextStyle]'s color at 60% opacity. An `inherit: false` style replaces
+  /// The style of the language label, merged over a 12pt style in
+  /// [codeTextStyle]'s font and color, at 60% of that color's opacity. An `inherit: false` style replaces
   /// the rest, but still keeps that color unless it sets its own.
   final TextStyle? languageLabelStyle;
 
-  /// The copy button's icon. Defaults to [codeTextStyle]'s color at 60%
+  /// The copy button's icon. Defaults to [codeTextStyle]'s color at 60% of its
   /// opacity.
   final Color? copyIconColor;
 
@@ -196,11 +202,12 @@ class CodeBlockTheme extends InheritedTheme {
   /// A scope layering [data] over the enclosing [CodeBlockTheme] rather than
   /// replacing it. Use it wherever a scope may already be above you.
   static Widget merge({Key? key, required CodeBlockThemeData data, required Widget child}) => Builder(
+    key: key,
     builder: (context) {
       // The enclosing scope, not [of]'s result, which would make `data` a full
       // snapshot of [AITheme] instead of the overrides it documents.
       final outer = context.dependOnInheritedWidgetOfExactType<CodeBlockTheme>()?.data;
-      return CodeBlockTheme(key: key, data: outer?.merge(data) ?? data, child: child);
+      return CodeBlockTheme(data: outer?.merge(data) ?? data, child: child);
     },
   );
 
@@ -210,7 +217,7 @@ class CodeBlockTheme extends InheritedTheme {
   /// The code block theme at [context]: the nearest [CodeBlockTheme] layered
   /// over [AITheme]'s.
   ///
-  /// Depends on both, so code blocks repaint when either changes. Never `null`;
+  /// Depends on both, so code blocks rebuild when either changes. Never `null`;
   /// with neither present every field is `null` and takes its default.
   static CodeBlockThemeData of(BuildContext context) {
     final local = context.dependOnInheritedWidgetOfExactType<CodeBlockTheme>();
