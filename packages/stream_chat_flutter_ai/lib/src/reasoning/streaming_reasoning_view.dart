@@ -14,16 +14,25 @@ import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 
+/// Live text shorter than this, arriving as the panel first appears, is
+/// revealed from its start; anything longer — a view built mid-stream — shows
+/// in full rather than replaying the whole trace.
+const _kRevealFromStartLimit = 2000;
+
 /// {@template streamingReasoningView}
 /// A model's reasoning (its "thinking"), shown alongside its reply.
 ///
 /// While the model thinks, the reasoning is open under a "Thinking… 7s"
-/// header: a panel that grows with the thoughts up to [maxExpandedHeight],
-/// then scrolls and keeps the newest in view, revealing new text smoothly as it
-/// arrives. When the model is done the view folds into "Thought for 12s" and
-/// its [summary], and tapping the header opens the whole reasoning again. Once
-/// the reader taps the header, their choice wins over the automatic opening
-/// and folding.
+/// header: a panel that grows with the thoughts up to
+/// [ReasoningThemeData.maxExpandedHeight], then scrolls and keeps the newest in
+/// view, revealing new text smoothly as it arrives. When the model is done the
+/// view folds into "Thought for 12s" and its [summary], and tapping the header
+/// opens the whole reasoning again.
+///
+/// Two flags pick what happens when the reader hasn't chosen:
+/// [showsLiveReasoning] whether the reasoning is open while the model thinks,
+/// and [expandedWhenDone] whether it stays open once it is done. Once the
+/// reader taps the header, their choice wins over both.
 ///
 /// ```dart
 /// StreamingReasoningView(text: reasoning, isThinking: answer.isEmpty, duration: elapsed)
@@ -32,11 +41,14 @@ import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart
 /// For an `ai_reasoning` step, [StreamingReasoningView.part] reads the status,
 /// duration and summary from the [AIReasoningPart].
 ///
+/// The header keeps counting for as long as [isThinking] is `true`, so a host
+/// whose stream stalls or fails has to end the thinking (pass `false`) itself.
+///
 /// Reasoning can run to tens of kilobytes and grow many times a second, so the
 /// view only lays out what changes: the text is split into paragraphs at blank
 /// lines, the paragraphs are built lazily, and only the paragraph still being
 /// written is built again. Each paragraph renders inline markdown — bold,
-/// italics, inline code and links.
+/// italics, strikethrough, inline code and links.
 ///
 /// Folding shrinks the panel in place over [foldDuration] along [foldCurve],
 /// so whatever sits below glides up rather than jumping. A reply that only
@@ -61,16 +73,15 @@ class StreamingReasoningView extends StatefulWidget {
     this.duration,
     this.summary,
     this.footnote,
-    this.initiallyExpanded = false,
+    this.expandedWhenDone = false,
     this.showsLiveReasoning = true,
-    this.maxExpandedHeight,
     this.theme,
     this.onExpandedChanged,
     this.onTapLink,
-  }) : assert(maxExpandedHeight == null || maxExpandedHeight >= 0, 'maxExpandedHeight must not be negative');
+  });
 
   /// Shows a reasoning step: its full [text] when the app has it, otherwise
-  /// the step's [AIReasoningPart.preview] (or, failing that, its summary).
+  /// the step's [AIReasoningPart.preview].
   ///
   /// [AIReasoningPart.isStreaming], [AIReasoningPart.duration] and
   /// [AIReasoningPart.summary] fill [isThinking], [duration] and [summary].
@@ -79,22 +90,20 @@ class StreamingReasoningView extends StatefulWidget {
     Key? key,
     String? text,
     String? footnote,
-    bool initiallyExpanded = false,
+    bool expandedWhenDone = false,
     bool showsLiveReasoning = true,
-    double? maxExpandedHeight,
     ReasoningThemeData? theme,
     ValueChanged<bool>? onExpandedChanged,
     MarkdownTapLinkCallback? onTapLink,
   }) : this(
          key: key,
-         text: text ?? part.preview ?? part.summary ?? '',
+         text: text ?? part.preview ?? '',
          isThinking: part.isStreaming,
          duration: part.duration,
          summary: part.summary,
          footnote: footnote,
-         initiallyExpanded: initiallyExpanded,
+         expandedWhenDone: expandedWhenDone,
          showsLiveReasoning: showsLiveReasoning,
-         maxExpandedHeight: maxExpandedHeight,
          theme: theme,
          onExpandedChanged: onExpandedChanged,
          onTapLink: onTapLink,
@@ -111,7 +120,7 @@ class StreamingReasoningView extends StatefulWidget {
   static const Curve foldCurve = Curves.easeInOutCubic;
 
   /// The reasoning so far. Blank lines separate paragraphs, and inline
-  /// markdown (bold, italics, code and links) is rendered.
+  /// markdown (bold, italics, strikethrough, code and links) is rendered.
   final String text;
 
   /// Whether the model is still thinking. While it is, the header counts the
@@ -120,36 +129,36 @@ class StreamingReasoningView extends StatefulWidget {
 
   /// How long the model has thought.
   ///
-  /// While [isThinking], the header counts on from it, a second at a time;
-  /// leave it `null` to count from when this view first saw the model
-  /// thinking. Once done, the header reads "Thought for" this — or, when
-  /// `null`, how long this view saw the model think.
+  /// While [isThinking], the header counts on from it; leave it `null` to
+  /// count from when this view first saw the model thinking. Once done, the
+  /// header reads "Thought for" this — or, when `null`, how long this view saw
+  /// the model think.
   final Duration? duration;
 
   /// A one-line summary, shown beside the header while the finished reasoning
   /// is folded.
   final String? summary;
 
-  /// A note under the open reasoning, such as how long it is kept. Shown only
-  /// once the model is done, and only when the reader opened the reasoning
-  /// (or [initiallyExpanded] is set) — appearing as the reasoning folds by
-  /// itself would push the reply down just as it starts.
+  /// A note at the foot of the open reasoning, such as how long it is kept.
+  ///
+  /// It sits inside the panel, so it never shows while [text] is empty. Shown
+  /// only once the model is done, and only when the reader opened the
+  /// reasoning (or [expandedWhenDone] is set) — appearing as the reasoning
+  /// folds by itself would push the reply down just as it starts.
   final String? footnote;
 
-  /// Whether the reasoning is open once the model is done. Defaults to `false`,
-  /// folding it.
-  final bool initiallyExpanded;
+  /// Whether the reasoning stays open once the model is done. Defaults to
+  /// `false`, folding it. Pairs with [showsLiveReasoning], which covers the
+  /// time the model is still thinking.
+  final bool expandedWhenDone;
 
   /// Whether the reasoning is open while the model thinks. Defaults to `true`.
   final bool showsLiveReasoning;
 
-  /// How tall the open reasoning grows before it scrolls.
-  ///
-  /// See [ReasoningThemeData.maxExpandedHeight]; defaults to 260.
-  final double? maxExpandedHeight;
-
   /// Overrides for this view, layered over the ambient [ReasoningTheme]. Its
-  /// text styles merge over the themed ones rather than replacing them.
+  /// text styles merge over the themed ones rather than replacing them. Set
+  /// [ReasoningThemeData.maxExpandedHeight] here to change how tall the open
+  /// reasoning grows.
   final ReasoningThemeData? theme;
 
   /// Called when the reasoning opens or folds, whether the reader tapped the
@@ -182,15 +191,26 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// first use, so a finished step never allocates a ticker.
   AnimationController? _activity;
 
-  /// Ticks [_elapsed] once a second while the model thinks.
+  /// Rebuilds the header once a second while the model thinks.
   Timer? _clock;
 
-  /// How long the model has thought, as the header shows it while it thinks.
-  late Duration _elapsed;
+  /// How long the model had thought at [_countedSince]: the host's duration,
+  /// or zero.
+  var _countedFrom = Duration.zero;
+
+  /// The frame time at which the count was at [_countedFrom]. Frame time
+  /// rather than a count of timer ticks, so a late or skipped tick never makes
+  /// the header lag; and in tests it moves with `pump`.
+  var _countedSince = Duration.zero;
 
   /// How long this view saw the model think, for a finished step whose
   /// [StreamingReasoningView.duration] does not say.
   Duration? _thoughtFor;
+
+  /// Whether the next panel to appear reveals its text from the start: live
+  /// text arriving for the first time does, a reader reopening the panel
+  /// doesn't.
+  var _revealFromStart = true;
 
   bool _reduceMotion = false;
   bool _didInitDependencies = false;
@@ -198,14 +218,17 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// An expansion change waiting for the frame to end before it is reported.
   bool? _pendingExpanded;
 
-  bool get _opensByDefault => widget.isThinking ? widget.showsLiveReasoning : widget.initiallyExpanded;
+  bool get _opensByDefault => widget.isThinking ? widget.showsLiveReasoning : widget.expandedWhenDone;
+
+  static Duration get _now => SchedulerBinding.instance.currentSystemFrameTimeStamp;
+
+  Duration get _elapsed => _countedFrom + (_now - _countedSince);
 
   @override
   void initState() {
     super.initState();
     _open = _opensByDefault;
-    _elapsed = widget.duration ?? Duration.zero;
-    // Live reasoning joins the layout at no height and unfolds once it
+    // Live reasoning joins the layout at no height and unfolds once its text
     // appears, rather than pushing everything below it aside in one frame.
     _fold = AnimationController(
       vsync: this,
@@ -213,7 +236,8 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       value: _open && !widget.isThinking ? 1 : 0,
     )..addStatusListener(_onFoldStatus);
     _foldCurve = CurvedAnimation(parent: _fold, curve: StreamingReasoningView.foldCurve);
-    if (widget.isThinking) _startClock();
+    _revealFromStart = widget.isThinking;
+    if (widget.isThinking) _startCount(widget.duration);
   }
 
   @override
@@ -225,10 +249,10 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
     if (!_didInitDependencies) {
       _didInitDependencies = true;
-      if (_open && _fold.value == 0) _animateFold(open: true);
+      _unfoldWhenTextArrives();
     } else if (changed && _reduceMotion) {
       // Reduced motion switched on mid-fold: jump to where it was going.
-      _fold.value = _open ? 1 : 0;
+      _fold.value = _open && widget.text.isNotEmpty ? 1 : 0;
     }
     _syncActivity();
   }
@@ -239,24 +263,23 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
     if (oldWidget.isThinking != widget.isThinking) {
       if (widget.isThinking) {
-        _elapsed = widget.duration ?? Duration.zero;
-        _startClock();
+        _thoughtFor = null;
+        _startCount(widget.duration);
       } else {
+        _thoughtFor = _elapsed;
         _stopClock();
-        final reported = widget.duration ?? Duration.zero;
-        _thoughtFor = reported > _elapsed ? reported : _elapsed;
       }
     } else if (widget.isThinking && widget.duration != oldWidget.duration && widget.duration != null) {
-      // The host moved the count on; carry on from there, a full second later.
-      _elapsed = widget.duration!;
-      _startClock();
+      // The host moved the count on; carry on from there.
+      _startCount(widget.duration);
     }
 
     if (oldWidget.isThinking != widget.isThinking ||
         oldWidget.showsLiveReasoning != widget.showsLiveReasoning ||
-        oldWidget.initiallyExpanded != widget.initiallyExpanded) {
+        oldWidget.expandedWhenDone != widget.expandedWhenDone) {
       _setOpen(_choice ?? _opensByDefault);
     }
+    _unfoldWhenTextArrives();
     _syncActivity();
   }
 
@@ -269,10 +292,12 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
     super.dispose();
   }
 
-  void _startClock() {
+  void _startCount(Duration? from) {
+    _countedFrom = from ?? Duration.zero;
+    _countedSince = _now;
     _clock?.cancel();
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _elapsed += const Duration(seconds: 1));
+      if (mounted) setState(() {});
     });
   }
 
@@ -292,8 +317,18 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   }
 
   void _onFoldStatus(AnimationStatus status) {
-    // Folded all the way: drop the panel from the tree.
-    if (status == AnimationStatus.dismissed && !_open && mounted) setState(() {});
+    if (status != AnimationStatus.dismissed || _open || !mounted) return;
+    // Folded all the way: drop the panel from the tree. A panel the reader
+    // opens again shows its text in full.
+    setState(() => _revealFromStart = false);
+  }
+
+  /// Opens the panel once there is something in it: an open view with no text
+  /// yet stays at no height, so its first text unfolds rather than appears.
+  void _unfoldWhenTextArrives() {
+    if (!_open || widget.text.isEmpty) return;
+    if (_fold.status == AnimationStatus.forward || _fold.isCompleted) return;
+    _animateFold(open: true);
   }
 
   void _animateFold({required bool open}) {
@@ -309,7 +344,11 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   void _setOpen(bool open) {
     if (open == _open) return;
     setState(() => _open = open);
-    _animateFold(open: open);
+    if (open) {
+      _unfoldWhenTextArrives();
+    } else {
+      _animateFold(open: false);
+    }
     _reportExpanded(open);
   }
 
@@ -343,35 +382,34 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
   String _title(AITranslations translations) {
     if (widget.isThinking) {
-      if (_elapsed < const Duration(seconds: 1)) return translations.reasoningThinking;
-      return translations.reasoningThinkingFor(translations.reasoningDuration(_elapsed));
+      final elapsed = _elapsed;
+      if (elapsed < const Duration(seconds: 1)) return translations.reasoningThinking;
+      return translations.reasoningThinkingFor(elapsed);
     }
+    // The host's figure wins; failing that, what this view measured.
     final duration = widget.duration ?? _thoughtFor;
-    if (duration == null) return translations.reasoningThought;
+    if (duration == null) return translations.reasoningTitle;
     const second = Duration(seconds: 1);
-    return translations.reasoningThoughtFor(translations.reasoningDuration(duration < second ? second : duration));
+    return translations.reasoningThoughtFor(duration < second ? second : duration);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = ResolvedReasoningTheme.resolve(
-      context,
-      override: (widget.theme ?? const ReasoningThemeData()).copyWith(maxExpandedHeight: widget.maxExpandedHeight),
-    );
+    final theme = ResolvedReasoningTheme.resolve(context, override: widget.theme);
     final translations = AITranslations.of(context);
     final title = _title(translations);
     final summary = widget.summary;
     final showsSummary = summary != null && summary.isNotEmpty && !widget.isThinking && !_open;
     final showsPanel = widget.text.isNotEmpty && (_open || !_fold.isDismissed);
     final showsFootnote =
-        widget.footnote != null && !widget.isThinking && ((_choice ?? false) || widget.initiallyExpanded);
+        widget.footnote != null && !widget.isThinking && ((_choice ?? false) || widget.expandedWhenDone);
 
     final header = Semantics(
       container: true,
       button: true,
       expanded: _open,
       label: showsSummary ? '$title. $summary' : title,
-      hint: _open ? translations.hideReasoningHint : translations.showReasoningHint,
+      hint: _open ? translations.reasoningHideHint : translations.reasoningShowHint,
       onTap: _toggle,
       excludeSemantics: true,
       child: MouseRegion(
@@ -418,6 +456,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
                             _ReasoningPanel(
                               text: widget.text,
                               isLive: widget.isThinking,
+                              revealFromStart: _revealFromStart && widget.text.length < _kRevealFromStartLimit,
                               reduceMotion: _reduceMotion,
                               theme: theme,
                               onTapLink: widget.onTapLink,
@@ -477,7 +516,26 @@ class _Header extends StatelessWidget {
     final summaryColor = theme.textStyle.color!;
     final rtl = Directionality.of(context) == TextDirection.rtl;
 
-    Widget titleText = Text(title, style: titleStyle, maxLines: 1, softWrap: false);
+    // One text, so a long title and the summary share the line: the summary
+    // gives way first, and the title ellipsizes rather than overflowing.
+    Widget titleText = Text.rich(
+      TextSpan(
+        text: title,
+        children: [
+          if (summary case final summary?)
+            TextSpan(
+              text: '  $summary',
+              style: theme.textStyle.copyWith(
+                color: summaryColor.withValues(alpha: summaryColor.a * 0.8),
+                fontFeatures: const [],
+              ),
+            ),
+        ],
+      ),
+      style: titleStyle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
     Widget icon = Icon(Icons.psychology_outlined, size: iconSize, color: theme.iconColor);
     if (activity case final activity?) {
       titleText = _Shimmer(
@@ -494,18 +552,7 @@ class _Header extends StatelessWidget {
       children: [
         icon,
         const SizedBox(width: 6),
-        titleText,
-        if (summary case final summary?) ...[
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              summary,
-              style: theme.textStyle.copyWith(color: summaryColor.withValues(alpha: summaryColor.a * 0.8)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+        Flexible(child: titleText),
         const SizedBox(width: 4),
         RotationTransition(
           // A quarter turn towards the reading direction's "down".
@@ -576,6 +623,7 @@ class _ReasoningPanel extends StatefulWidget {
   const _ReasoningPanel({
     required this.text,
     required this.isLive,
+    required this.revealFromStart,
     required this.reduceMotion,
     required this.theme,
     required this.onTapLink,
@@ -583,6 +631,10 @@ class _ReasoningPanel extends StatefulWidget {
 
   final String text;
   final bool isLive;
+
+  /// Whether [text] is revealed from its start as the panel appears, rather
+  /// than shown in full. Read once, when the panel mounts.
+  final bool revealFromStart;
   final bool reduceMotion;
   final ResolvedReasoningTheme theme;
   final MarkdownTapLinkCallback? onTapLink;
@@ -614,8 +666,12 @@ class _ReasoningPanelState extends State<_ReasoningPanel> {
   @override
   void initState() {
     super.initState();
-    // Opened text shows in full; only what arrives from here on is revealed.
-    _reveal = ReasoningTextReveal(widget.text)..addListener(_onShown);
+    // Live text arriving for the first time is revealed from its start;
+    // reopened text shows in full, and only what arrives from here on is
+    // revealed.
+    final fromStart = widget.revealFromStart && widget.isLive && !widget.reduceMotion;
+    _reveal = ReasoningTextReveal(fromStart ? '' : widget.text)..addListener(_onShown);
+    if (fromStart) _reveal.update(widget.text, animated: true);
     _syncViews();
     // A finished trace opens at its start; a live one at its end.
     if (widget.isLive) _scheduleFollow();
@@ -628,9 +684,16 @@ class _ReasoningPanelState extends State<_ReasoningPanel> {
     // the current callback through [_onTapLink]: a host passing a fresh closure
     // every build must not rebuild every paragraph.
     if (oldWidget.theme != widget.theme || (oldWidget.onTapLink == null) != (widget.onTapLink == null)) _views = [];
-    if (oldWidget.isLive && !widget.isLive) _reveal.hurry();
-    _reveal.update(widget.text, animated: widget.isLive && !widget.reduceMotion);
-    if (widget.reduceMotion && _reveal.isRevealing) _reveal.update(widget.text, animated: false);
+    // Text that doesn't carry on from the old — a new trace — starts out
+    // followed, whatever the reader did with the last one.
+    if (!widget.text.startsWith(oldWidget.text)) _following = true;
+    // Once the model stops, the backlog catches up quickly rather than
+    // snapping in; text arriving after that is shown at once.
+    _reveal.hurried = !widget.isLive;
+    _reveal.update(
+      widget.text,
+      animated: !widget.reduceMotion && (widget.isLive || _reveal.isRevealing),
+    );
     _syncViews();
   }
 
@@ -673,11 +736,12 @@ class _ReasoningPanelState extends State<_ReasoningPanel> {
     _followScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _followScheduled = false;
-      if (!mounted || !_following || !_scroll.hasClients) return;
+      // Never while the reader is dragging: the jump would fight their finger.
+      if (!mounted || !_following || _userScrolling || !_scroll.hasClients) return;
       final position = _scroll.position;
       if (position.pixels == position.maxScrollExtent) return;
-      // Either way: a lazy list estimates the extent of paragraphs it hasn't
-      // built, so a jump can land past the real end, found once it is laid
+      // A lazy list estimates the extent of paragraphs it hasn't built, so the
+      // jump can land short of or past the real end, found once it is laid
       // out. Check again then.
       _scroll.jumpTo(position.maxScrollExtent);
       if (attempts > 1) _scheduleFollow(attempts - 1);
@@ -729,6 +793,7 @@ class _ReasoningPanelState extends State<_ReasoningPanel> {
               stops: const [0, 0.14],
             ).createShader(bounds),
             child: _NoIntrinsics(
+              height: widget.theme.maxExpandedHeight,
               child: ListView.separated(
                 controller: _scroll,
                 shrinkWrap: true,
@@ -745,20 +810,36 @@ class _ReasoningPanelState extends State<_ReasoningPanel> {
   }
 }
 
-/// Reports no intrinsic size for [child] instead of asking it.
+/// Reports a fixed intrinsic size for [child] instead of asking it.
 ///
 /// A lazy list can't measure itself without building every paragraph, so it
 /// throws when asked — and hosts ask often: a chat bubble sized with
-/// `IntrinsicWidth`, a `Table`. Answering zero lets the panel sit in one,
-/// sized by whatever else is there, such as the header.
+/// `IntrinsicWidth`, a `Table`. Answering no width lets the panel sit in one,
+/// as wide as whatever else is there, such as the header; answering the
+/// panel's maximum [height] makes room for it however long the text is.
 class _NoIntrinsics extends SingleChildRenderObjectWidget {
-  const _NoIntrinsics({required super.child});
+  const _NoIntrinsics({required this.height, required super.child});
+
+  final double height;
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderNoIntrinsics();
+  RenderObject createRenderObject(BuildContext context) => _RenderNoIntrinsics(height);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderNoIntrinsics renderObject) => renderObject.height = height;
 }
 
 class _RenderNoIntrinsics extends RenderProxyBox {
+  _RenderNoIntrinsics(this._height);
+
+  double get height => _height;
+  double _height;
+  set height(double value) {
+    if (value == _height) return;
+    _height = value;
+    markNeedsLayout();
+  }
+
   @override
   double computeMinIntrinsicWidth(double height) => 0;
 
@@ -766,10 +847,10 @@ class _RenderNoIntrinsics extends RenderProxyBox {
   double computeMaxIntrinsicWidth(double height) => 0;
 
   @override
-  double computeMinIntrinsicHeight(double width) => 0;
+  double computeMinIntrinsicHeight(double width) => _height;
 
   @override
-  double computeMaxIntrinsicHeight(double width) => 0;
+  double computeMaxIntrinsicHeight(double width) => _height;
 
   @override
   Size computeDryLayout(BoxConstraints constraints) => constraints.smallest;

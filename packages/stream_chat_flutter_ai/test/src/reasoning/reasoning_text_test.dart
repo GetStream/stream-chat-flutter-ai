@@ -1,7 +1,6 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/reasoning_text.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() {
   group('splitReasoningParagraphs', () {
@@ -34,6 +33,21 @@ void main() {
   group('reasoningInlineSpans', () {
     const code = TextStyle(fontFamily: 'monospace');
     const link = TextStyle(decoration: TextDecoration.underline);
+
+    test('renders a heading line as bold, but not a hashtag', () {
+      final heading = reasoningInlineSpans('## Plan', codeStyle: code, linkStyle: link).single as TextSpan;
+      expect(heading.style!.fontWeight, FontWeight.w600);
+      expect(heading.toPlainText(), 'Plan');
+
+      final hashtag = reasoningInlineSpans('#hashtag', codeStyle: code, linkStyle: link);
+      expect(TextSpan(children: hashtag).toPlainText(), '#hashtag');
+      expect(hashtag.single, isA<TextSpan>().having((s) => s.style, 'style', isNull));
+    });
+
+    test('strikes through ~~text~~', () {
+      final span = reasoningInlineSpans('~~gone~~', codeStyle: code, linkStyle: link).single as TextSpan;
+      expect(span.style!.decoration, TextDecoration.lineThrough);
+    });
 
     test('keeps plain text as written, without escaping it', () {
       final spans = reasoningInlineSpans('a < b & c', codeStyle: code, linkStyle: link);
@@ -73,7 +87,7 @@ void main() {
       addTearDown(reveal.dispose);
       reveal
         ..update('x' * 60, animated: true)
-        ..hurry()
+        ..hurried = true
         ..tick();
       expect(reveal.shown.length, 30);
     });
@@ -100,17 +114,6 @@ void main() {
       expect(reveal.shown, 'a');
       reveal.tick();
       expect(reveal.shown, 'a😀');
-    });
-  });
-
-  group('DefaultAITranslations.reasoningDuration', () {
-    const translations = DefaultAITranslations();
-
-    test('formats seconds, then minutes and seconds', () {
-      expect(translations.reasoningDuration(const Duration(seconds: 7)), '7s');
-      expect(translations.reasoningDuration(const Duration(milliseconds: 12900)), '12s');
-      expect(translations.reasoningDuration(const Duration(seconds: 60)), '1m');
-      expect(translations.reasoningDuration(const Duration(seconds: 125)), '2m 5s');
     });
   });
 }
