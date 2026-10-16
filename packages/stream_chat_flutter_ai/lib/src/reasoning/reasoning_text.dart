@@ -66,11 +66,17 @@ class ReasoningParagraphs {
 @internal
 typedef ReasoningLinkRecognizer = GestureRecognizer? Function(String text, String? href, String? title);
 
+/// A markdown heading: one to six `#`s, a space, then the heading.
+final _heading = RegExp(r'^\s*#{1,6}\s+(.*\S)\s*$');
+
 /// The inline markdown of one paragraph of reasoning as spans: bold, italics,
-/// inline code and links, as reasoning models write them.
+/// strikethrough, inline code and links, as reasoning models write them.
 ///
 /// A heading line reads as a bold line, since a paragraph of thinking has no
-/// document to structure. Everything else is shown as written.
+/// document to structure; an image reads as its alt text and a hard line break
+/// as a newline. Any other markup — lists, quotes, tables — is shown as
+/// written. Should parsing ever fail, the error is reported and the paragraph
+/// is shown as plain text.
 @internal
 List<InlineSpan> reasoningInlineSpans(
   String paragraph, {
@@ -80,16 +86,28 @@ List<InlineSpan> reasoningInlineSpans(
 }) {
   final source = paragraph
       .split('\n')
-      .map((line) {
-        final trimmed = line.trimLeft();
-        if (!trimmed.startsWith('#')) return line;
-        final heading = trimmed.replaceFirst(RegExp('^#+'), '').trim();
-        return heading.isEmpty ? line : '**$heading**';
-      })
+      .map(
+        (line) => switch (_heading.firstMatch(line)) {
+          final match? => '**${match[1]}**',
+          null => line,
+        },
+      )
       .join('\n');
 
-  final nodes = md.Document(encodeHtml: false).parseInline(source);
-  return [for (final node in nodes) _span(node, codeStyle, linkStyle, linkRecognizer)];
+  try {
+    final nodes = md.Document(encodeHtml: false, inlineSyntaxes: [md.StrikethroughSyntax()]).parseInline(source);
+    return [for (final node in nodes) _span(node, codeStyle, linkStyle, linkRecognizer)];
+  } on Object catch (error, stack) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'stream_chat_flutter_ai',
+        context: ErrorDescription('while parsing a reasoning paragraph'),
+      ),
+    );
+    return [TextSpan(text: paragraph)];
+  }
 }
 
 InlineSpan _span(md.Node node, TextStyle codeStyle, TextStyle linkStyle, ReasoningLinkRecognizer? linkRecognizer) {
@@ -142,7 +160,10 @@ class ReasoningTextReveal extends ChangeNotifier {
 
   String _target;
   Timer? _timer;
-  var _hurried = false;
+
+  /// Whether to reveal the rest quickly — half of what is left per tick rather
+  /// than a sixth — for when the model has stopped thinking.
+  bool hurried = false;
 
   /// Whether text is still being revealed.
   bool get isRevealing => _timer != null;
@@ -159,17 +180,13 @@ class ReasoningTextReveal extends ChangeNotifier {
     _timer ??= Timer.periodic(interval, (_) => tick());
   }
 
-  /// Reveals the rest quickly — half of what is left per tick — for when the
-  /// model has stopped thinking.
-  void hurry() => _hurried = true;
-
   /// Reveals the next slice. Public for tests; the timer calls it.
   @visibleForTesting
   void tick() {
     final backlog = _target.length - _shown.length;
     if (backlog <= 0) return _stop();
 
-    var end = _shown.length + math.max<int>(1, backlog ~/ (_hurried ? 2 : 6));
+    var end = _shown.length + math.max<int>(1, backlog ~/ (hurried ? 2 : 6));
     // Never split a surrogate pair, which would paint half an emoji.
     if (end < _target.length && _isHighSurrogate(_target.codeUnitAt(end - 1))) end++;
     _shown = _target.substring(0, end);
@@ -188,7 +205,6 @@ class ReasoningTextReveal extends ChangeNotifier {
   void _stop() {
     _timer?.cancel();
     _timer = null;
-    _hurried = false;
   }
 
   @override

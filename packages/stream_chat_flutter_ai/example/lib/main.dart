@@ -243,8 +243,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
   final _scrollController = ScrollController();
   final _messages = <_Message>[];
 
-  /// Non-null while the fake assistant is "thinking", so the pending reply can
-  /// be cancelled when the user taps stop.
+  /// Non-null while a pause is pending — before the reasoning starts, or while
+  /// it folds before the reply — so it can be cancelled when the user taps
+  /// stop.
   Timer? _thinkingTimer;
 
   /// Non-null while chunks of the reasoning are still being delivered.
@@ -613,13 +614,13 @@ class DutchTranslations implements AITranslations {
   String get reasoningThinking => 'Aan het nadenken…';
 
   @override
-  String reasoningThinkingFor(String duration) => 'Aan het nadenken… $duration';
+  String reasoningThinkingFor(Duration elapsed) => 'Aan het nadenken… ${reasoningDuration(elapsed)}';
 
   @override
-  String get reasoningThought => 'Denkproces';
+  String get reasoningTitle => 'Denkproces';
 
   @override
-  String reasoningThoughtFor(String duration) => '$duration nagedacht';
+  String reasoningThoughtFor(Duration duration) => '${reasoningDuration(duration)} nagedacht';
 
   @override
   String reasoningDuration(Duration duration) {
@@ -630,8 +631,8 @@ class DutchTranslations implements AITranslations {
   }
 
   @override
-  String get showReasoningHint => 'Toont de redenering van het model';
+  String get reasoningShowHint => 'Toont de redenering van het model';
 
   @override
-  String get hideReasoningHint => 'Verbergt de redenering van het model';
+  String get reasoningHideHint => 'Verbergt de redenering van het model';
 }

@@ -134,27 +134,32 @@ abstract class AITranslations {
   /// See [StreamingReasoningView].
   String get reasoningThinking;
 
-  /// The reasoning header while the model thinks, where `duration` is how long
-  /// it has thought so far, already formatted by [reasoningDuration].
-  String reasoningThinkingFor(String duration);
+  /// The reasoning header while the model thinks, where `elapsed` is how long
+  /// it has thought so far. [DefaultAITranslations] formats it with
+  /// [reasoningDuration]: `Thinking… 7s`.
+  String reasoningThinkingFor(Duration elapsed);
 
   /// The reasoning header once the model is done, when how long it thought is
-  /// unknown.
-  String get reasoningThought;
+  /// unknown: `Thought process`.
+  String get reasoningTitle;
 
   /// The reasoning header once the model is done, where `duration` is how long
-  /// it thought, already formatted by [reasoningDuration].
-  String reasoningThoughtFor(String duration);
+  /// it thought, never under a second. [DefaultAITranslations] formats it with
+  /// [reasoningDuration]: `Thought for 12s`.
+  String reasoningThoughtFor(Duration duration);
 
-  /// How long the model thought, in whole seconds: `7s`, or `1m 5s` from a
-  /// minute on. Fills [reasoningThinkingFor] and [reasoningThoughtFor].
+  /// How long the model thought, in whole seconds rounded down: `7s` under a
+  /// minute, then `1m 5s`, or `2m` on the minute. Minutes keep counting past
+  /// the hour (`75m 3s`) — reasoning that long is rare enough not to need
+  /// hours. Used by [DefaultAITranslations]'s [reasoningThinkingFor] and
+  /// [reasoningThoughtFor].
   String reasoningDuration(Duration duration);
 
   /// The screen-reader hint on the folded reasoning header.
-  String get showReasoningHint;
+  String get reasoningShowHint;
 
   /// The screen-reader hint on the open reasoning header.
-  String get hideReasoningHint;
+  String get reasoningHideHint;
 
   /// The screen-reader summary of a chart.
   ///
@@ -229,13 +234,13 @@ class DefaultAITranslations extends AITranslations {
   String get reasoningThinking => 'Thinking…';
 
   @override
-  String reasoningThinkingFor(String duration) => 'Thinking… $duration';
+  String reasoningThinkingFor(Duration elapsed) => 'Thinking… ${reasoningDuration(elapsed)}';
 
   @override
-  String get reasoningThought => 'Thought process';
+  String get reasoningTitle => 'Thought process';
 
   @override
-  String reasoningThoughtFor(String duration) => 'Thought for $duration';
+  String reasoningThoughtFor(Duration duration) => 'Thought for ${reasoningDuration(duration)}';
 
   @override
   String reasoningDuration(Duration duration) {
@@ -246,10 +251,10 @@ class DefaultAITranslations extends AITranslations {
   }
 
   @override
-  String get showReasoningHint => "Shows the model's reasoning";
+  String get reasoningShowHint => "Shows the model's reasoning";
 
   @override
-  String get hideReasoningHint => "Hides the model's reasoning";
+  String get reasoningHideHint => "Hides the model's reasoning";
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
