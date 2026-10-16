@@ -51,9 +51,9 @@ class ReasoningThemeData with Diagnosticable {
   /// [ColorScheme.outline].
   final TextStyle? footnoteStyle;
 
-  /// The highlight sweeping across the header while the model thinks, and the
-  /// color of the rule beside the panel meanwhile. Defaults to
-  /// [ColorScheme.primary].
+  /// The highlight sweeping across the header while the model thinks, the
+  /// color of the rule beside the panel meanwhile, and the color of links in
+  /// the reasoning. Defaults to [ColorScheme.primary].
   final Color? shimmerColor;
 
   /// The 2pt rule beside the reasoning once the model is done. Defaults to

@@ -5,6 +5,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() {
+  group('DefaultAITranslations reasoning', () {
+    const translations = DefaultAITranslations();
+
+    test('reasoningDuration formats seconds, then minutes and seconds', () {
+      expect(translations.reasoningDuration(const Duration(seconds: 7)), '7s');
+      expect(translations.reasoningDuration(const Duration(milliseconds: 12900)), '12s');
+      expect(translations.reasoningDuration(const Duration(seconds: 60)), '1m');
+      expect(translations.reasoningDuration(const Duration(seconds: 125)), '2m 5s');
+      expect(translations.reasoningDuration(const Duration(minutes: 75, seconds: 3)), '75m 3s');
+    });
+
+    test('the headers format their duration', () {
+      expect(translations.reasoningThinkingFor(const Duration(seconds: 7)), 'Thinking… 7s');
+      expect(translations.reasoningThoughtFor(const Duration(seconds: 65)), 'Thought for 1m 5s');
+    });
+  });
+
   group('AITranslations.of', () {
     testWidgets('falls back to the English defaults with no scope in the tree', (tester) async {
       late AITranslations resolved;

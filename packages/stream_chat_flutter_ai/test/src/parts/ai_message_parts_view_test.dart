@@ -66,10 +66,11 @@ void main() {
       ]);
       await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
 
-      expect(find.text('Thought for 12s'), findsOneWidget);
-      expect(find.text('Compared both plans'), findsOneWidget);
+      // Title and summary share one line of text.
+      expect(find.textContaining('Thought for 12s'), findsOneWidget);
+      expect(find.textContaining('Compared both plans'), findsOneWidget);
 
-      await tester.tap(find.text('Thought for 12s'));
+      await tester.tap(find.textContaining('Thought for 12s'));
       await tester.pumpAndSettle();
       expect(find.text('The user wants a plan.'), findsOneWidget);
     });

@@ -50,6 +50,8 @@ Color? _ruleColor(WidgetTester tester) {
   return rule.color;
 }
 
+const _maxHeight120 = ReasoningThemeData(maxExpandedHeight: 120);
+
 String _paragraphs(int count, {String prefix = 'Paragraph'}) =>
     [for (var i = 0; i < count; i++) '$prefix $i: weighing the options carefully before answering.'].join('\n\n');
 
@@ -81,9 +83,28 @@ void main() {
         await tester.pump(const Duration(seconds: 1));
         expect(find.text('Thinking… 6s'), findsOneWidget);
 
-        // The host moving the count on resets it.
+        // The host moving the count on resets it, and it carries on from there.
         await tester.pumpWidget(build(const Duration(seconds: 20)));
         expect(find.text('Thinking… 20s'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.text('Thinking… 21s'), findsOneWidget);
+      });
+
+      testWidgets('counts afresh when a finished view starts thinking again', (tester) async {
+        Widget build({required bool thinking, Duration? duration}) =>
+            _wrap(StreamingReasoningView(text: 'Hmm', isThinking: thinking, duration: duration));
+
+        await tester.pumpWidget(build(thinking: false, duration: const Duration(seconds: 12)));
+        expect(find.text('Thought for 12s'), findsOneWidget);
+
+        await tester.pumpWidget(build(thinking: true));
+        expect(find.text('Thinking…'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('Thinking… 2s'), findsOneWidget);
+
+        await tester.pumpWidget(build(thinking: false));
+        expect(find.text('Thought for 2s'), findsOneWidget, reason: 'measured, not the stale 12s');
+        await tester.pumpAndSettle();
       });
 
       testWidgets('reads "Thought for" the measured time when no duration is given', (tester) async {
@@ -133,15 +154,55 @@ void main() {
         _reduceMotion(tester);
 
         await tester.pumpWidget(build(thinking: true));
-        expect(find.text('Compared both plans'), findsNothing, reason: 'not while thinking');
+        expect(find.textContaining('Compared both plans'), findsNothing, reason: 'not while thinking');
 
         await tester.pumpWidget(build(thinking: false));
         await tester.pumpAndSettle();
-        expect(find.text('Compared both plans'), findsOneWidget, reason: 'folded once done');
+        expect(find.textContaining('Compared both plans'), findsOneWidget, reason: 'folded once done');
 
         await tester.tap(_chevron);
         await tester.pumpAndSettle();
-        expect(find.text('Compared both plans'), findsNothing, reason: 'not while open');
+        expect(find.textContaining('Compared both plans'), findsNothing, reason: 'not while open');
+      });
+
+      testWidgets('ellipsizes a long title at a large text scale instead of overflowing', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(3)),
+              child: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 160,
+                    child: StreamingReasoningView(
+                      text: 'Hmm',
+                      isThinking: false,
+                      duration: Duration(seconds: 754),
+                      summary: 'A summary far too long for the line',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(_view).width, lessThanOrEqualTo(160));
+      });
+
+      testWidgets('turns the chevron the other way in right-to-left text', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const Directionality(
+              textDirection: TextDirection.rtl,
+              child: StreamingReasoningView(text: 'Hmm', isThinking: false),
+            ),
+          ),
+        );
+        await tester.tap(_chevron);
+        await tester.pumpAndSettle();
+        expect(tester.widget<RotationTransition>(_inView(find.byType(RotationTransition))).turns.value, -0.25);
       });
 
       testWidgets('turns the chevron a quarter while open', (tester) async {
@@ -162,7 +223,9 @@ void main() {
 
         await tester.pumpWidget(build(thinking: true));
         final folded = tester.getSize(_view).height;
+        // The unfold, then the rest of the reveal.
         await tester.pump(StreamingReasoningView.foldDuration);
+        await tester.pump(const Duration(seconds: 1));
         expect(find.text('Weighing the options'), findsOneWidget);
         final open = tester.getSize(_view).height;
         expect(open, greaterThan(folded), reason: 'live reasoning unfolds rather than appears');
@@ -186,9 +249,9 @@ void main() {
         expect(find.text('Weighing'), findsNothing);
       });
 
-      testWidgets('opens once done with initiallyExpanded', (tester) async {
+      testWidgets('opens once done with expandedWhenDone', (tester) async {
         await tester.pumpWidget(
-          _wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false, initiallyExpanded: true)),
+          _wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false, expandedWhenDone: true)),
         );
         expect(find.text('Weighing'), findsOneWidget);
       });
@@ -274,12 +337,12 @@ void main() {
     });
 
     group('footnote', () {
-      Widget build({required bool thinking, bool initiallyExpanded = false}) => _wrap(
+      Widget build({required bool thinking, bool expandedWhenDone = false}) => _wrap(
         StreamingReasoningView(
           text: 'Weighing',
           isThinking: thinking,
           footnote: 'Reasoning is kept for 30 days',
-          initiallyExpanded: initiallyExpanded,
+          expandedWhenDone: expandedWhenDone,
         ),
       );
 
@@ -299,8 +362,8 @@ void main() {
         expect(find.text('Reasoning is kept for 30 days'), findsOneWidget);
       });
 
-      testWidgets('shows with initiallyExpanded', (tester) async {
-        await tester.pumpWidget(build(thinking: false, initiallyExpanded: true));
+      testWidgets('shows with expandedWhenDone', (tester) async {
+        await tester.pumpWidget(build(thinking: false, expandedWhenDone: true));
         expect(find.text('Reasoning is kept for 30 days'), findsOneWidget);
       });
     });
@@ -316,7 +379,7 @@ void main() {
         expect(_position(tester).maxScrollExtent, 0);
 
         await tester.pumpWidget(
-          _wrap(StreamingReasoningView(text: _paragraphs(40), isThinking: true, maxExpandedHeight: 120)),
+          _wrap(StreamingReasoningView(text: _paragraphs(40), isThinking: true, theme: _maxHeight120)),
         );
         await tester.pumpAndSettle();
         expect(tester.getSize(_inView(find.byType(Scrollable))).height, 120);
@@ -329,8 +392,7 @@ void main() {
 
       testWidgets('follows the newest text unless the reader scrolled up', (tester) async {
         _reduceMotion(tester);
-        Widget build(String text) =>
-            _wrap(StreamingReasoningView(text: text, isThinking: true, maxExpandedHeight: 120));
+        Widget build(String text) => _wrap(StreamingReasoningView(text: text, isThinking: true, theme: _maxHeight120));
 
         var text = _paragraphs(30);
         await tester.pumpWidget(build(text));
@@ -380,9 +442,9 @@ void main() {
         expect(_builtParagraphs(tester).keys.single, arrived);
       });
 
-      testWidgets('shows the rest quickly once thinking stops', (tester) async {
+      testWidgets('reveals the rest quickly, not at once, once thinking stops', (tester) async {
         Widget build(String text, {required bool thinking}) =>
-            _wrap(StreamingReasoningView(text: text, isThinking: thinking, initiallyExpanded: true));
+            _wrap(StreamingReasoningView(text: text, isThinking: thinking, expandedWhenDone: true));
         await tester.pumpWidget(build('Start', thinking: true));
         await tester.pump(StreamingReasoningView.foldDuration);
 
@@ -390,9 +452,102 @@ void main() {
         await tester.pumpWidget(build(arrived, thinking: true));
         await tester.pump(const Duration(milliseconds: 40));
         await tester.pumpWidget(build(arrived, thinking: false));
+        await tester.pump(const Duration(milliseconds: 40));
+        final catchingUp = _builtParagraphs(tester).keys.single;
+        expect(catchingUp.length, lessThan(arrived.length), reason: 'still revealing after thinking ends');
+
         // A sixth per tick would need ~30 ticks for this backlog; half needs ~10.
         await tester.pump(const Duration(milliseconds: 400));
         expect(_builtParagraphs(tester).keys.single, arrived);
+      });
+
+      testWidgets('shows the rest at once with reduced motion', (tester) async {
+        _reduceMotion(tester);
+        Widget build(String text, {required bool thinking}) =>
+            _wrap(StreamingReasoningView(text: text, isThinking: thinking, expandedWhenDone: true));
+        await tester.pumpWidget(build('Start', thinking: true));
+        final arrived = 'Start ${'word ' * 400}'.trim();
+        await tester.pumpWidget(build(arrived, thinking: true));
+        await tester.pumpWidget(build(arrived, thinking: false));
+        expect(_builtParagraphs(tester).keys.single, arrived);
+      });
+
+      testWidgets('live reasoning that starts empty unfolds and reveals its first text', (tester) async {
+        Widget build(String text) => _wrap(StreamingReasoningView(text: text, isThinking: true));
+        await tester.pumpWidget(build(''));
+        await tester.pump(const Duration(seconds: 1));
+        final empty = tester.getSize(_view).height;
+
+        const first = 'The first thoughts arrive, a whole sentence of them at once.';
+        await tester.pumpWidget(build(first));
+        await tester.pump(const Duration(milliseconds: 40));
+        final early = tester.getSize(_view).height;
+        expect(_builtParagraphs(tester).keys.single.length, lessThan(first.length), reason: 'revealed, not shown');
+
+        await tester.pump(StreamingReasoningView.foldDuration);
+        await tester.pump(const Duration(seconds: 2));
+        final open = tester.getSize(_view).height;
+        expect(early, lessThan(open), reason: 'unfolds rather than appearing at full height');
+        expect(early, greaterThanOrEqualTo(empty));
+        expect(_builtParagraphs(tester).keys.single, first);
+      });
+
+      testWidgets('reduced motion switched on mid-reveal shows the rest', (tester) async {
+        Widget build(String text) => _wrap(StreamingReasoningView(text: text, isThinking: true));
+        await tester.pumpWidget(build('Start'));
+        await tester.pump(StreamingReasoningView.foldDuration);
+        final arrived = 'Start ${'word ' * 200}'.trim();
+        await tester.pumpWidget(build(arrived));
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(_builtParagraphs(tester).keys.single, isNot(arrived));
+
+        _reduceMotion(tester);
+        await tester.pump();
+        expect(_builtParagraphs(tester).keys.single, arrived);
+      });
+
+      testWidgets('reduced motion switched on mid-fold finishes the fold', (tester) async {
+        await tester.pumpWidget(
+          _wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false, expandedWhenDone: true)),
+        );
+        await tester.tap(_chevron);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('Weighing'), findsOneWidget, reason: 'still folding');
+
+        _reduceMotion(tester);
+        await tester.pump();
+        expect(find.text('Weighing'), findsNothing);
+        expect(tester.hasRunningAnimations, isFalse);
+      });
+
+      testWidgets('sits inside IntrinsicWidth and IntrinsicHeight', (tester) async {
+        for (final wrap in <Widget Function(Widget)>[
+          (child) => IntrinsicWidth(child: child),
+          (child) => IntrinsicHeight(child: child),
+        ]) {
+          await tester.pumpWidget(
+            _wrap(
+              wrap(StreamingReasoningView(text: _paragraphs(5), isThinking: false, expandedWhenDone: true)),
+            ),
+          );
+          expect(tester.takeException(), isNull);
+          expect(find.textContaining('Paragraph 0'), findsOneWidget);
+        }
+      });
+
+      testWidgets('a new trace is followed even after the reader scrolled up', (tester) async {
+        _reduceMotion(tester);
+        Widget build(String text) => _wrap(StreamingReasoningView(text: text, isThinking: true, theme: _maxHeight120));
+
+        await tester.pumpWidget(build(_paragraphs(30)));
+        await tester.pumpAndSettle();
+        await tester.drag(_inView(find.byType(Scrollable)), const Offset(0, 200));
+        await tester.pumpAndSettle();
+
+        await tester.pumpWidget(build(_paragraphs(30, prefix: 'Other')));
+        await tester.pumpAndSettle();
+        expect(_position(tester).pixels, _position(tester).maxScrollExtent);
       });
 
       testWidgets('renders inline markdown and reports link taps', (tester) async {
@@ -402,7 +557,7 @@ void main() {
             StreamingReasoningView(
               text: '## Plan\n**Bold**, *italic*, `code` and [docs](https://example.com).',
               isThinking: false,
-              initiallyExpanded: true,
+              expandedWhenDone: true,
               onTapLink: (text, href, title) => taps.add(href),
             ),
           ),
@@ -432,6 +587,35 @@ void main() {
 
         (link.recognizer! as TapGestureRecognizer).onTap!();
         expect(taps, ['https://example.com']);
+      });
+
+      testWidgets('links become tappable once onTapLink is set, and always call the latest', (tester) async {
+        final taps = <String>[];
+        Widget build(MarkdownTapLinkCallback? onTapLink) => _wrap(
+          StreamingReasoningView(
+            text: 'See [docs](https://example.com).',
+            isThinking: false,
+            expandedWhenDone: true,
+            onTapLink: onTapLink,
+          ),
+        );
+        TextSpan link() => (_builtParagraphs(tester).values.single.textSpan! as TextSpan).children!
+            .whereType<TextSpan>()
+            .singleWhere((span) => span.toPlainText() == 'docs');
+
+        await tester.pumpWidget(build(null));
+        expect(link().recognizer, isNull);
+
+        await tester.pumpWidget(build((text, href, title) => taps.add('first $href')));
+        expect(link().recognizer, isNotNull);
+        final paragraph = _builtParagraphs(tester).values.single;
+
+        // A fresh closure each build: the paragraph isn't rebuilt, yet a tap
+        // reaches the newest callback.
+        await tester.pumpWidget(build((text, href, title) => taps.add('second $href')));
+        expect(identical(_builtParagraphs(tester).values.single, paragraph), isTrue);
+        (link().recognizer! as TapGestureRecognizer).onTap!();
+        expect(taps, ['second https://example.com']);
       });
 
       testWidgets('a long stream only rebuilds the paragraph being written', (tester) async {
@@ -510,7 +694,7 @@ void main() {
       testWidgets('folding content leaves the semantics tree at once', (tester) async {
         final handle = tester.ensureSemantics();
         await tester.pumpWidget(
-          _wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false, initiallyExpanded: true)),
+          _wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false, expandedWhenDone: true)),
         );
         expect(find.bySemanticsLabel('Weighing'), findsOneWidget);
 
@@ -591,9 +775,10 @@ void main() {
           Widget child = StreamingReasoningView(
             text: _paragraphs(20),
             isThinking: false,
-            initiallyExpanded: true,
-            theme: local,
-            maxExpandedHeight: maxHeight,
+            expandedWhenDone: true,
+            theme: maxHeight == null
+                ? local
+                : (local ?? const ReasoningThemeData()).copyWith(maxExpandedHeight: maxHeight),
           );
           if (scope != null) child = ReasoningTheme(data: scope, child: child);
           await tester.pumpWidget(_wrap(child, theme: theme));
@@ -637,8 +822,8 @@ void main() {
         expect(StreamingReasoningView.part(part, text: 'Full reasoning').text, 'Full reasoning');
         expect(
           StreamingReasoningView.part(const AIReasoningPart(id: 'r', summary: 'S')).text,
-          'S',
-          reason: 'the summary when there is no preview',
+          '',
+          reason: 'never the summary, which the header already shows',
         );
         expect(
           StreamingReasoningView.part(const AIReasoningPart(id: 'r', status: AIReasoningStatus.streaming)).isThinking,
@@ -682,7 +867,22 @@ void main() {
                 text: reasoning,
                 isThinking: true,
                 duration: Duration(seconds: 7),
-                maxExpandedHeight: 120,
+                theme: _maxHeight120,
+              ),
+            ),
+          ),
+          GoldenTestScenario(
+            name: 'done, opened with footnote',
+            child: scenario(
+              theme,
+              const StreamingReasoningView(
+                text: reasoning,
+                isThinking: false,
+                duration: Duration(seconds: 12),
+                summary: 'Planned a balanced three-day trip',
+                footnote: 'Reasoning is kept for 30 days',
+                expandedWhenDone: true,
+                theme: _maxHeight120,
               ),
             ),
           ),
@@ -720,5 +920,5 @@ class _DutchTranslations extends DefaultAITranslations {
   const _DutchTranslations();
 
   @override
-  String reasoningThoughtFor(String duration) => '$duration nagedacht';
+  String reasoningThoughtFor(Duration duration) => '${reasoningDuration(duration)} nagedacht';
 }
