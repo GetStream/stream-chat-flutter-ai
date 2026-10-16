@@ -83,41 +83,15 @@ class StreamingMessageView extends StatefulWidget {
   final ValueChanged<TypewriterState>? onTypewriterStateChanged;
 
   /// Whether more [text] for this message may still arrive, e.g. while the
-  /// backend is generating the reply.
-  ///
-  /// The view can't tell a finished reply from a pause in the stream by its
-  /// [text] alone, so [onFinished] waits until this is `false`. Drive it from
-  /// the backend's AI state: `true` from when the request is sent until the AI
-  /// indicator clears.
-  ///
-  /// A "generating" flag on the message is not enough on its own, because an
-  /// AI placeholder message is often created before that flag is set. Empty
-  /// [text] never counts as finished, which covers the placeholder itself.
+  /// backend is generating the reply. [onFinished] waits until this is `false`.
   ///
   /// Defaults to `false`.
   final bool expectMoreText;
 
-  /// Called once the reply is completely on screen: [expectMoreText] is `false`
-  /// and the typewriter has revealed every character of [text].
-  ///
-  /// The backend usually finishes well before the typewriter does, so this
-  /// fires later than the end of generation. It is called after the frame in
-  /// which the reply finished, so the host is free to rebuild in response.
-  ///
-  /// Fires once per reply, and again only if the reply stops being finished
-  /// (the text grows or changes, or [expectMoreText] turns back to `true`) and
-  /// then finishes again. A view built with its complete text and
-  /// `expectMoreText: false`, such as a message from history, reports it after
-  /// its first frame.
-  ///
-  /// Empty [text] never counts as finished, since that is what an AI
-  /// placeholder looks like before its first chunk arrives. A reply that ends
-  /// empty is therefore never reported; a host should still leave its
-  /// generating state when the user stops the reply or the backend reports an
-  /// error.
-  ///
-  /// A reply that finishes while this is `null` is not reported later, when a
-  /// callback is passed in a rebuild.
+  /// Called once per reply, after the frame in which it is completely on
+  /// screen: [expectMoreText] is `false` and every character of non-empty
+  /// [text] has been revealed. Usually later than the end of generation, as
+  /// the typewriter falls behind the backend.
   final VoidCallback? onFinished;
 
   @override
