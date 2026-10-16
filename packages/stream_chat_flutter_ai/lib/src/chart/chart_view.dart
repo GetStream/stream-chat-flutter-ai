@@ -19,10 +19,14 @@ import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 ///
 /// [USpec.title] is rendered as a heading above the plot. A pie, and a chart
 /// plotting two or more series, also get a legend naming each slice or series
-/// next to its color — see [ChartThemeData.showLegend] — and pie slices are
-/// labelled with their share of the whole. Colors, sizes and the histogram's
-/// bucket count come from [ChartThemeData] — app-wide through
-/// [AITheme], per subtree through [ChartTheme], or per chart through [theme].
+/// next to its color (see [ChartThemeData.showLegend]). Pie slices big enough
+/// to fit one carry their share of the whole, such as "42%" (see
+/// [ChartThemeData.showPiePercentages]). Zero, negative and non-finite slices
+/// have no area, so they are neither drawn nor listed.
+///
+/// Colors, sizes and the histogram's bucket count come from [ChartThemeData]:
+/// app-wide through [AITheme], per subtree through [ChartTheme], or per chart
+/// through [theme].
 class ChartView extends StatelessWidget {
   /// Creates a [ChartView].
   const ChartView({super.key, required this.spec, this.theme, this.semanticsLabel});
@@ -44,25 +48,32 @@ class ChartView extends StatelessWidget {
   /// walking them gives a reader bare numbers with nothing saying which axis
   /// they belong to.
   ///
-  /// The legend is excluded with them: the summary already names every series,
-  /// so reading the legend as well would say each name twice.
+  /// The legend is excluded with them. The summary names every series of a
+  /// multi-series chart and every slice of a pie (cut off after the first
+  /// few), so reading the legend as well would say each name twice.
   ///
   /// Pass `''` to add no node of this widget's own, which also puts those
-  /// subtree labels — the legend's included — back in reach — the opt-out for describing the chart
-  /// yourself, not a way to hide it.
+  /// subtree labels, the legend's included, back in reach. It is the opt-out
+  /// for describing the chart yourself, not a way to hide it.
   final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
     final chartTheme = ResolvedChartTheme.resolve(context, override: theme);
     final translations = AITranslations.of(context);
-    final legendEntries = _legendEntries(chartTheme, translations.unnamedChartSeries);
+    final slices = spec.kind == USpecKind.pie
+        ? ChartSemantics.drawnPieSlices(
+            spec.series.isNotEmpty ? spec.series.first.points : const [],
+            unnamed: translations.unnamedChartSlice,
+          )
+        : const <_PieSlice>[];
+    final legendEntries = _legendEntries(chartTheme, slices, translations.unnamedChartSeries);
 
     final plot = Container(
       height: chartTheme.height,
       padding: const EdgeInsets.only(top: 8, right: 16, bottom: 8),
       child: switch (spec.kind) {
-        USpecKind.pie => _buildPieChart(chartTheme, hasLegend: legendEntries.isNotEmpty),
+        USpecKind.pie => _buildPieChart(chartTheme, slices, hasLegend: legendEntries.isNotEmpty),
         USpecKind.bar => _buildBarChart(chartTheme),
         USpecKind.scatter => _buildScatterChart(chartTheme, bubble: false),
         USpecKind.bubble => _buildScatterChart(chartTheme, bubble: true),
@@ -106,7 +117,11 @@ class ChartView extends StatelessWidget {
     final label =
         semanticsLabel ??
         translations.chartSemanticsLabel(
-          ChartSemantics.fromSpec(spec, unnamedSeries: translations.unnamedChartSeries),
+          ChartSemantics.fromSpec(
+            spec,
+            unnamedSeries: translations.unnamedChartSeries,
+            unnamedSlice: translations.unnamedChartSlice,
+          ),
         );
     if (label.isEmpty) return content;
     return Semantics(container: true, excludeSemantics: true, label: label, child: content);
@@ -121,21 +136,20 @@ class ChartView extends StatelessWidget {
   ///
   /// A single series needs no key, a histogram draws the first series alone,
   /// and a heatmap carries a scale legend of its own.
-  List<_LegendEntry> _legendEntries(ResolvedChartTheme theme, String unnamed) {
+  List<_LegendEntry> _legendEntries(ResolvedChartTheme theme, List<_PieSlice> slices, String unnamed) {
     if (!theme.showLegend) return const [];
-    String name(String label) => label.trim().isEmpty ? unnamed : label;
     switch (spec.kind) {
       case USpecKind.pie:
-        final points = spec.series.isNotEmpty ? spec.series.first.points : const <UPoint>[];
         return [
-          for (final (i, point) in points.indexed) (label: name(point.x), color: theme.seriesColor(i)),
+          for (final (i, slice) in slices.indexed) (label: slice.label, color: theme.seriesColor(i)),
         ];
       case USpecKind.histogram || USpecKind.heatmap:
         return const [];
       default:
         if (spec.series.length < 2) return const [];
         return [
-          for (final (i, series) in spec.series.indexed) (label: name(series.name), color: theme.seriesColor(i)),
+          for (final (i, series) in spec.series.indexed)
+            (label: series.name.trim().isEmpty ? unnamed : series.name, color: theme.seriesColor(i)),
         ];
     }
   }
@@ -203,19 +217,21 @@ class ChartView extends StatelessWidget {
   // Pie chart
   // ---------------------------------------------------------------------------
 
-  Widget _buildPieChart(ResolvedChartTheme theme, {required bool hasLegend}) {
-    // For pie charts, use the first series; each point is one slice.
-    final points = spec.series.isNotEmpty ? spec.series.first.points : <UPoint>[];
+  /// Draws [slices], the first series' drawable points: a zero, negative or
+  /// non-finite value has no area, and handing one to `fl_chart` skews every
+  /// other slice's angle.
+  Widget _buildPieChart(ResolvedChartTheme theme, List<_PieSlice> slices, {required bool hasLegend}) {
     final labelStyle = theme.pieLabelStyle;
-    final total = points.fold<double>(0, (sum, p) => sum + p.y);
-    final sections = points.asMap().entries.map((e) {
-      final color = theme.seriesColor(e.key);
-      final percentage = _piePercentage(e.value.y, total, theme);
+    final total = slices.fold<double>(0, (sum, s) => sum + s.value);
+    final sections = slices.indexed.map((e) {
+      final (i, slice) = e;
+      final color = theme.seriesColor(i);
+      final percentage = _piePercentage(slice.value, total, theme);
       // The legend names the slices, so the slice itself carries only its
       // share. Without a legend the name has nowhere else to go.
-      final title = hasLegend ? (percentage ?? '') : [e.value.x, ?percentage].join('\n');
+      final title = hasLegend ? (percentage ?? '') : [slice.label, ?percentage].join('\n');
       return PieChartSectionData(
-        value: e.value.y,
+        value: slice.value,
         color: color,
         title: title,
         showTitle: title.isNotEmpty,
@@ -233,11 +249,12 @@ class ChartView extends StatelessWidget {
 
   /// [value]'s share of [total] as a rounded percentage such as `42%`, or null
   /// when percentages are off, the slice is under the theme's threshold, or the
-  /// slices don't sum to anything positive.
+  /// slices don't sum to a positive, finite total — finite values can still
+  /// overflow to infinity when added up.
   static String? _piePercentage(double value, double total, ResolvedChartTheme theme) {
-    if (!theme.pieShowPercentages || total <= 0) return null;
+    if (!theme.showPiePercentages || !total.isFinite || total <= 0) return null;
     final share = value / total;
-    if (share < theme.piePercentageThreshold) return null;
+    if (!share.isFinite || share < theme.piePercentageThreshold) return null;
     return '${(share * 100).round()}%';
   }
 
@@ -504,11 +521,20 @@ class ChartView extends StatelessWidget {
   );
 }
 
+/// One drawable pie slice, as [ChartSemantics.drawnPieSlices] returns it.
+typedef _PieSlice = ({String label, double value});
+
 /// One row of a [_ChartLegend]: what it names, and the color it is drawn in.
 typedef _LegendEntry = ({String label, Color color});
 
+/// The most entries a legend lists before the last one becomes "+N more".
+///
+/// Past this a legend outgrows the chart it explains, and the palette has
+/// cycled anyway, so later swatches repeat earlier ones.
+const _kMaxLegendEntries = 10;
+
 /// A wrapping row of color swatches, each followed by the series or slice it
-/// stands for.
+/// stands for. Lists at most [_kMaxLegendEntries].
 class _ChartLegend extends StatelessWidget {
   const _ChartLegend({required this.entries, required this.textStyle});
 
@@ -520,11 +546,13 @@ class _ChartLegend extends StatelessWidget {
     // Sized off the text so a larger text scale doesn't leave a speck of color
     // beside a big label.
     final swatch = MediaQuery.textScalerOf(context).scale(textStyle.fontSize ?? 11) * 0.9;
+    final overflows = entries.length > _kMaxLegendEntries;
+    final shown = overflows ? entries.take(_kMaxLegendEntries - 1) : entries;
     return Wrap(
       spacing: 12,
       runSpacing: 4,
       children: [
-        for (final entry in entries)
+        for (final entry in shown)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -538,6 +566,11 @@ class _ChartLegend extends StatelessWidget {
                 child: Text(entry.label, style: textStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ],
+          ),
+        if (overflows)
+          Text(
+            AITranslations.of(context).chartLegendMore(entries.length - (_kMaxLegendEntries - 1)),
+            style: textStyle,
           ),
       ],
     );

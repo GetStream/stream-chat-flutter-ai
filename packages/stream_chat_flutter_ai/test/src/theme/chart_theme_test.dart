@@ -28,7 +28,7 @@ void main() {
         showLegend: true,
         legendPosition: ChartLegendPosition.top,
         legendTextStyle: TextStyle(fontSize: 14),
-        pieShowPercentages: true,
+        showPiePercentages: true,
         piePercentageThreshold: 0.1,
       );
 
@@ -139,10 +139,10 @@ void main() {
               read: (t) => t.legendTextStyle,
             ),
             (
-              name: 'pieShowPercentages',
-              only: const ChartThemeData(pieShowPercentages: false),
-              copied: () => base.copyWith(pieShowPercentages: false),
-              read: (t) => t.pieShowPercentages,
+              name: 'showPiePercentages',
+              only: const ChartThemeData(showPiePercentages: false),
+              copied: () => base.copyWith(showPiePercentages: false),
+              read: (t) => t.showPiePercentages,
             ),
             (
               name: 'piePercentageThreshold',
@@ -185,7 +185,7 @@ void main() {
         showLegend: false,
         legendPosition: ChartLegendPosition.top,
         legendTextStyle: TextStyle(fontSize: 14),
-        pieShowPercentages: false,
+        showPiePercentages: false,
         piePercentageThreshold: 0.2,
       );
       final builder = DiagnosticPropertiesBuilder();
@@ -195,8 +195,18 @@ void main() {
       expect(described['showLegend'], 'no legend');
       expect(described['legendPosition'], 'top');
       expect(described['legendTextStyle'], isNotNull);
-      expect(described['pieShowPercentages'], 'no pie percentages');
+      expect(described['showPiePercentages'], 'no pie percentages');
       expect(described['piePercentageThreshold'], '0.2');
+    });
+
+    test('asserts the pie percentage threshold is a share from 0 to 1', () {
+      // Not const: a const constructor's assert fails at compile time instead.
+      double threshold(double v) => v;
+      expect(() => ChartThemeData(piePercentageThreshold: threshold(1.5)), throwsAssertionError);
+      expect(() => ChartThemeData(piePercentageThreshold: threshold(-0.1)), throwsAssertionError);
+      expect(() => ChartThemeData(piePercentageThreshold: threshold(double.nan)), throwsAssertionError);
+      expect(() => ChartThemeData(piePercentageThreshold: threshold(double.infinity)), throwsAssertionError);
+      expect(ChartThemeData(piePercentageThreshold: threshold(1)).piePercentageThreshold, 1);
     });
 
     group('merge', () {
@@ -279,18 +289,18 @@ void main() {
         const a = ChartThemeData(
           showLegend: true,
           legendPosition: ChartLegendPosition.top,
-          pieShowPercentages: true,
+          showPiePercentages: true,
         );
         const b = ChartThemeData(
           showLegend: false,
           legendPosition: ChartLegendPosition.bottom,
-          pieShowPercentages: false,
+          showPiePercentages: false,
         );
 
         final early = ChartThemeData.lerp(a, b, 0.4);
         final late = ChartThemeData.lerp(a, b, 0.6);
         expect(
-          (early.showLegend, early.legendPosition, early.pieShowPercentages),
+          (early.showLegend, early.legendPosition, early.showPiePercentages),
           (
             true,
             ChartLegendPosition.top,
@@ -298,7 +308,7 @@ void main() {
           ),
         );
         expect(
-          (late.showLegend, late.legendPosition, late.pieShowPercentages),
+          (late.showLegend, late.legendPosition, late.showPiePercentages),
           (
             false,
             ChartLegendPosition.bottom,
@@ -313,6 +323,14 @@ void main() {
 
         expect(ChartThemeData.lerp(a, b, 0.5).piePercentageThreshold, closeTo(0.2, 1e-9));
         expect(ChartThemeData.lerp(const ChartThemeData(), b, 0.4).piePercentageThreshold, isNull);
+      });
+
+      test('keeps the pie percentage threshold in range when a curve overshoots', () {
+        const a = ChartThemeData(piePercentageThreshold: 0);
+        const b = ChartThemeData(piePercentageThreshold: 1);
+
+        expect(ChartThemeData.lerp(a, b, 2).piePercentageThreshold, 1);
+        expect(ChartThemeData.lerp(a, b, -1).piePercentageThreshold, 0);
       });
 
       test('with identical themes returns the first', () {
