@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
+// Here for the [AIReasoningPart.preview] doc link only.
+import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
+import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 
 /// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
 /// [AIMessagePartsView]'s default for it.
@@ -17,10 +20,10 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 /// A part this package can't read — a kind it doesn't know, a format newer
 /// than it reads, or a payload it couldn't decode ([AIMessagePart.isSupported]
 /// is `false`) — shows [AIUnsupportedPartView], a neutral "a step this app
-/// version can't show". A part it can read shows its kind's default view.
-/// Reasoning and tool calls have no default view yet, so for now they show
-/// nothing at all (and take up no spacing) unless your [partBuilder] builds
-/// them.
+/// version can't show". A part it can read shows its kind's default view: a
+/// [StreamingReasoningView] for a round of reasoning. Tool calls have no
+/// default view yet, so for now they show nothing at all (and take up no
+/// spacing) unless your [partBuilder] builds them.
 ///
 /// To show some parts your own way, such as a kind of your own, pass a
 /// [partBuilder] and return `null` for the parts you leave to the default:
@@ -87,11 +90,14 @@ class AIMessagePartsView extends StatelessWidget {
 
   /// The one place a part's default view is chosen, or `null` to show nothing.
   ///
-  /// A part this package can't read gets the placeholder. A part it can read
-  /// gets its kind's view — and reasoning and tool calls have none yet, so they
-  /// show nothing until their views are added here.
+  /// A part this package can't read gets the placeholder. Reasoning gets a
+  /// [StreamingReasoningView] showing its [AIReasoningPart.preview]: the full
+  /// text, when an app has it, goes through a [partBuilder] returning
+  /// `StreamingReasoningView.part(reasoning, text: fullText)`. Tool calls have
+  /// no view yet, so they show nothing until theirs is added here.
   static Widget? _defaultPartView(AIMessagePart part) {
     if (!part.isSupported) return const AIUnsupportedPartView();
+    if (part.reasoning case final reasoning?) return StreamingReasoningView.part(reasoning);
     return null;
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
 
@@ -37,6 +38,7 @@ import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_the
 ///  * [CodeBlockThemeData] and [CodeBlockTheme], for code blocks.
 ///  * [ComposerThemeData] and [ComposerTheme], for the composer and its
 ///    attachment sheet.
+///  * [ReasoningThemeData] and [ReasoningTheme], for the reasoning panel.
 ///  * [SuggestionsThemeData] and [SuggestionsTheme], for the suggestion chips.
 ///  * [TypingIndicatorThemeData] and [TypingIndicatorTheme], for the typing
 ///    indicator.
@@ -47,11 +49,13 @@ class AITheme extends ThemeExtension<AITheme> {
     ChartThemeData? chartTheme,
     CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
+    ReasoningThemeData? reasoningTheme,
     SuggestionsThemeData? suggestionsTheme,
     TypingIndicatorThemeData? typingIndicatorTheme,
   }) : chartTheme = chartTheme ?? const ChartThemeData(),
        codeBlockTheme = codeBlockTheme ?? const CodeBlockThemeData(),
        composerTheme = composerTheme ?? const ComposerThemeData(),
+       reasoningTheme = reasoningTheme ?? const ReasoningThemeData(),
        suggestionsTheme = suggestionsTheme ?? const SuggestionsThemeData(),
        typingIndicatorTheme = typingIndicatorTheme ?? const TypingIndicatorThemeData();
 
@@ -67,6 +71,10 @@ class AITheme extends ThemeExtension<AITheme> {
   /// `const ComposerThemeData()`, which derives every field from the ambient
   /// [ThemeData].
   final ComposerThemeData composerTheme;
+
+  /// How the reasoning panel is drawn. Defaults to `const ReasoningThemeData()`,
+  /// which derives every field from the ambient [ThemeData].
+  final ReasoningThemeData reasoningTheme;
 
   /// How suggestion chips are drawn. Defaults to
   /// `const SuggestionsThemeData()`, which derives every field from the ambient
@@ -89,12 +97,14 @@ class AITheme extends ThemeExtension<AITheme> {
     ChartThemeData? chartTheme,
     CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
+    ReasoningThemeData? reasoningTheme,
     SuggestionsThemeData? suggestionsTheme,
     TypingIndicatorThemeData? typingIndicatorTheme,
   }) => AITheme(
     chartTheme: chartTheme ?? this.chartTheme,
     codeBlockTheme: codeBlockTheme ?? this.codeBlockTheme,
     composerTheme: composerTheme ?? this.composerTheme,
+    reasoningTheme: reasoningTheme ?? this.reasoningTheme,
     suggestionsTheme: suggestionsTheme ?? this.suggestionsTheme,
     typingIndicatorTheme: typingIndicatorTheme ?? this.typingIndicatorTheme,
   );
@@ -106,6 +116,7 @@ class AITheme extends ThemeExtension<AITheme> {
       chartTheme: ChartThemeData.lerp(chartTheme, other.chartTheme, t),
       codeBlockTheme: CodeBlockThemeData.lerp(codeBlockTheme, other.codeBlockTheme, t),
       composerTheme: ComposerThemeData.lerp(composerTheme, other.composerTheme, t),
+      reasoningTheme: ReasoningThemeData.lerp(reasoningTheme, other.reasoningTheme, t),
       suggestionsTheme: SuggestionsThemeData.lerp(suggestionsTheme, other.suggestionsTheme, t),
       typingIndicatorTheme: TypingIndicatorThemeData.lerp(typingIndicatorTheme, other.typingIndicatorTheme, t),
     );
@@ -121,10 +132,12 @@ class AITheme extends ThemeExtension<AITheme> {
         other.chartTheme == chartTheme &&
         other.codeBlockTheme == codeBlockTheme &&
         other.composerTheme == composerTheme &&
+        other.reasoningTheme == reasoningTheme &&
         other.suggestionsTheme == suggestionsTheme &&
         other.typingIndicatorTheme == typingIndicatorTheme;
   }
 
   @override
-  int get hashCode => Object.hash(chartTheme, codeBlockTheme, composerTheme, suggestionsTheme, typingIndicatorTheme);
+  int get hashCode =>
+      Object.hash(chartTheme, codeBlockTheme, composerTheme, reasoningTheme, suggestionsTheme, typingIndicatorTheme);
 }
