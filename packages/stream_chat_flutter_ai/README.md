@@ -707,31 +707,39 @@ Plain `AIClientTool`s work too: their actions run and the call completes with no
 final runner = AIClientToolRunner(
   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
   tools: [LocationTool()],
-  send: (call, result) => http.post(
-    Uri.parse('$myBackend/tool-results'),
-    headers: {'content-type': 'application/json'},
-    body: jsonEncode(result.toJson(toolCallId: call.id, clientId: installId)),
-  ),
+  send: (call, result) async {
+    final response = await http.post(
+      Uri.parse('$myBackend/tool-results'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode(result.toJson(toolCallId: call.id, clientId: installId)),
+    );
+    // Throw so the runner retries.
+    if (response.statusCode >= 300) throw Exception('tool result rejected: ${response.statusCode}');
+  },
 );
 
 // Register runner.registrations with your backend, send installId as `client_id`
 // in every message's custom data, then on every update of an AI reply:
-unawaited(runner.run(parts));
+unawaited(runner.handle(parts));
 ```
 
 The round trip: the agent writes a call with `target_user_id` / `target_client_id`;
-`run` runs every call `AIClientIdentity.canRun` matches, **once per call id** — calling
+`handle` runs every call `AIClientIdentity.canRun` matches, **once per call id** — calling
 it on every streaming update is safe, in flight or not; `send` posts
 `{tool_call_id, client_id, output | failure, summary}` to *your* backend, which checks
-the caller and feeds the result to the model. A call to a tool this device doesn't have
-is answered with a failure, and a tool that throws becomes a failure too (reported to
-`FlutterError.onError` and `onToolError`). A failed `send` is retried `maxAttempts`
-times with exponential backoff, then reported through `onDeliveryError`.
+the caller and feeds the result to the model. Make that endpoint idempotent on
+`tool_call_id`: a retry can post the same result twice.
 
-Keep one runner per conversation, or longer: a fresh runner doesn't know what an old
-one ran. `dispose()` stops it taking on new calls, but calls already running still
-finish and send their results — the agent is waiting for them — so `send` must not
-rely on a widget's state; `whenIdle()` completes when they are done.
+A tool that throws, times out (`runTimeout`) or isn't registered is answered with a
+generic failure; the error itself only goes to `FlutterError.onError` and `onToolError`
+(override the wording with `failureMessage`). `send` is tried up to `maxAttempts` times
+with exponential backoff, then reported through `onDeliveryError`; the result is kept and
+sent again, without rerunning the tool, if a later `handle` still sees the call waiting.
+
+Keep one runner per conversation: a fresh runner doesn't know what an old one ran.
+`close()` stops it taking on new calls, but calls already running still finish and send
+their results, so `send` must not rely on a widget's state; `whenIdle()` completes when
+they are done.
 
 ### Theming
 
