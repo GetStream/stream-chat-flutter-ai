@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 // Here for the [AIReasoningPart.preview] doc link only.
@@ -14,9 +15,9 @@ import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.da
 /// show nothing for it.
 typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMessagePart part);
 
-/// Builds the widget for one tool call, or returns `null` to fall back to an
-/// [AIToolCallView] for it, or [AIMessagePartsView.hidden] to show nothing for
-/// it.
+/// Builds the widget for one tool call, or returns `null` to fall back to the
+/// [AIComponentFactory]'s row for it, or [AIMessagePartsView.hidden] to show
+/// nothing for it.
 typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolCallPart call);
 
 /// {@template aiMessagePartsView}
@@ -59,7 +60,8 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 /// ```
 ///
 /// A [partBuilder] is asked first; [toolCallBuilder] only sees the tool calls
-/// it returned `null` for.
+/// it returned `null` for. To replace a kind's view everywhere instead, use an
+/// [AIComponentFactory]; these builders are asked before it.
 ///
 /// To hide a part, return [AIMessagePartsView.hidden] from either builder: it
 /// is left out entirely, taking up no [spacing], where an empty widget would
@@ -111,9 +113,10 @@ class AIMessagePartsView extends StatelessWidget {
   /// question.
   final double spacing;
 
-  /// Returned from [partBuilder] or [toolCallBuilder], hides that part: it is
-  /// left out of the list, with no [spacing] around it. Compared by identity,
-  /// so return this very instance.
+  /// Returned from [partBuilder], [toolCallBuilder] or an
+  /// [AIComponentFactory] part slot, hides that part: it is left out of the
+  /// list, with no [spacing] around it. Compared by identity, so return this
+  /// very instance.
   static const Widget hidden = _HiddenPart();
 
   @override
@@ -143,36 +146,42 @@ class AIMessagePartsView extends StatelessWidget {
     );
   }
 
-  /// The one place a part's default view is chosen, or `null` to show nothing.
-  ///
-  /// A part this package can't read gets the placeholder. Reasoning gets a
-  /// [StreamingReasoningView] showing its [AIReasoningPart.preview]: the full
-  /// text, when an app has it, goes through a [partBuilder] returning
-  /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
-  /// goes to [toolCallBuilder] first (which may return [hidden]), and gets an
-  /// [AIToolCallView] when that returns `null` — with its question under it
-  /// when an [approver] is given.
+  /// A part's default view from the [AIComponentFactory], or `null` to show
+  /// nothing. Tool calls ask [toolCallBuilder] first, then the factory; the
+  /// [approver]'s question goes under the factory's row. Reasoning shows its
+  /// [AIReasoningPart.preview]; full text goes through a [partBuilder].
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
-    if (!part.isSupported) return const AIUnsupportedPartView();
-    if (part.reasoning case final reasoning?) return StreamingReasoningView.part(reasoning);
-    if (part.toolCall case final call?) return toolCallBuilder?.call(context, call) ?? _toolCallView(call);
+    final factory = AIComponents.of(context);
+    if (!part.isSupported) return factory.buildUnsupportedPart(context, AIUnsupportedPartProps(part: part));
+    if (part.reasoning case final reasoning?) {
+      return factory.buildReasoning(context, AIReasoningProps(reasoning: reasoning));
+    }
+    if (part.toolCall case final call?) {
+      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, factory, call);
+    }
     return null;
   }
 
-  Widget _toolCallView(AIToolCallPart call) {
+  Widget _toolCallView(BuildContext context, AIComponentFactory factory, AIToolCallPart call) {
+    final row = factory.buildToolCall(context, AIToolCallProps(call: call));
+    final showRow = !identical(row, hidden);
     final approver = this.approver;
-    // The same column with or without an approver, and with or without a
-    // question, so the row keeps its state as either comes and goes. The
-    // question view stays in while the call no longer waits — it is empty
-    // then — so its approver can forget the answer.
+    final asks = approver != null && approver.identity.canApprove(call);
+    // A hidden row still asks its question; with nothing to ask it takes no
+    // spacing either.
+    if (!showRow && !asks) return hidden;
+    // The same column with or without an approver, a question or the row, so
+    // each keeps its state as the others come and go. The question view stays
+    // in while the call no longer waits — it is empty then — so its approver
+    // can forget the answer.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AIToolCallView(call: call),
+        if (showRow) row,
         if (approver != null)
           Padding(
-            padding: EdgeInsets.only(top: approver.identity.canApprove(call) ? spacing : 0),
+            padding: EdgeInsets.only(top: showRow && asks ? spacing : 0),
             child: AIToolApprovalView(call: call, approver: approver),
           ),
       ],
