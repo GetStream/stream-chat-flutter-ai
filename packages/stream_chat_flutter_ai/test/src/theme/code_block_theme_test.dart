@@ -28,6 +28,7 @@ void main() {
 
     group('every field', () {
       const base = CodeBlockThemeData(
+        brightness: Brightness.dark,
         backgroundColor: Color(0xFF111111),
         headerBackgroundColor: Color(0xFF222222),
         languageLabelStyle: TextStyle(fontSize: 11),
@@ -46,6 +47,12 @@ void main() {
               Object? Function(CodeBlockThemeData) read,
             })
           >[
+            (
+              name: 'brightness',
+              only: const CodeBlockThemeData(brightness: Brightness.light),
+              copied: () => base.copyWith(brightness: Brightness.light),
+              read: (t) => t.brightness,
+            ),
             (
               name: 'backgroundColor',
               only: const CodeBlockThemeData(backgroundColor: Color(0xFF0000A1)),
@@ -87,8 +94,8 @@ void main() {
       test('the table covers every field the class declares', () {
         // Guards the loop itself: add a field without a row here and this fails
         // rather than silently leaving the new field untested.
-        expect(fields, hasLength(6));
-        expect(fields.map((f) => f.name).toSet(), hasLength(6));
+        expect(fields, hasLength(7));
+        expect(fields.map((f) => f.name).toSet(), hasLength(7));
       });
 
       for (final field in fields) {
@@ -108,6 +115,9 @@ void main() {
           expect(copied, isNot(base), reason: '== ignores ${field.name}');
           expect(copied.hashCode, isNot(base.hashCode), reason: 'hashCode ignores ${field.name}');
         });
+
+        // An enum can't interpolate; brightness has its own swap test below.
+        if (field.name == 'brightness') continue;
 
         test('${field.name} survives lerp', () {
           // Only this field is set on both sides, so it alone interpolates;
@@ -137,6 +147,21 @@ void main() {
 
       expect(CodeBlockThemeData.lerp(set, unset, 0.25).backgroundColor, const Color(0xFF123456));
       expect(CodeBlockThemeData.lerp(set, unset, 0.75).backgroundColor, isNull);
+    });
+
+    test('lerp swaps brightness at the midpoint', () {
+      const dark = CodeBlockThemeData(brightness: Brightness.dark);
+      const light = CodeBlockThemeData(brightness: Brightness.light);
+
+      expect(CodeBlockThemeData.lerp(dark, light, 0.25).brightness, Brightness.dark);
+      expect(CodeBlockThemeData.lerp(dark, light, 0.75).brightness, Brightness.light);
+      expect(CodeBlockThemeData.lerp(dark, const CodeBlockThemeData(), 0.75).brightness, isNull);
+    });
+
+    test('merge keeps a pinned brightness unless the override pins one', () {
+      const dark = CodeBlockThemeData(brightness: Brightness.dark);
+      expect(dark.merge(const CodeBlockThemeData(backgroundColor: Color(0xFF111111))).brightness, Brightness.dark);
+      expect(dark.merge(const CodeBlockThemeData(brightness: Brightness.light)).brightness, Brightness.light);
     });
 
     test('lerp interpolates a field both sides set', () {

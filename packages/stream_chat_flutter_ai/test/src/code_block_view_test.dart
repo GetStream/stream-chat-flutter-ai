@@ -897,6 +897,109 @@ void main() {
         });
       });
 
+      group('pinned brightness', () {
+        BoxDecoration frameOf(WidgetTester tester) {
+          final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+          return tester.widget<Container>(container.first).decoration! as BoxDecoration;
+        }
+
+        Color? codeColor(WidgetTester tester) =>
+            tester.widget<SelectableText>(find.byType(SelectableText)).style?.color;
+
+        testWidgets('light with no colors gives the light defaults and tells the highlighter', (tester) async {
+          mockClipboard();
+          final highlighter = _RecordingHighlighter();
+          await tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'var x;',
+                language: 'dart',
+                highlighter: highlighter.call,
+                theme: const CodeBlockThemeData(brightness: Brightness.light),
+              ),
+            ),
+          );
+
+          expect(frameOf(tester).color, const Color(0xFFF6F8FA));
+          final text = codeColor(tester)!;
+          expect(text, const Color(0xFF1F2328));
+          expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, text.withValues(alpha: 0.6));
+          expect(highlighter.requests.single.brightness, Brightness.light);
+          expect(highlighter.requests.single.theme.brightness, Brightness.light);
+
+          await tester.tap(find.byIcon(Icons.content_copy));
+          await tester.pump();
+          expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, isNot(Colors.greenAccent));
+          await tester.pump(const Duration(seconds: 2));
+        });
+
+        testWidgets('dark pinned in a light app keeps the dark defaults', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(
+                extensions: const [AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.dark))],
+              ),
+              home: CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call),
+            ),
+          );
+
+          expect(frameOf(tester).color, kDefaultCodeBackgroundColor);
+          expect(codeColor(tester), kDefaultCodeForegroundColor);
+          expect(highlighter.requests.single.brightness, Brightness.dark);
+        });
+
+        testWidgets('a pinned brightness wins over a contrasting background', (tester) async {
+          // Documented: explicit colors win over the defaults, and keeping them
+          // consistent with the pinned brightness is the host's job.
+          final highlighter = _RecordingHighlighter();
+          await tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'var x;',
+                language: 'dart',
+                highlighter: highlighter.call,
+                theme: const CodeBlockThemeData(brightness: Brightness.dark, backgroundColor: Color(0xFFFFFFFF)),
+              ),
+            ),
+          );
+
+          expect(frameOf(tester).color, const Color(0xFFFFFFFF));
+          expect(codeColor(tester), kDefaultCodeForegroundColor, reason: 'the defaults follow the pinned brightness');
+          expect(highlighter.requests.single.brightness, Brightness.dark);
+        });
+
+        testWidgets('flipping a pinned brightness re-highlights at once', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          Widget app(Brightness brightness) => wrap(
+            CodeBlockView(
+              code: 'var x;',
+              language: 'dart',
+              highlighter: highlighter.call,
+              theme: CodeBlockThemeData(brightness: brightness, backgroundColor: const Color(0xFF808080)),
+            ),
+          );
+
+          await tester.pumpWidget(app(Brightness.dark));
+          await tester.pumpWidget(app(Brightness.light));
+
+          expect(highlighter.requests.map((r) => r.brightness), [Brightness.dark, Brightness.light]);
+        });
+      });
+
+      test('a hand-built request reads a pinned brightness from its theme', () {
+        final request = CodeHighlightRequest(
+          code: 'x',
+          language: 'dart',
+          theme: const CodeBlockThemeData(
+            brightness: Brightness.dark,
+            backgroundColor: Color(0xFFFFFFFF),
+            codeTextStyle: TextStyle(fontSize: 13),
+          ),
+        );
+        expect(request.brightness, Brightness.dark);
+      });
+
       group('theme changes', () {
         const light = CodeBlockThemeData(backgroundColor: Color(0xFFFAFAFA));
         const dark = CodeBlockThemeData(backgroundColor: Color(0xFF0D1117));
@@ -1007,6 +1110,20 @@ void main() {
               backgroundColor: Color(0xFFFAFAFA),
               headerBackgroundColor: Color(0xFFEAEAEA),
             ),
+          ),
+        ),
+      );
+
+      goldenTest(
+        'light block from a pinned brightness',
+        fileName: 'code_block_view_pinned_light',
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 200),
+        builder: () => wrap(
+          const CodeBlockView(
+            code: _dartSnippet,
+            language: 'dart',
+            highlighter: _brightnessAwareHighlighter,
+            theme: CodeBlockThemeData(brightness: Brightness.light),
           ),
         ),
       );

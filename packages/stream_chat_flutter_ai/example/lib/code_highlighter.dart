@@ -60,8 +60,9 @@ TextSpan? highlightCode(CodeHighlightRequest request) {
   final error = result.errorRaised;
   if (error != null) Error.throwWithStackTrace(error, error.stackTrace ?? StackTrace.current);
 
-  // The block's own background, not the app's brightness, decides: a host can
-  // keep a dark code frame in a light app, and dark tokens on it would vanish.
+  // The block's brightness, not the app's, decides: a host can keep a dark code
+  // frame in a light app (`CodeBlockThemeData(brightness: Brightness.dark)`),
+  // and dark tokens on it would vanish.
   final palette = request.brightness == Brightness.dark ? _darkTheme : _lightTheme;
   final renderer = TextSpanRenderer(request.baseStyle, palette);
   result.render(renderer);

@@ -221,17 +221,29 @@ over 20,000 characters skip highlighting altogether. Prefer a top-level or other
 hoisted function over an inline closure, so the widget can tell a genuinely new
 highlighter from a new closure over the same one.
 
-**Theming.** The frame comes from `CodeBlockThemeData` — `backgroundColor`,
+**Theming.** The frame comes from `CodeBlockThemeData` — `brightness`, `backgroundColor`,
 `headerBackgroundColor`, `languageLabelStyle`, `copyIconColor`, `copiedIconColor` and
 `codeTextStyle` — resolved from the widget's own `theme`, then the nearest
 `CodeBlockTheme`, then `AITheme.codeBlockTheme`. `AIMarkdownBody` and
 `StreamingMessageView` forward a `codeBlockTheme` to every fence. By default the block is
-the same dark frame (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike; set
-only a light `backgroundColor` and the default text and icon colors turn dark to match.
+the same dark frame (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike.
+
+`brightness` pins whether the block is a dark or a light surface. It is exactly what your
+highlighter receives as `request.brightness`, and every color default follows it:
+`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). For code
+blocks that stay dark whatever the app's mode, set it once:
+
+```dart
+AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.dark))
+```
+
+Colors you set still win over those defaults, and are then yours to keep consistent with
+`brightness`. Leave `brightness` null and it is estimated from `backgroundColor` instead —
+set only a light background and the default text and icon colors turn dark to match.
 
 **Mind the contrast.** The theme colors the frame and the base text; the token colors are
 your highlighter's. A light frame under a palette built for a dark one is unreadable, so
-pick the palette from `request.brightness` — the example uses `vs2015` on a dark block and
+pick the palette from `request.brightness` (not the app's brightness) — the example uses `vs2015` on a dark block and
 `atom-one-light` on a light one:
 
 ```dart
