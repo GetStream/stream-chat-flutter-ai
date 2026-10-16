@@ -610,6 +610,22 @@ void main() {
         const AIToolCallPart(id: 'x', name: 'get_location', displayTitle: 'Finding you').displayName,
         'Finding you',
       );
+      expect(
+        const AIToolCallPart(id: 'x', name: 'get_location', displayTitle: '  ').displayName,
+        'get location',
+        reason: 'a blank title counts as none',
+      );
+      expect(const AIToolCallPart(id: 'x', name: '').displayName, isEmpty);
+    });
+
+    test('summaryText reads a blank summary as absent', () {
+      expect(const AIToolCallPart(id: 'x', name: 'n', summary: 'Sunny').summaryText, 'Sunny');
+      expect(const AIToolCallPart(id: 'x', name: 'n', summary: ' \n').summaryText, isNull);
+      expect(const AIToolCallPart(id: 'x', name: 'n').summaryText, isNull);
+    });
+
+    test('rejects a negative duration', () {
+      expect(() => AIToolCallPart(id: 'x', name: 'n', durationMs: -1), throwsAssertionError);
     });
 
     test('isFinished covers completed, failed and cancelled', () {

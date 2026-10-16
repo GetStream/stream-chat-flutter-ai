@@ -1,16 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// Imported for the doc links below only; nothing in this file's code uses it.
+// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 // Not doc-only: [ToolCallTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
 /// Overrides for how [AIToolCallView] is drawn: the title and detail text, the
 /// status icon's colors and its size.
 ///
-/// Every field is nullable, and `null` means "use the default", which derives
-/// from the ambient [ThemeData] — so one instance covers light and dark mode.
+/// Every field is nullable, and `null` means "use the default". Most defaults
+/// derive from the ambient [ThemeData]; [successColor]'s is a fixed green per
+/// brightness. Either way one instance covers light and dark mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -33,6 +36,7 @@ class ToolCallThemeData with Diagnosticable {
     this.accentColor,
     this.successColor,
     this.failureColor,
+    this.iconColor,
     this.iconSize,
   }) : assert(iconSize == null || iconSize >= 0, 'iconSize must not be negative');
 
@@ -42,12 +46,13 @@ class ToolCallThemeData with Diagnosticable {
 
   /// The style of the detail line under the title (the summary, or a status
   /// such as "Waiting for approval") and of the duration, merged over
-  /// [TextTheme.bodySmall] in [ColorScheme.onSurfaceVariant]. A cancelled or
-  /// declined call's icon takes its color too.
+  /// [TextTheme.bodySmall] in [ColorScheme.onSurfaceVariant].
   final TextStyle? detailStyle;
 
-  /// The spinner of a running call, and the icon of one waiting for approval
-  /// or for a device. Defaults to [ColorScheme.primary].
+  /// The spinner of a running call, and the band of light sweeping across the
+  /// icon of a call waiting for approval or for a device — the same role as
+  /// [ReasoningThemeData.shimmerColor]. With reduced motion on, the waiting
+  /// icon is drawn in it outright. Defaults to [ColorScheme.primary].
   final Color? accentColor;
 
   /// The check of a completed call. Defaults to a green that reads on the
@@ -56,6 +61,11 @@ class ToolCallThemeData with Diagnosticable {
 
   /// The icon of a failed call. Defaults to [ColorScheme.error].
   final Color? failureColor;
+
+  /// The neutral icons: the cross of a cancelled or declined call, and a
+  /// waiting call's icon beneath its [accentColor] band. Defaults to the
+  /// resolved [detailStyle]'s color.
+  final Color? iconColor;
 
   /// The status icon's size, and the spinner's. Defaults to 14.
   final double? iconSize;
@@ -68,6 +78,7 @@ class ToolCallThemeData with Diagnosticable {
     Color? accentColor,
     Color? successColor,
     Color? failureColor,
+    Color? iconColor,
     double? iconSize,
   }) {
     return ToolCallThemeData(
@@ -76,6 +87,7 @@ class ToolCallThemeData with Diagnosticable {
       accentColor: accentColor ?? this.accentColor,
       successColor: successColor ?? this.successColor,
       failureColor: failureColor ?? this.failureColor,
+      iconColor: iconColor ?? this.iconColor,
       iconSize: iconSize ?? this.iconSize,
     );
   }
@@ -91,6 +103,7 @@ class ToolCallThemeData with Diagnosticable {
       accentColor: other.accentColor,
       successColor: other.successColor,
       failureColor: other.failureColor,
+      iconColor: other.iconColor,
       iconSize: other.iconSize,
     );
   }
@@ -105,6 +118,7 @@ class ToolCallThemeData with Diagnosticable {
       accentColor: lerpColorOrSwap(a.accentColor, b.accentColor, t),
       successColor: lerpColorOrSwap(a.successColor, b.successColor, t),
       failureColor: lerpColorOrSwap(a.failureColor, b.failureColor, t),
+      iconColor: lerpColorOrSwap(a.iconColor, b.iconColor, t),
       iconSize: lerpDoubleOrSwap(a.iconSize, b.iconSize, t),
     );
   }
@@ -118,6 +132,7 @@ class ToolCallThemeData with Diagnosticable {
       ..add(ColorProperty('accentColor', accentColor, defaultValue: null))
       ..add(ColorProperty('successColor', successColor, defaultValue: null))
       ..add(ColorProperty('failureColor', failureColor, defaultValue: null))
+      ..add(ColorProperty('iconColor', iconColor, defaultValue: null))
       ..add(DoubleProperty('iconSize', iconSize, defaultValue: null));
   }
 
@@ -130,11 +145,13 @@ class ToolCallThemeData with Diagnosticable {
         other.accentColor == accentColor &&
         other.successColor == successColor &&
         other.failureColor == failureColor &&
+        other.iconColor == iconColor &&
         other.iconSize == iconSize;
   }
 
   @override
-  int get hashCode => Object.hash(titleStyle, detailStyle, accentColor, successColor, failureColor, iconSize);
+  int get hashCode =>
+      Object.hash(titleStyle, detailStyle, accentColor, successColor, failureColor, iconColor, iconSize);
 }
 
 /// Overrides the tool-call theme for the widgets below it.

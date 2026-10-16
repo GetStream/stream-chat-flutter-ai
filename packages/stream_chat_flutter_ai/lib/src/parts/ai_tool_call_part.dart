@@ -126,7 +126,7 @@ class AIToolCallPart {
     this.durationMs,
     this.approval,
     this.hasPayloadId = true,
-  });
+  }) : assert(durationMs == null || durationMs >= 0, 'durationMs must not be negative');
 
   /// Reads an `ai_tool_call` payload leniently: a missing or wrong-typed field
   /// gets its default, and nothing throws.
@@ -206,7 +206,8 @@ class AIToolCallPart {
   /// A backend that sends them JSON-encoded as a string is decoded too.
   final Map<String, Object?>? arguments;
 
-  /// A short, shareable outcome, such as "Found your location".
+  /// A short, shareable outcome, such as "Found your location". May be blank
+  /// when built by hand; [summaryText] reads a blank one as absent.
   final String? summary;
 
   /// How long the call took, in milliseconds.
@@ -220,10 +221,26 @@ class AIToolCallPart {
   Duration? get duration => durationMs == null ? null : Duration(milliseconds: durationMs!);
 
   /// [displayTitle], or [name] with its underscores turned into spaces
-  /// (`get_weather` → `get weather`) when the agent sent no title.
-  String get displayName => displayTitle ?? name.replaceAll('_', ' ');
+  /// (`get_weather` → `get weather`) when the agent sent no title or a blank
+  /// one. Empty when the agent sent neither; a view then shows a generic
+  /// fallback, such as `AITranslations.toolCallFallbackTitle`.
+  String get displayName {
+    final title = displayTitle;
+    if (title != null && title.trim().isNotEmpty) return title;
+    return name.replaceAll('_', ' ');
+  }
+
+  /// [summary], or `null` when it is absent or blank — what a view shows.
+  String? get summaryText {
+    final summary = this.summary;
+    return summary == null || summary.trim().isEmpty ? null : summary;
+  }
 
   /// Whether the person declined the call, so it never ran.
+  ///
+  /// Takes precedence over [status] when showing the call: a declined call
+  /// reads as declined (and shows no duration) even while its status still
+  /// says `awaiting_approval` or has moved to `cancelled`.
   bool get isDeclined => approval?.isDeclined ?? false;
 
   /// Whether this call is waiting for this device: a client tool with an id

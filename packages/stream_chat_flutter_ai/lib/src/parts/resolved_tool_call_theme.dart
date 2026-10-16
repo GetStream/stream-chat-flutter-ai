@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+// Not doc-only: [ToolCallTheme.of] supplies the themed fields.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
@@ -30,6 +31,7 @@ class ResolvedToolCallTheme {
     required this.accentColor,
     required this.successColor,
     required this.failureColor,
+    required this.iconColor,
     required this.iconSize,
   });
 
@@ -52,20 +54,22 @@ class ResolvedToolCallTheme {
       return style;
     }
 
+    final detailStyle = resolveStyle(
+      theme.textTheme.bodySmall,
+      colors.onSurfaceVariant,
+      data.detailStyle,
+      override?.detailStyle,
+    );
     return ResolvedToolCallTheme._(
       titleStyle: resolveStyle(theme.textTheme.bodyMedium, colors.onSurface, data.titleStyle, override?.titleStyle),
-      detailStyle: resolveStyle(
-        theme.textTheme.bodySmall,
-        colors.onSurfaceVariant,
-        data.detailStyle,
-        override?.detailStyle,
-      ),
+      detailStyle: detailStyle,
       accentColor: override?.accentColor ?? data.accentColor ?? colors.primary,
       successColor:
           override?.successColor ??
           data.successColor ??
           (theme.brightness == Brightness.dark ? _kSuccessOnDark : _kSuccessOnLight),
       failureColor: override?.failureColor ?? data.failureColor ?? colors.error,
+      iconColor: override?.iconColor ?? data.iconColor ?? detailStyle.color!,
       iconSize: math.max<double>(0, override?.iconSize ?? data.iconSize ?? _kDefaultIconSize),
     );
   }
@@ -85,6 +89,9 @@ class ResolvedToolCallTheme {
   /// See [ToolCallThemeData.failureColor].
   final Color failureColor;
 
+  /// See [ToolCallThemeData.iconColor].
+  final Color iconColor;
+
   /// See [ToolCallThemeData.iconSize].
   final double iconSize;
 
@@ -97,9 +104,11 @@ class ResolvedToolCallTheme {
         other.accentColor == accentColor &&
         other.successColor == successColor &&
         other.failureColor == failureColor &&
+        other.iconColor == iconColor &&
         other.iconSize == iconSize;
   }
 
   @override
-  int get hashCode => Object.hash(titleStyle, detailStyle, accentColor, successColor, failureColor, iconSize);
+  int get hashCode =>
+      Object.hash(titleStyle, detailStyle, accentColor, successColor, failureColor, iconColor, iconSize);
 }

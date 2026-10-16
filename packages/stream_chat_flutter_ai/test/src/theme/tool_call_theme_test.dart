@@ -35,6 +35,7 @@ void main() {
         accentColor: Color(0xFF111111),
         successColor: Color(0xFF222222),
         failureColor: Color(0xFF333333),
+        iconColor: Color(0xFF444444),
         iconSize: 10,
       );
 
@@ -79,6 +80,12 @@ void main() {
               read: (t) => t.failureColor,
             ),
             (
+              name: 'iconColor',
+              only: const ToolCallThemeData(iconColor: Color(0xFF0000A4)),
+              copied: () => base.copyWith(iconColor: const Color(0xFF0000A4)),
+              read: (t) => t.iconColor,
+            ),
+            (
               name: 'iconSize',
               only: const ToolCallThemeData(iconSize: 40),
               copied: () => base.copyWith(iconSize: 40),
@@ -87,8 +94,8 @@ void main() {
           ];
 
       test('the table covers every field the class declares', () {
-        expect(fields, hasLength(6));
-        expect(fields.map((f) => f.name).toSet(), hasLength(6));
+        expect(fields, hasLength(7));
+        expect(fields.map((f) => f.name).toSet(), hasLength(7));
       });
 
       for (final field in fields) {

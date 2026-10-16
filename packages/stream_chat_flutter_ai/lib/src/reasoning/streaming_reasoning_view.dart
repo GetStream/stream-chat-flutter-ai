@@ -10,7 +10,7 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/reasoning_text.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.dart';
-// The next two are imported for the doc links below only.
+// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: the `theme` parameter is a [ReasoningThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';

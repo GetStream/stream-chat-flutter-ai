@@ -102,6 +102,53 @@ void main() {
       ]);
     });
 
+    testWidgets('a partBuilder returning null hands tool calls to the toolCallBuilder', (tester) async {
+      final asked = <String>[];
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: _parts,
+            partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const Text('citation') : null,
+            toolCallBuilder: (context, call) {
+              asked.add(call.id);
+              return const Text('call');
+            },
+          ),
+        ),
+      );
+
+      expect(asked, ['call_1']);
+      expect(find.text('call'), findsOneWidget);
+      expect(find.text('citation'), findsOneWidget);
+    });
+
+    testWidgets('hidden leaves a part out, with no spacing for it', (tester) async {
+      Widget build({required bool hide}) => _wrap(
+        AIMessagePartsView(
+          parts: _parts,
+          spacing: 20,
+          partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const SizedBox(height: 10) : null,
+          toolCallBuilder: (context, call) => hide ? AIMessagePartsView.hidden : const SizedBox(height: 10),
+        ),
+      );
+
+      await tester.pumpWidget(build(hide: false));
+      final shown = tester.getSize(find.byType(AIMessagePartsView)).height;
+      await tester.pumpWidget(build(hide: true));
+      final hidden = tester.getSize(find.byType(AIMessagePartsView)).height;
+      expect(shown - hidden, 30, reason: 'the 10pt part and one 20pt gap are gone');
+
+      final column = tester.widget<Column>(find.byType(Column).first);
+      expect(column.children.map((child) => child.key), const [ValueKey<Object>('r1'), ValueKey<Object>('c1')]);
+    });
+
+    testWidgets('hidden from a partBuilder hides any part', (tester) async {
+      await tester.pumpWidget(
+        _wrap(AIMessagePartsView(parts: _parts, partBuilder: (context, part) => AIMessagePartsView.hidden)),
+      );
+      expect(find.byType(Column), findsNothing);
+    });
+
     testWidgets('a partBuilder is asked before the toolCallBuilder', (tester) async {
       final asked = <String>[];
       await tester.pumpWidget(

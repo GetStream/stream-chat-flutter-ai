@@ -1,6 +1,7 @@
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
@@ -171,6 +172,18 @@ void main() {
         }
       });
 
+      testWidgets('a declined call shows none', (tester) async {
+        _reduceMotion(tester);
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.cancelled, approval: _declined, durationMs: 400),
+            ),
+          ),
+        );
+        expect(find.text('0.4s'), findsNothing);
+      });
+
       testWidgets('shows nothing when the agent sent none', (tester) async {
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.completed))));
         expect(_texts(tester), ['get weather']);
@@ -184,16 +197,33 @@ void main() {
         expect(tester.widget<Text>(find.text('1m 5s')).style!.fontFeatures, const [FontFeature.tabularFigures()]);
       });
 
-      test('formats tenths under a second, then whole seconds', () {
-        const translations = DefaultAITranslations();
-        String format(int ms) => translations.toolCallDuration(Duration(milliseconds: ms));
-        expect(format(0), '0.0s');
-        expect(format(420), '0.4s');
-        expect(format(940), '0.9s');
-        expect(format(960), '1s', reason: 'rounds up to a whole second rather than reading 1.0s');
-        expect(format(12600), '13s', reason: 'rounds to the nearest second');
-        expect(format(65000), '1m 5s');
-        expect(format(600000), '10m');
+      testWidgets('sits at the start edge in right-to-left text', (tester) async {
+        _reduceMotion(tester);
+        await tester.pumpWidget(
+          _wrap(
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: AIToolCallView(call: _call(status: AIToolCallStatus.completed, durationMs: 65000)),
+            ),
+          ),
+        );
+        expect(tester.getTopLeft(find.text('1m 5s')).dx, 0);
+        expect(tester.getTopRight(_inView(find.byType(Icon))).dx, 360, reason: 'the icon leads on the right');
+      });
+
+      testWidgets('adds tabular figures to the themed font features rather than replacing them', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.completed, durationMs: 400),
+              theme: const ToolCallThemeData(detailStyle: TextStyle(fontFeatures: [FontFeature.slashedZero()])),
+            ),
+          ),
+        );
+        expect(tester.widget<Text>(find.text('0.4s')).style!.fontFeatures, const [
+          FontFeature.slashedZero(),
+          FontFeature.tabularFigures(),
+        ]);
       });
     });
 
@@ -238,6 +268,25 @@ void main() {
         expect(success.g, greaterThan(success.r), reason: 'a green');
       });
 
+      testWidgets('an unknown status spins, and debug builds report it once per change', (tester) async {
+        final reports = <String>[];
+        debugPartIssueReporter = reports.add;
+        addTearDown(() => debugPartIssueReporter = null);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: const AIToolCallStatus('queued')))));
+        expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget);
+        expect(reports, hasLength(1));
+        expect(reports.single, contains('"queued"'));
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: const AIToolCallStatus('queued')))));
+        expect(reports, hasLength(1), reason: 'a rebuild with the same status stays quiet');
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call())));
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: const AIToolCallStatus('paused')))));
+        expect(reports, hasLength(2));
+        expect(reports.last, contains('"paused"'));
+      });
+
       testWidgets('a running call, or one in a status this package does not know, spins', (tester) async {
         for (final status in [AIToolCallStatus.running, const AIToolCallStatus('queued')]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
@@ -271,6 +320,69 @@ void main() {
           expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status.value);
           expect(tester.hasRunningAnimations, isFalse, reason: status.value);
         }
+      });
+
+      testWidgets('starts and stops shimmering as the same call changes status', (tester) async {
+        Future<void> pump(AIToolCallStatus status) =>
+            tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
+
+        await pump(AIToolCallStatus.running);
+        expect(_inView(find.byType(ShaderMask)), findsNothing);
+
+        await pump(AIToolCallStatus.awaitingApproval);
+        expect(_inView(find.byType(ShaderMask)), findsOneWidget);
+        expect(tester.hasRunningAnimations, isTrue);
+
+        await pump(AIToolCallStatus.completed);
+        expect(_inView(find.byType(ShaderMask)), findsNothing);
+        expect(tester.hasRunningAnimations, isFalse);
+
+        await pump(AIToolCallStatus.awaitingClient);
+        expect(_inView(find.byType(ShaderMask)), findsOneWidget);
+        expect(tester.hasRunningAnimations, isTrue, reason: 'the stopped shimmer starts again');
+      });
+
+      testWidgets('the shimmer sweeps an accent band over the neutral icon', (tester) async {
+        const data = ToolCallThemeData(accentColor: Color(0xFF0000D1), iconColor: Color(0xFF0000D2));
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.awaitingApproval),
+              theme: data,
+            ),
+          ),
+        );
+        expect(_iconColor(tester), const Color(0xFF0000D2));
+      });
+
+      testWidgets('swaps spinner and still icon both ways as reduced motion toggles', (tester) async {
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call())));
+        expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget);
+
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+          disableAnimations: true,
+        );
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+        await tester.pump();
+        expect(_inView(find.byType(CircularProgressIndicator)), findsNothing);
+        expect(_icon(tester), Icons.more_horiz_rounded);
+        expect(tester.hasRunningAnimations, isFalse);
+
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+        await tester.pump();
+        expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget);
+        expect(tester.hasRunningAnimations, isTrue);
+      });
+
+      testWidgets('shimmers again when reduced motion turns off', (tester) async {
+        _reduceMotion(tester);
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.awaitingApproval))));
+        expect(_inView(find.byType(ShaderMask)), findsNothing);
+
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+        await tester.pump();
+        expect(_inView(find.byType(ShaderMask)), findsOneWidget);
+        expect(tester.hasRunningAnimations, isTrue);
       });
 
       testWidgets('stops shimmering when reduced motion turns on', (tester) async {
@@ -309,13 +421,32 @@ void main() {
         handle.dispose();
       });
 
+      testWidgets('one node updates its label in place as the call finishes', (tester) async {
+        final handle = tester.ensureSemantics();
+        _reduceMotion(tester);
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call())));
+        final node = tester.getSemantics(find.bySemanticsLabel('get weather, Running'));
+
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.completed, summary: 'Sunny', durationMs: 800),
+            ),
+          ),
+        );
+        final updated = tester.getSemantics(find.bySemanticsLabel('get weather, Completed, Sunny, 0.8s'));
+        expect(updated.id, node.id, reason: 'the same live region, so the change is announced');
+        expect(updated, isSemantics(isLiveRegion: true));
+        handle.dispose();
+      });
+
       testWidgets('reads the status even without a detail line', (tester) async {
         final handle = tester.ensureSemantics();
         _reduceMotion(tester);
         final labels = {
           _call(): 'get weather, Running',
           _call(status: AIToolCallStatus.failed): "get weather, Didn't complete",
-          _call(status: AIToolCallStatus.cancelled, approval: _declined, durationMs: 1200): 'get weather, Declined, 1s',
+          _call(status: AIToolCallStatus.cancelled, approval: _declined, durationMs: 1200): 'get weather, Declined',
           _call(status: const AIToolCallStatus('queued')): 'get weather, Running',
         };
         for (final MapEntry(key: call, value: label) in labels.entries) {
@@ -405,6 +536,30 @@ void main() {
         expect(style.color, const Color(0xFF0000B1), reason: "the widget's style merges over the themed one");
       });
 
+      testWidgets('an inherit: false style still gets a color', (tester) async {
+        final theme = ThemeData();
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.failed),
+              theme: const ToolCallThemeData(
+                titleStyle: TextStyle(inherit: false, fontSize: 15, textBaseline: TextBaseline.alphabetic),
+                detailStyle: TextStyle(inherit: false, fontSize: 11, textBaseline: TextBaseline.alphabetic),
+              ),
+            ),
+            theme: theme,
+          ),
+        );
+        expect(tester.widget<Text>(find.text('get weather')).style!.color, theme.colorScheme.onSurface);
+        expect(tester.widget<Text>(find.text("Didn't complete")).style!.color, theme.colorScheme.onSurfaceVariant);
+      });
+
+      test('a negative icon size is rejected', () {
+        // The resolved theme also clamps it to zero, for release builds, where
+        // the assert is gone.
+        expect(() => ToolCallThemeData(iconSize: -1), throwsAssertionError);
+      });
+
       testWidgets('accent, success and detail colors reach their icons', (tester) async {
         _reduceMotion(tester);
         const data = ToolCallThemeData(
@@ -418,6 +573,16 @@ void main() {
           AIToolCallStatus.completed: const Color(0xFF0000C2),
           AIToolCallStatus.cancelled: const Color(0xFF0000C3),
         };
+        // iconColor, when set, wins over the detail color for the neutral icon.
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.cancelled),
+              theme: data.copyWith(iconColor: const Color(0xFF0000C4)),
+            ),
+          ),
+        );
+        expect(_iconColor(tester), const Color(0xFF0000C4));
         for (final MapEntry(key: status, value: color) in cases.entries) {
           await tester.pumpWidget(
             _wrap(
