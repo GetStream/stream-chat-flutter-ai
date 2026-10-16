@@ -14,11 +14,16 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 /// AIMessagePartsView(parts: AIMessagePart.parseAll(attachments))
 /// ```
 ///
-/// Each part gets this package's default view for its kind, and
-/// [AIUnsupportedPartView] — a neutral "a step this app version can't show" —
-/// for anything without one. To show some parts your own way, such as a kind
-/// of your own, pass a [partBuilder] and return `null` for the parts you leave
-/// to the default:
+/// A part this package can't read — a kind it doesn't know, a format newer
+/// than it reads, or a payload it couldn't decode ([AIMessagePart.isSupported]
+/// is `false`) — shows [AIUnsupportedPartView], a neutral "a step this app
+/// version can't show". A part it can read shows its kind's default view.
+/// Reasoning and tool calls have no default view yet, so for now they show
+/// nothing at all (and take up no spacing) unless your [partBuilder] builds
+/// them.
+///
+/// To show some parts your own way, such as a kind of your own, pass a
+/// [partBuilder] and return `null` for the parts you leave to the default:
 ///
 /// ```dart
 /// AIMessagePartsView(
@@ -31,8 +36,8 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 /// ```
 ///
 /// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
-/// list grows while a reply streams in. Two parts sharing an id are told apart
-/// by how many came before them.
+/// list grows while a reply streams in. A part whose id an earlier part already
+/// used is keyed by the id and how many parts with that id came before it.
 /// {@endtemplate}
 class AIMessagePartsView extends StatelessWidget {
   /// {@macro aiMessagePartsView}
@@ -55,34 +60,45 @@ class AIMessagePartsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (parts.isEmpty) return const SizedBox.shrink();
-
     final occurrences = <String, int>{};
+    final children = <Widget>[];
+    for (final part in parts) {
+      // Counted for every part, shown or not, so a part's key doesn't change
+      // when an earlier one starts or stops showing.
+      final occurrence = occurrences.update(part.id, (count) => count + 1, ifAbsent: () => 0);
+      final child = partBuilder?.call(context, part) ?? _defaultPartView(part);
+      if (child == null) continue;
+      children.add(
+        KeyedSubtree(
+          key: occurrence == 0 ? ValueKey<Object>(part.id) : ValueKey<Object>((part.id, occurrence)),
+          child: child,
+        ),
+      );
+    }
+    if (children.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       spacing: spacing,
-      children: [
-        for (final part in parts)
-          KeyedSubtree(
-            key: switch (occurrences.update(part.id, (count) => count + 1, ifAbsent: () => 0)) {
-              0 => ValueKey<Object>(part.id),
-              final occurrence => ValueKey<Object>((part.id, occurrence)),
-            },
-            child: partBuilder?.call(context, part) ?? _defaultPartView(part),
-          ),
-      ],
+      children: children,
     );
   }
 
-  /// The one place a kind's default view is chosen. Every kind shows the
-  /// placeholder until this package has a view of its own for it.
-  static Widget _defaultPartView(AIMessagePart part) => const AIUnsupportedPartView();
+  /// The one place a part's default view is chosen, or `null` to show nothing.
+  ///
+  /// A part this package can't read gets the placeholder. A part it can read
+  /// gets its kind's view — and reasoning and tool calls have none yet, so they
+  /// show nothing until their views are added here.
+  static Widget? _defaultPartView(AIMessagePart part) {
+    if (!part.isSupported) return const AIUnsupportedPartView();
+    return null;
+  }
 }
 
 /// A neutral placeholder for an agent step this app version can't show: a kind
-/// it doesn't know, or a format newer than it reads. It says that something
-/// happened without guessing what.
+/// it doesn't know, a format newer than it reads, or a payload it couldn't
+/// decode. It says that something happened without guessing what.
 ///
 /// The text is [AITranslations.unsupportedMessagePart].
 class AIUnsupportedPartView extends StatelessWidget {

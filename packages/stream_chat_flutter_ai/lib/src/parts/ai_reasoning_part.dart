@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-// Here for the [AIMessagePart] doc link only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 
@@ -62,17 +61,18 @@ class AIReasoningPart {
   /// gets its default, and nothing throws.
   ///
   /// [id] is the step's identity, which [AIMessagePart] resolves (falling back
-  /// to the attachment's position when the payload carries none).
+  /// to the step's position when the payload carries none).
   factory AIReasoningPart.fromJson(Map<String, Object?> json, {required String id}) {
+    final fields = PartFields(json, 'ai_reasoning "$id"');
     return AIReasoningPart(
       id: id,
-      status: switch (json.stringField('status')) {
+      status: switch (fields.string('status')) {
         final status? => AIReasoningStatus(status),
         null => AIReasoningStatus.completed,
       },
-      summary: json.stringField('summary'),
-      preview: json.stringField('preview'),
-      durationMs: json.intField('duration_ms'),
+      summary: fields.string('summary'),
+      preview: fields.string('preview'),
+      durationMs: fields.count('duration_ms'),
     );
   }
 
@@ -87,7 +87,8 @@ class AIReasoningPart {
   final String? summary;
 
   /// A capped excerpt: the latest thoughts while streaming, the opening once
-  /// done. The full reasoning, when an app has it, arrives separately.
+  /// done. It is not the full reasoning, which the agent doesn't put on the
+  /// step.
   final String? preview;
 
   /// How long the round took, in milliseconds.
@@ -98,6 +99,35 @@ class AIReasoningPart {
 
   /// Whether the model is still thinking.
   bool get isStreaming => status == AIReasoningStatus.streaming;
+
+  /// A copy with the given fields replaced. A `null` argument keeps the
+  /// current value.
+  AIReasoningPart copyWith({
+    String? id,
+    AIReasoningStatus? status,
+    String? summary,
+    String? preview,
+    int? durationMs,
+  }) {
+    return AIReasoningPart(
+      id: id ?? this.id,
+      status: status ?? this.status,
+      summary: summary ?? this.summary,
+      preview: preview ?? this.preview,
+      durationMs: durationMs ?? this.durationMs,
+    );
+  }
+
+  /// The step as an `ai_reasoning` payload, which [AIReasoningPart.fromJson]
+  /// reads back to an equal part. Absent fields are left out.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'v': AIMessagePart.supportedVersion,
+    'status': status.value,
+    'summary': ?summary,
+    'preview': ?preview,
+    'duration_ms': ?durationMs,
+  };
 
   @override
   bool operator ==(Object other) =>
