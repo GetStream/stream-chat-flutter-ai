@@ -17,6 +17,14 @@ void main() => runApp(const ExampleApp());
 /// `ColorScheme`. Delete the `extensions:` lines below to get the defaults back.
 const _chartTheme = ChartThemeData(seriesColors: _brandChartPalette);
 
+/// A light code frame for the light theme, matching the Atom One Light token
+/// palette `code_highlighter.dart` switches to on a light background. The dark
+/// theme keeps the package's default dark frame.
+const _lightCodeBlockTheme = CodeBlockThemeData(
+  backgroundColor: Color(0xFFFAFAFA),
+  headerBackgroundColor: Color(0xFFF0F0F0),
+);
+
 /// A six-hue palette seeded on the same blue as the color scheme.
 const _brandChartPalette = [
   Color(0xFF005FFF),
@@ -37,7 +45,7 @@ class ExampleApp extends StatelessWidget {
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.light,
-        extensions: const [AITheme(chartTheme: _chartTheme)],
+        extensions: const [AITheme(chartTheme: _chartTheme, codeBlockTheme: _lightCodeBlockTheme)],
       ),
       darkTheme: ThemeData(
         colorSchemeSeed: const Color(0xFF005FFF),

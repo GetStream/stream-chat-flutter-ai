@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
 import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
 
 bool get _isDesktopDeviceOrWeb =>
@@ -35,8 +36,7 @@ class StreamingMessageView extends StatefulWidget {
     this.mathBuilder,
     this.useDollarDelimitersForMath = false,
     this.codeHighlighter,
-    this.codeBackgroundColor = kDefaultCodeBackgroundColor,
-    this.codeForegroundColor = kDefaultCodeForegroundColor,
+    this.codeBlockTheme,
   });
 
   /// The text to display in the widget.
@@ -56,11 +56,9 @@ class StreamingMessageView extends StatefulWidget {
   /// Syntax-highlights code fences. See [AIMarkdownBody.codeHighlighter].
   final CodeHighlighter? codeHighlighter;
 
-  /// Fills code fences. See [CodeBlockView.backgroundColor].
-  final Color codeBackgroundColor;
-
-  /// Colors the text in code fences. See [CodeBlockView.foregroundColor].
-  final Color codeForegroundColor;
+  /// Overrides for how code fences are framed. See
+  /// [AIMarkdownBody.codeBlockTheme] and [CodeBlockView.theme].
+  final CodeBlockThemeData? codeBlockTheme;
 
   /// The speed at which the text is typed out.
   ///
@@ -137,8 +135,7 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
       mathBuilder: widget.mathBuilder,
       useDollarDelimitersForMath: widget.useDollarDelimitersForMath,
       codeHighlighter: widget.codeHighlighter,
-      codeBackgroundColor: widget.codeBackgroundColor,
-      codeForegroundColor: widget.codeForegroundColor,
+      codeBlockTheme: widget.codeBlockTheme,
     );
   }
 }
