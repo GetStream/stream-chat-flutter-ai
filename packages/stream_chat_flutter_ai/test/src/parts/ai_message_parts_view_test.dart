@@ -319,6 +319,131 @@ void main() {
     });
   });
 
+  group('AIMessagePartsView with an approver', () {
+    final answers = <(String, bool)>[];
+    final approver = AIToolApprover(
+      userId: 'alice',
+      clientId: 'phone',
+      decide: (call, allowed) async => answers.add((call.id, allowed)),
+    );
+    setUp(answers.clear);
+
+    List<AIMessagePart> parts({String status = 'awaiting_approval', String? decision}) => AIMessagePart.parseAll([
+      (
+        type: 'ai_tool_call',
+        payload: {
+          'id': 'call_1',
+          'name': 'send_email',
+          'status': status,
+          'target_user_id': 'alice',
+          'approval': {'title': 'Send the summary by email?', 'decision': ?decision},
+        },
+      ),
+      (type: 'ai_tool_call', payload: const {'id': 'call_2', 'name': 'search_web', 'status': 'completed'}),
+    ]);
+
+    testWidgets('asks under a call awaiting approval, and only there', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(parts: parts(), approver: approver),
+          ),
+        ),
+      );
+
+      expect(find.byType(AIToolCallView), findsNWidgets(2));
+      expect(find.byType(AIToolApprovalCard), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byType(AIToolApprovalCard)).dy,
+        greaterThan(tester.getBottomLeft(find.text('send email')).dy),
+        reason: 'the question sits under its row',
+      );
+
+      await tester.tap(find.text('Allow'));
+      await tester.pump();
+      expect(answers, [('call_1', true)]);
+    });
+
+    testWidgets('asks nothing without an approver', (tester) async {
+      await tester.pumpWidget(_wrap(SizedBox(width: 360, child: AIMessagePartsView(parts: parts()))));
+      expect(find.byType(AIToolApprovalView), findsNothing);
+    });
+
+    testWidgets('the question goes away once answered, and the row keeps its state', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(parts: parts(), approver: approver),
+          ),
+        ),
+      );
+      final row = tester.state(find.byType(AIToolCallView).first);
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(
+              parts: parts(status: 'running', decision: 'allowed'),
+              approver: approver,
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(AIToolApprovalView), findsNothing);
+      expect(tester.state(find.byType(AIToolCallView).first), same(row));
+    });
+
+    testWidgets('a builder showing the call its own way gets no question', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(
+              parts: parts(),
+              approver: approver,
+              toolCallBuilder: (context, call) => call.name == 'send_email' ? const Text('email card') : null,
+            ),
+          ),
+        ),
+      );
+      expect(find.text('email card'), findsOneWidget);
+      expect(find.byType(AIToolApprovalView), findsNothing);
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(
+              parts: parts(),
+              approver: approver,
+              partBuilder: (context, part) => part.id == 'call_1' ? const Text('part') : null,
+            ),
+          ),
+        ),
+      );
+      expect(find.text('part'), findsOneWidget);
+      expect(find.byType(AIToolApprovalView), findsNothing);
+
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(
+              parts: parts(),
+              approver: approver,
+              toolCallBuilder: (context, call) => call.id == 'call_1' ? AIMessagePartsView.hidden : null,
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(AIToolCallView), findsOneWidget, reason: 'the hidden call is left out');
+      expect(find.byType(AIToolApprovalView), findsNothing);
+    });
+  });
+
   group('AIUnsupportedPartView', () {
     testWidgets('translates its text', (tester) async {
       await tester.pumpWidget(
