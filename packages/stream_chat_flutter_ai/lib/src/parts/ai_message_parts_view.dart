@@ -3,11 +3,19 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 // Here for the [AIReasoningPart.preview] doc link only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 
 /// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
-/// [AIMessagePartsView]'s default for it.
+/// [AIMessagePartsView]'s default for it, or [AIMessagePartsView.hidden] to
+/// show nothing for it.
 typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMessagePart part);
+
+/// Builds the widget for one tool call, or returns `null` to fall back to an
+/// [AIToolCallView] for it, or [AIMessagePartsView.hidden] to show nothing for
+/// it.
+typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolCallPart call);
 
 /// {@template aiMessagePartsView}
 /// The steps an AI agent took while replying, in order. Show it before the
@@ -21,9 +29,8 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 /// than it reads, or a payload it couldn't decode ([AIMessagePart.isSupported]
 /// is `false`) — shows [AIUnsupportedPartView], a neutral "a step this app
 /// version can't show". A part it can read shows its kind's default view: a
-/// [StreamingReasoningView] for a round of reasoning. Tool calls have no
-/// default view yet, so for now they show nothing at all (and take up no
-/// spacing) unless your [partBuilder] builds them.
+/// [StreamingReasoningView] for a round of reasoning, an [AIToolCallView] for
+/// a tool call.
 ///
 /// To show some parts your own way, such as a kind of your own, pass a
 /// [partBuilder] and return `null` for the parts you leave to the default:
@@ -38,6 +45,28 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 /// )
 /// ```
 ///
+/// To show only some tools your own way, such as a weather card for one tool,
+/// pass a [toolCallBuilder] instead, and return `null` for the calls left to
+/// the default row:
+///
+/// ```dart
+/// AIMessagePartsView(
+///   parts: parts,
+///   toolCallBuilder: (context, call) => call.name == 'get_weather' ? WeatherCard(call: call) : null,
+/// )
+/// ```
+///
+/// A [partBuilder] is asked first; [toolCallBuilder] only sees the tool calls
+/// it returned `null` for.
+///
+/// To hide a part, return [AIMessagePartsView.hidden] from either builder: it
+/// is left out entirely, taking up no [spacing], where an empty widget would
+/// still be spaced like a step.
+///
+/// ```dart
+/// toolCallBuilder: (context, call) => call.name == 'log_event' ? AIMessagePartsView.hidden : null,
+/// ```
+///
 /// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
 /// list grows while a reply streams in. A part whose id an earlier part already
 /// used is keyed by the id and how many parts with that id came before it.
@@ -48,6 +77,7 @@ class AIMessagePartsView extends StatelessWidget {
     super.key,
     required this.parts,
     this.partBuilder,
+    this.toolCallBuilder,
     this.spacing = 8,
   });
 
@@ -58,8 +88,18 @@ class AIMessagePartsView extends StatelessWidget {
   /// for that part.
   final AIMessagePartWidgetBuilder? partBuilder;
 
+  /// Builds a tool call your own way; returning `null` falls back to an
+  /// [AIToolCallView] for that call. Only asked for the tool calls
+  /// [partBuilder] left to the default.
+  final AIToolCallWidgetBuilder? toolCallBuilder;
+
   /// The vertical gap between two parts.
   final double spacing;
+
+  /// Returned from [partBuilder] or [toolCallBuilder], hides that part: it is
+  /// left out of the list, with no [spacing] around it. Compared by identity,
+  /// so return this very instance.
+  static const Widget hidden = _HiddenPart();
 
   @override
   Widget build(BuildContext context) {
@@ -69,8 +109,8 @@ class AIMessagePartsView extends StatelessWidget {
       // Counted for every part, shown or not, so a part's key doesn't change
       // when an earlier one starts or stops showing.
       final occurrence = occurrences.update(part.id, (count) => count + 1, ifAbsent: () => 0);
-      final child = partBuilder?.call(context, part) ?? _defaultPartView(part);
-      if (child == null) continue;
+      final child = partBuilder?.call(context, part) ?? _defaultPartView(context, part);
+      if (child == null || identical(child, hidden)) continue;
       children.add(
         KeyedSubtree(
           key: occurrence == 0 ? ValueKey<Object>(part.id) : ValueKey<Object>((part.id, occurrence)),
@@ -93,13 +133,23 @@ class AIMessagePartsView extends StatelessWidget {
   /// A part this package can't read gets the placeholder. Reasoning gets a
   /// [StreamingReasoningView] showing its [AIReasoningPart.preview]: the full
   /// text, when an app has it, goes through a [partBuilder] returning
-  /// `StreamingReasoningView.part(reasoning, text: fullText)`. Tool calls have
-  /// no view yet, so they show nothing until theirs is added here.
-  static Widget? _defaultPartView(AIMessagePart part) {
+  /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
+  /// goes to [toolCallBuilder] first (which may return [hidden]), and gets an
+  /// [AIToolCallView] when that returns `null`.
+  Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     if (!part.isSupported) return const AIUnsupportedPartView();
     if (part.reasoning case final reasoning?) return StreamingReasoningView.part(reasoning);
+    if (part.toolCall case final call?) return toolCallBuilder?.call(context, call) ?? AIToolCallView(call: call);
     return null;
   }
+}
+
+/// [AIMessagePartsView.hidden]. Never built: the view leaves it out.
+class _HiddenPart extends StatelessWidget {
+  const _HiddenPart();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 /// A neutral placeholder for an agent step this app version can't show: a kind

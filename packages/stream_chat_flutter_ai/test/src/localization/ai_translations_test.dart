@@ -5,6 +5,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 void main() {
+  group('DefaultAITranslations.toolCallDuration', () {
+    const translations = DefaultAITranslations();
+    String format(int ms) => translations.toolCallDuration(Duration(milliseconds: ms));
+
+    test('reads "<0.1s" below 50ms, and a negative duration as zero', () {
+      expect(format(0), '<0.1s');
+      expect(format(49), '<0.1s');
+      expect(format(-500), '<0.1s');
+      expect(translations.toolCallDurationBelowTenth, '<0.1s');
+    });
+
+    test('rounds to the nearest tenth under a second', () {
+      expect(format(50), '0.1s');
+      expect(format(420), '0.4s');
+      expect(format(449), '0.4s');
+      expect(format(450), '0.5s');
+      expect(format(949), '0.9s');
+    });
+
+    test('rounds to the nearest whole second from 950ms', () {
+      expect(format(950), '1s', reason: 'not 1.0s');
+      expect(format(1499), '1s');
+      expect(format(1500), '2s');
+      expect(format(12600), '13s', reason: 'nearest, where reasoningDuration rounds down');
+      expect(translations.reasoningDuration(const Duration(milliseconds: 12600)), '12s');
+      expect(format(59499), '59s');
+      expect(format(59500), '1m');
+      expect(format(65000), '1m 5s');
+      expect(format(600000), '10m');
+    });
+
+    test('goes through reasoningDuration, so translating that translates both', () {
+      expect(const _TestTranslations().toolCallDuration(const Duration(seconds: 5)), '5 sec');
+    });
+  });
+
   group('DefaultAITranslations reasoning', () {
     const translations = DefaultAITranslations();
 
@@ -440,6 +476,9 @@ class _Probe extends StatelessWidget {
 /// Overrides exactly one string, to prove the rest still come from the default.
 class _TestTranslations extends DefaultAITranslations {
   const _TestTranslations();
+
+  @override
+  String reasoningDuration(Duration duration) => '${duration.inSeconds} sec';
 
   @override
   String get send => 'VERSTUUR';
