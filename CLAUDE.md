@@ -103,4 +103,5 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 PR titles are enforced as `<type>(<scope>): <description>` with a required scope from:
 `ai`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
 `packages/stream_chat_flutter_ai/CHANGELOG.md` — CI checks this. Changelog entries go under the
-existing emoji headings: `✅ Added`, `🔄 Changed`, `🐞 Fixed`, `🚀 Performance`.
+existing emoji headings: `💥 Breaking` (first, one line per breaking change), `✅ Added`, `🔄 Changed`,
+`🐞 Fixed`, `🚀 Performance`.
