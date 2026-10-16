@@ -513,4 +513,7 @@ class DutchTranslations extends DefaultAITranslations {
 
   @override
   String get codeCopied => 'Gekopieerd!';
+
+  @override
+  String get unsupportedMessagePart => 'Een stap die deze app-versie niet kan tonen';
 }

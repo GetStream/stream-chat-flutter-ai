@@ -5,6 +5,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_semantics.dart';
 // uses it.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
+// Here for the [AIUnsupportedPartView] doc link below only.
+import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 
 /// The user-facing strings the package renders itself.
 ///
@@ -121,6 +123,11 @@ abstract class AITranslations {
   /// [chartSemanticsLabel].
   String get unnamedChartSeries;
 
+  /// The placeholder shown for an agent step this app version can't show — a
+  /// kind it doesn't know, or a format newer than it reads. See
+  /// [AIUnsupportedPartView].
+  String get unsupportedMessagePart;
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -186,6 +193,9 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get unnamedChartSeries => 'Series';
+
+  @override
+  String get unsupportedMessagePart => "A step this app version can't show";
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {

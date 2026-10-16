@@ -1,0 +1,117 @@
+import 'package:flutter/foundation.dart';
+// Here for the [AIMessagePart] doc link only.
+import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
+
+/// Where a round of reasoning is — the `status` of an `ai_reasoning` step.
+///
+/// An open set: compare against the statuses you know ([streaming],
+/// [completed]) and give the rest a sensible fallback. A status this package
+/// doesn't know keeps its raw [value] and reports `false` from [isKnown].
+@immutable
+class AIReasoningStatus {
+  /// Wraps a raw status string.
+  const AIReasoningStatus(this.value);
+
+  /// The model is still thinking.
+  static const streaming = AIReasoningStatus('streaming');
+
+  /// The round is over.
+  static const completed = AIReasoningStatus('completed');
+
+  /// The statuses this package knows.
+  static const values = [streaming, completed];
+
+  /// The status as the agent wrote it, such as `streaming`.
+  final String value;
+
+  /// Whether this is one of [values].
+  bool get isKnown => values.contains(this);
+
+  @override
+  bool operator ==(Object other) => identical(this, other) || other is AIReasoningStatus && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
+
+  @override
+  String toString() => 'AIReasoningStatus($value)';
+}
+
+/// A round of the model's reasoning — the typed view of an `ai_reasoning`
+/// step.
+///
+/// The agent writes:
+///
+/// ```json
+/// {"id": "r1", "v": 1, "status": "completed", "summary": "Compared both plans",
+///  "preview": "The user wants…", "duration_ms": 2400}
+/// ```
+@immutable
+class AIReasoningPart {
+  /// Creates an [AIReasoningPart].
+  const AIReasoningPart({
+    required this.id,
+    this.status = AIReasoningStatus.completed,
+    this.summary,
+    this.preview,
+    this.durationMs,
+  });
+
+  /// Reads an `ai_reasoning` payload leniently: a missing or wrong-typed field
+  /// gets its default, and nothing throws.
+  ///
+  /// [id] is the step's identity, which [AIMessagePart] resolves (falling back
+  /// to the attachment's position when the payload carries none).
+  factory AIReasoningPart.fromJson(Map<String, Object?> json, {required String id}) {
+    return AIReasoningPart(
+      id: id,
+      status: switch (json.stringField('status')) {
+        final status? => AIReasoningStatus(status),
+        null => AIReasoningStatus.completed,
+      },
+      summary: json.stringField('summary'),
+      preview: json.stringField('preview'),
+      durationMs: json.intField('duration_ms'),
+    );
+  }
+
+  /// The step's stable identity.
+  final String id;
+
+  /// Where the round is. Defaults to [AIReasoningStatus.completed] when the
+  /// agent sends none.
+  final AIReasoningStatus status;
+
+  /// A one-line summary of the reasoning, once it is done.
+  final String? summary;
+
+  /// A capped excerpt: the latest thoughts while streaming, the opening once
+  /// done. The full reasoning, when an app has it, arrives separately.
+  final String? preview;
+
+  /// How long the round took, in milliseconds.
+  final int? durationMs;
+
+  /// [durationMs] as a [Duration].
+  Duration? get duration => durationMs == null ? null : Duration(milliseconds: durationMs!);
+
+  /// Whether the model is still thinking.
+  bool get isStreaming => status == AIReasoningStatus.streaming;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AIReasoningPart &&
+          other.id == id &&
+          other.status == status &&
+          other.summary == summary &&
+          other.preview == preview &&
+          other.durationMs == durationMs;
+
+  @override
+  int get hashCode => Object.hash(id, status, summary, preview, durationMs);
+
+  @override
+  String toString() => 'AIReasoningPart(id: $id, status: ${status.value}, summary: $summary, durationMs: $durationMs)';
+}
