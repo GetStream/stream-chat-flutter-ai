@@ -1,17 +1,21 @@
 ## Upcoming
 
+💥 Breaking
+
+- `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
+- `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
+
 ✅ Added
 
+- `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
+  `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
+  usually falls behind the backend, so this fires later than the end of generation, which
+  `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
 - `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments).
 - `StreamingReasoningView` — a collapsible "Thinking… / Thought for Ns" reasoning panel, themed via `ReasoningThemeData`.
 - `AIToolCallView` — a tool-call row with status icon, summary and duration, themed via `ToolCallThemeData`; `AIMessagePartsView.toolCallBuilder` overrides it per tool.
 - `AIToolApprovalView` / `AIToolApprovalCard` — human-in-the-loop tool approvals via an `AIToolApprover`, themed via `ToolApprovalThemeData`; `AIMessagePartsView.approver` asks under each waiting call.
 - `AIClientToolRunner` runs `awaiting_client` tool calls once and sends each `AIClientToolResult` back to the agent; `AIResultClientTool` returns one.
-
-🔄 Changed
-
-- **Breaking:** `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
-- **Breaking:** `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
 
 ## 0.1.0
 
