@@ -73,9 +73,11 @@ final class AIInvokedTool {
 /// Built from a `custom_client_tool_invocation` event with [tryParse], then
 /// handed to `AIToolRegistry.dispatch`.
 ///
-/// Nothing is returned to the model. A client tool is a side effect — present
-/// an alert, navigate, read a sensor — and the protocol has no channel for
-/// reporting a result back, so neither does this type.
+/// Nothing is returned to the model on this path. A client tool invoked by
+/// event is a side effect — present an alert, navigate — and the event has no
+/// channel for reporting a result back, so neither does this type. An agent
+/// that writes its calls as `ai_tool_call` steps and waits for the device's
+/// result is served by `AIClientToolRunner` instead.
 ///
 /// [args] and [AIInvokedTool.parameters] are decoded maps rather than raw
 /// bytes, which is why [tryParse] can live here instead of in every host.
