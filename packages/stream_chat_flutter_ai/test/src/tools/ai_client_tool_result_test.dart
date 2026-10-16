@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
@@ -7,34 +8,35 @@ void main() {
     test('completed carries its output and summary', () {
       final result = AIClientToolResult.completed(const {'lat': 52.1}, summary: 'Shared approximate location');
 
-      expect(result.isFailure, isFalse);
+      expect(result, isA<AIClientToolCompleted>());
+      result as AIClientToolCompleted;
       expect(result.output, {'lat': 52.1});
       expect(result.summary, 'Shared approximate location');
-      expect(result.failure, isNull);
     });
 
     test('failed carries its reason', () {
       const result = AIClientToolResult.failed('Location not shared');
 
-      expect(result.isFailure, isTrue);
-      expect(result.failure, 'Location not shared');
-      expect(result.output, isNull);
-      expect(result.summary, isNull);
+      expect(result, const AIClientToolFailed('Location not shared'));
+      expect((result as AIClientToolFailed).reason, 'Location not shared');
     });
 
-    test('completed with an output JSON cannot encode becomes a reported failure', () {
-      final reported = <FlutterErrorDetails>[];
-      final previousOnError = FlutterError.onError;
-      FlutterError.onError = reported.add;
-      final AIClientToolResult result;
-      try {
-        result = AIClientToolResult.completed(Object());
-      } finally {
-        FlutterError.onError = previousOnError;
-      }
+    test('completed throws on output JSON cannot encode', () {
+      expect(() => AIClientToolResult.completed(Object()), throwsA(isA<JsonUnsupportedObjectError>()));
+    });
 
-      expect(result, const AIClientToolResult.failed(AIClientToolResult.unencodableOutputFailure));
-      expect(reported, hasLength(1));
+    test('completed stores a deeply unmodifiable copy of its output', () {
+      final list = [1];
+      final output = {'list': list};
+      final result = AIClientToolCompleted(output);
+      list.add(2);
+      output['other'] = [];
+
+      expect(result.output, {
+        'list': [1],
+      });
+      expect(() => (result.output! as Map<String, Object?>)['x'] = 1, throwsUnsupportedError);
+      expect(() => ((result.output! as Map<String, Object?>)['list']! as List<Object?>).add(3), throwsUnsupportedError);
     });
 
     group('toJson', () {

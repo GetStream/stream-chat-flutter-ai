@@ -393,7 +393,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _toolTimer?.cancel();
     _streamTimer?.cancel();
     _approver.dispose();
-    _toolRunner.dispose();
+    _toolRunner.close();
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -466,16 +466,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
   }
 
-  /// Adds a call that waits for this device, and hands the reply's calls to
-  /// the runner — as a real app would on every update of the reply. Calling
-  /// it again with the same calls would not run the tool twice.
+  /// Adds a call for this device to run, and hands the reply's calls to the
+  /// runner, as an app would on every update of the reply.
   void _runClientTool() {
-    // A fresh id per reply: the runner runs each call id once, as it must for
-    // a real agent's provider-issued ids, so reusing one would never run again.
+    // A fresh id per reply: the runner runs each call id only once.
     final call = _clockCall.copyWith(id: '${_clockCall.id}_${_messages.length}');
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
     _scrollToEnd();
-    unawaited(_toolRunner.runCalls(_messages.last.toolCalls));
+    unawaited(_toolRunner.handleCalls(_messages.last.toolCalls));
   }
 
   /// Stands in for posting a client tool's result to the agent's backend. Once
@@ -489,14 +487,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sent to the agent: ${payload['output']}')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sent to the agent: ${jsonEncode(payload)}')));
     _updateToolCall(
       call.id,
-      (call) => call.copyWith(
-        status: result.isFailure ? AIToolCallStatus.failed : AIToolCallStatus.completed,
-        summary: result.summary ?? result.failure,
-        durationMs: 600,
-      ),
+      (call) => switch (result) {
+        AIClientToolCompleted(:final summary) => call.copyWith(
+          status: AIToolCallStatus.completed,
+          summary: summary,
+          durationMs: 600,
+        ),
+        AIClientToolFailed(:final reason) => call.copyWith(status: AIToolCallStatus.failed, summary: reason),
+      },
     );
     _askToEmail();
   }
