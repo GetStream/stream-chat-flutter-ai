@@ -19,6 +19,10 @@
 - Charts show a series legend (`ChartThemeData.showLegend` / `legendPosition`), and pie slices are labelled with their percentage.
 - `AILocalModel` and `AIConversationTurn` for streaming a fallback reply from an on-device model.
 
+🔄 Changed
+
+- README documents the agent-step widgets, tool approvals, client tool runner and local model.
+
 ## 0.1.0
 
 First release of `stream_chat_flutter_ai` — Flutter UI components for building LLM-driven chat
