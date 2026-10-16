@@ -53,9 +53,12 @@ TextSpan? highlightCode(CodeHighlightRequest request) {
   final result = _highlight.highlight(code: request.code, language: request.language);
   // `Highlight` runs in safe mode, so a grammar or engine failure part-way
   // through the parse is reported here rather than thrown — and the emitter it
-  // hands back holds only the tokens produced before the failure. Rendering
-  // that would drop the tail of the code, or all of it.
-  if (result.errorRaised != null) return null;
+  // hands back holds only the tokens produced before the failure. Rethrow it
+  // rather than returning null: null means "language not covered", whereas a
+  // throw is reported through `FlutterError.onError` and the block still falls
+  // back to plain text, so the failure stays visible.
+  final error = result.errorRaised;
+  if (error != null) Error.throwWithStackTrace(error, error.stackTrace ?? StackTrace.current);
 
   // The block's own background, not the app's brightness, decides: a host can
   // keep a dark code frame in a light app, and dark tokens on it would vanish.

@@ -196,6 +196,56 @@ void main() {
       expect(resolved.copyIconColor, const Color(0xFF222222));
     });
 
+    testWidgets('merge with no enclosing scope applies its data as is', (tester) async {
+      final resolved = await _resolve(
+        tester,
+        scope: (child) => CodeBlockTheme.merge(
+          data: const CodeBlockThemeData(copyIconColor: Color(0xFF222222)),
+          child: child,
+        ),
+      );
+
+      expect(resolved, const CodeBlockThemeData(copyIconColor: Color(0xFF222222)));
+    });
+
+    testWidgets('merge puts its key on the returned widget', (tester) async {
+      const key = Key('scope');
+      await tester.pumpWidget(
+        CodeBlockTheme.merge(key: key, data: const CodeBlockThemeData(), child: const SizedBox()),
+      );
+      expect(find.byKey(key), findsOneWidget);
+    });
+
+    testWidgets('wrap carries the scope across a captured theme', (tester) async {
+      // What a route or overlay does with InheritedTheme.capture.
+      late CodeBlockThemeData resolved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CodeBlockTheme(
+            data: const CodeBlockThemeData(backgroundColor: Color(0xFF123456)),
+            child: Builder(
+              builder: (context) {
+                final captured = InheritedTheme.capture(from: context, to: null);
+                return MediaQuery(
+                  data: MediaQuery.of(context),
+                  child: captured.wrap(
+                    Builder(
+                      builder: (inner) {
+                        resolved = CodeBlockTheme.of(inner);
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(resolved.backgroundColor, const Color(0xFF123456));
+    });
+
     testWidgets('a nested scope replaces rather than layers', (tester) async {
       final resolved = await _resolve(
         tester,

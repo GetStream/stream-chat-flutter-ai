@@ -247,7 +247,8 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
   void didUpdateWidget(covariant AIMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     // The syntaxes and builders are independent of `data`, so streaming text
-    // doesn't churn them. Only the delimiter choice feeds into them.
+    // doesn't churn them. Only the delimiter choice, the chart languages and
+    // the code block theme feed into them.
     if (widget.useDollarDelimitersForMath != oldWidget.useDollarDelimitersForMath ||
         !setEquals(widget.chartLanguages, oldWidget.chartLanguages) ||
         widget.codeBlockTheme != oldWidget.codeBlockTheme) {

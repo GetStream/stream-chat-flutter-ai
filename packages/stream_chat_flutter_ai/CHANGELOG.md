@@ -2,7 +2,7 @@
 
 🔄 Changed
 
-- `CodeBlockView` is themed through `CodeBlockThemeData`, and `CodeHighlighter` now takes a `CodeHighlightRequest` with the block's brightness.
+- **Breaking:** `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
 
 ## 0.1.0
 
