@@ -8,6 +8,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
+import 'package:stream_chat_flutter_ai_example/fake_local_model.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -365,6 +366,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// How much of the reply each simulated chunk delivers.
   static const _chunkSize = 40;
 
+  /// Whether to pretend the backend is unreachable and answer from
+  /// [_localModel] instead, as an app would when offline or out of quota.
+  bool _offline = false;
+
+  final AILocalModel _localModel = const FakeLocalModel();
+
+  /// Non-null while the local model is answering; cancelling it stops the
+  /// model.
+  StreamSubscription<String>? _localReply;
+
   @override
   void initState() {
     super.initState();
@@ -394,6 +405,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _streamTimer?.cancel();
     _approver.dispose();
     _toolRunner.close();
+    unawaited(_localReply?.cancel());
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -412,6 +424,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
     _composerController.clear();
     _scrollToEnd();
+
+    if (_offline) {
+      unawaited(_replyLocally());
+      return;
+    }
 
     // Stand in for a real request: pause on the typing indicator, then let the
     // model think out loud before it answers.
@@ -589,11 +606,38 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
   }
 
+  /// Answers from the on-device model. Each event is the whole answer so far,
+  /// which is exactly what [StreamingMessageView.text] takes.
+  Future<void> _replyLocally() async {
+    if (!await _localModel.isAvailable || !mounted) return _stop();
+
+    final turns = [
+      for (final message in _messages)
+        if (message.isUser) AIConversationTurn.user(message.text) else AIConversationTurn.assistant(message.text),
+    ];
+    setState(() => _messages.add(const _Message(text: '', isUser: false)));
+
+    _localReply = _localModel
+        .reply(instructions: 'Answer briefly. You have no tools.', turns: turns)
+        .listen(
+          (answer) {
+            if (!mounted) return;
+            setState(() => _messages[_messages.length - 1] = _Message(text: answer, isUser: false));
+            _scrollToEnd();
+          },
+          onError: (Object _) => _stop(),
+          onDone: () => _streamComplete = true,
+        );
+  }
+
   void _stop() {
     _thinkingTimer?.cancel();
     _reasoningTimer?.cancel();
     _toolTimer?.cancel();
     _streamTimer?.cancel();
+    unawaited(_localReply?.cancel());
+    _localReply = null;
+    if (!mounted) return;
     setState(() {
       // Stopping mid-reply ends the thinking and cancels a tool still running.
       if (_messages.lastOrNull case final last? when !last.isUser) {
@@ -627,7 +671,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Assistant')),
+      appBar: AppBar(
+        title: const Text('AI Assistant'),
+        actions: [
+          IconButton(
+            tooltip: _offline ? 'Offline: answering on device' : 'Online',
+            isSelected: _offline,
+            icon: const Icon(Icons.cloud_outlined),
+            selectedIcon: const Icon(Icons.cloud_off_outlined),
+            onPressed: () => setState(() => _offline = !_offline),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
