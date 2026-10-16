@@ -15,8 +15,9 @@ import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dar
 /// **Contrast.** The token colors are yours; the frame they land on is the
 /// block's [CodeBlockThemeData]. A palette made for a dark background is
 /// unreadable on a light one, so choose it from
-/// [CodeHighlightRequest.brightness] — the brightness of the block's resolved
-/// background — rather than from the app's own [ThemeData.brightness]:
+/// [CodeHighlightRequest.brightness] — the block's pinned
+/// [CodeBlockThemeData.brightness], or else its background's — rather than
+/// from the app's own [ThemeData.brightness]:
 ///
 /// ```dart
 /// TextSpan? highlightCode(CodeHighlightRequest request) {
@@ -64,9 +65,14 @@ final class CodeHighlightRequest {
   /// Override only what a token needs and Flutter merges the rest.
   TextStyle get baseStyle => theme.codeTextStyle!;
 
-  /// The estimated brightness of [theme]'s background, from
-  /// [ThemeData.estimateBrightnessForColor]. Pick the token palette from this.
-  Brightness get brightness => ThemeData.estimateBrightnessForColor(theme.backgroundColor!);
+  /// Whether the block is a dark or a light surface. Pick the token palette
+  /// from this.
+  ///
+  /// [theme]'s [CodeBlockThemeData.brightness] — which the package always
+  /// sets, to the host's pinned value or else the background's estimated
+  /// brightness. A hand-built request without one falls back to
+  /// [ThemeData.estimateBrightnessForColor] on its background.
+  Brightness get brightness => theme.brightness ?? ThemeData.estimateBrightnessForColor(theme.backgroundColor!);
 
   @override
   bool operator ==(Object other) {
