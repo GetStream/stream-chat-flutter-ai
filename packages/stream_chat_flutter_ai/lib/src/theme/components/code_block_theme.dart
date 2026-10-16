@@ -73,15 +73,9 @@ class CodeBlockThemeData with Diagnosticable {
   /// told as [CodeHighlightRequest.brightness], and what every color default
   /// here follows.
   ///
-  /// Authoritative when set. With [Brightness.dark] the defaults are the dark
-  /// frame (`#1E1E1E` with `#D4D4D4` text); with [Brightness.light] they are a
-  /// light one (`#F6F8FA` with `#1F2328` text). Colors you set explicitly still
-  /// win over those defaults — and are then yours to keep consistent with it:
-  /// a light [backgroundColor] under `Brightness.dark` still tells the
-  /// highlighter "dark".
-  ///
-  /// When null, it is estimated from [backgroundColor] with
-  /// [ThemeData.estimateBrightnessForColor], or dark when that is unset too.
+  /// When null, the brightness of the code block is estimated from
+  /// [backgroundColor] with [ThemeData.estimateBrightnessForColor], or dark
+  /// when that is unset too.
   final Brightness? brightness;
 
   /// The fill behind the whole block. Defaults to `#1E1E1E`, or `#F6F8FA` when
