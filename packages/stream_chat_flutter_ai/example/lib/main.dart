@@ -906,4 +906,10 @@ class DutchTranslations extends DefaultAITranslations {
 
   @override
   String get toolApprovalNotSent => 'Je antwoord kon niet worden verstuurd. Probeer het opnieuw.';
+
+  @override
+  String unnamedChartSlice(int number) => 'Segment $number';
+
+  @override
+  String chartLegendMore(int count) => '+$count meer';
 }

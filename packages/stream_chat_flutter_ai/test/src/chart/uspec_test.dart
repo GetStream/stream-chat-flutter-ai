@@ -74,6 +74,25 @@ void main() {
         expect(spec?.series.first.points.first.y, 1.5);
       });
 
+      test('drops non-finite values rather than handing them to a chart', () {
+        // "NaN" and "Infinity" parse through double.tryParse, and 1e400 decodes
+        // to infinity — any one of them poisons a pie's total.
+        final spec = USpecParser.tryParse('''
+        {"kind": "pie", "series": [{"name": "S", "points": [
+          {"x": "A", "y": "NaN"},
+          {"x": "B", "y": "Infinity"},
+          {"x": "C", "y": "-Infinity"},
+          {"x": "D", "y": 1e400},
+          {"x": "E", "y": 3, "size": "NaN", "z": "Infinity"}
+        ]}]}
+        ''');
+
+        final point = spec!.series.single.points.single;
+        expect(point.x, 'E');
+        expect(point.size, isNull);
+        expect(point.z, isNull);
+      });
+
       test('defers to another adapter when no series yields points', () {
         // A `type` + `series` payload keying its values under something other
         // than `points` must fall through rather than being claimed here and
@@ -123,6 +142,14 @@ void main() {
         ''');
 
         expect(spec!.series.single.name, isEmpty);
+      });
+
+      test('drops a plain number that overflows to infinity', () {
+        final spec = USpecParser.tryParse('''
+        {"type": "bar", "data": {"datasets": [{"label": "Sales", "data": [10, 1e400, 18]}]}}
+        ''');
+
+        expect(spec!.series.single.points.map((p) => p.y), [10, 18]);
       });
 
       test('plots plain numbers with no labels at their position in the array', () {

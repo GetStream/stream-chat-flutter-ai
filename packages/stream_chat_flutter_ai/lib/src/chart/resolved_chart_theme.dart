@@ -36,7 +36,7 @@ class ResolvedChartTheme {
     required this.showLegend,
     required this.legendPosition,
     required this.legendTextStyle,
-    required this.pieShowPercentages,
+    required this.showPiePercentages,
     required this.piePercentageThreshold,
   });
 
@@ -73,8 +73,12 @@ class ResolvedChartTheme {
       showLegend: theme.showLegend ?? true,
       legendPosition: theme.legendPosition ?? ChartLegendPosition.bottom,
       legendTextStyle: legendText.color == null ? legendText.copyWith(color: colorScheme.onSurfaceVariant) : legendText,
-      pieShowPercentages: theme.pieShowPercentages ?? true,
-      piePercentageThreshold: theme.piePercentageThreshold ?? 0.08,
+      showPiePercentages: theme.showPiePercentages ?? true,
+      piePercentageThreshold: switch (theme.piePercentageThreshold) {
+        // The constructor asserts the range; this keeps release builds sane.
+        final threshold? when threshold.isFinite => threshold.clamp(0.0, 1.0),
+        _ => 0.08,
+      },
     );
   }
 
@@ -128,8 +132,8 @@ class ResolvedChartTheme {
   /// See [ChartThemeData.legendTextStyle]. Always carries a color.
   final TextStyle legendTextStyle;
 
-  /// See [ChartThemeData.pieShowPercentages].
-  final bool pieShowPercentages;
+  /// See [ChartThemeData.showPiePercentages].
+  final bool showPiePercentages;
 
   /// See [ChartThemeData.piePercentageThreshold].
   final double piePercentageThreshold;

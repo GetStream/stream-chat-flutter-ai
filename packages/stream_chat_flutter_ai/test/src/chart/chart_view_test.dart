@@ -641,6 +641,189 @@ void main() {
         expect(find.text('Costs'), findsNothing);
       });
 
+      testWidgets('an unnamed slice gets a numbered, translated name', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: 1),
+                UPoint(x: '   ', y: 1),
+              ],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+        expect(find.text('Slice 2'), findsOneWidget);
+        expect(find.text('Series'), findsNothing);
+
+        await tester.pumpWidget(
+          _wrap(
+            const AITranslationsScope(
+              translations: _TestTranslations(),
+              child: ChartView(spec: spec),
+            ),
+          ),
+        );
+        expect(find.text('Stuk 2'), findsOneWidget);
+      });
+
+      testWidgets('without a legend an unnamed slice carries the fallback name', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: 1),
+                UPoint(x: '', y: 1),
+              ],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrapThemed(const ChartView(spec: spec), const ChartThemeData(showLegend: false)));
+
+        final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+        expect(sections.map((s) => s.title), ['A\n50%', 'Slice 2\n50%']);
+      });
+
+      testWidgets('without a legend or percentages a pie slice carries just its name', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _pieSpec),
+            const ChartThemeData(showLegend: false, showPiePercentages: false),
+          ),
+        );
+
+        final sections = tester.widget<PieChart>(find.byType(PieChart)).data.sections;
+        expect(sections.map((s) => s.title), ['A', 'B', 'C']);
+      });
+
+      testWidgets('is left off a heatmap, which has its own scale', (tester) async {
+        await tester.pumpWidget(_wrap(const ChartView(spec: _heatmapSpec)));
+
+        expect(find.byType(Wrap), findsNothing);
+      });
+
+      testWidgets('is left off a histogram, which draws its first series alone', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.histogram,
+          series: [
+            USeries(
+              name: 'Drawn',
+              points: [
+                UPoint(x: '', y: 1),
+                UPoint(x: '', y: 2),
+              ],
+            ),
+            USeries(
+              name: 'Ignored',
+              points: [UPoint(x: '', y: 3)],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(find.byType(Wrap), findsNothing);
+        expect(find.text('Ignored'), findsNothing);
+      });
+
+      testWidgets('ellipsizes a long name instead of overflowing', (tester) async {
+        final spec = USpec(
+          kind: USpecKind.line,
+          series: [
+            USeries(
+              name: 'A very long series name ' * 6,
+              points: const [UPoint(x: 'Jan', y: 1)],
+            ),
+            const USeries(
+              name: 'B',
+              points: [UPoint(x: 'Jan', y: 2)],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrapSized(ChartView(spec: spec)));
+
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('wraps onto a second run when the entries do not fit', (tester) async {
+        final spec = USpec(
+          kind: USpecKind.line,
+          series: [
+            for (var i = 0; i < 8; i++)
+              USeries(
+                name: 'Series number $i',
+                points: const [UPoint(x: 'Jan', y: 1)],
+              ),
+          ],
+        );
+        await tester.pumpWidget(_wrapSized(ChartView(spec: spec)));
+
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getTopLeft(find.text('Series number 7')).dy,
+          greaterThan(tester.getTopLeft(find.text('Series number 0')).dy),
+        );
+      });
+
+      testWidgets('lists at most ten entries, the tenth counting the rest', (tester) async {
+        final spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [for (var i = 0; i < 14; i++) UPoint(x: 'P$i', y: 1)],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(ChartView(spec: spec)));
+
+        expect(find.text('P8'), findsOneWidget);
+        expect(find.text('P9'), findsNothing);
+        expect(find.text('+5 more'), findsOneWidget);
+        expect(_legendSwatchColors(tester), hasLength(9));
+      });
+
+      testWidgets('lists exactly ten entries in full', (tester) async {
+        final spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [for (var i = 0; i < 10; i++) UPoint(x: 'P$i', y: 1)],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(ChartView(spec: spec)));
+
+        expect(find.text('P9'), findsOneWidget);
+        expect(find.textContaining('more'), findsNothing);
+      });
+
+      testWidgets('the swatch scales with the text', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: Scaffold(
+                body: Center(child: ChartView(spec: _multiLineSpec)),
+              ),
+            ),
+          ),
+        );
+
+        final swatch = find
+            .descendant(
+              of: find.byType(Wrap),
+              matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration),
+            )
+            .first;
+        expect(tester.getSize(swatch).width, closeTo(11 * 2 * 0.9, 0.01));
+      });
+
       testWidgets('without a legend a pie slice carries its own name', (tester) async {
         // Otherwise turning the legend off would leave the slices anonymous.
         await tester.pumpWidget(_wrapThemed(const ChartView(spec: _pieSpec), const ChartThemeData(showLegend: false)));
@@ -666,6 +849,31 @@ void main() {
         expect(legendY, lessThan(tester.getTopLeft(find.byType(LineChart)).dy));
       });
 
+      testWidgets('placed on top with no title, sits above the plot', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _multiLineSpec),
+            const ChartThemeData(legendPosition: ChartLegendPosition.top),
+          ),
+        );
+
+        expect(tester.getBottomLeft(find.text('Sales')).dy, lessThan(tester.getTopLeft(find.byType(LineChart)).dy));
+      });
+
+      testWidgets('a partial text style keeps the default color', (tester) async {
+        await tester.pumpWidget(
+          _wrapThemed(
+            const ChartView(spec: _multiLineSpec),
+            const ChartThemeData(legendTextStyle: TextStyle(fontSize: 15)),
+          ),
+        );
+
+        final context = tester.element(find.byType(ChartView));
+        final style = tester.widget<Text>(find.text('Sales')).style!;
+        expect(style.fontSize, 15);
+        expect(style.color, Theme.of(context).colorScheme.onSurfaceVariant);
+      });
+
       testWidgets('the legend text style follows the theme', (tester) async {
         await tester.pumpWidget(
           _wrapThemed(
@@ -683,7 +891,9 @@ void main() {
         await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec)));
 
         final context = tester.element(find.byType(ChartView));
-        expect(tester.widget<Text>(find.text('Sales')).style?.color, Theme.of(context).colorScheme.onSurfaceVariant);
+        final style = tester.widget<Text>(find.text('Sales')).style!;
+        expect(style.color, Theme.of(context).colorScheme.onSurfaceVariant);
+        expect(style.fontSize, 11);
       });
 
       testWidgets('an unnamed series gets the translated fallback', (tester) async {
@@ -724,6 +934,24 @@ void main() {
         expect(find.bySemanticsLabel('Costs'), findsNothing);
         handle.dispose();
       });
+
+      testWidgets('a pie summary names its slices, since the legend is not read', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _pieSpec)));
+
+        expect(tester.getSemantics(find.byType(ChartView)).label, contains('3 slices: A, B, C'));
+        handle.dispose();
+      });
+
+      testWidgets('an empty semanticsLabel puts the legend names in reach', (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec, semanticsLabel: '')));
+
+        expect(find.bySemanticsLabel('Costs'), findsOneWidget);
+        handle.dispose();
+      });
     });
 
     group('pie percentages', () {
@@ -754,13 +982,13 @@ void main() {
 
       testWidgets('are left off when the theme turns them off', (tester) async {
         await tester.pumpWidget(
-          _wrapThemed(const ChartView(spec: _pieSpec), const ChartThemeData(pieShowPercentages: false)),
+          _wrapThemed(const ChartView(spec: _pieSpec), const ChartThemeData(showPiePercentages: false)),
         );
 
         expect(sections(tester).map((s) => s.showTitle), [false, false, false]);
       });
 
-      testWidgets('are left off when the slices sum to nothing', (tester) async {
+      testWidgets('draw nothing when the slices sum to nothing', (tester) async {
         const spec = USpec(
           kind: USpecKind.pie,
           series: [
@@ -775,6 +1003,68 @@ void main() {
         );
         await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
 
+        expect(sections(tester), isEmpty, reason: 'a zero slice has no area');
+        expect(find.byType(Wrap), findsNothing);
+      });
+
+      testWidgets('skip negative slices in the total, the slices and the legend', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'Sales', y: 5),
+                UPoint(x: 'Refunds', y: -3),
+              ],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(sections(tester).map((s) => s.title), ['100%'], reason: 'not 5 / (5 - 3) = 250%');
+        expect(find.text('Sales'), findsOneWidget);
+        expect(find.text('Refunds'), findsNothing);
+      });
+
+      testWidgets('skip non-finite slices rather than throwing', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: 3),
+                UPoint(x: 'NaN', y: double.nan),
+                UPoint(x: 'Inf', y: double.infinity),
+                UPoint(x: 'B', y: 1),
+              ],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(tester.takeException(), isNull);
+        expect(sections(tester).map((s) => s.title), ['75%', '25%']);
+        expect(find.text('NaN'), findsNothing);
+      });
+
+      testWidgets('are left off when the total overflows to infinity', (tester) async {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: double.maxFinite),
+                UPoint(x: 'B', y: double.maxFinite),
+              ],
+            ),
+          ],
+        );
+        await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+
+        expect(tester.takeException(), isNull);
         expect(sections(tester).map((s) => s.title), ['', '']);
       });
     });
@@ -1248,9 +1538,17 @@ int _filledCells(WidgetTester tester) {
 
 /// The legend's swatch colors, left to right.
 List<Color> _legendSwatchColors(WidgetTester tester) => tester
-    .widgetList<Container>(find.descendant(of: find.byType(Wrap), matching: find.byType(Container)))
+    .widgetList<Container>(
+      find.descendant(
+        of: find.byType(Wrap),
+        matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration),
+      ),
+    )
     .map((c) => (c.decoration! as BoxDecoration).color!)
     .toList(growable: false);
+
+/// [_wrap] at a phone-bubble width, where a legend has to wrap or ellipsize.
+Widget _wrapSized(Widget child) => _wrap(SizedBox(width: 320, child: child));
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -1283,6 +1581,9 @@ class _TestTranslations extends DefaultAITranslations {
 
   @override
   String get unnamedChartSeries => 'Reeks';
+
+  @override
+  String unnamedChartSlice(int number) => 'Stuk $number';
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) => 'STAAFDIAGRAM';
