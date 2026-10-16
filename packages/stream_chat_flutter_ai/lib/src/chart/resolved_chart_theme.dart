@@ -33,6 +33,11 @@ class ResolvedChartTheme {
     required this.heatmapLowColor,
     required this.heatmapMidColor,
     required this.heatmapHighColor,
+    required this.showLegend,
+    required this.legendPosition,
+    required this.legendTextStyle,
+    required this.showPiePercentages,
+    required this.piePercentageThreshold,
   });
 
   /// Resolves the theme at [context], with [override] — a widget's own `theme`
@@ -45,6 +50,7 @@ class ResolvedChartTheme {
     final palette = theme.seriesColors;
 
     final axisLabel = mergeTextStyle(const TextStyle(fontSize: 10), theme.axisLabelStyle);
+    final legendText = mergeTextStyle(const TextStyle(fontSize: 11), theme.legendTextStyle);
 
     return ResolvedChartTheme._(
       // An empty palette would make `seriesColor` divide by zero, and cycling
@@ -64,6 +70,15 @@ class ResolvedChartTheme {
       heatmapLowColor: theme.heatmapLowColor ?? scale.low,
       heatmapMidColor: theme.heatmapMidColor ?? scale.mid,
       heatmapHighColor: theme.heatmapHighColor ?? scale.high,
+      showLegend: theme.showLegend ?? true,
+      legendPosition: theme.legendPosition ?? ChartLegendPosition.bottom,
+      legendTextStyle: legendText.color == null ? legendText.copyWith(color: colorScheme.onSurfaceVariant) : legendText,
+      showPiePercentages: theme.showPiePercentages ?? true,
+      piePercentageThreshold: switch (theme.piePercentageThreshold) {
+        // The constructor asserts the range; this keeps release builds sane.
+        final threshold? when threshold.isFinite => threshold.clamp(0.0, 1.0),
+        _ => 0.08,
+      },
     );
   }
 
@@ -107,6 +122,21 @@ class ResolvedChartTheme {
 
   /// See [ChartThemeData.heatmapHighColor].
   final Color heatmapHighColor;
+
+  /// See [ChartThemeData.showLegend].
+  final bool showLegend;
+
+  /// See [ChartThemeData.legendPosition].
+  final ChartLegendPosition legendPosition;
+
+  /// See [ChartThemeData.legendTextStyle]. Always carries a color.
+  final TextStyle legendTextStyle;
+
+  /// See [ChartThemeData.showPiePercentages].
+  final bool showPiePercentages;
+
+  /// See [ChartThemeData.piePercentageThreshold].
+  final double piePercentageThreshold;
 
   /// The color for the [index]-th series, cycling when there are more series
   /// than colors.
