@@ -75,7 +75,7 @@ class AIToolApprovalView extends StatefulWidget {
   /// Who answers on this device, how the answer is sent, and where it is.
   final AIToolApprover approver;
 
-  /// Builds your own content in place of the [AIToolApprovalCard].
+  /// Builds your own content in place of [AIComponentFactory.buildToolApproval].
   final AIToolApprovalContentBuilder? builder;
 
   /// Overrides for the default card, layered over the ambient
@@ -150,7 +150,6 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
       context,
       AIToolApprovalProps(
         call: call,
-        approval: call.approval,
         toolName: _toolName(call),
         state: state,
         onAnswer: _answerFor(call),

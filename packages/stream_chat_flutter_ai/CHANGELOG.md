@@ -4,6 +4,7 @@
 
 - `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
 - `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
+- `ChatComposer.factory` is nullable; `null` uses the factory from `AIComponents`.
 
 ✅ Added
 
@@ -18,7 +19,7 @@
 - `AIClientToolRunner` runs `awaiting_client` tool calls once and sends each `AIClientToolResult` back to the agent; `AIResultClientTool` returns one.
 - Charts show a series legend (`ChartThemeData.showLegend` / `legendPosition`), and pie slices are labelled with their percentage.
 - `AILocalModel` and `AIConversationTurn` for streaming a fallback reply from an on-device model.
-- `AIComponentFactory` / `AIComponents` — one place to replace the code blocks, charts, agent steps, approval card and composer slots the package builds (`ChatComposer.factory` is now nullable).
+- `AIComponentFactory` / `AIComponents` — one place to replace the code blocks, charts, agent steps, approval card and composer slots the package builds.
 
 ## 0.1.0
 

@@ -60,20 +60,21 @@ class AIComponentFactory {
 
   /// A round of reasoning in [AIMessagePartsView]. Defaults to
   /// [StreamingReasoningView.part].
-  Widget buildReasoning(BuildContext context, AIReasoningPart reasoning) {
-    return StreamingReasoningView.part(reasoning);
+  Widget buildReasoning(BuildContext context, AIReasoningProps props) {
+    return StreamingReasoningView.part(props.reasoning);
   }
 
   /// A tool call's row in [AIMessagePartsView]. Defaults to [AIToolCallView].
   ///
   /// Only the row: the approval question under it comes from
-  /// [buildToolApproval].
-  Widget buildToolCall(BuildContext context, AIToolCallPart call) {
-    return AIToolCallView(call: call);
+  /// [buildToolApproval], and is still asked when this returns
+  /// [AIMessagePartsView.hidden].
+  Widget buildToolCall(BuildContext context, AIToolCallProps props) {
+    return AIToolCallView(call: props.call);
   }
 
   /// The question an [AIToolApprovalView] asks. Defaults to
-  /// [AIToolApprovalCard].
+  /// [AIToolApprovalCard]. Return `const SizedBox.shrink()` to ask nothing.
   Widget buildToolApproval(BuildContext context, AIToolApprovalProps props) {
     return AIToolApprovalCard(
       approval: props.approval,
@@ -86,7 +87,7 @@ class AIComponentFactory {
 
   /// A part this package can't read, in [AIMessagePartsView]. Defaults to
   /// [AIUnsupportedPartView].
-  Widget buildUnsupportedPart(BuildContext context, AIMessagePart part) {
+  Widget buildUnsupportedPart(BuildContext context, AIUnsupportedPartProps props) {
     return const AIUnsupportedPartView();
   }
 
@@ -107,7 +108,7 @@ final class AICodeBlockProps {
   /// The fence's language, or `null` when it has none.
   final String? language;
 
-  /// The highlighter the markdown body was given.
+  /// The markdown body's highlighter as of when this fence was built.
   final CodeHighlighter? highlighter;
 
   /// The code block theme the markdown body was given.
@@ -124,13 +125,42 @@ final class AIChartProps {
   final USpec spec;
 }
 
+/// What [AIComponentFactory.buildReasoning] gets.
+@immutable
+final class AIReasoningProps {
+  /// Creates an [AIReasoningProps].
+  const AIReasoningProps({required this.reasoning});
+
+  /// The round of reasoning to show.
+  final AIReasoningPart reasoning;
+}
+
+/// What [AIComponentFactory.buildToolCall] gets.
+@immutable
+final class AIToolCallProps {
+  /// Creates an [AIToolCallProps].
+  const AIToolCallProps({required this.call});
+
+  /// The tool call to show.
+  final AIToolCallPart call;
+}
+
+/// What [AIComponentFactory.buildUnsupportedPart] gets.
+@immutable
+final class AIUnsupportedPartProps {
+  /// Creates an [AIUnsupportedPartProps].
+  const AIUnsupportedPartProps({required this.part});
+
+  /// The part this package can't read.
+  final AIMessagePart part;
+}
+
 /// What [AIComponentFactory.buildToolApproval] gets.
 @immutable
 final class AIToolApprovalProps {
   /// Creates an [AIToolApprovalProps].
   const AIToolApprovalProps({
     required this.call,
-    this.approval,
     this.toolName,
     required this.state,
     required this.onAnswer,
@@ -141,12 +171,12 @@ final class AIToolApprovalProps {
   final AIToolCallPart call;
 
   /// The call's question, or `null` to ask with the translated fallbacks.
-  final AIToolApproval? approval;
+  AIToolApproval? get approval => call.approval;
 
   /// The tool's name for the fallback title, such as "send email".
   final String? toolName;
 
-  /// Where the answer is.
+  /// Whether the answer is unsent, sending, sent or failed.
   final AIToolApprovalState state;
 
   /// Sends the person's decision.
