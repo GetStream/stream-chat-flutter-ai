@@ -41,8 +41,17 @@ const kDefaultCodeForegroundColor = Color(0xFFD4D4D4);
 /// [CodeHighlightRequest.brightness] for exactly this reason: pick the token
 /// palette from it rather than from the app's brightness.
 ///
-/// The defaults for the text and icon colors follow [backgroundColor]'s
-/// estimated brightness, so a host that sets only a light background still gets
+/// **Pin the brightness.** Set [brightness] to fix which palette the block
+/// uses — `Brightness.dark` for code blocks that are always dark, whatever the
+/// app's mode. It is exactly what the highlighter receives as
+/// [CodeHighlightRequest.brightness], and the frame's color defaults follow it:
+///
+/// ```dart
+/// AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.dark))
+/// ```
+///
+/// Without it, the brightness is estimated from [backgroundColor] (dark when
+/// that is unset too), so a host that sets only a light background still gets
 /// dark, legible plain text.
 ///
 /// Narrow it to a subtree with [CodeBlockTheme]. [copyWith] cannot unset a
@@ -51,6 +60,7 @@ const kDefaultCodeForegroundColor = Color(0xFFD4D4D4);
 class CodeBlockThemeData with Diagnosticable {
   /// Creates a [CodeBlockThemeData].
   const CodeBlockThemeData({
+    this.brightness,
     this.backgroundColor,
     this.headerBackgroundColor,
     this.languageLabelStyle,
@@ -59,18 +69,35 @@ class CodeBlockThemeData with Diagnosticable {
     this.codeTextStyle,
   });
 
-  /// The fill behind the whole block. Defaults to `#1E1E1E`.
+  /// Whether the block is a dark or a light surface: what the highlighter is
+  /// told as [CodeHighlightRequest.brightness], and what every color default
+  /// here follows.
   ///
-  /// Its estimated brightness is what [CodeHighlightRequest.brightness]
-  /// reports, and what the text and icon defaults follow.
+  /// Authoritative when set. With [Brightness.dark] the defaults are the dark
+  /// frame (`#1E1E1E` with `#D4D4D4` text); with [Brightness.light] they are a
+  /// light one (`#F6F8FA` with `#1F2328` text). Colors you set explicitly still
+  /// win over those defaults — and are then yours to keep consistent with it:
+  /// a light [backgroundColor] under `Brightness.dark` still tells the
+  /// highlighter "dark".
+  ///
+  /// When null, it is estimated from [backgroundColor] with
+  /// [ThemeData.estimateBrightnessForColor], or dark when that is unset too.
+  final Brightness? brightness;
+
+  /// The fill behind the whole block. Defaults to `#1E1E1E`, or `#F6F8FA` when
+  /// [brightness] is [Brightness.light].
+  ///
+  /// When [brightness] is null, this color's estimated brightness is what
+  /// [CodeHighlightRequest.brightness] reports, and what the text and icon
+  /// defaults follow.
   final Color? backgroundColor;
 
   /// The fill behind the header row holding the language label and the copy
   /// button. Defaults to [backgroundColor], so the header doesn't read as a
   /// separate bar unless you ask for one.
   ///
-  /// The label, icon and text color defaults follow [backgroundColor]'s
-  /// brightness, not this one's — set [languageLabelStyle] and the icon colors
+  /// The label, icon and text color defaults follow the block's [brightness]
+  /// (or [backgroundColor]'s), not this color's — set [languageLabelStyle] and the icon colors
   /// yourself if the header contrasts strongly with the body.
   final Color? headerBackgroundColor;
 
@@ -84,13 +111,13 @@ class CodeBlockThemeData with Diagnosticable {
   final Color? copyIconColor;
 
   /// The check mark shown for a moment after the code is copied. Defaults to
-  /// [Colors.greenAccent] on a dark [backgroundColor] and a darker green on a
-  /// light one.
+  /// [Colors.greenAccent] on a dark block and a darker green on a light one
+  /// (see [brightness]).
   final Color? copiedIconColor;
 
   /// The code's base style, merged over a 13pt monospace style with tabular
-  /// figures. Its color defaults to `#D4D4D4` on a dark [backgroundColor] and
-  /// `#1F2328` on a light one. An `inherit: false` style replaces the rest, but
+  /// figures. Its color defaults to `#D4D4D4` on a dark block and `#1F2328` on
+  /// a light one (see [brightness]). An `inherit: false` style replaces the rest, but
   /// still keeps that color unless it sets its own.
   ///
   /// This is the [CodeHighlightRequest.baseStyle] a highlighter receives, and
@@ -101,6 +128,7 @@ class CodeBlockThemeData with Diagnosticable {
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
   /// current value.
   CodeBlockThemeData copyWith({
+    Brightness? brightness,
     Color? backgroundColor,
     Color? headerBackgroundColor,
     TextStyle? languageLabelStyle,
@@ -109,6 +137,7 @@ class CodeBlockThemeData with Diagnosticable {
     TextStyle? codeTextStyle,
   }) {
     return CodeBlockThemeData(
+      brightness: brightness ?? this.brightness,
       backgroundColor: backgroundColor ?? this.backgroundColor,
       headerBackgroundColor: headerBackgroundColor ?? this.headerBackgroundColor,
       languageLabelStyle: languageLabelStyle ?? this.languageLabelStyle,
@@ -123,6 +152,7 @@ class CodeBlockThemeData with Diagnosticable {
   CodeBlockThemeData merge(CodeBlockThemeData? other) {
     if (other == null || identical(this, other)) return this;
     return copyWith(
+      brightness: other.brightness,
       backgroundColor: other.backgroundColor,
       headerBackgroundColor: other.headerBackgroundColor,
       languageLabelStyle: other.languageLabelStyle,
@@ -137,6 +167,8 @@ class CodeBlockThemeData with Diagnosticable {
   static CodeBlockThemeData lerp(CodeBlockThemeData a, CodeBlockThemeData b, double t) {
     if (identical(a, b)) return a;
     return CodeBlockThemeData(
+      // An enum: nothing to interpolate, so it swaps at the midpoint.
+      brightness: swapAtMidpoint(a.brightness, b.brightness, t),
       backgroundColor: lerpColorOrSwap(a.backgroundColor, b.backgroundColor, t),
       headerBackgroundColor: lerpColorOrSwap(a.headerBackgroundColor, b.headerBackgroundColor, t),
       languageLabelStyle: lerpTextStyleOrSwap(a.languageLabelStyle, b.languageLabelStyle, t),
@@ -150,6 +182,7 @@ class CodeBlockThemeData with Diagnosticable {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties
+      ..add(EnumProperty<Brightness>('brightness', brightness, defaultValue: null))
       ..add(ColorProperty('backgroundColor', backgroundColor, defaultValue: null))
       ..add(ColorProperty('headerBackgroundColor', headerBackgroundColor, defaultValue: null))
       ..add(DiagnosticsProperty<TextStyle>('languageLabelStyle', languageLabelStyle, defaultValue: null))
@@ -162,6 +195,7 @@ class CodeBlockThemeData with Diagnosticable {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is CodeBlockThemeData &&
+        other.brightness == brightness &&
         other.backgroundColor == backgroundColor &&
         other.headerBackgroundColor == headerBackgroundColor &&
         other.languageLabelStyle == languageLabelStyle &&
@@ -172,6 +206,7 @@ class CodeBlockThemeData with Diagnosticable {
 
   @override
   int get hashCode => Object.hash(
+    brightness,
     backgroundColor,
     headerBackgroundColor,
     languageLabelStyle,

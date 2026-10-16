@@ -5,6 +5,9 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
+/// The fill of a [Brightness.light] block when no theme sets one.
+const _kDefaultLightCodeBackgroundColor = Color(0xFFF6F8FA);
+
 /// The code color on a light background when no theme sets one.
 const _kDefaultLightCodeForegroundColor = Color(0xFF1F2328);
 
@@ -46,9 +49,15 @@ class ResolvedCodeBlockTheme {
 
   /// Fills [theme]'s unset fields with the defaults.
   factory ResolvedCodeBlockTheme.fromData(CodeBlockThemeData theme) {
-    final backgroundColor = theme.backgroundColor ?? kDefaultCodeBackgroundColor;
-    final brightness = ThemeData.estimateBrightnessForColor(backgroundColor);
+    // A set brightness is authoritative; otherwise the background's decides,
+    // and with neither set the block is the default dark frame.
+    final explicitBackground = theme.backgroundColor;
+    final brightness =
+        theme.brightness ??
+        (explicitBackground == null ? Brightness.dark : ThemeData.estimateBrightnessForColor(explicitBackground));
     final isDark = brightness == Brightness.dark;
+    final backgroundColor =
+        explicitBackground ?? (isDark ? kDefaultCodeBackgroundColor : _kDefaultLightCodeBackgroundColor);
 
     final defaultCodeColor = isDark ? kDefaultCodeForegroundColor : _kDefaultLightCodeForegroundColor;
     final codeTextStyle = _withColor(
@@ -117,12 +126,14 @@ class ResolvedCodeBlockTheme {
   /// See [CodeBlockThemeData.codeTextStyle]. Always carries a color.
   final TextStyle codeTextStyle;
 
-  /// The estimated brightness of [backgroundColor].
+  /// See [CodeBlockThemeData.brightness]: the set one, or else
+  /// [backgroundColor]'s estimated brightness.
   final Brightness brightness;
 
   /// This theme as a [CodeBlockThemeData] with every field set, as handed to a
   /// highlighter.
   CodeBlockThemeData toData() => CodeBlockThemeData(
+    brightness: brightness,
     backgroundColor: backgroundColor,
     headerBackgroundColor: headerBackgroundColor,
     languageLabelStyle: languageLabelStyle,
@@ -134,8 +145,8 @@ class ResolvedCodeBlockTheme {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    // [brightness] is derived from [backgroundColor], so it needn't be compared.
     return other is ResolvedCodeBlockTheme &&
+        other.brightness == brightness &&
         other.backgroundColor == backgroundColor &&
         other.headerBackgroundColor == headerBackgroundColor &&
         other.languageLabelStyle == languageLabelStyle &&
@@ -146,6 +157,7 @@ class ResolvedCodeBlockTheme {
 
   @override
   int get hashCode => Object.hash(
+    brightness,
     backgroundColor,
     headerBackgroundColor,
     languageLabelStyle,
