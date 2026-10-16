@@ -320,13 +320,16 @@ void main() {
   });
 
   group('AIMessagePartsView with an approver', () {
-    final answers = <(String, bool)>[];
-    final approver = AIToolApprover(
-      userId: 'alice',
-      clientId: 'phone',
-      decide: (call, allowed) async => answers.add((call.id, allowed)),
-    );
-    setUp(answers.clear);
+    final answers = <(String, AIToolApprovalDecision)>[];
+    late AIToolApprover approver;
+    setUp(() {
+      answers.clear();
+      approver = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
+        decide: (call, decision) async => answers.add((call.id, decision)),
+      );
+    });
+    tearDown(() => approver.dispose());
 
     List<AIMessagePart> parts({String status = 'awaiting_approval', String? decision}) => AIMessagePart.parseAll([
       (
@@ -362,7 +365,7 @@ void main() {
 
       await tester.tap(find.text('Allow'));
       await tester.pump();
-      expect(answers, [('call_1', true)]);
+      expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
     });
 
     testWidgets('asks nothing without an approver', (tester) async {
@@ -392,7 +395,28 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(AIToolApprovalView), findsNothing);
+      expect(find.byType(AIToolApprovalCard), findsNothing);
+      expect(tester.getSize(find.byType(AIToolApprovalView).first).height, 0, reason: 'empty, and spaced like nothing');
+      expect(tester.state(find.byType(AIToolCallView).first), same(row));
+    });
+
+    testWidgets('the row keeps its state when the approver comes and goes', (tester) async {
+      Widget view({AIToolApprover? approver}) => _wrap(
+        SizedBox(
+          width: 360,
+          child: AIMessagePartsView(parts: parts(), approver: approver),
+        ),
+      );
+
+      await tester.pumpWidget(view());
+      final row = tester.state(find.byType(AIToolCallView).first);
+
+      await tester.pumpWidget(view(approver: approver));
+      expect(find.byType(AIToolApprovalCard), findsOneWidget);
+      expect(tester.state(find.byType(AIToolCallView).first), same(row));
+
+      await tester.pumpWidget(view());
+      expect(find.byType(AIToolApprovalCard), findsNothing);
       expect(tester.state(find.byType(AIToolCallView).first), same(row));
     });
 
@@ -410,7 +434,7 @@ void main() {
         ),
       );
       expect(find.text('email card'), findsOneWidget);
-      expect(find.byType(AIToolApprovalView), findsNothing);
+      expect(find.byType(AIToolApprovalCard), findsNothing);
 
       await tester.pumpWidget(
         _wrap(
@@ -425,7 +449,7 @@ void main() {
         ),
       );
       expect(find.text('part'), findsOneWidget);
-      expect(find.byType(AIToolApprovalView), findsNothing);
+      expect(find.byType(AIToolApprovalCard), findsNothing);
 
       await tester.pumpWidget(
         _wrap(
@@ -440,7 +464,7 @@ void main() {
         ),
       );
       expect(find.byType(AIToolCallView), findsOneWidget, reason: 'the hidden call is left out');
-      expect(find.byType(AIToolApprovalView), findsNothing);
+      expect(find.byType(AIToolApprovalCard), findsNothing);
     });
   });
 

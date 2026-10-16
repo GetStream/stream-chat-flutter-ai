@@ -161,16 +161,20 @@ class AIMessagePartsView extends StatelessWidget {
 
   Widget _toolCallView(AIToolCallPart call) {
     final approver = this.approver;
-    if (approver == null) return AIToolCallView(call: call);
-    // Always a column, so the row keeps its state when the question comes and
-    // goes.
+    // The same column with or without an approver, and with or without a
+    // question, so the row keeps its state as either comes and goes. The
+    // question view stays in while the call no longer waits — it is empty
+    // then — so its approver can forget the answer.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      spacing: spacing,
       children: [
         AIToolCallView(call: call),
-        if (approver.isAwaiting(call)) AIToolApprovalView(call: call, approver: approver),
+        if (approver != null)
+          Padding(
+            padding: EdgeInsets.only(top: approver.identity.canApprove(call) ? spacing : 0),
+            child: AIToolApprovalView(call: call, approver: approver),
+          ),
       ],
     );
   }
