@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
@@ -59,8 +60,10 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 /// )
 /// ```
 ///
-/// Without one it shows an [AIToolApprovalCard], styled by [theme], then the
-/// nearest [ToolApprovalTheme], then [AITheme.toolApprovalTheme].
+/// Without one it shows [AIComponentFactory.buildToolApproval] — by default an
+/// [AIToolApprovalCard], styled by [theme], then the nearest
+/// [ToolApprovalTheme], then [AITheme.toolApprovalTheme]. Override that slot
+/// to replace the card everywhere.
 /// {@endtemplate}
 class AIToolApprovalView extends StatefulWidget {
   /// {@macro aiToolApprovalView}
@@ -143,12 +146,16 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
     if (!approver.identity.canApprove(call)) return const SizedBox.shrink();
 
     if (widget.builder case final builder?) return builder(context, call.approval, state, _answerFor(call));
-    return AIToolApprovalCard(
-      approval: call.approval,
-      toolName: _toolName(call),
-      state: state,
-      onAnswer: _answerFor(call),
-      theme: widget.theme,
+    return AIComponents.of(context).buildToolApproval(
+      context,
+      AIToolApprovalProps(
+        call: call,
+        approval: call.approval,
+        toolName: _toolName(call),
+        state: state,
+        onAnswer: _answerFor(call),
+        theme: widget.theme,
+      ),
     );
   }
 }

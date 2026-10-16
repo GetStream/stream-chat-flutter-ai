@@ -18,6 +18,7 @@ export 'src/chart/chart_view.dart';
 export 'src/chart/heatmap_chart_view.dart';
 export 'src/chart/uspec.dart';
 export 'src/code_block_view.dart';
+export 'src/components/ai_component_factory.dart';
 export 'src/composer/chat_composer.dart';
 export 'src/composer/chat_composer_controller.dart';
 export 'src/composer/chat_composer_factory.dart';

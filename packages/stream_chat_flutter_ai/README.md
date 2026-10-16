@@ -883,6 +883,28 @@ StreamBuilder<String>(
 
 The reply exists only on the device; send it to your backend yourself if it should be kept.
 
+### Replacing components: `AIComponentFactory`
+
+`AIComponentFactory` builds the components the package creates inside its own widgets: the code
+blocks and charts in markdown, the reasoning, tool call and unsupported-step views, the tool
+approval card, and (through `composer`) the `ChatComposerFactory` a `ChatComposer` uses when it is
+given none. Subclass it, override the slots you want, and provide it once with `AIComponents`:
+
+```dart
+class MyComponents extends AIComponentFactory {
+  const MyComponents();
+
+  @override
+  Widget buildCodeBlock(BuildContext context, AICodeBlockProps props) =>
+      MyCodeBlock(code: props.code, language: props.language);
+}
+
+AIComponents(factory: const MyComponents(), child: MaterialApp(home: ...));
+```
+
+Per-widget builders (`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.builder`,
+`ChatComposer.factory`) still win where given. Keep the factory instance stable, ideally `const`.
+
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
