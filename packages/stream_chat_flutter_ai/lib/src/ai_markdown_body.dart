@@ -138,11 +138,12 @@ class _Fence extends StatelessWidget {
 /// Renders the whole message with a single [MarkdownBody], overriding two
 /// elements:
 ///
-/// - **Code fences** (`pre`) become a [CodeBlockView] — themed frame, copy button,
-///   language label, and syntax highlighting when [codeHighlighter] is given.
-/// - **Code fences whose language suggests chart data** become a [ChartView]
-///   when the content parses as a [USpec]; otherwise they fall back to
-///   [CodeBlockView].
+/// - **Code fences** (`pre`) become a [CodeBlockView] by default — themed frame,
+///   copy button, language label, and syntax highlighting when [codeHighlighter]
+///   is given.
+/// - **Code fences whose language suggests chart data** become a [ChartView] by
+///   default when the content parses as a [USpec]; otherwise they fall back to
+///   a code block.
 /// - **LaTeX** (`\(…\)` and `\[…\]`) is handed to [mathBuilder], when one is
 ///   supplied.
 ///

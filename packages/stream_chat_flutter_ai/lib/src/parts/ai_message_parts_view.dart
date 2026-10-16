@@ -15,9 +15,9 @@ import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.da
 /// show nothing for it.
 typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMessagePart part);
 
-/// Builds the widget for one tool call, or returns `null` to fall back to an
-/// [AIToolCallView] for it, or [AIMessagePartsView.hidden] to show nothing for
-/// it.
+/// Builds the widget for one tool call, or returns `null` to fall back to the
+/// [AIComponentFactory]'s row for it, or [AIMessagePartsView.hidden] to show
+/// nothing for it.
 typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolCallPart call);
 
 /// {@template aiMessagePartsView}
@@ -146,20 +146,16 @@ class AIMessagePartsView extends StatelessWidget {
     );
   }
 
-  /// The one place a part's default view is chosen, or `null` to show nothing.
-  ///
-  /// The views come from the [AIComponentFactory]. A part this package can't
-  /// read gets its placeholder. Reasoning gets a [StreamingReasoningView]
-  /// showing its [AIReasoningPart.preview]: the full text, when an app has it,
-  /// goes through a [partBuilder] returning
-  /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
-  /// goes to [toolCallBuilder] first (which may return [hidden]), and gets the
-  /// factory's row when that returns `null` — with its question under it
-  /// when an [approver] is given.
+  /// A part's default view from the [AIComponentFactory], or `null` to show
+  /// nothing. Tool calls ask [toolCallBuilder] first, then the factory; the
+  /// [approver]'s question goes under the factory's row. Reasoning shows its
+  /// [AIReasoningPart.preview]; full text goes through a [partBuilder].
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     final factory = AIComponents.of(context);
-    if (!part.isSupported) return factory.buildUnsupportedPart(context, part);
-    if (part.reasoning case final reasoning?) return factory.buildReasoning(context, reasoning);
+    if (!part.isSupported) return factory.buildUnsupportedPart(context, AIUnsupportedPartProps(part: part));
+    if (part.reasoning case final reasoning?) {
+      return factory.buildReasoning(context, AIReasoningProps(reasoning: reasoning));
+    }
     if (part.toolCall case final call?) {
       return toolCallBuilder?.call(context, call) ?? _toolCallView(context, factory, call);
     }
@@ -167,21 +163,25 @@ class AIMessagePartsView extends StatelessWidget {
   }
 
   Widget _toolCallView(BuildContext context, AIComponentFactory factory, AIToolCallPart call) {
-    final row = factory.buildToolCall(context, call);
-    if (identical(row, hidden)) return hidden;
+    final row = factory.buildToolCall(context, AIToolCallProps(call: call));
+    final showRow = !identical(row, hidden);
     final approver = this.approver;
-    // The same column with or without an approver, and with or without a
-    // question, so the row keeps its state as either comes and goes. The
-    // question view stays in while the call no longer waits — it is empty
-    // then — so its approver can forget the answer.
+    final asks = approver != null && approver.identity.canApprove(call);
+    // A hidden row still asks its question; with nothing to ask it takes no
+    // spacing either.
+    if (!showRow && !asks) return hidden;
+    // The same column with or without an approver, a question or the row, so
+    // each keeps its state as the others come and go. The question view stays
+    // in while the call no longer waits — it is empty then — so its approver
+    // can forget the answer.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        row,
+        if (showRow) row,
         if (approver != null)
           Padding(
-            padding: EdgeInsets.only(top: approver.identity.canApprove(call) ? spacing : 0),
+            padding: EdgeInsets.only(top: showRow && asks ? spacing : 0),
             child: AIToolApprovalView(call: call, approver: approver),
           ),
       ],

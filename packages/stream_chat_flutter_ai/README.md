@@ -883,7 +883,8 @@ The reply exists only on the device; send it to your backend yourself if it shou
 `AIComponentFactory` builds the components the package creates inside its own widgets: the code
 blocks and charts in markdown, the reasoning, tool call and unsupported-step views, the tool
 approval card, and (through `composer`) the `ChatComposerFactory` a `ChatComposer` uses when it is
-given none. Subclass it, override the slots you want, and provide it once with `AIComponents`:
+given none. Subclass it, override the slots you want (a part slot may return
+`AIMessagePartsView.hidden` to leave the step out), and provide it once with `AIComponents`:
 
 ```dart
 class MyComponents extends AIComponentFactory {

@@ -164,9 +164,8 @@ void main() {
 
         const data = '```dart\nvar x = 1;\n```';
 
-        // The cached widget is the RepaintBoundary the fence is wrapped in.
-        Widget? cachedFence() =>
-            tester.element(find.byType(CodeBlockView)).findAncestorWidgetOfExactType<RepaintBoundary>();
+        // The cached widget's private `_Fence`, which holds the fence's data.
+        Widget cachedFence() => tester.widget(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Fence'));
 
         await tester.pumpWidget(_wrap(const AIMarkdownBody(data: data)));
         final fence = cachedFence();

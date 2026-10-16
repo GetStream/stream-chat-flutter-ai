@@ -110,7 +110,8 @@ class ChatComposer extends StatefulWidget {
   /// Factory used to build the composer's slots — leading, trailing, the
   /// input field, and the attachment sheet the default leading button opens.
   ///
-  /// `null` uses the nearest [AIComponents]' [AIComponentFactory.composer].
+  /// `null` uses the nearest [AIComponents]' [AIComponentFactory.composer], or
+  /// the default.
   final ChatComposerFactory? factory;
 
   /// Focus node for the text field.
