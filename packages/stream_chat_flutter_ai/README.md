@@ -84,6 +84,20 @@ StreamingMessageView(
 );
 ```
 
+The typewriter usually falls behind the backend, so the reply is still being revealed after
+generation ends. To know when it is completely on screen — to swap a stop button back to send,
+say — pass `expectMoreText` and listen to `onFinished`:
+
+```dart
+StreamingMessageView(
+  text: markdownText,
+  expectMoreText: isGenerating,  // true while the backend may still send text
+  onFinished: () {
+    // Generation has ended and every character has been revealed.
+  },
+);
+```
+
 ### `AITypingIndicatorView`
 
 Shows the current AI state ("Thinking…", "Checking sources…") with animated pulsing dots.
@@ -374,7 +388,7 @@ final controller = ChatComposerController(
 // While the AI is generating:
 controller.isGenerating = true;
 
-// When the response finishes:
+// When the response is fully shown, e.g. from `StreamingMessageView.onFinished`:
 controller.isGenerating = false;
 ```
 
@@ -945,13 +959,26 @@ channel.on(EventType.aiIndicatorUpdate).listen((event) {
   final state = event.aiState;     // AITypingState enum
   final msgId = event.aiMessage;   // ID of the message being generated
   controller.isGenerating = state == AITypingState.generating;
+  setState(() => backendDone = false);
   // show AITypingIndicatorView / switch to StreamingMessageView
 });
 
 channel.on(EventType.aiIndicatorClear).listen((_) {
-  controller.isGenerating = false;
-  // hide the indicator, show the final message
+  setState(() => backendDone = true);
+  // hide the indicator; the final message may still be typing out
 });
+```
+
+The backend usually finishes well before the typewriter has revealed the reply, so flipping the
+composer back to "send" on `aiIndicatorClear` hides the stop button while text is still appearing.
+Leave that to the message view instead:
+
+```dart
+StreamingMessageView(
+  text: message.text ?? '',
+  expectMoreText: !backendDone,
+  onFinished: () => controller.isGenerating = false,
+);
 ```
 
 Route client-tool invocations to your `AIToolRegistry`:

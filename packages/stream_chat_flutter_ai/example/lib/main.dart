@@ -358,9 +358,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   /// Whether the fake backend has finished sending chunks for the current reply.
   ///
-  /// The typewriter goes briefly idle whenever it catches up with the chunks
-  /// received so far, which is *not* the same as the reply being finished — so
-  /// the composer only leaves its generating state once both are true.
+  /// The backend finishes well before the typewriter does, so this alone is not
+  /// when the reply is done: it feeds `StreamingMessageView.expectMoreText`, and
+  /// the composer leaves its generating state from `onFinished`.
   bool _streamComplete = true;
 
   /// How much of the reply each simulated chunk delivers.
@@ -379,9 +379,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// Bumped by every local reply and every stop, so a reply still waiting on
   /// [AILocalModel.isAvailable] can tell it has been superseded.
   int _replyGeneration = 0;
-
-  /// The last state the newest reply's typewriter reported.
-  TypewriterState _typewriterState = TypewriterState.idle;
 
   @override
   void initState() {
@@ -608,7 +605,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
       if (delivered == _cannedReply.length) {
         timer.cancel();
-        _streamComplete = true;
+        setState(() => _streamComplete = true);
       }
     });
   }
@@ -670,22 +667,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
   }
 
-  /// Leaves the generating state once the typewriter has shown the last
-  /// answer, even if it was already idle when the stream closed and so won't
-  /// report idle again.
+  /// Ends a local reply whose stream closed. The reply's `onFinished` leaves
+  /// the generating state once it is typed out; an empty answer never shows,
+  /// so it leaves at once.
   void _finishWhenTyped() {
-    _streamComplete = true;
-    // The typewriter reports its state after the frame that shows new text,
-    // so look one frame after that one.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _streamComplete && _typewriterState == TypewriterState.idle) {
-          _composerController.isGenerating = false;
-        }
-      });
-      WidgetsBinding.instance.scheduleFrame();
+    if (!mounted) return;
+    setState(() {
+      _streamComplete = true;
+      if (_messages.last.text.isEmpty) _composerController.isGenerating = false;
     });
-    WidgetsBinding.instance.scheduleFrame();
   }
 
   void _stop() {
@@ -756,8 +746,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       itemBuilder: (context, index) {
                         final message = _messages[index];
                         if (message.isUser) return _UserBubble(text: message.text);
+                        final isLatest = index == _messages.length - 1;
                         final reply = StreamingMessageView(
                           text: message.text,
+                          // Only the latest reply can still be streaming, and
+                          // only it drives the composer.
+                          expectMoreText: isLatest && !_streamComplete,
+                          onFinished: isLatest ? () => _composerController.isGenerating = false : null,
                           // The package recognises LaTeX but ships no math
                           // engine; this is the seam where a host supplies one.
                           mathBuilder: (context, tex, style, {required inline}) => Math.tex(
@@ -770,15 +765,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           // and framed by the package, but the grammars that
                           // color them live here. See `code_highlighter.dart`.
                           codeHighlighter: highlightCode,
-                          onTypewriterStateChanged: (state) {
-                            if (index == _messages.length - 1) _typewriterState = state;
-                            // Flip the composer back to "send" once the backend
-                            // has stopped sending chunks *and* the typewriter
-                            // has caught up with the last one.
-                            if (state == TypewriterState.idle && _streamComplete) {
-                              _composerController.isGenerating = false;
-                            }
-                          },
                         );
                         if (message.reasoning.isEmpty && message.toolCalls.isEmpty) return reply;
                         return Column(
