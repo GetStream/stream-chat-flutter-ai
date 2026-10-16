@@ -3,6 +3,7 @@
 ✅ Added
 
 - `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments).
+- `StreamingReasoningView` — a collapsible "Thinking… / Thought for Ns" reasoning panel, themed via `ReasoningThemeData`.
 
 🔄 Changed
 

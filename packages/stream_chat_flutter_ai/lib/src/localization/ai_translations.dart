@@ -7,6 +7,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 // Here for the [AIUnsupportedPartView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
+// Here for the [StreamingReasoningView] doc link below only.
+import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 
 /// The user-facing strings the package renders itself.
 ///
@@ -128,6 +130,32 @@ abstract class AITranslations {
   /// couldn't decode. See [AIUnsupportedPartView].
   String get unsupportedMessagePart;
 
+  /// The reasoning header while the model thinks, before a second has passed.
+  /// See [StreamingReasoningView].
+  String get reasoningThinking;
+
+  /// The reasoning header while the model thinks, where `duration` is how long
+  /// it has thought so far, already formatted by [reasoningDuration].
+  String reasoningThinkingFor(String duration);
+
+  /// The reasoning header once the model is done, when how long it thought is
+  /// unknown.
+  String get reasoningThought;
+
+  /// The reasoning header once the model is done, where `duration` is how long
+  /// it thought, already formatted by [reasoningDuration].
+  String reasoningThoughtFor(String duration);
+
+  /// How long the model thought, in whole seconds: `7s`, or `1m 5s` from a
+  /// minute on. Fills [reasoningThinkingFor] and [reasoningThoughtFor].
+  String reasoningDuration(Duration duration);
+
+  /// The screen-reader hint on the folded reasoning header.
+  String get showReasoningHint;
+
+  /// The screen-reader hint on the open reasoning header.
+  String get hideReasoningHint;
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -196,6 +224,32 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get unsupportedMessagePart => "A step this app version can't show";
+
+  @override
+  String get reasoningThinking => 'Thinking…';
+
+  @override
+  String reasoningThinkingFor(String duration) => 'Thinking… $duration';
+
+  @override
+  String get reasoningThought => 'Thought process';
+
+  @override
+  String reasoningThoughtFor(String duration) => 'Thought for $duration';
+
+  @override
+  String reasoningDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60);
+    if (minutes == 0) return '${seconds}s';
+    return seconds == 0 ? '${minutes}m' : '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String get showReasoningHint => "Shows the model's reasoning";
+
+  @override
+  String get hideReasoningHint => "Hides the model's reasoning";
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
