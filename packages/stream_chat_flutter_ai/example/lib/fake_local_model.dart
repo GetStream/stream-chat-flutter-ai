@@ -8,8 +8,8 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 ///
 /// A real implementation would fit [reply]'s turns to the model's context with
 /// [AIConversationTurn.fitToBudget], hand them to the model, and forward its
-/// output the same way.
-class FakeLocalModel implements AILocalModel {
+/// output the same way, reporting failures as [AILocalModelException]s.
+class FakeLocalModel extends AILocalModel {
   const FakeLocalModel();
 
   /// The context of a small on-device model, in tokens.
@@ -23,7 +23,11 @@ class FakeLocalModel implements AILocalModel {
     final fitted = AIConversationTurn.fitToBudget(turns, maxTokens: _contextTokens, instructions: instructions);
     final question = fitted.lastOrNull;
     if (question == null || question.role != AIConversationRole.user) {
-      throw StateError('The conversation must end with a question.');
+      // Thrown inside an `async*` generator, so it arrives as an error event.
+      throw const AILocalModelException(
+        AILocalModelErrorReason.invalidConversation,
+        'The conversation must end with a question.',
+      );
     }
 
     final answer =

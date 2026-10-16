@@ -32,28 +32,36 @@ class AIConversationTurn {
   final String text;
 
   /// The number of tokens [text] is estimated to take: three bytes of UTF-8
-  /// per token, rounded down.
+  /// per token, rounded up, so any text costs at least one.
   ///
   /// This overcounts English, which tokenizers pack at about four characters
   /// per token, so a budget filled by this estimate leaves some room spare.
-  static int estimateTokens(String text) => utf8.encode(text).length ~/ 3;
+  static int estimateTokens(String text) => (utf8.encode(text).length + 2) ~/ 3;
+
+  /// The tokens [fitToBudget] adds to each turn's [estimateTokens], for the
+  /// role markers and separators a model's prompt format wraps a turn in.
+  ///
+  /// Without it, many short turns could add up to more than a small context.
+  static const tokensPerTurn = 4;
 
   /// The newest [turns] that fit in [maxTokens], oldest first, for a model
   /// whose context is small.
   ///
   /// Turns that are empty or only whitespace are dropped, and consecutive
-  /// turns of one role are merged into one, separated by a blank line — most
-  /// models expect the roles to alternate.
+  /// turns of one role are merged into one, their text kept as is and
+  /// separated by a blank line — most models expect the roles to alternate.
   ///
-  /// The last turn, the question being asked, is always kept, even when it
-  /// alone is over the budget: it is never truncated, as a cut-off question
-  /// would get an answer to something else. Older turns are then added newest
-  /// first while they fit, and the first that doesn't ends the history, so the
-  /// result is always an unbroken run of the newest turns. [instructions], the
-  /// system prompt the model is given alongside the turns, counts against the
-  /// budget too.
+  /// The last of the merged turns is always kept, even when it alone is over
+  /// the budget: it is never truncated, as a cut-off question would get an
+  /// answer to something else. It is whatever the conversation ends with, so
+  /// pass one that ends with the question, a [AIConversationRole.user] turn.
+  /// Older turns are then added newest first while they fit, and the first
+  /// that doesn't ends the history, so the result is always an unbroken run of
+  /// the newest turns. [instructions], the system prompt the model is given
+  /// alongside the turns, counts against the budget too.
   ///
-  /// Tokens are estimated with [estimateTokens].
+  /// A turn costs its [estimateTokens] plus [tokensPerTurn]. [maxTokens] must
+  /// be positive.
   ///
   /// Returns an empty list when no turn has text.
   static List<AIConversationTurn> fitToBudget(
@@ -61,6 +69,7 @@ class AIConversationTurn {
     required int maxTokens,
     String instructions = '',
   }) {
+    assert(maxTokens > 0, 'maxTokens must be positive, was $maxTokens');
     final merged = <AIConversationTurn>[];
     for (final turn in turns) {
       if (turn.text.trim().isEmpty) continue;
@@ -75,9 +84,10 @@ class AIConversationTurn {
 
     final question = merged.removeLast();
     final kept = [question];
-    var remaining = maxTokens - estimateTokens(instructions) - estimateTokens(question.text);
+    int cost(AIConversationTurn turn) => estimateTokens(turn.text) + tokensPerTurn;
+    var remaining = maxTokens - estimateTokens(instructions) - cost(question);
     for (final turn in merged.reversed) {
-      remaining -= estimateTokens(turn.text);
+      remaining -= cost(turn);
       if (remaining < 0) break;
       kept.add(turn);
     }

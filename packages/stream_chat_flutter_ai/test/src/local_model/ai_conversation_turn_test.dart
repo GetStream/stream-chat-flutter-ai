@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+/// What [AIConversationTurn.fitToBudget] charges for a turn of [text].
+int _cost(String text) => AIConversationTurn.estimateTokens(text) + AIConversationTurn.tokensPerTurn;
+
 void main() {
   group('AIConversationTurn', () {
     test('factories set the role', () {
@@ -27,17 +30,19 @@ void main() {
   });
 
   group('AIConversationTurn.estimateTokens', () {
-    test('counts three bytes of UTF-8 per token, rounded down', () {
+    test('counts three bytes of UTF-8 per token, rounded up', () {
       expect(AIConversationTurn.estimateTokens(''), 0);
-      expect(AIConversationTurn.estimateTokens('ab'), 0);
+      expect(AIConversationTurn.estimateTokens('a'), 1);
       expect(AIConversationTurn.estimateTokens('abc'), 1);
-      expect(AIConversationTurn.estimateTokens('abcdefg'), 2);
+      expect(AIConversationTurn.estimateTokens('abcd'), 2);
+      expect(AIConversationTurn.estimateTokens('abcdefg'), 3);
     });
 
     test('counts bytes, not characters, for multi-byte text', () {
       // 'é' is 2 bytes, '日' is 3, the emoji is 4 (a surrogate pair in Dart).
       expect(AIConversationTurn.estimateTokens('ééé'), 2);
       expect(AIConversationTurn.estimateTokens('日本語'), 3);
+      expect(AIConversationTurn.estimateTokens('😀'), 2);
       expect(AIConversationTurn.estimateTokens('😀😀😀'), 4);
     });
   });
@@ -66,14 +71,17 @@ void main() {
 
     test('always keeps the question, untruncated', () {
       expect(AIConversationTurn.fitToBudget(turns, maxTokens: 1), [const AIConversationTurn.user('Third question')]);
-      expect(AIConversationTurn.fitToBudget(turns, maxTokens: 0), [const AIConversationTurn.user('Third question')]);
-      expect(AIConversationTurn.fitToBudget(turns, maxTokens: -10), [const AIConversationTurn.user('Third question')]);
 
       final huge = AIConversationTurn.user(long);
       expect(
         AIConversationTurn.fitToBudget([...turns, const AIConversationTurn.assistant('Go on'), huge], maxTokens: 10),
         [huge],
       );
+    });
+
+    test('asserts a positive budget', () {
+      expect(() => AIConversationTurn.fitToBudget(turns, maxTokens: 0), throwsAssertionError);
+      expect(() => AIConversationTurn.fitToBudget(turns, maxTokens: -10), throwsAssertionError);
     });
 
     test('stops at the first turn that does not fit', () {
@@ -88,24 +96,53 @@ void main() {
 
     test('a turn that fills the budget exactly is kept', () {
       final exact = [const AIConversationTurn.assistant('abcdef'), const AIConversationTurn.user('abc')];
-      expect(AIConversationTurn.fitToBudget(exact, maxTokens: 3), exact);
-      expect(AIConversationTurn.fitToBudget(exact, maxTokens: 2), [const AIConversationTurn.user('abc')]);
+      final budget = _cost('abcdef') + _cost('abc');
+      expect(AIConversationTurn.fitToBudget(exact, maxTokens: budget), exact);
+      expect(AIConversationTurn.fitToBudget(exact, maxTokens: budget - 1), [const AIConversationTurn.user('abc')]);
+    });
+
+    test('a short turn costs at least one token plus the per-turn overhead', () {
+      expect(_cost('a'), 1 + AIConversationTurn.tokensPerTurn);
+      final short = [const AIConversationTurn.assistant('a'), const AIConversationTurn.user('b')];
+      expect(AIConversationTurn.fitToBudget(short, maxTokens: 2 * _cost('a')), short);
+      expect(AIConversationTurn.fitToBudget(short, maxTokens: 2 * _cost('a') - 1), [
+        const AIConversationTurn.user('b'),
+      ]);
+    });
+
+    test('counts the per-turn overhead, so many short turns cannot overflow', () {
+      final many = [
+        for (var i = 0; i < 10; i++)
+          AIConversationTurn(role: i.isEven ? AIConversationRole.user : AIConversationRole.assistant, text: 'a'),
+      ];
+      // Each costs 1 + 4 = 5: 20 tokens hold 4 turns, not all 10.
+      expect(AIConversationTurn.fitToBudget(many, maxTokens: 20), many.sublist(6));
     });
 
     test('counts the instructions against the budget', () {
+      const instructions = 'abcdefghi'; // 3 tokens
       final short = [const AIConversationTurn.assistant('abcdef'), const AIConversationTurn.user('abc')];
-      expect(AIConversationTurn.fitToBudget(short, maxTokens: 6, instructions: 'abcdefghi'), short);
+      final budget = 3 + _cost('abcdef') + _cost('abc');
+      expect(AIConversationTurn.fitToBudget(short, maxTokens: budget, instructions: instructions), short);
       expect(
-        AIConversationTurn.fitToBudget(short, maxTokens: 5, instructions: 'abcdefghi'),
+        AIConversationTurn.fitToBudget(short, maxTokens: budget - 1, instructions: instructions),
         [const AIConversationTurn.user('abc')],
       );
     });
 
+    test('keeps only the question when the instructions alone are over the budget', () {
+      expect(
+        AIConversationTurn.fitToBudget(turns, maxTokens: 50, instructions: long),
+        [const AIConversationTurn.user('Third question')],
+      );
+    });
+
     test('estimates multi-byte text by its bytes', () {
-      // Each emoji is 4 bytes: 3 of them make 4 tokens, not 1.
+      // Three emoji are 12 bytes: 4 tokens, not 1.
       final emoji = [const AIConversationTurn.assistant('😀😀😀'), const AIConversationTurn.user('Hi')];
-      expect(AIConversationTurn.fitToBudget(emoji, maxTokens: 4), emoji);
-      expect(AIConversationTurn.fitToBudget(emoji, maxTokens: 3), [const AIConversationTurn.user('Hi')]);
+      final budget = 4 + AIConversationTurn.tokensPerTurn + _cost('Hi');
+      expect(AIConversationTurn.fitToBudget(emoji, maxTokens: budget), emoji);
+      expect(AIConversationTurn.fitToBudget(emoji, maxTokens: budget - 1), [const AIConversationTurn.user('Hi')]);
     });
 
     test('merges consecutive turns of one role and drops empty ones', () {
@@ -122,23 +159,32 @@ void main() {
       );
     });
 
+    test('keeps the text untrimmed when merging', () {
+      const padded = [AIConversationTurn.user('  first \n'), AIConversationTurn.user(' second')];
+      expect(
+        AIConversationTurn.fitToBudget(padded, maxTokens: 1000),
+        [const AIConversationTurn.user('  first \n\n\n second')],
+      );
+    });
+
     test('measures merged turns as one', () {
       const split = [
         AIConversationTurn.assistant('abc'),
         AIConversationTurn.assistant('abc'),
         AIConversationTurn.user('Hi'),
       ];
-      // 'abc\n\nabc' is 8 bytes, 2 tokens: all or nothing.
-      expect(AIConversationTurn.fitToBudget(split, maxTokens: 2), [
+      // One merged turn of 'abc\n\nabc' pays the overhead once.
+      final budget = _cost('abc\n\nabc') + _cost('Hi');
+      expect(AIConversationTurn.fitToBudget(split, maxTokens: budget), [
         const AIConversationTurn.assistant('abc\n\nabc'),
         const AIConversationTurn.user('Hi'),
       ]);
-      expect(AIConversationTurn.fitToBudget(split, maxTokens: 1), [const AIConversationTurn.user('Hi')]);
+      expect(AIConversationTurn.fitToBudget(split, maxTokens: budget - 1), [const AIConversationTurn.user('Hi')]);
     });
 
     test('keeps the last turn even when it is the assistant’s', () {
       const trailing = [AIConversationTurn.user('Hi'), AIConversationTurn.assistant('Hello')];
-      expect(AIConversationTurn.fitToBudget(trailing, maxTokens: 0), [const AIConversationTurn.assistant('Hello')]);
+      expect(AIConversationTurn.fitToBudget(trailing, maxTokens: 1), [const AIConversationTurn.assistant('Hello')]);
     });
 
     test('is empty when no turn has text', () {
