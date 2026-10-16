@@ -826,6 +826,7 @@ channel.on(EventType.aiIndicatorUpdate).listen((event) {
   final state = event.aiState;     // AITypingState enum
   final msgId = event.aiMessage;   // ID of the message being generated
   controller.isGenerating = state == AITypingState.generating;
+  setState(() => backendDone = false);
   // show AITypingIndicatorView / switch to StreamingMessageView
 });
 

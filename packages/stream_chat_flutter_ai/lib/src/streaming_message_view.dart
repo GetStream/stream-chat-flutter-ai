@@ -86,8 +86,13 @@ class StreamingMessageView extends StatefulWidget {
   /// backend is generating the reply.
   ///
   /// The view can't tell a finished reply from a pause in the stream by its
-  /// [text] alone, so [onFinished] waits until this is `false`. Typically
-  /// driven by the backend's AI state, or a "generating" flag on the message.
+  /// [text] alone, so [onFinished] waits until this is `false`. Drive it from
+  /// the backend's AI state: `true` from when the request is sent until the AI
+  /// indicator clears.
+  ///
+  /// A "generating" flag on the message is not enough on its own, because an
+  /// AI placeholder message is often created before that flag is set. Empty
+  /// [text] never counts as finished, which covers the placeholder itself.
   ///
   /// Defaults to `false`.
   final bool expectMoreText;
@@ -99,10 +104,20 @@ class StreamingMessageView extends StatefulWidget {
   /// fires later than the end of generation. It is called after the frame in
   /// which the reply finished, so the host is free to rebuild in response.
   ///
-  /// Fires once per reply, and again only if the text grows or [expectMoreText]
-  /// turns back to `true` and then `false`. A view built with its complete
-  /// text and `expectMoreText: false`, such as a message from history, reports
-  /// it after its first frame.
+  /// Fires once per reply, and again only if the reply stops being finished
+  /// (the text grows or changes, or [expectMoreText] turns back to `true`) and
+  /// then finishes again. A view built with its complete text and
+  /// `expectMoreText: false`, such as a message from history, reports it after
+  /// its first frame.
+  ///
+  /// Empty [text] never counts as finished, since that is what an AI
+  /// placeholder looks like before its first chunk arrives. A reply that ends
+  /// empty is therefore never reported; a host should still leave its
+  /// generating state when the user stops the reply or the backend reports an
+  /// error.
+  ///
+  /// A reply that finishes while this is `null` is not reported later, when a
+  /// callback is passed in a rebuild.
   final VoidCallback? onFinished;
 
   @override
@@ -112,26 +127,33 @@ class StreamingMessageView extends StatefulWidget {
 class _StreamingMessageViewState extends State<StreamingMessageView> {
   late String _displayText;
   late final TypewriterController _controller;
-  var _finishReported = false;
+  var _wasFinished = false;
 
   void _onTypewriterValueChanged() {
     final value = _controller.value;
     widget.onTypewriterStateChanged?.call(value.state);
-    if (value.state == TypewriterState.typing) _finishReported = false;
     setState(() => _displayText = value.text);
     _scheduleFinishCheck();
   }
 
   bool get _isFinished =>
       !widget.expectMoreText &&
+      widget.text.isNotEmpty &&
       _controller.value.state != TypewriterState.typing &&
       _controller.value.text == widget.text;
 
-  /// Reports [StreamingMessageView.onFinished] after the current frame, since
-  /// the check can run during a build (from [didUpdateWidget]).
+  /// Reports [StreamingMessageView.onFinished] when the reply goes from
+  /// unfinished to finished.
+  ///
+  /// [_wasFinished] is tracked on every check, whether or not there is a
+  /// callback, so a callback passed after the reply finished doesn't report it
+  /// late. The report is deferred to after the current frame, since the check
+  /// can run during a build (from [didUpdateWidget]).
   void _scheduleFinishCheck() {
-    if (_finishReported || widget.onFinished == null || !_isFinished) return;
-    _finishReported = true;
+    final isFinished = _isFinished;
+    final justFinished = isFinished && !_wasFinished;
+    _wasFinished = isFinished;
+    if (!justFinished || widget.onFinished == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onFinished?.call();
     });
@@ -166,7 +188,6 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     if (widget.text != oldWidget.text) {
       _controller.updateText(widget.text);
     }
-    if (widget.expectMoreText && !oldWidget.expectMoreText) _finishReported = false;
     _scheduleFinishCheck();
   }
 

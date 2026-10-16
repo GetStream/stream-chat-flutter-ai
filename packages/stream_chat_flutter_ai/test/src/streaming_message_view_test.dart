@@ -185,6 +185,59 @@ void main() {
         expect(finished, 1);
       });
 
+      testWidgets('does not report an empty placeholder', (WidgetTester tester) async {
+        var finished = 0;
+        void onFinished() => finished++;
+        const reply = 'The real reply.';
+
+        // An AI placeholder is created empty, before the backend marks it as
+        // generating, so it briefly looks like a complete message.
+        await tester.pumpWidget(build('', expectMoreText: false, onFinished: onFinished));
+        await tester.pump();
+        expect(finished, 0);
+
+        await tester.pumpWidget(build('The', expectMoreText: true, onFinished: onFinished));
+        await tester.pumpWidget(build(reply, expectMoreText: false, onFinished: onFinished));
+        await tester.pump(typingSpeed * (reply.length + 5));
+        await tester.pump();
+        expect(finished, 1);
+      });
+
+      testWidgets('does not report a reply that finished before the callback was passed', (
+        WidgetTester tester,
+      ) async {
+        var finished = 0;
+        void onFinished() => finished++;
+
+        Widget buildOptional(String text, {required bool expectMoreText, VoidCallback? onFinished}) => MaterialApp(
+          home: Scaffold(
+            body: StreamingMessageView(
+              text: text,
+              typingSpeed: typingSpeed,
+              expectMoreText: expectMoreText,
+              onFinished: onFinished,
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(buildOptional('An earlier reply.', expectMoreText: false));
+        await tester.pump();
+
+        // The callback arrives later, e.g. once this becomes the latest reply.
+        await tester.pumpWidget(buildOptional('An earlier reply.', expectMoreText: false, onFinished: onFinished));
+        await tester.pump();
+        expect(finished, 0);
+
+        // A new reply into the same view is still reported.
+        await tester.pumpWidget(buildOptional('An earlier reply.', expectMoreText: true, onFinished: onFinished));
+        await tester.pumpWidget(
+          buildOptional('An earlier reply. And more.', expectMoreText: false, onFinished: onFinished),
+        );
+        await tester.pump(typingSpeed * 20);
+        await tester.pump();
+        expect(finished, 1);
+      });
+
       testWidgets('reports a complete message after its first frame', (WidgetTester tester) async {
         var finished = 0;
 
