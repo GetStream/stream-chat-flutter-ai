@@ -4,6 +4,7 @@
 
 - `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments).
 - `StreamingReasoningView` — a collapsible "Thinking… / Thought for Ns" reasoning panel, themed via `ReasoningThemeData`.
+- `AIToolCallView` — a tool-call row with status icon, summary and duration, themed via `ToolCallThemeData`; `AIMessagePartsView.toolCallBuilder` overrides it per tool.
 
 🔄 Changed
 

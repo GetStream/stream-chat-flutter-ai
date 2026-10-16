@@ -10,9 +10,10 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/reasoning_text.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.dart';
-// Imported for the doc links below only.
+// The next two are imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
+import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 
 /// Live text shorter than this, arriving as the panel first appears, is
 /// revealed from its start; anything longer — a view built mid-stream — shows
@@ -538,7 +539,7 @@ class _Header extends StatelessWidget {
     );
     Widget icon = Icon(Icons.psychology_outlined, size: iconSize, color: theme.iconColor);
     if (activity case final activity?) {
-      titleText = _Shimmer(
+      titleText = Shimmer(
         animation: activity,
         base: titleStyle.color!,
         highlight: theme.shimmerColor,
@@ -560,37 +561,6 @@ class _Header extends StatelessWidget {
           child: Icon(Icons.chevron_right, size: iconSize, color: theme.iconColor),
         ),
       ],
-    );
-  }
-}
-
-/// A highlight sweeping across [child] while [animation] runs.
-class _Shimmer extends StatelessWidget {
-  const _Shimmer({required this.animation, required this.base, required this.highlight, required this.child});
-
-  final Animation<double> animation;
-  final Color base;
-  final Color highlight;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        // From fully left of the text to fully right of it.
-        final x = -1.6 + 3.2 * animation.value;
-        return ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => LinearGradient(
-            begin: Alignment(x - 0.6, 0),
-            end: Alignment(x + 0.6, 0),
-            colors: [base, highlight, base],
-          ).createShader(bounds),
-          child: child,
-        );
-      },
     );
   }
 }

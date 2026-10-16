@@ -7,6 +7,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 // Here for the [AIUnsupportedPartView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
+// Here for the [AIToolCallView] doc link below only.
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 // Here for the [StreamingReasoningView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 
@@ -161,6 +163,40 @@ abstract class AITranslations {
   /// The screen-reader hint on the open reasoning header.
   String get reasoningHideHint;
 
+  /// The title of a tool call whose agent sent neither a title nor a tool
+  /// name. See [AIToolCallView].
+  String get toolCallFallbackTitle;
+
+  /// A running tool call's status, read out by screen readers.
+  String get toolCallRunning;
+
+  /// A completed tool call's status, read out by screen readers.
+  String get toolCallCompleted;
+
+  /// The detail line of a tool call waiting for someone to allow it, when the
+  /// agent sent no summary.
+  String get toolCallAwaitingApproval;
+
+  /// The detail line of a tool call waiting for a device to run it, when the
+  /// agent sent no summary.
+  String get toolCallAwaitingClient;
+
+  /// The detail line of a failed tool call, when the agent sent no summary.
+  String get toolCallFailed;
+
+  /// The detail line of a cancelled tool call, when the agent sent no
+  /// summary.
+  String get toolCallCancelled;
+
+  /// The detail line of a tool call the person declined, when the agent sent
+  /// no summary.
+  String get toolCallDeclined;
+
+  /// How long a finished tool call took: tenths of a second under a second
+  /// (`0.4s`), otherwise whole seconds as [reasoningDuration] writes them
+  /// (`12s`, `1m 5s`).
+  String toolCallDuration(Duration duration);
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -255,6 +291,37 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get reasoningHideHint => "Hides the model's reasoning";
+
+  @override
+  String get toolCallFallbackTitle => 'Tool';
+
+  @override
+  String get toolCallRunning => 'Running';
+
+  @override
+  String get toolCallCompleted => 'Completed';
+
+  @override
+  String get toolCallAwaitingApproval => 'Waiting for approval';
+
+  @override
+  String get toolCallAwaitingClient => 'Waiting for the device';
+
+  @override
+  String get toolCallFailed => "Didn't complete";
+
+  @override
+  String get toolCallCancelled => 'Cancelled';
+
+  @override
+  String get toolCallDeclined => 'Declined';
+
+  @override
+  String toolCallDuration(Duration duration) {
+    final tenths = (duration.inMicroseconds / Duration.microsecondsPerSecond * 10).round();
+    if (tenths < 10) return '0.${tenths}s';
+    return reasoningDuration(Duration(seconds: (duration.inMilliseconds / Duration.millisecondsPerSecond).round()));
+  }
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
