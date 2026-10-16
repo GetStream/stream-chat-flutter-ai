@@ -72,6 +72,29 @@ void main() {
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(const AITheme()));
     });
+    group('code block theme', () {
+      const codeBlock = CodeBlockThemeData(backgroundColor: Color(0xFF0A0A0A));
+      const codeBlock2 = CodeBlockThemeData(backgroundColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().codeBlockTheme, const CodeBlockThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(codeBlockTheme: codeBlock);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(codeBlockTheme: codeBlock));
+        expect(theme.copyWith(codeBlockTheme: codeBlock2).codeBlockTheme, codeBlock2);
+        expect(theme.copyWith().codeBlockTheme, codeBlock);
+        expect(
+          theme.lerp(const AITheme(codeBlockTheme: codeBlock2), 0.5).codeBlockTheme,
+          CodeBlockThemeData.lerp(codeBlock, codeBlock2, 0.5),
+        );
+      });
+    });
+
     group('composer and suggestions themes', () {
       // Each case is one component field on AITheme. A field left out of `==`
       // would let Theme.updateShouldNotify skip the rebuild after a host changed
