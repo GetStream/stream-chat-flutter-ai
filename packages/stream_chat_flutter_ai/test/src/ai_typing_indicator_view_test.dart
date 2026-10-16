@@ -147,6 +147,117 @@ void main() {
         expect(_dotColors(tester), everyElement(const Color(0xFF00AA00)));
       });
 
+      testWidgets('an inherit: false textStyle keeps a color from the defaults', (tester) async {
+        final theme = ThemeData();
+        await tester.pumpWidget(
+          _wrap(
+            const AITypingIndicatorView(text: 'Thinking', textStyle: TextStyle(inherit: false, fontSize: 18)),
+            theme: theme,
+          ),
+        );
+        await _settleStagger(tester);
+
+        expect(tester.takeException(), isNull);
+        final style = tester.widget<Text>(find.text('Thinking')).style!;
+        expect(style.fontSize, 18);
+        expect(style.color, theme.colorScheme.onSurfaceVariant);
+        expect(_dotColors(tester), everyElement(theme.colorScheme.onSurfaceVariant));
+      });
+
+      testWidgets('textStyle merges across all three levels', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const TypingIndicatorTheme(
+              data: TypingIndicatorThemeData(textStyle: TextStyle(fontWeight: FontWeight.w700)),
+              child: AITypingIndicatorView(text: 'Thinking', textStyle: TextStyle(fontSize: 22)),
+            ),
+            theme: ThemeData(
+              extensions: const [
+                AITheme(
+                  typingIndicatorTheme: TypingIndicatorThemeData(textStyle: TextStyle(color: Color(0xFF0000C1))),
+                ),
+              ],
+            ),
+          ),
+        );
+        await _settleStagger(tester);
+
+        final style = tester.widget<Text>(find.text('Thinking')).style!;
+        expect(style.fontSize, 22, reason: 'from the widget');
+        expect(style.fontWeight, FontWeight.w700, reason: 'from the scope');
+        // A scope replaces AITheme's textStyle (a set field replaces), so the
+        // color falls back to the default rather than AITheme's.
+        expect(style.color, isNot(const Color(0xFF0000C1)));
+      });
+
+      testWidgets('AITheme color and widget fontSize combine', (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const AITypingIndicatorView(text: 'Thinking', textStyle: TextStyle(fontSize: 22)),
+            theme: ThemeData(
+              extensions: const [
+                AITheme(
+                  typingIndicatorTheme: TypingIndicatorThemeData(textStyle: TextStyle(color: Color(0xFF0000C1))),
+                ),
+              ],
+            ),
+          ),
+        );
+        await _settleStagger(tester);
+
+        final style = tester.widget<Text>(find.text('Thinking')).style!;
+        expect(style.fontSize, 22);
+        expect(style.color, const Color(0xFF0000C1));
+        expect(_dotColors(tester), everyElement(const Color(0xFF0000C1)));
+      });
+
+      testWidgets('resolves dotSpacing widget > TypingIndicatorTheme > AITheme > 4', (tester) async {
+        Future<double> spacing({ThemeData? theme, double? scope, double? widget}) async {
+          Widget child = AITypingIndicatorView(text: 'Thinking', dotSpacing: widget);
+          if (scope != null) {
+            child = TypingIndicatorTheme(
+              data: TypingIndicatorThemeData(dotSpacing: scope),
+              child: child,
+            );
+          }
+          await tester.pumpWidget(_wrap(child, theme: theme));
+          await _settleStagger(tester);
+          final row = find.descendant(of: find.byType(AnimatedDots), matching: find.byType(Row));
+          return tester.widget<Row>(row).spacing;
+        }
+
+        final themed = ThemeData(
+          extensions: const [AITheme(typingIndicatorTheme: TypingIndicatorThemeData(dotSpacing: 6))],
+        );
+        expect(await spacing(), 4);
+        expect(await spacing(theme: themed), 6);
+        expect(await spacing(theme: themed, scope: 7), 7);
+        expect(await spacing(theme: themed, scope: 7, widget: 9), 9);
+      });
+
+      testWidgets('dotCount 0 draws the caption alone, without the gap', (tester) async {
+        await tester.pumpWidget(_wrap(const AITypingIndicatorView(text: 'Thinking', dotCount: 0)));
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Thinking'), findsOneWidget);
+        expect(find.byType(AnimatedDots), findsNothing);
+        expect(
+          tester.getSize(find.byType(AITypingIndicatorView)).width,
+          tester.getSize(find.text('Thinking')).width,
+          reason: 'no trailing 8px gap',
+        );
+        expect(tester.hasRunningAnimations, isFalse);
+      });
+
+      test('negative sizes are rejected', () {
+        expect(() => AITypingIndicatorView(text: 'x', dotSize: -1), throwsAssertionError);
+        expect(() => AITypingIndicatorView(text: 'x', dotSpacing: -1), throwsAssertionError);
+        expect(() => AnimatedDots(size: -1), throwsAssertionError);
+        expect(() => AnimatedDots(spacing: -1), throwsAssertionError);
+        expect(() => TypingIndicatorThemeData(dotSize: -1), throwsAssertionError);
+        expect(() => TypingIndicatorThemeData(dotSpacing: -1), throwsAssertionError);
+      });
+
       testWidgets('a standalone AnimatedDots is themed too', (tester) async {
         await tester.pumpWidget(
           _wrap(
@@ -216,6 +327,18 @@ void main() {
         expect(find.descendant(of: dots, matching: find.byType(FadeTransition)), findsNothing);
         expect(_dotColors(tester), hasLength(3));
         expect(tester.getSize(find.byType(Container).first), const Size.square(8), reason: 'drawn at full size');
+      });
+
+      testWidgets('animates again when reduced motion is switched back off', (tester) async {
+        _reduceMotion(tester);
+        await tester.pumpWidget(_wrap(const AITypingIndicatorView(text: 'Thinking')));
+        expect(tester.hasRunningAnimations, isFalse);
+
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+        await tester.pump();
+        await _settleStagger(tester);
+
+        expect(tester.hasRunningAnimations, isTrue);
       });
 
       testWidgets('stops animating when reduced motion is switched on', (tester) async {

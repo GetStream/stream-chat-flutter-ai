@@ -723,7 +723,8 @@ with the surface it is drawn on, so overriding one pair never leaves an icon on 
 chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
 `TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize`, `dotCount` and `dotSpacing`.
 
-Narrow either to a subtree with `ComposerTheme` / `SuggestionsTheme`, the way `ChartTheme` does:
+Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme`, `ComposerTheme`,
+`SuggestionsTheme` or `TypingIndicatorTheme`:
 
 ```dart
 ComposerTheme(
@@ -743,9 +744,10 @@ Four things worth knowing:
   button's slot, and the two are meant to read as one control morphing in place;
   `recordingButtonColor` applies only while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
-  `ComposerTheme.merge` / `SuggestionsTheme.merge` to add to an enclosing scope instead of
-  shadowing it. Both are `InheritedTheme`s, so like `ChartTheme` they carry across a `Navigator` —
-  a scope above the composer still reaches the attachment sheet that `showModalBottomSheet` pushes.
+  each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
+  enclosing scope instead of shadowing it. All five are `InheritedTheme`s, so they carry across a
+  `Navigator` — a scope above the composer still reaches the attachment sheet that
+  `showModalBottomSheet` pushes.
 
 The suggestion chips default to the same tokens as the composer's input pill, since a suggestion
 row is normally docked directly above it. Recolor that surface and you want both.
