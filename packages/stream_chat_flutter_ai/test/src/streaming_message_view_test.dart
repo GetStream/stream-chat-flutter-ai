@@ -147,6 +147,44 @@ void main() {
         expect(finished, 1);
       });
 
+      testWidgets('fires when generation ends after the typewriter has caught up', (WidgetTester tester) async {
+        var finished = 0;
+        var lastState = TypewriterState.typing;
+        void onFinished() => finished++;
+        const reply = 'The whole reply.';
+
+        Widget buildTracked(String text, {required bool expectMoreText}) => MaterialApp(
+          home: Scaffold(
+            body: StreamingMessageView(
+              text: text,
+              typingSpeed: typingSpeed,
+              expectMoreText: expectMoreText,
+              onFinished: onFinished,
+              onTypewriterStateChanged: (state) => lastState = state,
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(buildTracked('', expectMoreText: true));
+        await tester.pumpWidget(buildTracked(reply, expectMoreText: true));
+        expect(lastState, TypewriterState.typing);
+        await tester.pump(typingSpeed * (reply.length + 5));
+        await tester.pump();
+
+        // Every character is on screen and the typewriter has gone idle, but
+        // the backend hasn't said it's done yet.
+        expect(find.text(reply), findsOneWidget);
+        expect(lastState, TypewriterState.idle);
+        expect(finished, 0);
+
+        // The done signal arrives with no new text, so the typewriter emits no
+        // further state change.
+        await tester.pumpWidget(buildTracked(reply, expectMoreText: false));
+        await tester.pump();
+        expect(lastState, TypewriterState.idle);
+        expect(finished, 1);
+      });
+
       testWidgets('reports a complete message after its first frame', (WidgetTester tester) async {
         var finished = 0;
 
