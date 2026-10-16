@@ -14,6 +14,7 @@
 - `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments), and `AITranslations.unsupportedMessagePart`.
 - `StreamingReasoningView` — a collapsible "Thinking… / Thought for Ns" reasoning panel, themed via `ReasoningThemeData`.
 - `AIToolCallView` — a tool-call row with status icon, summary and duration, themed via `ToolCallThemeData`; `AIMessagePartsView.toolCallBuilder` overrides it per tool, and `AIMessagePartsView.hidden` leaves a step out.
+- `AIToolApprovalView` / `AIToolApprovalCard` — human-in-the-loop tool approvals via an `AIToolApprover`, themed via `ToolApprovalThemeData`; `AIMessagePartsView.approver` asks under each waiting call.
 
 ## 0.1.0
 
