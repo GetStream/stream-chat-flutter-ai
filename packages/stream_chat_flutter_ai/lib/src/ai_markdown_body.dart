@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
+// Here for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/markdown/math_syntax.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
@@ -99,16 +101,36 @@ Widget _buildFenceCached(
   if (cached != null) return cached;
 
   final spec = isChartFence ? _parseSpecCached(source) : null;
-  final child = spec != null
-      ? ChartView(spec: spec)
-      : CodeBlockView(
-          code: source,
-          language: (language == null || language.isEmpty) ? null : language,
-          highlighter: highlighter,
-          theme: codeBlockTheme,
-        );
+  final child = _Fence(
+    chart: spec != null ? AIChartProps(spec: spec) : null,
+    codeBlock: AICodeBlockProps(
+      code: source,
+      language: (language == null || language.isEmpty) ? null : language,
+      highlighter: highlighter,
+      theme: codeBlockTheme,
+    ),
+  );
 
   return _fenceWidgetCache.set(key, RepaintBoundary(child: child));
+}
+
+/// A cached fence: holds its data and asks the [AIComponentFactory] for the
+/// widget in its own build, so swapping the factory rebuilds it without
+/// invalidating the cache.
+class _Fence extends StatelessWidget {
+  const _Fence({required this.chart, required this.codeBlock});
+
+  /// Set when the fence parsed as chart data; wins over [codeBlock].
+  final AIChartProps? chart;
+
+  final AICodeBlockProps codeBlock;
+
+  @override
+  Widget build(BuildContext context) {
+    final factory = AIComponents.of(context);
+    if (chart case final chart?) return factory.buildChart(context, chart);
+    return factory.buildCodeBlock(context, codeBlock);
+  }
 }
 
 /// A markdown renderer tailored for AI-generated messages.
@@ -123,6 +145,9 @@ Widget _buildFenceCached(
 ///   [CodeBlockView].
 /// - **LaTeX** (`\(…\)` and `\[…\]`) is handed to [mathBuilder], when one is
 ///   supplied.
+///
+/// To replace the code block or chart widgets, provide an [AIComponentFactory]
+/// through [AIComponents].
 ///
 /// Letting `package:markdown` find the fences — rather than pre-splitting the
 /// string with a regex and stitching several [MarkdownBody] widgets together —

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
@@ -61,7 +62,8 @@ const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing')
 /// The chip, the thumbnails and the trailing control all live in
 /// [ChatComposerInput], the default occupant of the input slot.
 ///
-/// All four regions are customisable via [ChatComposerFactory].
+/// All four regions are customisable via [ChatComposerFactory] — passed as
+/// [factory], or app-wide as [AIComponentFactory.composer].
 ///
 /// Example:
 /// ```dart
@@ -80,7 +82,7 @@ class ChatComposer extends StatefulWidget {
     this.controller,
     required this.onSendPressed,
     this.onStopPressed,
-    this.factory = const ChatComposerFactory(),
+    this.factory,
     this.focusNode,
     this.hintText,
     this.minLines = 1,
@@ -107,7 +109,9 @@ class ChatComposer extends StatefulWidget {
 
   /// Factory used to build the composer's slots — leading, trailing, the
   /// input field, and the attachment sheet the default leading button opens.
-  final ChatComposerFactory factory;
+  ///
+  /// `null` uses the nearest [AIComponents]' [AIComponentFactory.composer].
+  final ChatComposerFactory? factory;
 
   /// Focus node for the text field.
   final FocusNode? focusNode;
@@ -354,9 +358,10 @@ class _ChatComposerState extends State<ChatComposer> {
           onStop: widget.onStopPressed == null ? null : _onStop,
         );
 
-        final leading = widget.factory.buildLeading(context, ChatComposerLeadingProps.from(props));
-        final trailing = widget.factory.buildTrailing(context, ChatComposerTrailingProps.from(props));
-        final input = widget.factory.buildInput(context, props);
+        final factory = widget.factory ?? AIComponents.of(context).composer;
+        final leading = factory.buildLeading(context, ChatComposerLeadingProps.from(props));
+        final trailing = factory.buildTrailing(context, ChatComposerTrailingProps.from(props));
+        final input = factory.buildInput(context, props);
 
         // The layout contract `buildInput`'s dartdoc states, enforced: an
         // `Expanded` returned here lands inside the one below, which throws
