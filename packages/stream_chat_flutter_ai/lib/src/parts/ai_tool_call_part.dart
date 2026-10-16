@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
-// Here for the [AIMessagePart] doc link only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
@@ -110,6 +109,10 @@ class AIToolExecutor {
 @immutable
 class AIToolCallPart {
   /// Creates an [AIToolCallPart].
+  ///
+  /// Pass [arguments] unmodifiable (all the way down) to keep the part
+  /// immutable — [AIToolCallPart.fromJson] and [copyWith] make them so.
+  /// [hasPayloadId] says whether [id] came from the agent; see there.
   const AIToolCallPart({
     required this.id,
     required this.name,
@@ -122,41 +125,56 @@ class AIToolCallPart {
     this.summary,
     this.durationMs,
     this.approval,
+    this.hasPayloadId = true,
   });
 
   /// Reads an `ai_tool_call` payload leniently: a missing or wrong-typed field
   /// gets its default, and nothing throws.
   ///
   /// [id] is the step's identity, which [AIMessagePart] resolves (falling back
-  /// to the attachment's position when the payload carries none).
+  /// to the step's position when the payload carries none).
   factory AIToolCallPart.fromJson(Map<String, Object?> json, {required String id}) {
+    final context = 'ai_tool_call "$id"';
+    final fields = PartFields(json, context);
+    final status = switch (fields.string('status')) {
+      final status? => AIToolCallStatus(status),
+      null => AIToolCallStatus.running,
+    };
+    final approval = switch (fields.object('approval')) {
+      final approval? => AIToolApproval.fromJson(approval, context: context),
+      null => null,
+    };
+    if (status == AIToolCallStatus.awaitingApproval && approval == null) {
+      reportPartIssue(() => '$context is awaiting approval but has no `approval` to ask.');
+    }
     return AIToolCallPart(
       id: id,
-      name: json.stringField('name') ?? '',
-      displayTitle: json.stringField('display_title'),
-      status: switch (json.stringField('status')) {
-        final status? => AIToolCallStatus(status),
-        null => AIToolCallStatus.running,
-      },
-      executor: switch (json.stringField('executor')) {
+      name: fields.string('name') ?? '',
+      displayTitle: fields.string('display_title'),
+      status: status,
+      executor: switch (fields.string('executor')) {
         final executor? => AIToolExecutor(executor),
         null => AIToolExecutor.server,
       },
-      targetUserId: json.stringField('target_user_id'),
-      targetClientId: json.stringField('target_client_id'),
-      arguments: json.objectField('arguments'),
-      summary: json.stringField('summary'),
-      durationMs: json.intField('duration_ms'),
-      approval: switch (asJsonObject(json['approval'])) {
-        final approval? => AIToolApproval.fromJson(approval),
-        null => null,
-      },
+      targetUserId: fields.string('target_user_id'),
+      targetClientId: fields.string('target_client_id'),
+      arguments: fields.object('arguments'),
+      summary: fields.string('summary'),
+      durationMs: fields.count('duration_ms'),
+      approval: approval,
+      hasPayloadId: fields.string('id') != null,
     );
   }
 
-  /// The model provider's tool-call ID. A device's result is matched against
-  /// it.
+  /// The call's identity: usually the model provider's tool-call ID, which a
+  /// device's result is matched against. When the agent sent none it is a
+  /// fallback, and [hasPayloadId] is `false`.
   final String id;
+
+  /// Whether [id] came from the agent's payload rather than being made up from
+  /// the step's position. A call without one can't be answered or run, since
+  /// nothing could be matched back to it.
+  final bool hasPayloadId;
 
   /// The tool's name, such as `get_weather`. Empty when the agent sent none.
   final String name;
@@ -208,29 +226,89 @@ class AIToolCallPart {
   /// Whether the person declined the call, so it never ran.
   bool get isDeclined => approval?.isDeclined ?? false;
 
-  /// Whether this call is waiting for this device: a client tool, still
-  /// awaiting its result, targeted at [userId] and [clientId].
+  /// Whether this call is waiting for this device: a client tool with an id
+  /// from the agent, still awaiting its result, targeted at [userId] and
+  /// [clientId].
   bool isAwaiting({required String userId, required String clientId}) =>
+      hasPayloadId &&
       executor == AIToolExecutor.client &&
       status == AIToolCallStatus.awaitingClient &&
       targetUserId == userId &&
       targetClientId == clientId;
 
   /// Whether this call is waiting for [userId] to allow it, on this device:
-  /// still awaiting approval, with a question to ask, targeted at [userId], and
-  /// at [clientId] when it names an install (a client tool does; a server
-  /// tool's question may be answered from any of the person's devices).
+  /// still awaiting approval and not yet answered, with an id from the agent,
+  /// targeted at [userId] — and at [clientId] when it names an install.
+  ///
+  /// A call that names no install can be answered from any of the person's
+  /// devices. That is the normal case for a server tool, and, as on iOS, it
+  /// also holds for a client tool whose backend left `target_client_id` out.
+  ///
+  /// It doesn't need an [approval]: a call awaiting approval without one still
+  /// waits, and a view asks with its own translated wording.
   bool isAwaitingApproval({required String userId, String? clientId}) =>
+      hasPayloadId &&
       status == AIToolCallStatus.awaitingApproval &&
-      approval != null &&
+      !(approval?.isAnswered ?? false) &&
       targetUserId == userId &&
       (targetClientId == null || targetClientId == clientId);
+
+  /// A copy with the given fields replaced. A `null` argument keeps the
+  /// current value. New [arguments] are copied, deeply unmodifiable.
+  AIToolCallPart copyWith({
+    String? id,
+    String? name,
+    String? displayTitle,
+    AIToolCallStatus? status,
+    AIToolExecutor? executor,
+    String? targetUserId,
+    String? targetClientId,
+    Map<String, Object?>? arguments,
+    String? summary,
+    int? durationMs,
+    AIToolApproval? approval,
+    bool? hasPayloadId,
+  }) {
+    return AIToolCallPart(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      displayTitle: displayTitle ?? this.displayTitle,
+      status: status ?? this.status,
+      executor: executor ?? this.executor,
+      targetUserId: targetUserId ?? this.targetUserId,
+      targetClientId: targetClientId ?? this.targetClientId,
+      arguments: arguments == null ? this.arguments : deepUnmodifiable(arguments)! as Map<String, Object?>,
+      summary: summary ?? this.summary,
+      durationMs: durationMs ?? this.durationMs,
+      approval: approval ?? this.approval,
+      hasPayloadId: hasPayloadId ?? this.hasPayloadId,
+    );
+  }
+
+  /// The call as an `ai_tool_call` payload, which [AIToolCallPart.fromJson]
+  /// reads back to an equal part. Absent fields are left out, and so is a
+  /// fallback [id].
+  Map<String, Object?> toJson() => {
+    if (hasPayloadId) 'id': id,
+    'v': AIMessagePart.supportedVersion,
+    'name': name,
+    'display_title': ?displayTitle,
+    'status': status.value,
+    'executor': executor.value,
+    'target_user_id': ?targetUserId,
+    'target_client_id': ?targetClientId,
+    'arguments': ?arguments,
+    'summary': ?summary,
+    'duration_ms': ?durationMs,
+    'approval': ?approval?.toJson(),
+  };
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is AIToolCallPart &&
           other.id == id &&
+          other.hasPayloadId == hasPayloadId &&
           other.name == name &&
           other.displayTitle == displayTitle &&
           other.status == status &&
@@ -245,6 +323,7 @@ class AIToolCallPart {
   @override
   int get hashCode => Object.hash(
     id,
+    hasPayloadId,
     name,
     displayTitle,
     status,

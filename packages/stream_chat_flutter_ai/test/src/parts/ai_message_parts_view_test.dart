@@ -1,6 +1,7 @@
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
@@ -18,11 +19,28 @@ final _parts = AIMessagePart.parseAll([
 
 void main() {
   group('AIMessagePartsView', () {
-    testWidgets('shows the placeholder for every part by default', (tester) async {
-      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts)));
+    testWidgets('shows the placeholder only for parts it cannot read', (tester) async {
+      final parts = [
+        ..._parts,
+        ...AIMessagePart.parseAll([
+          (type: 'ai_reasoning', payload: const {'id': 'r2', 'v': 2}),
+        ]),
+      ];
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
 
-      expect(find.byType(AIUnsupportedPartView), findsNWidgets(3));
-      expect(find.text("A step this app version can't show"), findsNWidgets(3));
+      // The citation (unknown kind) and the v2 reasoning (newer format). The
+      // readable reasoning and tool call have no default view yet, so they
+      // show nothing.
+      expect(find.byType(AIUnsupportedPartView), findsNWidgets(2));
+      expect(find.text("A step this app version can't show"), findsNWidgets(2));
+      final column = tester.widget<Column>(find.byType(Column));
+      expect(column.children.map((child) => child.key), const [ValueKey<Object>('c1'), ValueKey<Object>('r2')]);
+    });
+
+    testWidgets('renders nothing when no part has a view', (tester) async {
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts.take(2).toList())));
+
+      expect(find.byType(Column), findsNothing);
     });
 
     testWidgets('renders parts in order, keyed by id', (tester) async {
@@ -51,17 +69,32 @@ void main() {
       );
 
       expect(find.text('citation'), findsOneWidget);
-      expect(find.byType(AIUnsupportedPartView), findsNWidgets(2));
+      expect(find.byType(AIUnsupportedPartView), findsNothing);
+
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: _parts,
+            partBuilder: (context, part) => part.kind == AIMessagePartKind.reasoning ? const Text('reasoning') : null,
+          ),
+        ),
+      );
+      expect(find.text('reasoning'), findsOneWidget);
+      expect(find.byType(AIUnsupportedPartView), findsOneWidget);
     });
 
     testWidgets('tells apart parts that share an id', (tester) async {
+      debugPartIssueReporter = (_) {};
+      addTearDown(() => debugPartIssueReporter = null);
       final parts = AIMessagePart.parseAll([
         (type: 'ai_reasoning', payload: const {'id': 'same'}),
         (type: 'ai_tool_call', payload: const {'id': 'same'}),
         (type: 'ai_tool_call', payload: const {'id': 'same'}),
       ]);
 
-      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
+      await tester.pumpWidget(
+        _wrap(AIMessagePartsView(parts: parts, partBuilder: (context, part) => Text(part.kind.value))),
+      );
 
       expect(tester.takeException(), isNull);
       final column = tester.widget<Column>(find.byType(Column));
@@ -140,7 +173,14 @@ void main() {
       expect(text.style!.color, const Color(0xFFFF0000));
       final icon = tester.widget<Icon>(find.byType(Icon));
       expect(icon.color, const Color(0xFF00FF00));
-      expect(icon.size, 25);
+      // Scales with the text rather than staying a fixed size.
+      expect(icon.size, greaterThan(20));
+    });
+
+    testWidgets('the icon takes the text color by default', (tester) async {
+      await tester.pumpWidget(_wrap(const AIUnsupportedPartView(textStyle: TextStyle(color: Color(0xFF0000FF)))));
+
+      expect(tester.widget<Icon>(find.byType(Icon)).color, const Color(0xFF0000FF));
     });
 
     goldenTest(

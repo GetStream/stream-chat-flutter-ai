@@ -21,7 +21,7 @@ class AIToolApprovalDecision {
   /// The decisions this package knows.
   static const values = [allowed, declined];
 
-  /// The decision as the backend wrote it, such as `allowed`.
+  /// The decision as the agent wrote it, such as `allowed`.
   final String value;
 
   /// Whether this is one of [values].
@@ -45,13 +45,13 @@ class AIToolApprovalDecision {
 /// answers. Allowed, the call goes on (a client tool then awaits the device);
 /// declined, it is cancelled and never runs.
 ///
-/// [allowTitle] and [declineTitle] are `null` when the backend sends none; a
-/// view falls back to its own translated labels then.
+/// [title], [allowTitle] and [declineTitle] are `null` when the agent sends
+/// none; a view falls back to its own translated wording then.
 @immutable
 class AIToolApproval {
   /// Creates an [AIToolApproval].
   const AIToolApproval({
-    required this.title,
+    this.title,
     this.message,
     this.reason,
     this.allowTitle,
@@ -59,26 +59,28 @@ class AIToolApproval {
     this.decision,
   });
 
-  /// Reads an `approval` object leniently, or returns `null` when it has no
-  /// `title` — a question with no title asks nothing.
-  static AIToolApproval? fromJson(Map<String, Object?> json) {
-    final title = json.stringField('title');
-    if (title == null) return null;
+  /// Reads an `approval` object leniently: a missing or wrong-typed field reads
+  /// as `null`, and nothing throws.
+  ///
+  /// [context] names the step in debug reports, such as
+  /// `ai_tool_call "call_1"`.
+  factory AIToolApproval.fromJson(Map<String, Object?> json, {String? context}) {
+    final fields = PartFields(json, context == null ? 'approval' : '$context approval');
     return AIToolApproval(
-      title: title,
-      message: json.stringField('message'),
-      reason: json.stringField('reason'),
-      allowTitle: json.stringField('allow_title'),
-      declineTitle: json.stringField('decline_title'),
-      decision: switch (json.stringField('decision')) {
+      title: fields.string('title'),
+      message: fields.string('message'),
+      reason: fields.string('reason'),
+      allowTitle: fields.string('allow_title'),
+      declineTitle: fields.string('decline_title'),
+      decision: switch (fields.string('decision')) {
         final decision? => AIToolApprovalDecision(decision),
         null => null,
       },
     );
   }
 
-  /// The question, such as "Share your location?".
-  final String title;
+  /// The question, such as "Share your location?", when the agent wrote one.
+  final String? title;
 
   /// What allowing it shares or does, such as "Only your city is shared."
   final String? message;
@@ -106,6 +108,37 @@ class AIToolApproval {
 
   /// Whether the person has answered at all.
   bool get isAnswered => decision != null;
+
+  /// A copy with the given fields replaced. A `null` argument keeps the
+  /// current value.
+  AIToolApproval copyWith({
+    String? title,
+    String? message,
+    String? reason,
+    String? allowTitle,
+    String? declineTitle,
+    AIToolApprovalDecision? decision,
+  }) {
+    return AIToolApproval(
+      title: title ?? this.title,
+      message: message ?? this.message,
+      reason: reason ?? this.reason,
+      allowTitle: allowTitle ?? this.allowTitle,
+      declineTitle: declineTitle ?? this.declineTitle,
+      decision: decision ?? this.decision,
+    );
+  }
+
+  /// The approval as an `approval` object, which [AIToolApproval.fromJson]
+  /// reads back to an equal approval. Absent fields are left out.
+  Map<String, Object?> toJson() => {
+    'title': ?title,
+    'message': ?message,
+    'reason': ?reason,
+    'allow_title': ?allowTitle,
+    'decline_title': ?declineTitle,
+    'decision': ?decision?.value,
+  };
 
   @override
   bool operator ==(Object other) =>

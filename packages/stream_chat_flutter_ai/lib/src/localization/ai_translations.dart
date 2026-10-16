@@ -124,8 +124,8 @@ abstract class AITranslations {
   String get unnamedChartSeries;
 
   /// The placeholder shown for an agent step this app version can't show — a
-  /// kind it doesn't know, or a format newer than it reads. See
-  /// [AIUnsupportedPartView].
+  /// kind it doesn't know, a format newer than it reads, or a payload it
+  /// couldn't decode. See [AIUnsupportedPartView].
   String get unsupportedMessagePart;
 
   /// The screen-reader summary of a chart.
