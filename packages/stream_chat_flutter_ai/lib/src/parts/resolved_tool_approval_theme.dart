@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+// Not doc-only: [ToolApprovalTheme.of] supplies the themed fields.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 

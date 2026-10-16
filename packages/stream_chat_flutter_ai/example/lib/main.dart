@@ -298,7 +298,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// Non-null while chunks of the reasoning are still being delivered.
   Timer? _reasoningTimer;
 
-  /// Non-null while a canned tool call is running.
+  /// Non-null while a canned tool call is running, or while the fake backend
+  /// is about to update the call waiting for approval.
   Timer? _toolTimer;
 
   /// Non-null while chunks of the reply are still being delivered.
@@ -309,8 +310,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
   bool _answerFailedOnce = false;
 
   /// Answers tool calls' questions for [_identity], through a fake backend
-  /// that is slow and, the first time, fails.
-  late final _approver = AIToolApprover.forIdentity(_identity, decide: _sendAnswer);
+  /// that is slow and, the first time, fails. Kept for the screen's lifetime:
+  /// it remembers where each answer is.
+  late final _approver = AIToolApprover(identity: _identity, decide: _sendAnswer);
 
   /// Whether the fake backend has finished sending chunks for the current reply.
   ///
@@ -349,6 +351,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _reasoningTimer?.cancel();
     _toolTimer?.cancel();
     _streamTimer?.cancel();
+    _approver.dispose();
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -445,17 +448,20 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// and failing the first time so the card shows its retry. Once it "arrives",
   /// the backend updates the call's step a moment later — which is what takes
   /// the question away — and then runs the tool or skips it.
-  Future<void> _sendAnswer(AIToolCallPart call, bool allowed) async {
+  Future<void> _sendAnswer(AIToolCallPart call, AIToolApprovalDecision decision) async {
     await Future<void>.delayed(const Duration(milliseconds: 900));
     if (!_answerFailedOnce) {
       _answerFailedOnce = true;
       throw Exception('The fake backend dropped the answer');
     }
 
+    if (!mounted) return;
+    final allowed = decision == AIToolApprovalDecision.allowed;
+    _toolTimer?.cancel();
     _toolTimer = Timer(const Duration(milliseconds: 500), () {
       // Stopped meanwhile: the call is no longer waiting.
-      if (!mounted || _messages.lastOrNull?.toolCalls.lastOrNull?.status != AIToolCallStatus.awaitingApproval) return;
-      final decision = allowed ? AIToolApprovalDecision.allowed : AIToolApprovalDecision.declined;
+      final current = _messages.lastOrNull?.toolCalls.where((c) => c.id == call.id).firstOrNull;
+      if (!mounted || current?.status != AIToolCallStatus.awaitingApproval) return;
       _updateToolCall(
         call.id,
         (call) => call.copyWith(
@@ -843,6 +849,9 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get toolApprovalSending => 'Je antwoord wordt verstuurd…';
+
+  @override
+  String get toolApprovalSent => 'Verstuurd';
 
   @override
   String get toolApprovalNotSent => 'Je antwoord kon niet worden verstuurd. Probeer het opnieuw.';

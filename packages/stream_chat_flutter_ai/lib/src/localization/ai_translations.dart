@@ -198,8 +198,8 @@ abstract class AITranslations {
   String get toolCallDurationBelowTenth;
 
   /// The question of a tool call that awaits approval without one of its own,
-  /// such as "Allow “send email”?". [toolName] is the call's display name, or
-  /// `null` when the agent sent neither a title nor a tool name. See
+  /// such as "Allow “send email”?". [toolName] is the call's tool name with
+  /// underscores as spaces, or `null` when the agent sent none. See
   /// [AIToolApprovalCard].
   String toolApprovalTitle(String? toolName);
 
@@ -213,6 +213,10 @@ abstract class AITranslations {
 
   /// Read out by screen readers while an answer to a tool call is on its way.
   String get toolApprovalSending;
+
+  /// Shown, with a check, once an answer to a tool call was sent and the call
+  /// hasn't moved on yet.
+  String get toolApprovalSent;
 
   /// Shown under a tool call's question when the answer couldn't be sent.
   String get toolApprovalNotSent;
@@ -360,6 +364,9 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get toolApprovalSending => 'Sending your answer…';
+
+  @override
+  String get toolApprovalSent => 'Sent';
 
   @override
   String get toolApprovalNotSent => "Your answer couldn't be sent. Try again.";

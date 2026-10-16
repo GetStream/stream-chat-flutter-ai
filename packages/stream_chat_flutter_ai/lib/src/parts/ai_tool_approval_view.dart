@@ -1,24 +1,25 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
+import 'package:stream_chat_flutter_ai/src/parts/dropped_answer_report.dart';
 import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_approval_theme.dart';
-// The next two are imported for the doc links below only.
+// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+// Not doc-only: [ToolApprovalThemeData] is a parameter type.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 
 /// {@template aiToolApprovalView}
 /// Asks the person a tool call waits for whether it may run — the question on
 /// an `ai_tool_call` step whose status is `awaiting_approval`.
 ///
-/// It shows only to that person, on the install the call names (or any of
-/// their devices when it names none), and only while the call waits and its
-/// approval hasn't been answered — [AIToolApprover.isAwaiting]. Otherwise it
-/// is an empty box, so it can sit under every tool call:
+/// It shows only while [AIClientIdentity.canApprove] holds for the
+/// [approver]'s identity — see [AIToolCallPart.isAwaitingApproval] for the
+/// rules. Otherwise it is an empty box, so it can sit under every tool call:
 ///
 /// ```dart
 /// Column(
@@ -32,26 +33,28 @@ import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.
 /// `AIMessagePartsView(parts: parts, approver: approver)` does this for every
 /// tool call.
 ///
-/// Tapping a button calls [AIToolApprover.decide] once; further taps are
-/// ignored while the answer is on its way, and the buttons are disabled. If
-/// sending fails, the card says so ([AITranslations.toolApprovalNotSent]) and
-/// the buttons work again. If it succeeds, the buttons stay disabled until the
-/// backend updates the call's step and the call stops waiting, at which point
-/// the question goes away.
+/// Tapping a button calls [AIToolApprover.answer]; further taps do nothing
+/// while the answer is on its way or sent, and the buttons are disabled. If
+/// sending fails, the default card says so ([AITranslations.toolApprovalNotSent])
+/// and the buttons work again. If it succeeds, the default card says "Sent"
+/// and the buttons stay disabled until the backend updates the call's step and
+/// the call stops waiting, at which point the question goes away. Where the
+/// answer is lives in the [approver], so it survives this view being rebuilt
+/// from scratch, as in a lazy list.
 ///
 /// To ask in your own design, pass a [builder]. It gets the call's
 /// [AIToolCallPart.approval] (which may be `null`), the [AIToolApprovalState]
-/// and a `decide` callback:
+/// and an `answer` callback:
 ///
 /// ```dart
 /// AIToolApprovalView(
 ///   call: call,
 ///   approver: approver,
-///   builder: (context, approval, state, decide) => MyApprovalCard(
+///   builder: (context, approval, state, answer) => MyApprovalCard(
 ///     title: approval?.title ?? 'Allow this?',
-///     busy: state.isSending,
-///     onAllow: () => decide(true),
-///     onDecline: () => decide(false),
+///     busy: state.isBusy,
+///     onAllow: () => answer(AIToolApprovalDecision.allowed),
+///     onDecline: () => answer(AIToolApprovalDecision.declined),
 ///   ),
 /// )
 /// ```
@@ -66,7 +69,7 @@ class AIToolApprovalView extends StatefulWidget {
   /// The tool call whose question to ask.
   final AIToolCallPart call;
 
-  /// Who answers on this device, and how the answer is sent.
+  /// Who answers on this device, how the answer is sent, and where it is.
   final AIToolApprover approver;
 
   /// Builds your own content in place of the [AIToolApprovalCard].
@@ -82,74 +85,63 @@ class AIToolApprovalView extends StatefulWidget {
 }
 
 class _AIToolApprovalViewState extends State<AIToolApprovalView> {
-  AIToolApprovalState _state = const AIToolApprovalState.idle();
-
-  /// Bumped for every answer sent and every reset, so a failure arriving for
-  /// an answer that no longer matters changes nothing.
-  int _attempt = 0;
+  @override
+  void initState() {
+    super.initState();
+    widget.approver.addListener(_onApproverChanged);
+  }
 
   @override
   void didUpdateWidget(AIToolApprovalView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Another call, or this one no longer waiting: whatever was sent is moot.
-    if (widget.call.id != oldWidget.call.id || !widget.approver.isAwaiting(widget.call)) _reset();
+    if (oldWidget.approver != widget.approver) {
+      oldWidget.approver.removeListener(_onApproverChanged);
+      widget.approver.addListener(_onApproverChanged);
+    }
   }
 
-  void _reset() {
-    if (_state.phase == AIToolApprovalPhase.idle) return;
-    _attempt++;
-    _state = const AIToolApprovalState.idle();
+  @override
+  void dispose() {
+    widget.approver.removeListener(_onApproverChanged);
+    super.dispose();
   }
 
-  void _decide(bool allowed) {
-    if (!mounted || _state.isSending || !widget.approver.isAwaiting(widget.call)) return;
-    // A builder calling `decide` while building would make `setState` throw;
-    // answer right after the frame instead.
+  void _onApproverChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _answer(AIToolApprovalDecision decision) {
+    if (!mounted) return reportDroppedAnswer(widget.call, 'its AIToolApprovalView was disposed');
+    // A builder answering while building would make the approver notify mid
+    // build; answer right after the frame instead, if it still applies then.
     if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _decide(allowed));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _answer(decision));
       return;
     }
-    setState(() => _state = AIToolApprovalState.sending(allowed: allowed));
-    unawaited(_send(widget.approver.decide, widget.call, allowed, ++_attempt));
+    widget.approver.answer(widget.call, decision);
   }
 
-  Future<void> _send(AIToolApprovalDecider decide, AIToolCallPart call, bool allowed, int attempt) async {
-    try {
-      await decide(call, allowed);
-      // Sent: stay disabled until the call's step changes and it stops waiting.
-    } catch (error, stackTrace) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stackTrace,
-          library: 'stream_chat_flutter_ai',
-          context: ErrorDescription('while sending the answer to tool call "${call.id}"'),
-        ),
-      );
-      if (mounted && attempt == _attempt) setState(() => _state = AIToolApprovalState.failed(allowed: allowed));
-    }
-  }
-
-  /// What the default card calls the tool: the call's display name, or its
-  /// name, or `null` when the agent sent neither.
+  /// The tool's name for the fallback title, with underscores as spaces
+  /// (`send_email` → "send email"), or `null` when the agent sent none. Not
+  /// the display title, which describes progress ("Sending the email").
   static String? _toolName(AIToolCallPart call) {
-    for (final candidate in [call.displayName, call.name.replaceAll('_', ' ')]) {
-      if (candidate.trim().isNotEmpty) return candidate;
-    }
-    return null;
+    final name = call.name.replaceAll('_', ' ').trim();
+    return name.isEmpty ? null : name;
   }
 
   @override
   Widget build(BuildContext context) {
     final call = widget.call;
-    if (!widget.approver.isAwaiting(call)) return const SizedBox.shrink();
+    final approver = widget.approver;
+    final state = approver.stateOf(call);
+    if (!approver.identity.canApprove(call)) return const SizedBox.shrink();
 
-    if (widget.builder case final builder?) return builder(context, call.approval, _state, _decide);
+    if (widget.builder case final builder?) return builder(context, call.approval, state, _answer);
     return AIToolApprovalCard(
       approval: call.approval,
       toolName: _toolName(call),
-      state: _state,
-      decide: _decide,
+      state: state,
+      onAnswer: _answer,
       theme: widget.theme,
     );
   }
@@ -160,15 +152,17 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
 /// it shares, and buttons to allow or decline it — the default content of an
 /// [AIToolApprovalView].
 ///
-/// Each text falls back to a translation when [approval] (or the field) is
-/// missing: the title to [AITranslations.toolApprovalTitle] with [toolName],
-/// the buttons to [AITranslations.toolApprovalAllow] and
-/// [AITranslations.toolApprovalDecline].
+/// The title and the button labels fall back to translations when [approval]
+/// (or the field) is missing or blank: the title to
+/// [AITranslations.toolApprovalTitle] with [toolName], the buttons to
+/// [AITranslations.toolApprovalAllow] and [AITranslations.toolApprovalDecline].
 ///
 /// While [state] is sending, both buttons are disabled and the pressed one
 /// shows a small progress indicator (a static icon with reduced motion on).
-/// When it has failed, a line in [ToolApprovalThemeData.failureStyle] says the
-/// answer couldn't be sent, and is announced to screen readers.
+/// Once sent, they stay disabled and a check with
+/// [AITranslations.toolApprovalSent] follows them. When it has failed, a line
+/// in [ToolApprovalThemeData.failureStyle] says the answer couldn't be sent,
+/// and is announced to screen readers.
 ///
 /// It fills its width, so give it a bounded one, as a chat list does.
 ///
@@ -181,24 +175,23 @@ class AIToolApprovalCard extends StatelessWidget {
     super.key,
     this.approval,
     this.toolName,
-    this.state = const AIToolApprovalState.idle(),
-    required this.decide,
+    this.state = const AIToolApprovalIdle(),
+    required this.onAnswer,
     this.theme,
   });
 
   /// The question, or `null` to ask with the translated fallbacks.
   final AIToolApproval? approval;
 
-  /// The tool's name for the fallback title, such as "send email". `null`
-  /// falls back to a title without one.
+  /// The tool's name for the fallback title, such as "send email" for
+  /// `send_email`. `null` falls back to a title without one.
   final String? toolName;
 
   /// Where the answer is.
   final AIToolApprovalState state;
 
-  /// Called with `true` when the person allows the call, `false` when they
-  /// decline it.
-  final AIToolApprovalDecide decide;
+  /// Called with the person's decision when they tap a button.
+  final AIToolApprovalAnswer onAnswer;
 
   /// Overrides for this card, layered over the ambient [ToolApprovalTheme].
   /// Its text styles merge over the themed ones rather than replacing them.
@@ -225,7 +218,8 @@ class AIToolApprovalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ResolvedToolApprovalTheme.resolve(context, override: this.theme);
     final translations = AITranslations.of(context);
-    final sending = state.isSending;
+    final busy = state.isBusy;
+    final sending = state is AIToolApprovalSending;
 
     final title = _nonBlank(approval?.title) ?? translations.toolApprovalTitle(toolName);
     final allowLabel = _nonBlank(approval?.allowTitle) ?? translations.toolApprovalAllow;
@@ -258,25 +252,44 @@ class AIToolApprovalCard extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     FilledButton(
-                      onPressed: sending ? null : () => decide(true),
+                      onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.allowed),
                       style: FilledButton.styleFrom(
                         backgroundColor: theme.accentColor,
                         foregroundColor: theme.onAccentColor,
                         visualDensity: VisualDensity.compact,
                       ),
-                      child: _ButtonLabel(allowLabel, busy: sending && state.allowed == true),
+                      child: _ButtonLabel(
+                        allowLabel,
+                        busy: sending && state.decision == AIToolApprovalDecision.allowed,
+                      ),
                     ),
                     OutlinedButton(
-                      onPressed: sending ? null : () => decide(false),
+                      onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.declined),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.accentColor,
                         side: BorderSide(color: theme.borderColor),
                         visualDensity: VisualDensity.compact,
                       ),
-                      child: _ButtonLabel(declineLabel, busy: sending && state.allowed == false),
+                      child: _ButtonLabel(
+                        declineLabel,
+                        busy: sending && state.decision == AIToolApprovalDecision.declined,
+                      ),
                     ),
+                    if (state.isSent)
+                      Semantics(
+                        liveRegion: true,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_rounded, size: 16, color: theme.messageStyle.color),
+                            const SizedBox(width: 4),
+                            Text(translations.toolApprovalSent, style: theme.messageStyle),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
                 if (state.hasFailed)
