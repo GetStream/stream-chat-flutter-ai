@@ -1,4 +1,4 @@
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 import 'package:re_highlight/languages/bash.dart';
 import 'package:re_highlight/languages/c.dart';
 import 'package:re_highlight/languages/cpp.dart';
@@ -31,11 +31,12 @@ import 'package:re_highlight/languages/typescript.dart';
 import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/re_highlight.dart';
+import 'package:re_highlight/styles/atom-one-light.dart';
 import 'package:re_highlight/styles/vs2015.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
-/// A [CodeHighlighter] over `re_highlight`, wired to [_languages] and
-/// [_theme].
+/// A [CodeHighlighter] over `re_highlight`, wired to [_languages] and a token
+/// palette picked for the block's background.
 ///
 /// `stream_chat_flutter_ai` recognises code fences and renders their chrome,
 /// but ships no grammars — they dwarf the package itself — so this is the seam
@@ -44,30 +45,38 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 ///
 /// Returning null is how a fence declines to be highlighted; [CodeBlockView]
 /// then renders it as plain monospace text.
-TextSpan? highlightCode(String code, String language, TextStyle baseStyle) {
+TextSpan? highlightCode(CodeHighlightRequest request) {
   // `re_highlight` throws on a language it has no grammar for rather than
   // degrading, and an LLM will happily label a fence `pseudocode`.
-  if (_highlight.getLanguage(language) == null) return null;
+  if (_highlight.getLanguage(request.language) == null) return null;
 
-  final result = _highlight.highlight(code: code, language: language);
+  final result = _highlight.highlight(code: request.code, language: request.language);
   // `Highlight` runs in safe mode, so a grammar or engine failure part-way
   // through the parse is reported here rather than thrown — and the emitter it
   // hands back holds only the tokens produced before the failure. Rendering
   // that would drop the tail of the code, or all of it.
   if (result.errorRaised != null) return null;
 
-  final renderer = TextSpanRenderer(baseStyle, _theme);
+  // The block's own background, not the app's brightness, decides: a host can
+  // keep a dark code frame in a light app, and dark tokens on it would vanish.
+  final palette = request.brightness == Brightness.dark ? _darkTheme : _lightTheme;
+  final renderer = TextSpanRenderer(request.baseStyle, palette);
   result.render(renderer);
   return renderer.span;
 }
 
-/// Token colors, keyed by highlight.js scope name.
+/// Token colors for a dark code block, keyed by highlight.js scope name.
 ///
 /// Visual Studio 2015's dark palette, whose `root` is `#DCDCDC` on `#1E1E1E` —
-/// the same colors `CodeBlockView` defaults to, so the tokens land on the
-/// background the block already draws. Any of `re_highlight`'s `styles/*.dart`
+/// the same background `CodeBlockView` defaults to, so the tokens land on the
+/// frame the block already draws. Any of `re_highlight`'s dark `styles/*.dart`
 /// maps works here.
-const _theme = vs2015Theme;
+const _darkTheme = vs2015Theme;
+
+/// Token colors for a light code block, such as the one the example's light
+/// theme sets through `CodeBlockThemeData`. Atom One Light's `root` is
+/// `#383A42` on `#FAFAFA`.
+const _lightTheme = atomOneLightTheme;
 
 /// The process-wide highlighter, with [_languages] registered.
 ///

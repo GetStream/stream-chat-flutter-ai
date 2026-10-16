@@ -7,6 +7,10 @@
   usually falls behind the backend, so this fires later than the end of generation, which
   `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
 
+🔄 Changed
+
+- `CodeBlockView` is themed through `CodeBlockThemeData`, and `CodeHighlighter` now takes a `CodeHighlightRequest` with the block's brightness.
+
 ## 0.1.0
 
 First release of `stream_chat_flutter_ai` — Flutter UI components for building LLM-driven chat

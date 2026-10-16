@@ -166,7 +166,7 @@ default because `$` collides with currency in ordinary prose.
 
 ### `CodeBlockView`
 
-Renders a fenced code block with a dark background, monospace text, an optional
+Renders a fenced code block with a framed background, monospace text, an optional
 language label, and a copy-to-clipboard button.
 
 ```dart
@@ -198,10 +198,12 @@ StreamingMessageView(
 `highlighter` respectively. Its contract is small:
 
 ```dart
-TextSpan? highlightCode(String code, String language, TextStyle baseStyle);
+TextSpan? highlightCode(CodeHighlightRequest request);
 ```
 
-`language` arrives exactly as the fence wrote it — case folding and alias resolution are
+The request carries `code`, `language`, `baseStyle` (the block's monospace style),
+`brightness` (of the block's resolved background) and the resolved `theme`; more fields
+may be added later. `request.language` arrives exactly as the fence wrote it — case folding and alias resolution are
 yours. Return `null` for a language you don't cover and the block renders plain
 monospace text; that is a normal outcome, not a failure. A highlighter that throws, or
 that returns spans whose text doesn't match `code`, is reported through
@@ -219,11 +221,22 @@ over 20,000 characters skip highlighting altogether. Prefer a top-level or other
 hoisted function over an inline closure, so the widget can tell a genuinely new
 highlighter from a new closure over the same one.
 
-`backgroundColor` and `foregroundColor` set the box and the code color, defaulting to
-`kDefaultCodeBackgroundColor` (`#1E1E1E`) and `kDefaultCodeForegroundColor` (`#D4D4D4`);
-the label and copy button follow the foreground at reduced opacity. `AIMarkdownBody` and
-`StreamingMessageView` forward them as `codeBackgroundColor` / `codeForegroundColor`.
-The block stays dark regardless of the ambient `Theme` — code reads as code.
+**Theming.** The frame comes from `CodeBlockThemeData` — `backgroundColor`,
+`headerBackgroundColor`, `languageLabelStyle`, `copyIconColor`, `copiedIconColor` and
+`codeTextStyle` — resolved from the widget's own `theme`, then the nearest
+`CodeBlockTheme`, then `AITheme.codeBlockTheme`. `AIMarkdownBody` and
+`StreamingMessageView` forward a `codeBlockTheme` to every fence. By default the block is
+the same dark frame (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike; set
+only a light `backgroundColor` and the default text and icon colors turn dark to match.
+
+**Mind the contrast.** The theme colors the frame and the base text; the token colors are
+your highlighter's. A light frame under a palette built for a dark one is unreadable, so
+pick the palette from `request.brightness` — the example uses `vs2015` on a dark block and
+`atom-one-light` on a light one:
+
+```dart
+final palette = request.brightness == Brightness.dark ? vs2015Theme : atomOneLightTheme;
+```
 
 ### `ChartView` + `USpec`
 
@@ -629,7 +642,8 @@ never reads the flag; to surface the state, pass your own caption for it to
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
-data class per component — `ChartThemeData`, `ComposerThemeData` and `SuggestionsThemeData`:
+data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData` and
+`SuggestionsThemeData`:
 
 ```dart
 MaterialApp(

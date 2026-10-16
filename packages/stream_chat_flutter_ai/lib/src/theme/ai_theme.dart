@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
 
@@ -25,12 +26,14 @@ import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.da
 /// re-list them.
 ///
 /// Every component theme defaults to an all-null instance, which derives each
-/// field from the ambient [ThemeData] — registering no extension at all gets
-/// the appearance the package always had.
+/// field from the ambient [ThemeData] (or, for [codeBlockTheme], from the
+/// package's fixed dark code frame) — registering no extension at all gets the
+/// appearance the package always had.
 ///
 /// See also:
 ///
 ///  * [ChartThemeData] and [ChartTheme], for charts.
+///  * [CodeBlockThemeData] and [CodeBlockTheme], for code blocks.
 ///  * [ComposerThemeData] and [ComposerTheme], for the composer and its
 ///    attachment sheet.
 ///  * [SuggestionsThemeData] and [SuggestionsTheme], for the suggestion chips.
@@ -39,15 +42,21 @@ class AITheme extends ThemeExtension<AITheme> {
   /// Creates an [AITheme].
   const AITheme({
     ChartThemeData? chartTheme,
+    CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
     SuggestionsThemeData? suggestionsTheme,
   }) : chartTheme = chartTheme ?? const ChartThemeData(),
+       codeBlockTheme = codeBlockTheme ?? const CodeBlockThemeData(),
        composerTheme = composerTheme ?? const ComposerThemeData(),
        suggestionsTheme = suggestionsTheme ?? const SuggestionsThemeData();
 
   /// How charts are drawn. Defaults to `const ChartThemeData()`, which derives
   /// every field from the ambient [ThemeData].
   final ChartThemeData chartTheme;
+
+  /// How code blocks are framed. Defaults to `const CodeBlockThemeData()`,
+  /// which keeps the package's dark code frame in light and dark mode alike.
+  final CodeBlockThemeData codeBlockTheme;
 
   /// How the composer and its attachment sheet are drawn. Defaults to
   /// `const ComposerThemeData()`, which derives every field from the ambient
@@ -68,10 +77,12 @@ class AITheme extends ThemeExtension<AITheme> {
   @override
   AITheme copyWith({
     ChartThemeData? chartTheme,
+    CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
     SuggestionsThemeData? suggestionsTheme,
   }) => AITheme(
     chartTheme: chartTheme ?? this.chartTheme,
+    codeBlockTheme: codeBlockTheme ?? this.codeBlockTheme,
     composerTheme: composerTheme ?? this.composerTheme,
     suggestionsTheme: suggestionsTheme ?? this.suggestionsTheme,
   );
@@ -81,6 +92,7 @@ class AITheme extends ThemeExtension<AITheme> {
     if (other == null || identical(this, other)) return this;
     return AITheme(
       chartTheme: ChartThemeData.lerp(chartTheme, other.chartTheme, t),
+      codeBlockTheme: CodeBlockThemeData.lerp(codeBlockTheme, other.codeBlockTheme, t),
       composerTheme: ComposerThemeData.lerp(composerTheme, other.composerTheme, t),
       suggestionsTheme: SuggestionsThemeData.lerp(suggestionsTheme, other.suggestionsTheme, t),
     );
@@ -94,10 +106,11 @@ class AITheme extends ThemeExtension<AITheme> {
     if (identical(this, other)) return true;
     return other is AITheme &&
         other.chartTheme == chartTheme &&
+        other.codeBlockTheme == codeBlockTheme &&
         other.composerTheme == composerTheme &&
         other.suggestionsTheme == suggestionsTheme;
   }
 
   @override
-  int get hashCode => Object.hash(chartTheme, composerTheme, suggestionsTheme);
+  int get hashCode => Object.hash(chartTheme, codeBlockTheme, composerTheme, suggestionsTheme);
 }

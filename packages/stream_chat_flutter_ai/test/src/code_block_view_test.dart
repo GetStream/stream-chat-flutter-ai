@@ -4,8 +4,7 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
-import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 /// A short Dart snippet with a keyword, a string, a comment and a number, so
 /// any highlighter has to emit several distinct runs for it.
@@ -25,9 +24,9 @@ const _tokenColor = Color(0xFFFF0000);
 /// Deliberately not a real grammar — these tests are about the seam, not about
 /// anyone's tokenizer. It reproduces the two properties that matter: the text
 /// comes back intact, and more than one color is used.
-TextSpan _wordHighlighter(String code, String language, TextStyle baseStyle) {
+TextSpan _wordHighlighter(CodeHighlightRequest request) {
   final children = <TextSpan>[];
-  for (final match in RegExp(r'\w+|\W+').allMatches(code)) {
+  for (final match in RegExp(r'\w+|\W+').allMatches(request.code)) {
     final text = match[0]!;
     final isWord = RegExp(r'^\w').hasMatch(text);
     children.add(
@@ -37,16 +36,18 @@ TextSpan _wordHighlighter(String code, String language, TextStyle baseStyle) {
       ),
     );
   }
-  return TextSpan(style: baseStyle, children: children);
+  return TextSpan(style: request.baseStyle, children: children);
 }
 
 /// Records every call, so a test can assert the highlighter was *not* reached.
 class _RecordingHighlighter {
   final calls = <({String code, String language})>[];
+  final requests = <CodeHighlightRequest>[];
 
-  TextSpan? call(String code, String language, TextStyle baseStyle) {
-    calls.add((code: code, language: language));
-    return _wordHighlighter(code, language, baseStyle);
+  TextSpan? call(CodeHighlightRequest request) {
+    calls.add((code: request.code, language: request.language));
+    requests.add(request);
+    return _wordHighlighter(request);
   }
 }
 
@@ -259,7 +260,7 @@ void main() {
       testWidgets('falls back to plain text when the highlighter declines', (tester) async {
         // A null return is the documented "I don't know this one" answer.
         await tester.pumpWidget(
-          wrap(CodeBlockView(code: _dartSnippet, language: 'pseudocode', highlighter: (_, _, _) => null)),
+          wrap(CodeBlockView(code: _dartSnippet, language: 'pseudocode', highlighter: (_) => null)),
         );
 
         expect(tester.takeException(), isNull);
@@ -321,7 +322,7 @@ void main() {
               CodeBlockView(
                 code: _dartSnippet,
                 language: 'dart',
-                highlighter: (_, _, _) => throw StateError('highlighter blew up'),
+                highlighter: (_) => throw StateError('highlighter blew up'),
               ),
             ),
           ),
@@ -348,7 +349,7 @@ void main() {
               CodeBlockView(
                 code: _dartSnippet,
                 language: 'dart',
-                highlighter: (code, _, style) => TextSpan(text: code.substring(0, 4), style: style),
+                highlighter: (request) => TextSpan(text: request.code.substring(0, 4), style: request.baseStyle),
               ),
             ),
           ),
@@ -382,7 +383,7 @@ void main() {
         expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, kDefaultCodeForegroundColor);
       });
 
-      testWidgets('takes its chrome from the given colors', (tester) async {
+      testWidgets('takes its chrome from the given theme', (tester) async {
         const background = Color(0xFF102030);
         const foreground = Color(0xFFAABBCC);
 
@@ -391,8 +392,10 @@ void main() {
             const CodeBlockView(
               code: _dartSnippet,
               language: 'dart',
-              backgroundColor: background,
-              foregroundColor: foreground,
+              theme: CodeBlockThemeData(
+                backgroundColor: background,
+                codeTextStyle: TextStyle(color: foreground),
+              ),
             ),
           ),
         );
@@ -574,25 +577,300 @@ void main() {
         });
       });
 
+      group('theming', () {
+        const lightTheme = CodeBlockThemeData(
+          backgroundColor: Color(0xFFFAFAFA),
+          headerBackgroundColor: Color(0xFFEAEAEA),
+        );
+
+        BoxDecoration frameOf(WidgetTester tester) {
+          final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+          return tester.widget<Container>(container.first).decoration! as BoxDecoration;
+        }
+
+        Widget themed(Widget child, {CodeBlockThemeData? aiTheme, Brightness brightness = Brightness.light}) =>
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: ThemeData(
+                brightness: brightness,
+                extensions: [if (aiTheme != null) AITheme(codeBlockTheme: aiTheme)],
+              ),
+              home: Scaffold(body: child),
+            );
+
+        for (final brightness in Brightness.values) {
+          testWidgets('defaults to the dark frame in ${brightness.name} mode', (tester) async {
+            mockClipboard();
+            await tester.pumpWidget(
+              themed(
+                const CodeBlockView(code: 'x', language: 'dart'),
+                brightness: brightness,
+              ),
+            );
+
+            expect(frameOf(tester).color, kDefaultCodeBackgroundColor);
+            expect(
+              tester.widget<SelectableText>(find.byType(SelectableText)).style?.color,
+              kDefaultCodeForegroundColor,
+            );
+            final chrome = kDefaultCodeForegroundColor.withValues(alpha: 0.6);
+            expect(tester.widget<Text>(find.text('dart')).style?.color, chrome);
+            expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, chrome);
+            expect(
+              find.descendant(of: find.byType(CodeBlockView), matching: find.byType(DecoratedBox)),
+              findsOneWidget,
+              reason: "only the frame's own fill, no separate header fill by default",
+            );
+
+            await tester.tap(find.byIcon(Icons.content_copy));
+            await tester.pump();
+            expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, Colors.greenAccent);
+            await tester.pump(const Duration(seconds: 2));
+          });
+        }
+
+        testWidgets('the widget theme beats CodeBlockTheme, which beats AITheme', (tester) async {
+          await tester.pumpWidget(
+            themed(
+              aiTheme: const CodeBlockThemeData(
+                backgroundColor: Color(0xFF000001),
+                copyIconColor: Color(0xFF000011),
+                copiedIconColor: Color(0xFF000111),
+              ),
+              const CodeBlockTheme(
+                data: CodeBlockThemeData(backgroundColor: Color(0xFF000002), copyIconColor: Color(0xFF000022)),
+                child: CodeBlockView(
+                  code: 'x',
+                  language: 'dart',
+                  theme: CodeBlockThemeData(backgroundColor: Color(0xFF000003)),
+                ),
+              ),
+            ),
+          );
+
+          expect(frameOf(tester).color, const Color(0xFF000003), reason: 'the widget theme wins');
+          expect(
+            tester.widget<Icon>(find.byIcon(Icons.content_copy)).color,
+            const Color(0xFF000022),
+            reason: 'the scope beats the extension',
+          );
+        });
+
+        testWidgets('a light background gets dark default text and chrome', (tester) async {
+          // A host setting only a light fill must not get the dark frame's
+          // pale grey text on it.
+          mockClipboard();
+          await tester.pumpWidget(
+            wrap(
+              const CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(backgroundColor: Color(0xFFFAFAFA)),
+              ),
+            ),
+          );
+
+          final text = tester.widget<SelectableText>(find.byType(SelectableText)).style!.color!;
+          expect(ThemeData.estimateBrightnessForColor(text), Brightness.dark);
+          expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, text.withValues(alpha: 0.6));
+
+          await tester.tap(find.byIcon(Icons.content_copy));
+          await tester.pump();
+          expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, isNot(Colors.greenAccent));
+          await tester.pump(const Duration(seconds: 2));
+        });
+
+        testWidgets('paints a distinct header fill only when one is set', (tester) async {
+          await tester.pumpWidget(wrap(const CodeBlockView(code: 'x', language: 'dart', theme: lightTheme)));
+
+          final fills = tester
+              .widgetList<DecoratedBox>(
+                find.descendant(of: find.byType(CodeBlockView), matching: find.byType(DecoratedBox)),
+              )
+              .map((box) => (box.decoration as BoxDecoration).color);
+          expect(fills, [const Color(0xFFFAFAFA), const Color(0xFFEAEAEA)]);
+          expect(frameOf(tester).color, const Color(0xFFFAFAFA));
+        });
+
+        testWidgets('applies the label and code text styles over the monospace defaults', (tester) async {
+          await tester.pumpWidget(
+            wrap(
+              const CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(
+                  languageLabelStyle: TextStyle(fontWeight: FontWeight.bold),
+                  codeTextStyle: TextStyle(fontSize: 20),
+                ),
+              ),
+            ),
+          );
+
+          final label = tester.widget<Text>(find.text('dart')).style!;
+          expect(label.fontWeight, FontWeight.bold);
+          expect(label.fontFamily, 'monospace', reason: 'merged, not replaced');
+          final body = tester.widget<SelectableText>(find.byType(SelectableText)).style!;
+          expect(body.fontSize, 20);
+          expect(body.fontFamily, 'monospace');
+          expect(body.color, kDefaultCodeForegroundColor);
+        });
+
+        testWidgets('an inherit: false text style keeps the default color', (tester) async {
+          await tester.pumpWidget(
+            wrap(
+              const CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(
+                  codeTextStyle: TextStyle(inherit: false, fontSize: 14, textBaseline: TextBaseline.alphabetic),
+                ),
+              ),
+            ),
+          );
+
+          expect(tester.widget<SelectableText>(find.byType(SelectableText)).style?.color, kDefaultCodeForegroundColor);
+        });
+
+        testWidgets('the highlighter is told the default frame is dark', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          await tester.pumpWidget(
+            themed(CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call)),
+          );
+
+          final request = highlighter.requests.single;
+          // Light app, dark frame: the frame is what the tokens land on.
+          expect(request.brightness, Brightness.dark);
+          expect(request.theme.backgroundColor, kDefaultCodeBackgroundColor);
+          expect(request.baseStyle, request.theme.codeTextStyle);
+          expect(request.baseStyle.color, kDefaultCodeForegroundColor);
+        });
+
+        testWidgets('the highlighter is told a light frame is light, with every field resolved', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          await tester.pumpWidget(
+            themed(
+              CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call),
+              aiTheme: lightTheme,
+              brightness: Brightness.dark,
+            ),
+          );
+
+          final request = highlighter.requests.single;
+          expect(request.brightness, Brightness.light);
+          final theme = request.theme;
+          expect(theme.backgroundColor, const Color(0xFFFAFAFA));
+          expect(theme.headerBackgroundColor, const Color(0xFFEAEAEA));
+          expect(theme.languageLabelStyle, isNotNull);
+          expect(theme.copyIconColor, isNotNull);
+          expect(theme.copiedIconColor, isNotNull);
+          expect(theme.codeTextStyle, isNotNull);
+        });
+
+        testWidgets('a theme change re-highlights with the new brightness', (tester) async {
+          // The span is cached in state; a palette picked for the old frame
+          // would otherwise stay on the new one.
+          final highlighter = _RecordingHighlighter();
+          Widget app(CodeBlockThemeData data) => wrap(
+            CodeBlockTheme(
+              data: data,
+              child: CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call),
+            ),
+          );
+
+          await tester.pumpWidget(app(const CodeBlockThemeData()));
+          await tester.pumpWidget(app(const CodeBlockThemeData()));
+          expect(highlighter.requests, hasLength(1), reason: 'an equal theme must not re-highlight');
+
+          await tester.pumpWidget(app(lightTheme));
+          expect(highlighter.requests.map((r) => r.brightness), [Brightness.dark, Brightness.light]);
+        });
+
+        testWidgets('an unrelated ambient theme change does not re-highlight', (tester) async {
+          final highlighter = _RecordingHighlighter();
+          Widget app(Color seed) => MaterialApp(
+            theme: ThemeData(colorSchemeSeed: seed),
+            home: CodeBlockView(code: 'var x;', language: 'dart', highlighter: highlighter.call),
+          );
+
+          await tester.pumpWidget(app(Colors.blue));
+          await tester.pumpWidget(app(Colors.red));
+          await tester.pumpAndSettle();
+
+          expect(highlighter.requests, hasLength(1));
+        });
+      });
+
+      test('CodeHighlightRequest compares by value', () {
+        CodeHighlightRequest request(String code) => CodeHighlightRequest(
+          code: code,
+          language: 'dart',
+          baseStyle: const TextStyle(fontSize: 13),
+          brightness: Brightness.dark,
+          theme: const CodeBlockThemeData(backgroundColor: kDefaultCodeBackgroundColor),
+        );
+
+        expect(request('a'), request('a'));
+        expect(request('a').hashCode, request('a').hashCode);
+        expect(request('a'), isNot(request('b')));
+      });
+
       goldenTest(
         'highlighted dart block',
         fileName: 'code_block_view_dart',
         constraints: const BoxConstraints(maxWidth: 400, maxHeight: 200),
         builder: () => wrap(const CodeBlockView(code: _dartSnippet, language: 'dart', highlighter: _wordHighlighter)),
       );
+
+      goldenTest(
+        'light-themed dart block',
+        fileName: 'code_block_view_light',
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 200),
+        builder: () => wrap(
+          const CodeBlockView(
+            code: _dartSnippet,
+            language: 'dart',
+            highlighter: _brightnessAwareHighlighter,
+            theme: CodeBlockThemeData(
+              backgroundColor: Color(0xFFFAFAFA),
+              headerBackgroundColor: Color(0xFFEAEAEA),
+            ),
+          ),
+        ),
+      );
+
+      goldenTest(
+        'plain block without a highlighter',
+        fileName: 'code_block_view_plain',
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 200),
+        builder: () => wrap(const CodeBlockView(code: _dartSnippet, language: 'dart')),
+      );
     });
   });
 }
 
+/// Colors word runs from a palette chosen by the block's brightness, the way a
+/// real host highlighter should.
+TextSpan _brightnessAwareHighlighter(CodeHighlightRequest request) {
+  final tokenColor = request.brightness == Brightness.dark ? _tokenColor : const Color(0xFFA626A4);
+  final children = <TextSpan>[
+    for (final match in RegExp(r'\w+|\W+').allMatches(request.code))
+      TextSpan(
+        text: match[0],
+        style: RegExp(r'^\w').hasMatch(match[0]!) ? TextStyle(color: tokenColor) : null,
+      ),
+  ];
+  return TextSpan(style: request.baseStyle, children: children);
+}
+
 /// Always throws, for the report-once test — a top-level function so the widget
 /// can stay `const` across pumps.
-TextSpan? _boom(String code, String language, TextStyle baseStyle) => throw StateError('boom');
+TextSpan? _boom(CodeHighlightRequest request) => throw StateError('boom');
 
 TextStyle? _capturedStyle;
 
 /// Records the base style it is handed, then declines.
-TextSpan? _captureStyle(String code, String language, TextStyle baseStyle) {
-  _capturedStyle = baseStyle;
+TextSpan? _captureStyle(CodeHighlightRequest request) {
+  _capturedStyle = request.baseStyle;
   return null;
 }
 
