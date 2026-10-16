@@ -29,6 +29,8 @@ export 'src/composer/composer_attachment_sheet.dart';
 export 'src/composer/speech_to_text_button.dart';
 export 'src/composer/speech_to_text_controller.dart';
 export 'src/composer/suggestions_view.dart';
+export 'src/local_model/ai_conversation_turn.dart';
+export 'src/local_model/ai_local_model.dart';
 export 'src/localization/ai_translations.dart';
 export 'src/markdown/math_syntax.dart';
 export 'src/parts/ai_message_part.dart';
