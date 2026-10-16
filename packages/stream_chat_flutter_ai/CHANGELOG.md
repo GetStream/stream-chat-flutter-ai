@@ -1,5 +1,9 @@
 ## Upcoming
 
+✅ Added
+
+- `TypingIndicatorThemeData`, a screen-reader live region and reduced-motion support for `AITypingIndicatorView`.
+
 🔄 Changed
 
 - **Breaking:** `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
