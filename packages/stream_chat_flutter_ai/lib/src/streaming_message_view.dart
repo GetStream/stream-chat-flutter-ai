@@ -32,6 +32,8 @@ class StreamingMessageView extends StatefulWidget {
     this.onTapLink,
     this.typingSpeed = const Duration(milliseconds: 10),
     this.onTypewriterStateChanged,
+    this.expectMoreText = false,
+    this.onFinished,
     this.styleSheet,
     this.mathBuilder,
     this.useDollarDelimitersForMath = false,
@@ -71,7 +73,24 @@ class StreamingMessageView extends StatefulWidget {
   final MarkdownTapLinkCallback? onTapLink;
 
   /// A callback that is called whenever the typewriter state changes.
+  ///
+  /// [TypewriterState.idle] only means the typewriter has caught up with the
+  /// text received so far, which also happens mid-stream whenever it overtakes
+  /// the backend. To learn when a reply is completely on screen, use
+  /// [onFinished].
   final ValueChanged<TypewriterState>? onTypewriterStateChanged;
+
+  /// Whether more [text] for this message may still arrive, e.g. while the
+  /// backend is generating the reply. [onFinished] waits until this is `false`.
+  ///
+  /// Defaults to `false`.
+  final bool expectMoreText;
+
+  /// Called once per reply, after the frame in which it is completely on
+  /// screen: [expectMoreText] is `false` and every character of non-empty
+  /// [text] has been revealed. Usually later than the end of generation, as
+  /// the typewriter falls behind the backend.
+  final VoidCallback? onFinished;
 
   @override
   State<StreamingMessageView> createState() => _StreamingMessageViewState();
@@ -80,11 +99,36 @@ class StreamingMessageView extends StatefulWidget {
 class _StreamingMessageViewState extends State<StreamingMessageView> {
   late String _displayText;
   late final TypewriterController _controller;
+  var _wasFinished = false;
 
   void _onTypewriterValueChanged() {
     final value = _controller.value;
     widget.onTypewriterStateChanged?.call(value.state);
     setState(() => _displayText = value.text);
+    _scheduleFinishCheck();
+  }
+
+  bool get _isFinished =>
+      !widget.expectMoreText &&
+      widget.text.isNotEmpty &&
+      _controller.value.state != TypewriterState.typing &&
+      _controller.value.text == widget.text;
+
+  /// Reports [StreamingMessageView.onFinished] when the reply goes from
+  /// unfinished to finished.
+  ///
+  /// [_wasFinished] is tracked on every check, whether or not there is a
+  /// callback, so a callback passed after the reply finished doesn't report it
+  /// late. The report is deferred to after the current frame, since the check
+  /// can run during a build (from [didUpdateWidget]).
+  void _scheduleFinishCheck() {
+    final isFinished = _isFinished;
+    final justFinished = isFinished && !_wasFinished;
+    _wasFinished = isFinished;
+    if (!justFinished || widget.onFinished == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onFinished?.call();
+    });
   }
 
   @override
@@ -107,6 +151,7 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onTypewriterStateChanged?.call(_controller.value.state);
     });
+    _scheduleFinishCheck();
   }
 
   @override
@@ -115,6 +160,7 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     if (widget.text != oldWidget.text) {
       _controller.updateText(widget.text);
     }
+    _scheduleFinishCheck();
   }
 
   @override
