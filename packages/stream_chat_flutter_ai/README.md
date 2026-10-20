@@ -105,11 +105,17 @@ Shows the current AI state ("Thinking…", "Checking sources…") with animated 
 ```dart
 AITypingIndicatorView(
   text: 'AI is thinking',
-  dotColor: Colors.blue,
+  dotColor: Colors.blue, // optional overrides; unset ones come from the theme
   dotCount: 3,
   dotSize: 8,
 );
 ```
+
+Style it app-wide with `AITheme(typingIndicatorTheme: TypingIndicatorThemeData(...))` or for a
+subtree with `TypingIndicatorTheme`; by default the caption is `bodyMedium` in `onSurfaceVariant`
+and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
+it mounted and change `text` to have each new state announced. With reduced motion on, the dots
+are static, and `StreamingMessageView` shows each update in full instead of typing it out.
 
 ### `TypewriterController`
 
@@ -683,8 +689,8 @@ never reads the flag; to surface the state, pass your own caption for it to
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
-data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData` and
-`SuggestionsThemeData`:
+data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData`,
+`SuggestionsThemeData` and `TypingIndicatorThemeData`:
 
 ```dart
 MaterialApp(
@@ -715,8 +721,10 @@ grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceho
 (a thumbnail's placeholder and remove badge, and the glyphs on them). Each foreground field is paired
 with the surface it is drawn on, so overriding one pair never leaves an icon on a surface it wasn't
 chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
+`TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize`, `dotCount` and `dotSpacing`.
 
-Narrow either to a subtree with `ComposerTheme` / `SuggestionsTheme`, the way `ChartTheme` does:
+Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme`, `ComposerTheme`,
+`SuggestionsTheme` or `TypingIndicatorTheme`:
 
 ```dart
 ComposerTheme(
@@ -736,9 +744,10 @@ Four things worth knowing:
   button's slot, and the two are meant to read as one control morphing in place;
   `recordingButtonColor` applies only while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
-  `ComposerTheme.merge` / `SuggestionsTheme.merge` to add to an enclosing scope instead of
-  shadowing it. Both are `InheritedTheme`s, so like `ChartTheme` they carry across a `Navigator` —
-  a scope above the composer still reaches the attachment sheet that `showModalBottomSheet` pushes.
+  each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
+  enclosing scope instead of shadowing it. All five are `InheritedTheme`s, so they carry across a
+  `Navigator` — a scope above the composer still reaches the attachment sheet that
+  `showModalBottomSheet` pushes.
 
 The suggestion chips default to the same tokens as the composer's input pill, since a suggestion
 row is normally docked directly above it. Recolor that surface and you want both.

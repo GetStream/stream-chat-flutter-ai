@@ -366,8 +366,159 @@ void main() {
         expect(tappedLink, equals('https://example.com'));
       },
     );
+
+    group('reduced motion', () {
+      void reduceMotion(WidgetTester tester) {
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+          disableAnimations: true,
+        );
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      }
+
+      Widget view(String text, List<TypewriterState> states) => MaterialApp(
+        home: Scaffold(
+          body: StreamingMessageView(
+            text: text,
+            typingSpeed: const Duration(milliseconds: 20),
+            onTypewriterStateChanged: states.add,
+          ),
+        ),
+      );
+
+      testWidgets('shows each new text in full at once and reports idle', (tester) async {
+        reduceMotion(tester);
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(view('Hello', states));
+        await tester.pumpWidget(view('Hello, world!', states));
+
+        // One frame, not 13 × 20ms of typing.
+        expect(find.text('Hello, world!'), findsOneWidget);
+        expect(states, isNot(contains(TypewriterState.typing)));
+        expect(states.last, TypewriterState.idle);
+
+        // A replacement, not a continuation, is shown in full just the same.
+        await tester.pumpWidget(view('Bye.', states));
+        expect(find.text('Bye.'), findsOneWidget);
+        expect(states, isNot(contains(TypewriterState.typing)));
+
+        // Nothing left running: no typewriter timer.
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('switching it back off types the next update normally', (tester) async {
+        reduceMotion(tester);
+        final states = <TypewriterState>[];
+        await tester.pumpWidget(view('Hello', states));
+
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+        await tester.pump();
+        await tester.pumpWidget(view('Hello, world!', states));
+        await tester.pump(const Duration(milliseconds: 60));
+
+        expect(find.text('Hello, world!'), findsNothing, reason: 'typing again');
+        expect(states.last, TypewriterState.typing);
+        await tester.pumpAndSettle();
+        expect(find.text('Hello, world!'), findsOneWidget);
+      });
+
+      testWidgets('switching it on mid-reveal shows the rest at once', (tester) async {
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(view('', states));
+        await tester.pumpWidget(view('Hello, world!', states));
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(find.text('Hello, world!'), findsNothing, reason: 'still typing');
+        expect(states.last, TypewriterState.typing);
+
+        reduceMotion(tester);
+        await tester.pump();
+
+        expect(find.text('Hello, world!'), findsOneWidget);
+        expect(states.last, TypewriterState.idle);
+      });
+    });
+
+    group('a host calling setState from onTypewriterStateChanged', () {
+      /// Pumps a host that stores every reported state with `setState`, the
+      /// way a host flips its "generating" flag.
+      Future<_HostState> pumpHost(WidgetTester tester, String text) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: _Host(text: text)),
+          ),
+        );
+        return tester.state<_HostState>(find.byType(_Host));
+      }
+
+      void reduceMotion(WidgetTester tester) {
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+          disableAnimations: true,
+        );
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      }
+
+      testWidgets('does not throw on an update in normal mode', (tester) async {
+        await pumpHost(tester, '');
+        final host = await pumpHost(tester, 'Bye.');
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(host.states.last, TypewriterState.idle);
+        expect(host.states, contains(TypewriterState.typing));
+      });
+
+      testWidgets('does not throw on an update under reduced motion', (tester) async {
+        reduceMotion(tester);
+        await pumpHost(tester, 'Hello');
+        final host = await pumpHost(tester, 'Hello, world!');
+        expect(tester.takeException(), isNull);
+
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(host.states.last, TypewriterState.idle, reason: 'reported after the frame');
+        expect(find.text('Hello, world!'), findsOneWidget);
+      });
+
+      testWidgets('does not throw when reduced motion switches on mid-reveal', (tester) async {
+        await pumpHost(tester, '');
+        final host = await pumpHost(tester, 'Hello, world!');
+        await tester.pump(const Duration(milliseconds: 30));
+        expect(host.states.last, TypewriterState.typing);
+
+        reduceMotion(tester);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(host.states.last, TypewriterState.idle);
+        expect(find.text('Hello, world!'), findsOneWidget);
+      });
+    });
   });
 }
 
 /// A minimal [CodeHighlighter]: one span, text intact.
 TextSpan _plainSpan(CodeHighlightRequest request) => TextSpan(text: request.code, style: request.baseStyle);
+
+class _Host extends StatefulWidget {
+  const _Host({required this.text});
+
+  final String text;
+
+  @override
+  State<_Host> createState() => _HostState();
+}
+
+class _HostState extends State<_Host> {
+  final states = <TypewriterState>[];
+
+  @override
+  Widget build(BuildContext context) => StreamingMessageView(
+    text: widget.text,
+    onTypewriterStateChanged: (state) => setState(() => states.add(state)),
+  );
+}

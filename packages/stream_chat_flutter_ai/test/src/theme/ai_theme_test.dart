@@ -95,6 +95,29 @@ void main() {
       });
     });
 
+    group('typing indicator theme', () {
+      const indicator = TypingIndicatorThemeData(dotColor: Color(0xFF0A0A0A));
+      const indicator2 = TypingIndicatorThemeData(dotColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().typingIndicatorTheme, const TypingIndicatorThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(typingIndicatorTheme: indicator);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(typingIndicatorTheme: indicator));
+        expect(theme.copyWith(typingIndicatorTheme: indicator2).typingIndicatorTheme, indicator2);
+        expect(theme.copyWith().typingIndicatorTheme, indicator);
+        expect(
+          theme.lerp(const AITheme(typingIndicatorTheme: indicator2), 0.5).typingIndicatorTheme,
+          TypingIndicatorThemeData.lerp(indicator, indicator2, 0.5),
+        );
+      });
+    });
+
     group('composer and suggestions themes', () {
       // Each case is one component field on AITheme. A field left out of `==`
       // would let Theme.updateShouldNotify skip the rebuild after a host changed
