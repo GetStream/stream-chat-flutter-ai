@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
 
 void main() {
@@ -322,7 +323,7 @@ void main() {
                 text: text,
                 typingSpeed: typingSpeed,
                 codeHighlighter: _plainSpan,
-                codeBackgroundColor: Color(0xFF102030),
+                codeBlockTheme: CodeBlockThemeData(backgroundColor: Color(0xFF102030)),
               ),
             ),
           ),
@@ -331,7 +332,7 @@ void main() {
 
         final fence = tester.widget<CodeBlockView>(find.byType(CodeBlockView));
         expect(fence.highlighter, same(_plainSpan));
-        expect(fence.backgroundColor, const Color(0xFF102030));
+        expect(fence.theme?.backgroundColor, const Color(0xFF102030));
       },
     );
 
@@ -369,4 +370,4 @@ void main() {
 }
 
 /// A minimal [CodeHighlighter]: one span, text intact.
-TextSpan _plainSpan(String code, String language, TextStyle baseStyle) => TextSpan(text: code, style: baseStyle);
+TextSpan _plainSpan(CodeHighlightRequest request) => TextSpan(text: request.code, style: request.baseStyle);

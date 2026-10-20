@@ -1,5 +1,9 @@
 ## Upcoming
 
+💥 Breaking
+
+- `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
+
 ✅ Added
 
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
