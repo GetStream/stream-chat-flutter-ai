@@ -1150,9 +1150,10 @@ final parts = AIMessagePart.parseAll([
 ```
 
 Use `rawType` (`type` can be rewritten, such as into a link preview), and spread `extraData` last
-so the agent's step `id` wins over `Attachment.id`; keep `Attachment.id` too, since a message read
-back from the offline database carries the step's `id` there. Pass the same `parts` to
-`AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
+so the agent's step `id` wins over `Attachment.id`: from the network the `id` is in `extraData`,
+while the offline database stores it as `Attachment.id`. Your backend must set `id` on every step;
+otherwise each update gets a new random `Attachment.id`, and the step starts over. Pass the same
+`parts` to `AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
 
 Route client-tool invocations to your `AIToolRegistry`:
 
