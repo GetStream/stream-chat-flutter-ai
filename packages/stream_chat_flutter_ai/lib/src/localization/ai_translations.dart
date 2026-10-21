@@ -419,12 +419,9 @@ class DefaultAITranslations extends AITranslations {
 
     switch (chart.kind) {
       case USpecKind.pie:
-        // The slices' names are on the legend, which a reader never reaches.
-        if (chart.sliceLabels.isEmpty) {
-          parts.add(_count(chart.pointCount, 'slice'));
-        } else {
-          parts.add('${_count(chart.sliceLabels.length, 'slice')}: ${_names(chart.sliceLabels)}');
-        }
+        // The slices' names are drawn outside the semantics tree, so a reader
+        // only hears them here. An empty pie said "no data" above.
+        parts.add('${_count(chart.sliceLabels.length, 'slice')}: ${_names(chart.sliceLabels)}');
         if (chart.largestSliceLabel case final label? when chart.largestSlicePercent != null) {
           parts.add('largest $label at ${chart.largestSlicePercent} percent');
         }

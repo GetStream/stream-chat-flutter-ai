@@ -366,6 +366,29 @@ void main() {
       });
     });
 
+    group('non-finite values', () {
+      // JSON's 1e400 decodes to infinity. Each format drops it, and the points
+      // after it keep their own categories.
+      final cases = {
+        'Chart.js with labels': '''
+          {"type": "line", "data": {"labels": ["a", "b", "c"], "datasets": [{"label": "S", "data": [1, 1e400, 3]}]}}
+        ''',
+        'ECharts': '''
+          {"xAxis": {"data": ["a", "b", "c"]}, "series": [{"name": "S", "type": "line", "data": [1, 1e400, 3]}]}
+        ''',
+        'Highcharts': '''
+          {"xAxis": {"categories": ["a", "b", "c"]}, "series": [{"name": "S", "type": "line", "data": [1, 1e400, 3]}]}
+        ''',
+      };
+      for (final MapEntry(key: format, value: json) in cases.entries) {
+        test('are dropped from $format, keeping later categories', () {
+          final points = USpecParser.tryParse(json)!.series.single.points;
+          expect(points.map((p) => p.y), [1, 3], reason: format);
+          expect(points.map((p) => p.x), ['a', 'c'], reason: format);
+        });
+      }
+    });
+
     group('Vega-Lite schema', () {
       test('maps bar mark', () {
         final spec = USpecParser.tryParse('''

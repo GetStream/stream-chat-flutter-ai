@@ -181,8 +181,8 @@ class ChartSemantics {
   /// positive, finite value — in data order, with unnamed ones filled in.
   /// Empty for every other kind.
   ///
-  /// The legend carries these on screen, and it is excluded from the semantics
-  /// tree, so the summary is the only place a screen reader hears them.
+  /// The summary is where a screen reader hears them: the legend, or the
+  /// labels on the slices without one, are excluded from the semantics tree.
   final List<String> sliceLabels;
 
   /// The label of the biggest [USpecKind.pie] slice, or null for other kinds.
@@ -192,8 +192,9 @@ class ChartSemantics {
   /// kinds, and when the slices don't sum to anything positive.
   final String? largestSlicePercent;
 
-  /// Whether the chart has nothing to plot.
-  bool get isEmpty => pointCount == 0;
+  /// Whether the chart has nothing to plot, such as a pie whose slices are all
+  /// zero, negative or not finite.
+  bool get isEmpty => pointCount == 0 || (kind == USpecKind.pie && sliceLabels.isEmpty);
 
   @override
   bool operator ==(Object other) =>

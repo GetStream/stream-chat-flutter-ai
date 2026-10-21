@@ -644,8 +644,8 @@ class USpecParser {
   /// Decodes a number, or `null` for anything that isn't a finite one.
   ///
   /// Non-finite values are dropped here so no chart ever sees one: `"NaN"` and
-  /// `"Infinity"` parse as strings, and JSON's `1e400` decodes to infinity, and
-  /// any of them poisons a sum, a range or a percentage downstream.
+  /// `"Infinity"` parse to non-finite doubles, JSON's `1e400` decodes to
+  /// infinity, and any of them poisons a sum, a range or a percentage.
   static double? _asDouble(dynamic raw) {
     final value = switch (raw) {
       num() => raw.toDouble(),

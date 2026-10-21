@@ -85,9 +85,8 @@ class ChartThemeData with Diagnosticable {
        );
 
   /// The colors series — and a pie's slices — are drawn in, cycled when there
-  /// are more of them than colors, so past the palette's length two legend
-  /// entries share a swatch. Falls back to [kDefaultChartSeriesColors], as does
-  /// an empty list.
+  /// are more of them than colors. Falls back to [kDefaultChartSeriesColors],
+  /// as does an empty list.
   final List<Color>? seriesColors;
 
   /// The height of the plot area, title excluded. Falls back to 220.
@@ -141,17 +140,8 @@ class ChartThemeData with Diagnosticable {
   final Color? heatmapHighColor;
 
   /// Whether a legend, a color swatch and a name per entry, is drawn for the
-  /// charts that need one. Falls back to `true`.
-  ///
-  /// Two kinds get one: a [USpecKind.pie], with an entry per slice, and any
-  /// other chart plotting two or more series, with an entry per series. There
-  /// is none for a single series, whose one color needs no key, nor for a
-  /// [USpecKind.histogram], which draws its first series alone. A
-  /// [USpecKind.heatmap] draws its own scale legend instead, which this does
-  /// not affect.
-  ///
-  /// A legend lists at most ten entries; past that the tenth becomes a count of
-  /// the rest, such as "+4 more".
+  /// charts that need one — a pie, and charts with two or more series; see
+  /// [ChartView]. Falls back to `true`.
   final bool? showLegend;
 
   /// Where the legend goes relative to the plot. Falls back to

@@ -680,7 +680,7 @@ void main() {
       expect(_label(spec), contains('10 series: S0, S1, S2, S3, S4, S5, S6, S7, and 2 more'));
     });
 
-    test('omits the pie share when the slices do not sum to anything positive', () {
+    test('reads a pie with no slice to draw as no data', () {
       const spec = USpec(
         kind: USpecKind.pie,
         series: [
@@ -694,7 +694,7 @@ void main() {
         ],
       );
 
-      expect(_label(spec), 'Pie chart, 2 slices');
+      expect(_label(spec), 'Pie chart, no data');
     });
 
     test('counts a single anything in the singular', () {

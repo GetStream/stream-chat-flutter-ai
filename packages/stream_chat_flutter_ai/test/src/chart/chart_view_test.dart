@@ -139,8 +139,10 @@ void main() {
         await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
         final bars = tester.widget<LineChart>(find.byType(LineChart)).data.lineBarsData;
 
-        expect(bars.first.spots.map((s) => s.x), [0, 2], reason: 'March is category 2, not category 1');
-        expect(bars.first.spots.map((s) => s.y), [1, 3]);
+        final drawn = bars.first.spots.where((s) => !s.isNull());
+        expect(drawn.map((s) => s.x), [0, 2], reason: 'March is category 2, not category 1');
+        expect(drawn.map((s) => s.y), [1, 3]);
+        expect(bars.first.spots[1].isNull(), isTrue, reason: 'the line breaks at February rather than joining across');
         expect(bars.last.spots.map((s) => s.x), [0, 1, 2]);
       });
 
@@ -629,7 +631,7 @@ void main() {
         await tester.pumpWidget(_wrap(const ChartView(spec: _lineSpec)));
 
         expect(find.text('Sales'), findsNothing);
-        expect(find.byType(Wrap), findsNothing);
+        expect(find.byKey(ChartView.legendKey), findsNothing);
       });
 
       testWidgets('is left off when the theme turns it off', (tester) async {
@@ -704,7 +706,7 @@ void main() {
       testWidgets('is left off a heatmap, which has its own scale', (tester) async {
         await tester.pumpWidget(_wrap(const ChartView(spec: _heatmapSpec)));
 
-        expect(find.byType(Wrap), findsNothing);
+        expect(find.byKey(ChartView.legendKey), findsNothing);
       });
 
       testWidgets('is left off a histogram, which draws its first series alone', (tester) async {
@@ -726,7 +728,7 @@ void main() {
         );
         await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
 
-        expect(find.byType(Wrap), findsNothing);
+        expect(find.byKey(ChartView.legendKey), findsNothing);
         expect(find.text('Ignored'), findsNothing);
       });
 
@@ -817,7 +819,7 @@ void main() {
 
         final swatch = find
             .descendant(
-              of: find.byType(Wrap),
+              of: find.byKey(ChartView.legendKey),
               matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration),
             )
             .first;
@@ -1004,7 +1006,7 @@ void main() {
         await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
 
         expect(sections(tester), isEmpty, reason: 'a zero slice has no area');
-        expect(find.byType(Wrap), findsNothing);
+        expect(find.byKey(ChartView.legendKey), findsNothing);
       });
 
       testWidgets('skip negative slices in the total, the slices and the legend', (tester) async {
@@ -1540,7 +1542,7 @@ int _filledCells(WidgetTester tester) {
 List<Color> _legendSwatchColors(WidgetTester tester) => tester
     .widgetList<Container>(
       find.descendant(
-        of: find.byType(Wrap),
+        of: find.byKey(ChartView.legendKey),
         matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration),
       ),
     )

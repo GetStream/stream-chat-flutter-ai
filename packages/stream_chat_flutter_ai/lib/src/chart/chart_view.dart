@@ -31,6 +31,9 @@ class ChartView extends StatelessWidget {
   /// Creates a [ChartView].
   const ChartView({super.key, required this.spec, this.theme, this.semanticsLabel});
 
+  /// The key of a chart's legend, for finding it in tests.
+  static const legendKey = ValueKey<String>('ChartView.legend');
+
   /// The chart data to display.
   final USpec spec;
 
@@ -48,9 +51,9 @@ class ChartView extends StatelessWidget {
   /// walking them gives a reader bare numbers with nothing saying which axis
   /// they belong to.
   ///
-  /// The legend is excluded with them. The summary names every series of a
-  /// multi-series chart and every slice of a pie (cut off after the first
-  /// few), so reading the legend as well would say each name twice.
+  /// The legend is excluded with them. The default summary names the series of
+  /// a multi-series chart and the slices of a pie, so reading the legend as
+  /// well would say each name twice.
   ///
   /// Pass `''` to add no node of this widget's own, which also puts those
   /// subtree labels, the legend's included, back in reach. It is the opt-out
@@ -91,7 +94,7 @@ class ChartView extends StatelessWidget {
     final hasTitle = title != null && title.isNotEmpty;
     final legend = legendEntries.isEmpty
         ? null
-        : _ChartLegend(entries: legendEntries, textStyle: chartTheme.legendTextStyle);
+        : _ChartLegend(key: ChartView.legendKey, entries: legendEntries, textStyle: chartTheme.legendTextStyle);
     final legendOnTop = chartTheme.legendPosition == ChartLegendPosition.top;
 
     final Widget content;
@@ -407,8 +410,22 @@ class ChartView extends StatelessWidget {
   // Shared helpers
   // ---------------------------------------------------------------------------
 
-  List<FlSpot> _toSpots(USeries series, List<String> labels) =>
-      series.points.asMap().entries.map((e) => FlSpot(_categoryX(e.value, e.key, labels), e.value.y)).toList();
+  /// The series' points on the x axis. With categories to place them by, a
+  /// category the series has no point in, such as one whose value was not a
+  /// finite number, breaks the line rather than joining across it.
+  List<FlSpot> _toSpots(USeries series, List<String> labels) {
+    if (!_hasCategoryKeys || labels.isEmpty) {
+      return series.points.asMap().entries.map((e) => FlSpot(_categoryX(e.value, e.key, labels), e.value.y)).toList();
+    }
+    final byLabel = {for (final point in series.points) point.x: point.y};
+    final first = labels.indexWhere(byLabel.containsKey);
+    final last = labels.lastIndexWhere(byLabel.containsKey);
+    if (first < 0) return const [];
+    return [
+      for (var i = first; i <= last; i++)
+        if (byLabel[labels[i]] case final y?) FlSpot(i.toDouble(), y) else FlSpot.nullSpot,
+    ];
+  }
 
   /// Where [point] — the [index]-th in its series — sits on the shared category
   /// axis [labels], falling back to [index] when its label isn't on the axis or
@@ -536,7 +553,7 @@ const _kMaxLegendEntries = 10;
 /// A wrapping row of color swatches, each followed by the series or slice it
 /// stands for. Lists at most [_kMaxLegendEntries].
 class _ChartLegend extends StatelessWidget {
-  const _ChartLegend({required this.entries, required this.textStyle});
+  const _ChartLegend({super.key, required this.entries, required this.textStyle});
 
   final List<_LegendEntry> entries;
   final TextStyle textStyle;
