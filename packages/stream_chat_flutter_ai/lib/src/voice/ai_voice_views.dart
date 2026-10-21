@@ -166,9 +166,21 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
       _shader = program.fragmentShader();
     } else {
       unawaited(
-        widget.style.load().then((program) {
-          if (mounted) setState(() => _shader = program.fragmentShader());
-        }),
+        widget.style
+            .load()
+            .then((program) {
+              if (mounted) setState(() => _shader = program.fragmentShader());
+            })
+            .catchError((Object error, StackTrace stack) {
+              FlutterError.reportError(
+                FlutterErrorDetails(
+                  exception: error,
+                  stack: stack,
+                  library: 'stream_chat_flutter_ai',
+                  context: ErrorDescription('while loading the voice visualization shader'),
+                ),
+              );
+            }),
       );
     }
     _ticker.start();
@@ -185,7 +197,8 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
   void _tick(Duration elapsed) {
     _driver?.advance((elapsed - _last).inMicroseconds / Duration.microsecondsPerSecond);
     _last = elapsed;
-    _frame.value++;
+    // Nothing is drawn until the shader has loaded.
+    if (_shader != null) _frame.value++;
   }
 
   VoiceInput _input(BuildContext context) {
@@ -199,6 +212,20 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
       reduceMotion: MediaQuery.maybeDisableAnimationsOf(context) ?? false,
     );
   }
+
+  // The space given, or a square of the side that is bounded where the other
+  // is not, such as in a column.
+  static Size _sizeIn(BoxConstraints constraints) {
+    if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) return constraints.biggest;
+    final side = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : constraints.hasBoundedHeight
+        ? constraints.maxHeight
+        : _fallbackSide;
+    return constraints.constrain(Size.square(side));
+  }
+
+  static const _fallbackSide = 240.0;
 
   // [local] centred and normalized to the shorter side, with y up.
   Offset _normalized(Offset local, Size size) {
@@ -228,17 +255,17 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
       value: _stateLabel(translations),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final size = constraints.biggest;
+          final size = _sizeIn(constraints);
           return MouseRegion(
             onHover: (event) => driver.hover(_normalized(event.localPosition, size)),
             onExit: (_) => driver.hover(null),
-            child: GestureDetector(
+            // A listener rather than a tap recognizer, so a tap on it still
+            // reaches a parent's, such as one that starts a call.
+            child: Listener(
               behavior: HitTestBehavior.translucent,
-              onTapDown: (details) {
-                final point = _normalized(details.localPosition, size);
-                if (widget.style.contains(point)) {
-                  driver.tap(point);
-                }
+              onPointerDown: (event) {
+                final point = _normalized(event.localPosition, size);
+                if (widget.style.contains(point)) driver.tap(point);
               },
               child: CustomPaint(
                 size: size,

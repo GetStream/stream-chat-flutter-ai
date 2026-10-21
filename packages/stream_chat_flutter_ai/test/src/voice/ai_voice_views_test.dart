@@ -57,9 +57,15 @@ void main() {
       expect(reduced.time, lessThan(speaking.time * 0.1));
     });
 
-    test('ignores taps with reduced motion', () {
-      final driver = VoiceVisualizationDriver(_input(reduceMotion: true))..tap(Offset.zero);
-      expect(driver.time, 0);
+    test('bounces on a tap, but not with reduced motion', () {
+      final driver = VoiceVisualizationDriver(_input())
+        ..tap(Offset.zero)
+        ..advance(0.1);
+      expect(driver.scale, lessThan(1));
+      final reduced = VoiceVisualizationDriver(_input(reduceMotion: true))
+        ..tap(Offset.zero)
+        ..advance(0.1);
+      expect(reduced.scale, 1);
     });
 
     test('clamps a long frame so the motion does not leap', () {
@@ -108,6 +114,42 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+  });
+
+  group('voice view layout and gestures', () {
+    testWidgets('a tap still reaches a parent', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: GestureDetector(
+              onTap: () => taps++,
+              child: const SizedBox.square(dimension: 200, child: AIVoiceGlowView(state: AIVoiceAgentState.idle)),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(AIVoiceGlowView));
+      expect(taps, 1);
+    });
+
+    testWidgets('takes a square of the bounded side in a column', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 180,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [AIVoiceWaveView(state: AIVoiceAgentState.idle)],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(AIVoiceWaveView)), const Size(180, 180));
+    });
   });
 
   group('goldens', () {

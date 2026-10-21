@@ -174,6 +174,10 @@ class VoiceVisualizationDriver {
   /// The motion's own clock.
   double get time => _time;
 
+  /// How much a tap's bounce scales the shape right now.
+  @visibleForTesting
+  double get scale => bounceScale(_bounceAge);
+
   /// Ripples from [point], centred and normalized to the shorter side with y
   /// up, and bounces.
   void tap(Offset point) {
