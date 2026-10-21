@@ -139,8 +139,9 @@ class _AIConversationViewState extends State<AIConversationView> {
   // heights, which can leave it short of the end, so it goes again until the
   // end stays put.
   void _jumpToEnd([int attempts = 3]) {
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_controller.hasClients) return;
+    final generation = _scrollGeneration;
+    _afterFrame(() {
+      if (!_controller.hasClients || generation != _scrollGeneration) return;
       final position = _controller.position;
       final end = position.maxScrollExtent;
       if (position.pixels != end) position.jumpTo(end);
@@ -148,16 +149,38 @@ class _AIConversationViewState extends State<AIConversationView> {
     });
   }
 
+  // Scrolls the list does itself, which the person scrolling calls off.
+  int _scrollGeneration = 0;
+
+  bool _onScrollStart(ScrollStartNotification notification) {
+    if (notification.dragDetails != null) _scrollGeneration++;
+    return false;
+  }
+
+  // Runs [callback] after the next frame, and makes sure there is one: a
+  // post-frame callback alone waits for whatever frame comes next, such as one
+  // of the person's own scroll.
+  void _afterFrame(VoidCallback callback) {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) {
+        if (mounted) callback();
+      })
+      ..ensureVisualUpdate();
+  }
+
   // Brings [turn] to the top, which a turn the person just started can reach,
   // being at least as tall as the list.
-  void _scrollToTop(String turn, {required bool animate}) {
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_controller.hasClients) return;
+  void _scrollToTop(String turn, {required bool animate, int attempts = 3}) {
+    final generation = _scrollGeneration;
+    _afterFrame(() {
+      // Gone, such as a message that failed to send and is no longer passed.
+      if (!_controller.hasClients || generation != _scrollGeneration || !_turnKeys.containsKey(turn)) return;
       final context = _turnKeys[turn]?.currentContext;
       if (context == null) {
         // Not built: it is far below what is in view. Get close first.
+        if (attempts <= 1) return;
         _controller.position.jumpTo(_controller.position.maxScrollExtent);
-        _scrollToTop(turn, animate: false);
+        _scrollToTop(turn, animate: false, attempts: attempts - 1);
         return;
       }
       unawaited(
@@ -203,9 +226,11 @@ class _AIConversationViewState extends State<AIConversationView> {
     _turnKeys.removeWhere((id, _) => !ids.contains(id));
     final last = turns.lastOrNull?.id;
     if (_anchor == null || !ids.contains(_anchor)) {
-      // The conversation loaded, or another replaced it: it opens at its end.
+      final replaced = _lastTurn == null || !ids.contains(_lastTurn);
       _anchor = turns.firstOrNull?.id;
-      if (last != null) _jumpToEnd();
+      // The conversation loaded, or another replaced it: it opens at its end.
+      // Its first turns going away, such as when they are trimmed, is not that.
+      if (replaced && last != null) _jumpToEnd();
     } else if (last != _lastTurn && last != null) {
       if (_lastTurn != null && ids.contains(_lastTurn)) {
         _scrollToTop(last, animate: true);
@@ -255,36 +280,39 @@ class _AIConversationViewState extends State<AIConversationView> {
 
         return Stack(
           children: [
-            NotificationListener<ScrollMetricsNotification>(
-              onNotification: (_) {
-                _updateEndInView();
-                return false;
-              },
-              child: CustomScrollView(
-                controller: _controller,
-                center: _centerKey,
-                slivers: [
-                  SliverList.builder(
-                    itemCount: older.length + (loadOlder == null ? 0 : 1),
-                    itemBuilder: (context, index) => index < older.length
-                        ? turn(older[index])
-                        : _OlderMessagesLoader(
-                            firstTurn: turns.first.id,
-                            load: loadOlder!,
-                            color: theme.scrollButtonIconColor ?? scheme.onSurface,
-                          ),
-                  ),
-                  // Turns from the anchor on, which the list grows down from.
-                  SliverPadding(
-                    key: _centerKey,
-                    padding: EdgeInsets.only(top: padding.top),
-                    sliver: SliverList.builder(
-                      itemCount: newer.length,
-                      itemBuilder: (context, index) => turn(newer[index]),
+            NotificationListener<ScrollStartNotification>(
+              onNotification: _onScrollStart,
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: (_) {
+                  _updateEndInView();
+                  return false;
+                },
+                child: CustomScrollView(
+                  controller: _controller,
+                  center: _centerKey,
+                  slivers: [
+                    SliverList.builder(
+                      itemCount: older.length + (loadOlder == null ? 0 : 1),
+                      itemBuilder: (context, index) => index < older.length
+                          ? turn(older[index])
+                          : _OlderMessagesLoader(
+                              firstTurn: turns.first.id,
+                              load: loadOlder!,
+                              color: theme.scrollButtonIconColor ?? scheme.onSurface,
+                            ),
                     ),
-                  ),
-                  SliverPadding(padding: EdgeInsets.only(bottom: padding.bottom)),
-                ],
+                    // Turns from the anchor on, which the list grows down from.
+                    SliverPadding(
+                      key: _centerKey,
+                      padding: EdgeInsets.only(top: padding.top),
+                      sliver: SliverList.builder(
+                        itemCount: newer.length,
+                        itemBuilder: (context, index) => turn(newer[index]),
+                      ),
+                    ),
+                    SliverPadding(padding: EdgeInsets.only(bottom: padding.bottom)),
+                  ],
+                ),
               ),
             ),
             Positioned(
@@ -363,7 +391,7 @@ class _TurnView extends StatelessWidget {
 /// What a row shows, which decides whether it is built again.
 @immutable
 class _Shown {
-  _Shown(ConversationEntry entry, this.approver)
+  _Shown(ConversationEntry entry, this.approver, this.onAttachmentTap)
     : isPending = entry.message == null,
       role = entry.message?.role ?? AIMessageRole.user,
       text = entry.message?.text ?? entry.pending?.text ?? '',
@@ -384,6 +412,7 @@ class _Shown {
   final List<String?> reasoning;
   final List<AIMessageAttachment> attachments;
   final AIToolApprover? approver;
+  final ValueChanged<AIMessageAttachment>? onAttachmentTap;
   final bool isLatestReply;
 
   @override
@@ -397,6 +426,7 @@ class _Shown {
       listEquals(other.reasoning, reasoning) &&
       listEquals(other.attachments, attachments) &&
       identical(other.approver, approver) &&
+      other.onAttachmentTap == onAttachmentTap &&
       other.isLatestReply == isLatestReply;
 
   @override
@@ -443,7 +473,7 @@ class _EntryViewState extends State<_EntryView> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _Shown(widget.entry, widget.approver);
+    final shown = _Shown(widget.entry, widget.approver, widget.onAttachmentTap);
     if (shown != _shown) {
       _shown = shown;
       _built = null;
@@ -552,9 +582,20 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
     _loading = true;
     try {
       await widget.load();
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while loading older messages'),
+        ),
+      );
     } finally {
       _loading = false;
     }
+    // Still in view, such as after a short page: load the next one.
+    if (mounted) _schedule();
   }
 
   @override

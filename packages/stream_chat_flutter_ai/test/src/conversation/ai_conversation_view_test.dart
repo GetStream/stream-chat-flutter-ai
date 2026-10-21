@@ -215,6 +215,55 @@ void main() {
       expect(tester.getTopLeft(find.text('Question 1')), before);
     });
 
+    testWidgets('a message that stops being passed before it arrives leaves the list alone', (tester) async {
+      final history = _history(3);
+      await _pump(tester, history);
+      await _pump(tester, history, pending: AIPendingMessage(text: 'Lost'));
+      await _pump(tester, history);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 600));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      final ignoring = tester
+          .widget<IgnorePointer>(
+            find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(IgnorePointer)).first,
+          )
+          .ignoring;
+      expect(ignoring, isFalse, reason: 'the person scrolled away and stays there');
+    });
+
+    testWidgets('loads again while the spinner stays in view', (tester) async {
+      var loads = 0;
+      await _pump(tester, const [], loadOlder: () async => loads++, settle: false);
+      await _pump(tester, [_user('u1', 'Short')], loadOlder: () async => loads++, settle: false);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('reports a failed load', (tester) async {
+      await _pump(tester, [_user('u1')], loadOlder: () async => throw StateError('offline'), settle: false);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.takeException(), isA<StateError>());
+    });
+
+    testWidgets('a conversation replacing the one shown opens at its end', (tester) async {
+      await _pump(tester, _history(2));
+      await _pump(tester, [
+        for (var i = 0; i < 6; i++) ...[
+          _user('x$i', 'Other $i'),
+          _reply('y$i', text: List.filled(12, 'Line.').join('\n\n')),
+        ],
+      ]);
+      expect(find.text('Other 5'), findsOneWidget);
+      expect(find.text('Other 0'), findsNothing);
+    });
+
     testWidgets('builds a finished reply again only when what it shows changes', (tester) async {
       var builds = 0;
       final factory = _CountingFactory(() => builds++);
