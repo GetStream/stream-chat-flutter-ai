@@ -67,7 +67,7 @@ class AIReasoningPart {
     return AIReasoningPart(
       id: id,
       status: switch (fields.string('status')) {
-        final status? => AIReasoningStatus(status),
+        final status? => reportUnknown(AIReasoningStatus(status), (s) => s.isKnown, 'ai_reasoning "$id"', 'status'),
         null => AIReasoningStatus.completed,
       },
       summary: fields.string('summary'),

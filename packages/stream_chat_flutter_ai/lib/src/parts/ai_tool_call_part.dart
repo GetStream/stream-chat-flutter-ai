@@ -137,7 +137,7 @@ class AIToolCallPart {
     final context = 'ai_tool_call "$id"';
     final fields = PartFields(json, context);
     final status = switch (fields.string('status')) {
-      final status? => AIToolCallStatus(status),
+      final status? => reportUnknown(AIToolCallStatus(status), (s) => s.isKnown, context, 'status'),
       null => AIToolCallStatus.running,
     };
     final approval = switch (fields.object('approval')) {
@@ -153,7 +153,7 @@ class AIToolCallPart {
       displayTitle: fields.string('display_title'),
       status: status,
       executor: switch (fields.string('executor')) {
-        final executor? => AIToolExecutor(executor),
+        final executor? => reportUnknown(AIToolExecutor(executor), (e) => e.isKnown, context, 'executor'),
         null => AIToolExecutor.server,
       },
       targetUserId: fields.string('target_user_id'),
@@ -241,8 +241,8 @@ class AIToolCallPart {
   /// targeted at [userId] — and at [clientId] when it names an install.
   ///
   /// A call that names no install can be answered from any of the person's
-  /// devices. That is the normal case for a server tool, and, as on iOS, it
-  /// also holds for a client tool whose backend left `target_client_id` out.
+  /// devices. That is the normal case for a server tool, and it also holds for
+  /// a client tool whose backend left `target_client_id` out.
   ///
   /// It doesn't need an [approval]: a call awaiting approval without one still
   /// waits, and a view asks with its own translated wording.

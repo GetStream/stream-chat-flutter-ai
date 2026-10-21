@@ -14,10 +14,10 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 /// AIMessagePartsView(parts: AIMessagePart.parseAll(attachments))
 /// ```
 ///
-/// A part this package can't read — a kind it doesn't know, a format newer
-/// than it reads, or a payload it couldn't decode ([AIMessagePart.isSupported]
-/// is `false`) — shows [AIUnsupportedPartView], a neutral "a step this app
-/// version can't show". A part it can read shows its kind's default view.
+/// A part this package can't read — a kind it doesn't know, or a format
+/// version it doesn't read ([AIMessagePart.isSupported] is `false`) — shows
+/// [AIUnsupportedPartView], a neutral "a step this app version can't show". A
+/// part it can read shows its kind's default view.
 /// Reasoning and tool calls have no default view yet, so for now they show
 /// nothing at all (and take up no spacing) unless your [partBuilder] builds
 /// them.

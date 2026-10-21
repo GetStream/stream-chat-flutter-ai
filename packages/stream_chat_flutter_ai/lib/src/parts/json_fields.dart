@@ -22,9 +22,18 @@ void reportPartIssue(String Function() message) {
   }(), 'unreachable');
 }
 
-/// Lenient reads from a step's decoded JSON payload: a field that is missing,
-/// `null` or empty reads as `null`, and one of the wrong type reads as `null`
-/// too, after [reportPartIssue] has said so. Nothing here throws.
+/// Returns [value], after [reportPartIssue] has said it is not one this
+/// package knows. An unknown value is kept, since a newer agent may send it,
+/// but a typo (`"complete"`) would otherwise stall a step with no sign why.
+T reportUnknown<T>(T value, bool Function(T value) isKnown, String context, String key) {
+  if (!isKnown(value)) reportPartIssue(() => '$context: `$key` $value is not one this package knows.');
+  return value;
+}
+
+/// Lenient reads from a step's decoded JSON payload: a field that is missing
+/// or `null` (or an empty string) reads as `null`, and one of the wrong type
+/// reads as `null` too, after [reportPartIssue] has said so. Nothing here
+/// throws.
 ///
 /// Not exported — the parts' `fromJson` factories are the public surface.
 class PartFields {
@@ -50,14 +59,15 @@ class PartFields {
     return null;
   }
 
-  /// The non-negative whole number at [key]. An integral double (`1200.0`) and
-  /// an integer string (`"1200"`) read as an int too.
+  /// The non-negative whole number at [key]. A double reads as the nearest
+  /// int (timers in Python and JavaScript send `812.37`), and an integer string
+  /// (`"1200"`) as an int too.
   int? count(String key) {
     final value = json[key];
     if (value == null) return null;
     final parsed = switch (value) {
       final int value => value,
-      final double value when value.isFinite && value == value.roundToDouble() => value.toInt(),
+      final double value when value.isFinite => value.round(),
       final String value => int.tryParse(value),
       _ => null,
     };

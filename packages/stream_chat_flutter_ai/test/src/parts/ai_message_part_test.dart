@@ -190,18 +190,19 @@ void main() {
     });
 
     test('a v that is not a positive whole number means no typed view', () {
-      for (final v in <Object>['2', '1', 2.5, 0, -1, true]) {
+      for (final v in <Object>['two', 2.5, 0, -1, true]) {
         final part = _single('ai_reasoning', {'id': 'r1', 'v': v});
         expect(part.version, 0, reason: '$v');
         expect(part.isSupported, isFalse, reason: '$v');
         expect(part.reasoning, isNull, reason: '$v');
       }
-      expect(reports.where((report) => report.contains('`v`')), hasLength(6));
+      expect(reports.where((report) => report.contains('`v`')), hasLength(5));
       expect(_single('ai_reasoning', const {'v': 1}).isSupported, isTrue);
+      expect(_single('ai_reasoning', const {'v': '2'}).version, 2, reason: 'an integer string is a version');
       expect(_single('ai_reasoning', const {}).version, 1);
     });
 
-    test('reads integral doubles as ints and drops fractional ones', () {
+    test('reads integral doubles as ints and rounds fractional durations', () {
       final parts = AIMessagePart.parseAll([
         (type: 'ai_reasoning', payload: const {'v': 1.0, 'duration_ms': 1200.0}),
         (type: 'ai_reasoning', payload: const {'duration_ms': 1200.5}),
@@ -209,7 +210,7 @@ void main() {
 
       expect(parts[0].version, 1);
       expect(parts[0].reasoning!.durationMs, 1200);
-      expect(parts[1].reasoning!.durationMs, isNull);
+      expect(parts[1].reasoning!.durationMs, 1201);
     });
 
     test('decodes JSON-encoded arguments and loosely typed maps', () {
@@ -477,6 +478,30 @@ void main() {
       targetClientId: 'install-1',
     );
 
+    test('a call that names nobody waits for nobody', () {
+      const untargeted = AIToolCallPart(
+        id: 'call_1',
+        name: 'get_location',
+        status: AIToolCallStatus.awaitingClient,
+        executor: AIToolExecutor.client,
+      );
+      expect(untargeted.isAwaiting(userId: 'alice', clientId: 'install-1'), isFalse);
+      const asking = AIToolCallPart(id: 'call_2', name: 'send_email', status: AIToolCallStatus.awaitingApproval);
+      expect(asking.isAwaitingApproval(userId: 'alice'), isFalse, reason: 'anybody could answer it otherwise');
+      expect(
+        asking.copyWith(targetClientId: 'install-1').isAwaitingApproval(userId: 'alice', clientId: 'install-1'),
+        isFalse,
+        reason: 'naming an install is not naming a person',
+      );
+    });
+
+    test('reports a value it does not know, and keeps it', () {
+      final call = _single('ai_tool_call', {..._toolCall, 'status': 'complete', 'executor': 'Client'}).toolCall!;
+      expect(call.status, const AIToolCallStatus('complete'));
+      expect(reports.where((r) => r.contains('`status`')), hasLength(1));
+      expect(reports.where((r) => r.contains('`executor`')), hasLength(1));
+    });
+
     test('isAwaiting matches a client call targeted at this user and install', () {
       expect(clientCall.isAwaiting(userId: 'alice', clientId: 'install-1'), isTrue);
       expect(clientCall.isAwaiting(userId: 'bob', clientId: 'install-1'), isFalse);
@@ -610,15 +635,49 @@ void main() {
     });
 
     test('a toJson payload parses back to an equal message part', () {
-      for (final part in AIMessagePart.parseAll([
+      final parts = AIMessagePart.parseAll([
         (type: 'ai_reasoning', payload: _reasoning),
         (type: 'ai_tool_call', payload: _toolCall),
         (type: 'ai_citation', payload: const {'url': 'https://example.com'}),
-      ])) {
-        expect(AIMessagePart.fromJson(part.toJson(), position: 2), part);
+        (type: 'ai_reasoning', payload: const {'status': 'completed'}),
+      ]);
+      for (final (position, part) in parts.indexed) {
+        expect(AIMessagePart.fromJson(part.toJson(), position: position), part);
       }
       expect(AIMessagePart.fromJson(const {'type': 'image'}), isNull);
       expect(AIMessagePart.fromJson(const {}), isNull);
+    });
+
+    test('a part built by hand keeps its version through toJson', () {
+      final part = AIMessagePart(id: 'x', kind: AIMessagePartKind.reasoning, version: 2, payload: const {'id': 'x'});
+      final read = AIMessagePart.fromJson(part.toJson())!;
+      expect(read.version, 2);
+      expect(read.reasoning, isNull, reason: 'a newer format gets no typed view');
+    });
+
+    test('withToolCall keeps the fields the typed view does not read', () {
+      final part = _single('ai_tool_call', {..._toolCall, 'trace_id': 't-1'});
+      final answered = part.withToolCall(part.toolCall!.copyWith(status: AIToolCallStatus.running));
+      expect(answered.payload['trace_id'], 't-1');
+      expect(answered.toolCall!.status, AIToolCallStatus.running);
+      expect(answered.id, part.id);
+    });
+
+    test('withReasoning keeps a fallback id out of the payload', () {
+      final part = _single('ai_reasoning', const {'status': 'streaming'});
+      expect(part.hasPayloadId, isFalse);
+      final done = part.withReasoning(part.reasoning!.copyWith(status: AIReasoningStatus.completed));
+      expect(done.hasPayloadId, isFalse);
+      expect(done.payload.containsKey('id'), isFalse);
+      expect(done.reasoning!.status, AIReasoningStatus.completed);
+    });
+
+    test('reads an integer string as the version', () {
+      expect(_single('ai_reasoning', const {'v': '1'}).reasoning, isNotNull);
+    });
+
+    test('rounds a fractional duration', () {
+      expect(_single('ai_reasoning', const {'duration_ms': 812.6}).reasoning!.durationMs, 813);
     });
 
     test('a part built from a typed view decodes back to it', () {

@@ -17,13 +17,12 @@ import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 /// ]);
 /// ```
 ///
-/// `rawType` is the type as the agent wrote it; `type` can be rewritten (an
-/// attachment with a scrape URL reads as a link preview). The step's `id` lands
-/// in a different place depending on where the message came from: a message
-/// from the network keeps it in `extraData`, which the spread puts last so it
-/// wins, while one read back from the offline database has it promoted to
-/// `Attachment.id`. A step that never had an id gets the attachment's local
-/// id that way — stable for that attachment, but not across message updates.
+/// Use `rawType`, since `type` can be rewritten (to a link preview, say). The
+/// step's `id` is in `extraData` for a message from the network, which the
+/// spread puts last, and in `Attachment.id` for one from the offline database.
+/// Every attachment has an `Attachment.id`, so with this snippet
+/// [AIMessagePart.hasPayloadId] is always `true`: the agent must send an `id`
+/// on every step, or each update gets a new random one.
 typedef AIMessagePartAttachment = ({String type, Map<String, Object?> payload});
 
 /// What kind of step an [AIMessagePart] is: the attachment `type`, such as
@@ -118,13 +117,15 @@ class AIMessagePart {
     );
   }
 
-  /// A reasoning part from its typed view, such as one updated optimistically
-  /// with [AIReasoningPart.copyWith].
+  /// A reasoning part from its typed view alone. Its payload holds only the
+  /// fields [AIReasoningPart] reads; to keep the rest of an existing part's,
+  /// use [withReasoning].
   factory AIMessagePart.fromReasoning(AIReasoningPart reasoning) =>
       AIMessagePart(id: reasoning.id, kind: AIMessagePartKind.reasoning, payload: reasoning.toJson());
 
-  /// A tool-call part from its typed view, such as one updated optimistically
-  /// with [AIToolCallPart.copyWith].
+  /// A tool-call part from its typed view alone. Its payload holds only the
+  /// fields [AIToolCallPart] reads; to keep the rest of an existing part's,
+  /// use [withToolCall].
   factory AIMessagePart.fromToolCall(AIToolCallPart toolCall) =>
       AIMessagePart(id: toolCall.id, kind: AIMessagePartKind.toolCall, payload: toolCall.toJson());
 
@@ -136,6 +137,32 @@ class AIMessagePart {
     required this.reasoning,
     required this.toolCall,
   });
+
+  /// This part with [reasoning]'s fields merged into its payload, such as one
+  /// updated optimistically with [AIReasoningPart.copyWith]. Fields the typed
+  /// view doesn't read, its [id] and its [version] stay as they were.
+  AIMessagePart withReasoning(AIReasoningPart reasoning) => _merged(reasoning.toJson());
+
+  /// This part with [toolCall]'s fields merged into its payload, such as one
+  /// answered optimistically with [AIToolCallPart.copyWith]. Fields the typed
+  /// view doesn't read, its [id] and its [version] stay as they were.
+  AIMessagePart withToolCall(AIToolCallPart toolCall) => _merged(toolCall.toJson());
+
+  AIMessagePart _merged(Map<String, Object?> typed) {
+    final merged = {...payload, ...typed};
+    // A typed view writes its own `id` and `v`; the part's are what it had.
+    if (payload.containsKey('id')) {
+      merged['id'] = payload['id'];
+    } else {
+      merged.remove('id');
+    }
+    if (payload.containsKey('v')) {
+      merged['v'] = payload['v'];
+    } else {
+      merged.remove('v');
+    }
+    return AIMessagePart(id: id, kind: kind, version: version, payload: merged);
+  }
 
   /// The attachment type prefix every AI step uses.
   static const typePrefix = 'ai_';
@@ -172,13 +199,15 @@ class AIMessagePart {
   }
 
   /// `v` as an int: [supportedVersion] when missing, and `0` — which no
-  /// typed view reads — when present but not a positive whole number.
+  /// typed view reads — when present but not a positive whole number. An
+  /// integral double (`1.0`) and an integer string (`"1"`) read as an int too.
   static int _readVersion(Map<String, Object?> payload, String context) {
     final value = payload['v'];
     if (value == null) return supportedVersion;
     final version = switch (value) {
       final int value => value,
       final double value when value.isFinite && value == value.roundToDouble() => value.toInt(),
+      final String value => int.tryParse(value) ?? 0,
       _ => 0,
     };
     if (version >= 1) return version;
@@ -271,9 +300,14 @@ class AIMessagePart {
     }
   }
 
-  /// The part as an attachment's JSON: its [payload] with the `type`
-  /// alongside, which [fromJson] reads back to an equal part.
-  Map<String, Object?> toJson() => {...payload, 'type': kind.value};
+  /// The part as an attachment's JSON: its [payload] with the `type`, and its
+  /// [version] when the payload doesn't say it. [fromJson] reads it back to an
+  /// equal part, given the same `position` for a part whose id is a fallback.
+  Map<String, Object?> toJson() => {
+    ...payload,
+    if (!payload.containsKey('v') && version != supportedVersion) 'v': version,
+    'type': kind.value,
+  };
 
   @override
   bool operator ==(Object other) =>

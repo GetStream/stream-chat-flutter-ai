@@ -73,7 +73,12 @@ class AIToolApproval {
       allowTitle: fields.string('allow_title'),
       declineTitle: fields.string('decline_title'),
       decision: switch (fields.string('decision')) {
-        final decision? => AIToolApprovalDecision(decision),
+        final decision? => reportUnknown<AIToolApprovalDecision>(
+          AIToolApprovalDecision(decision),
+          (d) => d.isKnown,
+          context == null ? 'approval' : '$context approval',
+          'decision',
+        ),
         null => null,
       },
     );
