@@ -86,7 +86,7 @@ class AITheme extends ThemeExtension<AITheme> {
   final SuggestionsThemeData suggestionsTheme;
 
   /// How tool-call rows are drawn. Defaults to `const ToolCallThemeData()`,
-  /// which derives every field from the ambient [ThemeData].
+  /// which derives its colors and text styles from the ambient [ThemeData].
   final ToolCallThemeData toolCallTheme;
 
   /// How the typing indicator is drawn. Defaults to

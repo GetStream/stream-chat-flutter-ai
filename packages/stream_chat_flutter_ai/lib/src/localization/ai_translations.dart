@@ -185,15 +185,10 @@ abstract class AITranslations {
   /// no summary.
   String get toolCallDeclined;
 
-  /// How long a finished tool call took.
-  ///
-  /// The default rounds to the nearest tenth of a second under a second
-  /// (`0.4s`), and to the nearest whole second from there, written as
-  /// [reasoningDuration] writes it (`13s` for 12.6s, `1m 5s`). That differs
-  /// from the reasoning header, which counts whole seconds elapsed (rounding
-  /// down) as it ticks; a finished call has no count to stay in step with.
-  /// Below 50ms it reads [toolCallDurationBelowTenth], and a negative
-  /// duration reads as zero.
+  /// How long a finished tool call took. The default rounds to the nearest
+  /// tenth of a second under a second (`0.4s`) and to the nearest second from
+  /// there (`13s`, `1m 5s`); below 50ms, a negative duration included, it reads
+  /// [toolCallDurationBelowTenth].
   String toolCallDuration(Duration duration);
 
   /// A tool call that took less than a twentieth of a second, which would

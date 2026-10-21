@@ -142,6 +142,25 @@ void main() {
       expect(column.children.map((child) => child.key), const [ValueKey<Object>('r1'), ValueKey<Object>('c1')]);
     });
 
+    testWidgets('hiding the first of two parts with one id keeps the second its state', (tester) async {
+      final twins = AIMessagePart.parseAll([
+        (type: 'ai_tool_call', payload: const {'id': 'same', 'name': 'first'}),
+        (type: 'ai_tool_call', payload: const {'id': 'same', 'name': 'second'}),
+      ]);
+      Widget build({required bool hideFirst}) => _wrap(
+        AIMessagePartsView(
+          parts: twins,
+          toolCallBuilder: (context, call) =>
+              hideFirst && call.name == 'first' ? AIMessagePartsView.hidden : _Counter(key: ValueKey(call.name)),
+        ),
+      );
+
+      await tester.pumpWidget(build(hideFirst: false));
+      final second = tester.state(find.byKey(const ValueKey('second')));
+      await tester.pumpWidget(build(hideFirst: true));
+      expect(tester.state(find.byKey(const ValueKey('second'))), same(second));
+    });
+
     testWidgets('hidden from a partBuilder hides any part', (tester) async {
       await tester.pumpWidget(
         _wrap(AIMessagePartsView(parts: _parts, partBuilder: (context, part) => AIMessagePartsView.hidden)),
@@ -386,4 +405,16 @@ class _DutchTranslations extends DefaultAITranslations {
 
   @override
   String get unsupportedMessagePart => 'Onbekende stap';
+}
+
+class _Counter extends StatefulWidget {
+  const _Counter({super.key});
+
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  @override
+  Widget build(BuildContext context) => const SizedBox(height: 10);
 }

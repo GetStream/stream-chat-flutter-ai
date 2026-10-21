@@ -23,7 +23,7 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 ///
 ///  * **A status icon.** A small spinner while the call runs (and for a status
 ///    this package doesn't know, which counts as still in progress — debug
-///    builds say so once); a shimmering hand while it waits for approval, or a
+///    builds say so); a shimmering hand while it waits for approval, or a
 ///    phone while it waits for a device; a check once completed, an
 ///    exclamation mark once failed, and a cross once cancelled or declined.
 ///  * **The title:** [AIToolCallPart.displayName] (the agent's title, or the
@@ -114,7 +114,11 @@ enum _ToolCallState {
   String label(AITranslations translations) => switch (this) {
     running => translations.toolCallRunning,
     completed => translations.toolCallCompleted,
-    _ => detail(translations)!,
+    awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingClient => translations.toolCallAwaitingClient,
+    failed => translations.toolCallFailed,
+    cancelled => translations.toolCallCancelled,
+    declined => translations.toolCallDeclined,
   };
 }
 
@@ -180,7 +184,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     final call = widget.call;
     final state = _ToolCallState.of(call);
 
-    final title = call.displayName.trim().isEmpty ? translations.toolCallFallbackTitle : call.displayName;
+    final title = call.displayName.isEmpty ? translations.toolCallFallbackTitle : call.displayName;
     final summary = call.summaryText;
     final detail = summary ?? state.detail(translations);
     final duration = call.status.isFinished && state != _ToolCallState.declined ? call.duration : null;

@@ -225,9 +225,9 @@ class AIToolCallPart {
   /// one. Empty when the agent sent neither; a view then shows a generic
   /// fallback, such as `AITranslations.toolCallFallbackTitle`.
   String get displayName {
-    final title = displayTitle;
-    if (title != null && title.trim().isNotEmpty) return title;
-    return name.replaceAll('_', ' ');
+    final title = displayTitle?.trim();
+    if (title != null && title.isNotEmpty) return title;
+    return name.replaceAll('_', ' ').trim();
   }
 
   /// [summary], or `null` when it is absent or blank — what a view shows.

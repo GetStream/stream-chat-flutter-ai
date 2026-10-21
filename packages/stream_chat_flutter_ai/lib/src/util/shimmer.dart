@@ -4,8 +4,8 @@ import 'package:flutter/widgets.dart';
 /// A highlight sweeping across [child] while [animation] runs, from fully
 /// before it to fully past it once per cycle.
 ///
-/// Internal. The owner drives [animation] — typically an `AnimationController`
-/// repeating every 1.4s — and stops it (or doesn't show the shimmer at all)
+/// Internal. The owner drives [animation] — typically a repeating
+/// `AnimationController` — and stops it (or doesn't show the shimmer at all)
 /// under reduced motion. [child] is painted in [base] with the band of
 /// [highlight] passing over it, so a child drawn in any color works: the
 /// mask's colors replace its own.

@@ -58,6 +58,30 @@ List<String> _texts(WidgetTester tester) =>
 
 void main() {
   group('AIToolCallView', () {
+    testWidgets('a call declined while its status still waits stops shimmering', (tester) async {
+      const waiting = AIToolApproval(title: 'Send it?');
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(
+            call: _call(status: AIToolCallStatus.awaitingApproval, approval: waiting),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.binding.hasScheduledFrame, isTrue, reason: 'the hand shimmers while it waits');
+
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(
+            call: _call(status: AIToolCallStatus.awaitingApproval, approval: _declined),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(_icon(tester), Icons.close_rounded);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    });
+
     group('title', () {
       testWidgets('is the display title', (tester) async {
         _reduceMotion(tester);
