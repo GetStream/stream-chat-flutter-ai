@@ -110,12 +110,18 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
     if (mounted) setState(() {});
   }
 
-  void _answer(AIToolApprovalDecision decision) {
-    if (!mounted) return reportDroppedAnswer(widget.call, 'its AIToolApprovalView was disposed');
+  // Bound to the call it was built for, so an answer kept by a builder (in a
+  // confirm dialog, say) never goes to another call this view shows since.
+  AIToolApprovalAnswer _answerFor(AIToolCallPart call) =>
+      (decision) => _answer(call, decision);
+
+  void _answer(AIToolCallPart call, AIToolApprovalDecision decision) {
+    if (!mounted) return reportDroppedAnswer(call, 'its AIToolApprovalView was disposed');
+    if (widget.call.id != call.id) return reportDroppedAnswer(call, 'its AIToolApprovalView shows another call now');
     // A builder answering while building would make the approver notify mid
     // build; answer right after the frame instead, if it still applies then.
     if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _answer(decision));
+      WidgetsBinding.instance.addPostFrameCallback((_) => _answer(call, decision));
       return;
     }
     widget.approver.answer(widget.call, decision);
@@ -136,12 +142,12 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
     final state = approver.stateOf(call);
     if (!approver.identity.canApprove(call)) return const SizedBox.shrink();
 
-    if (widget.builder case final builder?) return builder(context, call.approval, state, _answer);
+    if (widget.builder case final builder?) return builder(context, call.approval, state, _answerFor(call));
     return AIToolApprovalCard(
       approval: call.approval,
       toolName: _toolName(call),
       state: state,
-      onAnswer: _answer,
+      onAnswer: _answerFor(call),
       theme: widget.theme,
     );
   }

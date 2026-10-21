@@ -262,6 +262,49 @@ void main() {
       final state = approver.stateOf(call);
       expect(state, isA<AIToolApprovalFailed>());
       expect((state as AIToolApprovalFailed).error, isA<TimeoutException>());
+      expect(tester.takeException(), isA<TimeoutException>(), reason: 'a timeout is reported, likely a backend bug');
+      approver.dispose();
+    });
+
+    testWidgets('a send that hangs turns failed after the sent timeout', (tester) async {
+      final backend = _FakeBackend();
+      final approver = backend.approver(sentTimeout: const Duration(seconds: 5));
+      final call = _call();
+
+      approver.answer(call, _allow);
+      await tester.pump(const Duration(seconds: 5));
+      expect(approver.stateOf(call), isA<AIToolApprovalFailed>());
+      expect(tester.takeException(), isA<TimeoutException>());
+      approver.dispose();
+    });
+
+    testWidgets('answering one call leaves another call idle', (tester) async {
+      final backend = _FakeBackend();
+      final approver = backend.approver();
+      final first = _call();
+      final second = _call().copyWith(id: 'call_2');
+
+      approver.answer(first, _allow);
+      expect(approver.stateOf(first), isA<AIToolApprovalSending>());
+      expect(approver.stateOf(second), const AIToolApprovalIdle());
+      backend.pending.single.completeError(StateError('offline'));
+      await tester.pump();
+      expect(tester.takeException(), isA<StateError>());
+      expect(approver.stateOf(first), isA<AIToolApprovalFailed>());
+      expect(approver.stateOf(second), const AIToolApprovalIdle());
+      approver.dispose();
+    });
+
+    testWidgets('a send that succeeds after the call moved on changes nothing', (tester) async {
+      final backend = _FakeBackend();
+      final approver = backend.approver();
+      final call = _call();
+
+      approver.answer(call, _allow);
+      expect(approver.stateOf(_answered()), const AIToolApprovalIdle(), reason: 'the step moved on');
+      backend.pending.single.complete();
+      await tester.pump();
+      expect(approver.stateOf(call), const AIToolApprovalIdle());
       approver.dispose();
     });
 
@@ -625,6 +668,27 @@ void main() {
         expect(_enabled(tester, 'Allow'), isTrue);
       });
 
+      testWidgets('an answer a builder kept never goes to another call', (tester) async {
+        final approver = backend.approver();
+        AIToolApprovalAnswer? kept;
+        Widget build(AIToolCallPart call) => _wrap(
+          AIToolApprovalView(
+            call: call,
+            approver: approver,
+            builder: (context, approval, state, answer) {
+              kept ??= answer;
+              return const SizedBox();
+            },
+          ),
+        );
+
+        await tester.pumpWidget(build(_call()));
+        await tester.pumpWidget(build(_call().copyWith(id: 'call_2')));
+        kept!(_allow);
+        await tester.pump();
+        expect(backend.pending, isEmpty, reason: 'call_1 is not shown any more, and call_2 was never answered');
+      });
+
       testWidgets('the sent timeout lets the person answer again', (tester) async {
         final approver = backend.approver(sentTimeout: const Duration(seconds: 3));
         await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
@@ -635,6 +699,8 @@ void main() {
         expect(find.text('Sent'), findsOneWidget);
 
         await tester.pump(const Duration(seconds: 3));
+        expect(tester.takeException(), isA<TimeoutException>());
+        await tester.pump();
         expect(find.text('Sent'), findsNothing);
         expect(find.text(_notSent), findsOneWidget);
         expect(_enabled(tester, 'Allow'), isTrue);

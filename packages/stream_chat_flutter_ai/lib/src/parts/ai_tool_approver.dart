@@ -55,23 +55,30 @@ typedef AIToolApprovalContentBuilder =
 /// once. It then updates the call's step: allowed, the call goes on; declined,
 /// it is cancelled. Until that update arrives the answer stays
 /// [AIToolApprovalSent], with the buttons disabled — for at most [sentTimeout]
-/// when one is set.
+/// when one is set, which bounds sending the answer as well.
 class AIToolApprover extends ChangeNotifier {
   /// Creates an [AIToolApprover] for [identity].
-  AIToolApprover({required this.identity, required this.decide, this.sentTimeout});
+  ///
+  /// The [identity] is fixed: make a new approver when the signed-in person
+  /// changes.
+  AIToolApprover({required this.identity, required this.decide, this.sentTimeout})
+    : assert(sentTimeout == null || sentTimeout > Duration.zero, 'sentTimeout must be positive');
 
   /// Who is answering, and on which install.
   final AIClientIdentity identity;
 
   /// Sends an answer. A thrown error, or a future completing with one, makes
   /// the answer [AIToolApprovalFailed] and lets the person answer again; it is
-  /// reported through [FlutterError.reportError] and never rethrown.
+  /// reported through [FlutterError.reportError] and never rethrown, even after
+  /// the approver is disposed. Without a [sentTimeout] it must not hang: the
+  /// answer stays [AIToolApprovalSending] until it completes.
   final AIToolApprovalDecider decide;
 
-  /// How long an answer may stay [AIToolApprovalSent] before the call's step
-  /// stops waiting. Past it, the answer turns [AIToolApprovalFailed] with a
-  /// [TimeoutException], so the person sees something went wrong and can
-  /// answer again. `null`, the default, waits for as long as it takes.
+  /// The longest an answer may take to send, and then stay
+  /// [AIToolApprovalSent] while the call's step still waits. Past either, the
+  /// answer turns [AIToolApprovalFailed] with a [TimeoutException], so the
+  /// person sees something went wrong and can answer again. `null`, the
+  /// default, waits for as long as it takes.
   final Duration? sentTimeout;
 
   final _entries = <String, _Entry>{};
@@ -103,35 +110,50 @@ class AIToolApprover extends ChangeNotifier {
 
   Future<void> _send(AIToolCallPart call, AIToolApprovalDecision decision, _Entry entry) async {
     try {
-      await decide(call, decision);
+      final sending = Future.sync(() => decide(call, decision));
+      await (sentTimeout == null
+          ? sending
+          : sending.timeout(
+              sentTimeout!,
+              onTimeout: () => throw TimeoutException('the answer to tool call "${call.id}" took too long to send'),
+            ));
       if (!_isCurrent(call, entry)) return;
       entry.state = AIToolApprovalSent(decision);
       if (sentTimeout case final timeout?) {
         entry.timer = Timer(timeout, () {
           if (!_isCurrent(call, entry)) return;
+          final error = TimeoutException(
+            'tool call "${call.id}" still awaits approval after the answer was sent',
+            timeout,
+          );
           entry
-            ..state = AIToolApprovalFailed(
-              decision,
-              TimeoutException('tool call "${call.id}" still awaits approval after the answer was sent', timeout),
-            )
+            ..state = AIToolApprovalFailed(decision, error)
             ..timer = null;
           notifyListeners();
+          _report(error, StackTrace.current, call);
         });
       }
       notifyListeners();
     } catch (error, stackTrace) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stackTrace,
-          library: 'stream_chat_flutter_ai',
-          context: ErrorDescription('while sending the answer to tool call "${call.id}"'),
-        ),
-      );
-      if (!_isCurrent(call, entry)) return;
-      entry.state = AIToolApprovalFailed(decision, error);
-      notifyListeners();
+      // The state first: an app whose error handler rethrows must not leave
+      // the card sending for good.
+      if (_isCurrent(call, entry)) {
+        entry.state = AIToolApprovalFailed(decision, error);
+        notifyListeners();
+      }
+      _report(error, stackTrace, call);
     }
+  }
+
+  void _report(Object error, StackTrace stackTrace, AIToolCallPart call) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'stream_chat_flutter_ai',
+        context: ErrorDescription('while sending the answer to tool call "${call.id}"'),
+      ),
+    );
   }
 
   /// Whether [entry] is still [call]'s: not forgotten, nor replaced by a
