@@ -12,9 +12,11 @@ import 'package:stream_chat_flutter_ai/src/reasoning/reasoning_text.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+// Not doc-only: the `theme` parameter is a [ReasoningThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 
-/// Live text shorter than this, arriving as the panel first appears, is
+/// Live text shorter than this many characters, arriving as the panel first
+/// appears, is
 /// revealed from its start; anything longer — a view built mid-stream — shows
 /// in full rather than replaying the whole trace.
 const _kRevealFromStartLimit = 2000;
@@ -44,19 +46,9 @@ const _kRevealFromStartLimit = 2000;
 /// The header keeps counting for as long as [isThinking] is `true`, so a host
 /// whose stream stalls or fails has to end the thinking (pass `false`) itself.
 ///
-/// Reasoning can run to tens of kilobytes and grow many times a second, so the
-/// view only lays out what changes: the text is split into paragraphs at blank
-/// lines, the paragraphs are built lazily, and only the paragraph still being
-/// written is built again. Each paragraph renders inline markdown — bold,
-/// italics, strikethrough, inline code and links.
-///
-/// Folding shrinks the panel in place over [foldDuration] along [foldCurve],
-/// so whatever sits below glides up rather than jumping. A reply that only
-/// starts showing its answer once the reasoning has folded can wait that long.
-///
-/// Styling resolves per field: [theme], then the nearest [ReasoningTheme],
-/// then [AITheme.reasoningTheme], then defaults derived from the ambient
-/// [ThemeData].
+/// Each paragraph renders inline markdown — bold, italics, strikethrough,
+/// inline code and links. Styling resolves per field: [theme], then the
+/// nearest [ReasoningTheme], then [AITheme.reasoningTheme].
 ///
 /// **Accessibility.** The header is a single button labelled with its title
 /// (and the summary, while folded), with a hint saying what tapping it does.
@@ -175,8 +167,8 @@ class StreamingReasoningView extends StatefulWidget {
 }
 
 class _StreamingReasoningViewState extends State<StreamingReasoningView> with TickerProviderStateMixin {
-  /// What the reader chose by tapping the header. Until they do, the reasoning
-  /// is open while the model thinks and folded once it is done.
+  /// What the reader chose by tapping the header. Until they do,
+  /// [_opensByDefault] decides.
   bool? _choice;
 
   /// Whether the reasoning is open, or opening.
@@ -312,7 +304,11 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       final activity = _activity ??= AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
       if (!activity.isAnimating) activity.repeat();
     } else {
-      _activity?.stop();
+      // Reset as well as stopped, so the shimmer and pulse don't freeze
+      // mid-sweep when reduced motion turns on while thinking.
+      _activity
+        ?..stop()
+        ..reset();
     }
   }
 
@@ -421,7 +417,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
             title: title,
             summary: showsSummary ? summary : null,
             theme: theme,
-            activity: widget.isThinking ? _activity : null,
+            activity: widget.isThinking && !_reduceMotion ? _activity : null,
             fold: _foldCurve,
           ),
         ),

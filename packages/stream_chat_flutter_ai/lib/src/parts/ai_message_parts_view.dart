@@ -19,10 +19,11 @@ typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMe
 ///
 /// A part this package can't read — a kind it doesn't know, or a format
 /// version it doesn't read ([AIMessagePart.isSupported] is `false`) — shows
-/// [AIUnsupportedPartView], a neutral "a step this app version can't show". A part it can read shows its kind's default view: a
-/// [StreamingReasoningView] for a round of reasoning. Tool calls have no
-/// default view yet, so for now they show nothing at all (and take up no
-/// spacing) unless your [partBuilder] builds them.
+/// [AIUnsupportedPartView], a neutral "a step this app version can't show". A
+/// part it can read shows its kind's default view: a [StreamingReasoningView]
+/// for a round of reasoning. Tool calls have no default view yet, so for now
+/// they show nothing at all (and take up no spacing) unless your [partBuilder]
+/// builds them.
 ///
 /// To show some parts your own way, such as a kind of your own, pass a
 /// [partBuilder] and return `null` for the parts you leave to the default:

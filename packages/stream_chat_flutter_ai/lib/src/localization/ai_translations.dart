@@ -135,8 +135,7 @@ abstract class AITranslations {
   String get reasoningThinking;
 
   /// The reasoning header while the model thinks, where `elapsed` is how long
-  /// it has thought so far. [DefaultAITranslations] formats it with
-  /// [reasoningDuration]: `Thinking… 7s`.
+  /// it has thought so far: `Thinking… 7s`.
   String reasoningThinkingFor(Duration elapsed);
 
   /// The reasoning header once the model is done, when how long it thought is
@@ -144,16 +143,8 @@ abstract class AITranslations {
   String get reasoningTitle;
 
   /// The reasoning header once the model is done, where `duration` is how long
-  /// it thought, never under a second. [DefaultAITranslations] formats it with
-  /// [reasoningDuration]: `Thought for 12s`.
+  /// it thought, never under a second: `Thought for 12s`.
   String reasoningThoughtFor(Duration duration);
-
-  /// How long the model thought, in whole seconds rounded down: `7s` under a
-  /// minute, then `1m 5s`, or `2m` on the minute. Minutes keep counting past
-  /// the hour (`75m 3s`) — reasoning that long is rare enough not to need
-  /// hours. Used by [DefaultAITranslations]'s [reasoningThinkingFor] and
-  /// [reasoningThoughtFor].
-  String reasoningDuration(Duration duration);
 
   /// The screen-reader hint on the folded reasoning header.
   String get reasoningShowHint;
@@ -242,7 +233,9 @@ class DefaultAITranslations extends AITranslations {
   @override
   String reasoningThoughtFor(Duration duration) => 'Thought for ${reasoningDuration(duration)}';
 
-  @override
+  /// How long the model thought, in whole seconds rounded down: `7s` under a
+  /// minute, then `1m 5s`, or `2m` on the minute. Override it to change how
+  /// both reasoning headers spell a duration.
   String reasoningDuration(Duration duration) {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds.remainder(60);

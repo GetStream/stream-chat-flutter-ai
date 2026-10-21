@@ -614,16 +614,15 @@ class DutchTranslations implements AITranslations {
   String get reasoningThinking => 'Aan het nadenken…';
 
   @override
-  String reasoningThinkingFor(Duration elapsed) => 'Aan het nadenken… ${reasoningDuration(elapsed)}';
+  String reasoningThinkingFor(Duration elapsed) => 'Aan het nadenken… ${_duration(elapsed)}';
 
   @override
   String get reasoningTitle => 'Denkproces';
 
   @override
-  String reasoningThoughtFor(Duration duration) => '${reasoningDuration(duration)} nagedacht';
+  String reasoningThoughtFor(Duration duration) => '${_duration(duration)} nagedacht';
 
-  @override
-  String reasoningDuration(Duration duration) {
+  static String _duration(Duration duration) {
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds.remainder(60);
     if (minutes == 0) return '${seconds}s';

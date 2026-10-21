@@ -269,6 +269,16 @@ void main() {
         expect(find.text('Weighing'), findsNothing);
       });
 
+      testWidgets('turning reduced motion on while thinking stops the shimmer', (tester) async {
+        await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: true)));
+        await tester.pump(const Duration(milliseconds: 300));
+        _reduceMotion(tester);
+        await tester.pump();
+        // Only the once-a-second header count is left; nothing animates frame to frame.
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.binding.hasScheduledFrame, isFalse);
+      });
+
       testWidgets('a reader who folded the live reasoning keeps it folded', (tester) async {
         Widget build({required bool thinking}) => _wrap(StreamingReasoningView(text: 'Weighing', isThinking: thinking));
         _reduceMotion(tester);

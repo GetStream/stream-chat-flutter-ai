@@ -36,7 +36,10 @@ class ReasoningThemeData with Diagnosticable {
     this.ruleColor,
     this.iconColor,
     this.maxExpandedHeight,
-  }) : assert(maxExpandedHeight == null || maxExpandedHeight >= 0, 'maxExpandedHeight must not be negative');
+  }) : assert(
+         maxExpandedHeight == null || (maxExpandedHeight >= 0 && maxExpandedHeight < double.infinity),
+         'maxExpandedHeight must be finite and not negative',
+       );
 
   /// The header's style — "Thinking… 7s", "Thought for 12s" — merged over
   /// [TextTheme.bodyMedium] in [ColorScheme.onSurfaceVariant] at a medium
@@ -52,7 +55,7 @@ class ReasoningThemeData with Diagnosticable {
   final TextStyle? footnoteStyle;
 
   /// The highlight sweeping across the header while the model thinks, the
-  /// color of the rule beside the panel meanwhile, and the color of links in
+  /// color of the rule beside the reasoning meanwhile, and the color of links in
   /// the reasoning. Defaults to [ColorScheme.primary].
   final Color? shimmerColor;
 

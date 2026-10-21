@@ -26,8 +26,8 @@ List<String> splitReasoningParagraphs(String text) => [
 /// The paragraphs of a text that grows at its end, re-split incrementally.
 ///
 /// Reasoning only ever grows, so every paragraph before the last blank line is
-/// final: [update] only re-splits the text after it, which keeps a tick of a
-/// 40 KB trace as cheap as one of a short one. Text that does not carry on from
+/// final: [update] only re-splits the text after it, so a tick of a 40 KB trace
+/// costs little more than one of a short one. Text that does not carry on from
 /// the previous one is split from scratch.
 @internal
 class ReasoningParagraphs {
