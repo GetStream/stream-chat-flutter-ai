@@ -398,6 +398,32 @@ void main() {
       expect(find.textContaining('first'), findsNothing);
     });
 
+    testWidgets('a hidden row whose call stops waiting lets the approver forget the answer', (tester) async {
+      final approver = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
+        decide: (call, decision) async {},
+        sentTimeout: const Duration(seconds: 5),
+      );
+      addTearDown(approver.dispose);
+      var notified = 0;
+      Widget build(AIToolCallPart call) => _wrap(
+        AIMessagePartsView(parts: [AIMessagePart.fromToolCall(call)], approver: approver),
+        factory: const _Hiding(),
+      );
+
+      await tester.pumpWidget(build(_awaiting));
+      approver.answer(_awaiting, AIToolApprovalDecision.allowed);
+      await tester.pump();
+      expect(approver.stateOf(_awaiting), isA<AIToolApprovalSent>());
+      approver.addListener(() => notified++);
+
+      // The backend moves the step on; the row is hidden and nothing asks.
+      await tester.pumpWidget(build(_awaiting.copyWith(status: AIToolCallStatus.running)));
+      await tester.pump(const Duration(seconds: 6));
+      expect(notified, 0, reason: 'the sent timeout was cancelled, so nothing turns failed');
+      expect(approver.stateOf(_awaiting), const AIToolApprovalIdle(), reason: 'the answer was forgotten');
+    });
+
     testWidgets('a hidden factory row still asks its question', (tester) async {
       final approver = _approver();
       addTearDown(approver.dispose);

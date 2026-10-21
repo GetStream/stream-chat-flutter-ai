@@ -34,7 +34,9 @@ import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.
 /// AIComponents(factory: const MyComponents(), child: MaterialApp(...))
 /// ```
 ///
-/// Per-widget builders such as [AIMessagePartsView.partBuilder] are asked
+/// An override can fall back to the default with `super.buildX(context, props)`.
+/// A nested [AIComponents] replaces the outer factory rather than merging with
+/// it. Per-widget builders such as [AIMessagePartsView.partBuilder] are asked
 /// before the factory. From [buildReasoning], [buildToolCall] and
 /// [buildUnsupportedPart], return [AIMessagePartsView.hidden] to leave the
 /// part out of the list.

@@ -145,8 +145,8 @@ class AIMessagePartsView extends StatelessWidget {
     );
   }
 
-  /// A part's default view from the [AIComponentFactory], or `null` to show
-  /// nothing. Tool calls ask [toolCallBuilder] first, then the factory; the
+  /// A part's default view from the [AIComponentFactory], [AIMessagePartsView.hidden]
+  /// to leave it out, or `null` to show nothing. Tool calls ask [toolCallBuilder] first, then the factory; the
   /// [approver]'s question goes under the factory's row. Reasoning shows its
   /// [AIReasoningPart.preview]; full text goes through a [partBuilder].
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
@@ -167,12 +167,17 @@ class AIMessagePartsView extends StatelessWidget {
     final approver = this.approver;
     final asks = approver != null && approver.identity.canApprove(call);
     // A hidden row still asks its question; with nothing to ask it takes no
-    // spacing either.
-    if (!showRow && !asks) return hidden;
+    // spacing either. The approver is still told the call no longer waits, as
+    // the question view would have on its last build, so it forgets the answer
+    // and cancels its timeout.
+    if (!showRow && !asks) {
+      approver?.stateOf(call);
+      return hidden;
+    }
     // The same column with or without an approver, a question or the row, so
-    // each keeps its state as the others come and go. The question view stays
-    // in while the call no longer waits — it is empty then — so its approver
-    // can forget the answer.
+    // each keeps its state as the others come and go. With a row, the question
+    // view stays in while the call no longer waits — it is empty then — so its
+    // approver can forget the answer.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,

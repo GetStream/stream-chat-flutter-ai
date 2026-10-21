@@ -4,6 +4,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 // Here for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
+// The rest are used in code.
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
