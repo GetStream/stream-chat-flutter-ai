@@ -17,11 +17,11 @@ typedef AIClientToolResultSender = Future<void> Function(AIToolCallPart call, AI
 
 /// Called when a client tool fails while an [AIClientToolRunner] runs [call]:
 /// it threw, timed out, or isn't registered.
-typedef AIClientToolCallErrorCallback = void Function(AIToolCallPart call, Object error, StackTrace stack);
+typedef AIClientToolCallErrorCallback = FutureOr<void> Function(AIToolCallPart call, Object error, StackTrace stack);
 
 /// Called when an [AIClientToolRunner] gave up sending [result] for [call].
 typedef AIClientToolDeliveryErrorCallback =
-    void Function(AIToolCallPart call, AIClientToolResult result, Object error, StackTrace stack);
+    FutureOr<void> Function(AIToolCallPart call, AIClientToolResult result, Object error, StackTrace stack);
 
 /// Words the agent is told when a tool failed with [error] on [call].
 typedef AIClientToolFailureMessage = String Function(AIToolCallPart call, Object error);
@@ -114,7 +114,8 @@ final class AIClientToolRunner {
   final Duration retryDelay;
 
   /// How long a tool may run before the call is answered with a failure.
-  /// `null` waits forever.
+  /// `null` waits forever. The tool keeps running past it; a failure it ends
+  /// with afterwards is still reported.
   final Duration? runTimeout;
 
   /// How long one `send` attempt may take before it counts as failed. `null`
@@ -129,8 +130,10 @@ final class AIClientToolRunner {
   /// Called when a tool fails. [FlutterError.onError] hears about it too.
   final AIClientToolCallErrorCallback? onToolError;
 
-  /// Called when the runner gave up sending a result. [FlutterError.onError]
-  /// hears about it too.
+  /// Called when the runner gave up sending a result, once until it is sent.
+  /// [FlutterError.onError] hears about it too. The result is kept: call
+  /// [retryUndelivered], or [handle] again, such as once the device is back
+  /// online, to send it again.
   final AIClientToolDeliveryErrorCallback? onDeliveryError;
 
   final AIClientToolResultSender _send;
@@ -140,8 +143,12 @@ final class AIClientToolRunner {
   final _taken = <String>{};
 
   /// Results the runner gave up sending, kept to send again while their call
-  /// still waits.
-  final _undelivered = <String, AIClientToolResult>{};
+  /// still waits, with the call they answer.
+  final _undelivered = <String, (AIToolCallPart, AIClientToolResult)>{};
+
+  /// Calls whose given-up result was already reported, so a backend that keeps
+  /// failing is reported once rather than on every update.
+  final _reportedUndelivered = <String>{};
 
   final _inFlight = <String, Future<void>>{};
   bool _closed = false;
@@ -158,6 +165,13 @@ final class AIClientToolRunner {
 
   /// Whether a call is still running or its result is still being sent.
   bool get hasPendingWork => _inFlight.isNotEmpty;
+
+  /// Whether a result the runner gave up sending is waiting to be sent again.
+  bool get hasUndelivered => _undelivered.isNotEmpty;
+
+  /// Sends again every result the runner gave up on, such as once the device
+  /// is back online. Completes when they are done, and never with an error.
+  Future<void> retryUndelivered() => handleCalls([for (final (call, _) in _undelivered.values) call]);
 
   /// Handles the tool calls among [parts]. See [handleCalls].
   Future<void> handle(Iterable<AIMessagePart> parts) => handleCalls(parts.map((part) => part.toolCall).nonNulls);
@@ -177,11 +191,12 @@ final class AIClientToolRunner {
       if (_inFlight.containsKey(id)) continue;
       if (!identity.canRun(call)) {
         _undelivered.remove(id);
+        _reportedUndelivered.remove(id);
         continue;
       }
 
       final Future<void> work;
-      if (_undelivered.remove(id) case final result?) {
+      if (_undelivered.remove(id) case (_, final result)) {
         work = _deliver(call, result);
       } else if (_taken.add(id)) {
         work = _runAndDeliver(call);
@@ -222,12 +237,29 @@ final class AIClientToolRunner {
         'No client tool is registered under "${call.name}". Registered: ${toolNames.join(', ')}.',
       );
       _reportToolError(call, error, StackTrace.current, 'while looking up a client tool');
-      return AIClientToolResult.failed('This device has no tool named "${call.name}"');
+      return AIClientToolResult.failed(
+        failureMessage == null ? 'This device has no tool named "${call.name}"' : _failureMessageFor(call, error),
+      );
     }
 
     try {
       final work = tool is AIResultClientTool ? tool.run(call) : _runActions(tool, call);
-      return await (runTimeout == null ? work : work.timeout(runTimeout!));
+      if (runTimeout == null) return await work;
+      return await work.timeout(
+        runTimeout!,
+        onTimeout: () {
+          // The agent is told it failed; a failure the tool ends with later is
+          // still reported, since nobody else would hear of it.
+          unawaited(
+            work.then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stack) =>
+                  _reportToolError(call, error, stack, 'after the "${call.name}" client tool timed out'),
+            ),
+          );
+          throw TimeoutException('the "${call.name}" client tool took longer than $runTimeout', runTimeout);
+        },
+      );
     } catch (error, stack) {
       _reportToolError(call, error, stack, 'while running the "${call.name}" client tool');
       return AIClientToolResult.failed(_failureMessageFor(call, error));
@@ -277,14 +309,17 @@ final class AIClientToolRunner {
       try {
         final sending = _send(call, result);
         await (sendTimeout == null ? sending : sending.timeout(sendTimeout!));
+        _reportedUndelivered.remove(call.id);
         return;
       } catch (error, stack) {
         if (attempt >= maxAttempts) {
-          _undelivered[call.id] = result;
-          _reportSafely(
-            _details(error, stack, call, 'while sending a client tool result; gave up after $attempt attempts'),
-          );
-          _callSafely(() => onDeliveryError?.call(call, result, error, stack), call, 'onDeliveryError');
+          _undelivered[call.id] = (call, result);
+          if (_reportedUndelivered.add(call.id)) {
+            _reportSafely(
+              _details(error, stack, call, 'while sending a client tool result; gave up after $attempt attempts'),
+            );
+            _callSafely(() => onDeliveryError?.call(call, result, error, stack), call, 'onDeliveryError');
+          }
           return;
         }
       }
@@ -307,12 +342,16 @@ final class AIClientToolRunner {
         informationCollector: () => [DiagnosticsProperty<AIToolCallPart>('call', call)],
       );
 
-  /// Runs a host callback; what it throws is reported, not rethrown.
-  static void _callSafely(void Function() callback, AIToolCallPart call, String name) {
+  /// Runs a host callback; what it throws, now or from the future it returns,
+  /// is reported, not rethrown.
+  static void _callSafely(FutureOr<void> Function() callback, AIToolCallPart call, String name) {
+    void report(Object error, StackTrace stack) =>
+        _reportSafely(_details(error, stack, call, 'while handing a client-tool failure to $name'));
     try {
-      callback();
+      final result = callback();
+      if (result is Future<void>) unawaited(result.catchError(report));
     } catch (error, stack) {
-      _reportSafely(_details(error, stack, call, 'while handing a client-tool failure to $name'));
+      report(error, stack);
     }
   }
 

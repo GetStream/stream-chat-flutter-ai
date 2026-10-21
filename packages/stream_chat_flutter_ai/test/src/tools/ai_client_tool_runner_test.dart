@@ -594,6 +594,49 @@ void main() {
         expect(sender.attempts, 3, reason: 'a delivered result is not sent again');
       });
 
+      test('a result given up on again is reported only once', () async {
+        final sender = _Sender(failures: 10);
+        var deliveryErrors = 0;
+        final reported = await _collectingErrors(() async {
+          final r = _runner(
+            tools: [_ResultTool()],
+            sender: sender,
+            maxAttempts: 1,
+            onDeliveryError: (call, result, error, stack) => deliveryErrors++,
+          );
+          await r.handleCalls([_waitingCall()]);
+          await r.handleCalls([_waitingCall()]);
+          await r.handleCalls([_waitingCall()]);
+          expect(r.hasUndelivered, isTrue);
+        });
+        expect(sender.attempts, 3, reason: 'each update still tries again');
+        expect(reported, hasLength(1));
+        expect(deliveryErrors, 1);
+      });
+
+      test('retryUndelivered sends a given-up result again', () async {
+        final sender = _Sender(failures: 1);
+        final runner = _runner(tools: [_ResultTool()], sender: sender, maxAttempts: 1);
+        await _collectingErrors(() => runner.handleCalls([_waitingCall()]));
+        expect(runner.hasUndelivered, isTrue);
+
+        await runner.retryUndelivered();
+        expect(sender.sent.single.$2, _defaultResult);
+        expect(runner.hasUndelivered, isFalse);
+      });
+
+      test('an unregistered tool is answered with the failure message too', () async {
+        final sender = _Sender();
+        await _collectingErrors(
+          () => _runner(
+            tools: [_ResultTool()],
+            sender: sender,
+            failureMessage: (call, error) => 'Not on this phone',
+          ).handleCalls([_waitingCall(name: 'unknown_tool')]),
+        );
+        expect(sender.sent.single.$2, const AIClientToolResult.failed('Not on this phone'));
+      });
+
       test('a stored result is dropped once its call no longer waits', () async {
         final tool = _ResultTool();
         final sender = _Sender(failures: 1);

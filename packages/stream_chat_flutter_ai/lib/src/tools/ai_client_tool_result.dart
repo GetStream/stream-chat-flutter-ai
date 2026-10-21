@@ -31,7 +31,8 @@ final class AIClientToolCompleted extends AIClientToolResult {
   /// Creates an [AIClientToolCompleted].
   ///
   /// Throws a [JsonUnsupportedObjectError] when [output] isn't
-  /// JSON-encodable. [output] is stored as a deeply unmodifiable copy.
+  /// JSON-encodable. [output] is stored as its JSON form, so changing the
+  /// object afterwards doesn't change the result.
   AIClientToolCompleted(Object? output, {this.summary}) : output = _encodableCopy(output);
 
   /// The result for the model; may be `null`.
@@ -41,10 +42,9 @@ final class AIClientToolCompleted extends AIClientToolResult {
   /// "Shared approximate location". Keep the data itself out of it.
   final String? summary;
 
-  static Object? _encodableCopy(Object? output) {
-    jsonEncode(output);
-    return deepUnmodifiable(output);
-  }
+  // Through JSON, so an object with a `toJson` is copied too, and one whose
+  // `toJson` throws fails here rather than on every send.
+  static Object? _encodableCopy(Object? output) => deepUnmodifiable(jsonDecode(jsonEncode(output)));
 
   /// Always has an `output` key, `null` included, so it can't be read as a
   /// failure.
