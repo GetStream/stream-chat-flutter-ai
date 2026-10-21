@@ -685,7 +685,8 @@ the user's answer, `AIToolApprovalDecision.allowed` or `.declined`, goes to your
 ```dart
 late final approver = AIToolApprover(
   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
-  decide: (call, decision) => backend.answerToolCall(call.id, decision.value), // throw to let them retry
+  // Throw to let the person answer again.
+  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
 );
 
 AIMessagePartsView(parts: parts, approver: approver);
@@ -864,15 +865,19 @@ with `AIConversationTurn.fitToBudget`.
 ```dart
 if (await localModel.isAvailable) {
   // Create the stream once, when the question is sent — never in `build`.
-  _answers = localModel.reply(
-    instructions: 'Answer briefly. You have no tools.',
-    turns: [...history, AIConversationTurn.user(text)],
-  );
+  setState(() {
+    _answers = localModel.reply(
+      instructions: 'Answer briefly. You have no tools.',
+      turns: [...history, AIConversationTurn.user(text)],
+    );
+  });
 }
 
 StreamBuilder<String>(
   stream: _answers,
-  builder: (context, snapshot) => StreamingMessageView(text: snapshot.data ?? ''),
+  builder: (context, snapshot) => snapshot.hasError
+      ? const Text('The on-device model could not answer.')
+      : StreamingMessageView(text: snapshot.data ?? ''),
 );
 ```
 
@@ -919,8 +924,8 @@ chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` a
 Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme`, `ComposerTheme`,
 `ReasoningTheme`, `SuggestionsTheme`, `ToolApprovalTheme`, `ToolCallTheme` or
 `TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
-`HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView` or
-`AIToolApprovalView`:
+`HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView`,
+`AIToolApprovalView` or `AIToolApprovalCard`:
 
 ```dart
 ComposerTheme(
@@ -1122,8 +1127,9 @@ final parts = AIMessagePart.parseAll([
 ```
 
 Use `rawType` (`type` can be rewritten, such as into a link preview), and spread `extraData` last
-so the agent's step `id` wins over `Attachment.id`. Pass
-the same `parts` to `AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
+so the agent's step `id` wins over `Attachment.id`; keep `Attachment.id` too, since a message read
+back from the offline database carries the step's `id` there. Pass the same `parts` to
+`AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
 
 Route client-tool invocations to your `AIToolRegistry`:
 
