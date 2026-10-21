@@ -1079,4 +1079,22 @@ class DutchTranslations implements AITranslations {
 
   @override
   String chartLegendMore(int count) => '+$count meer';
+
+  @override
+  String get copyReply => 'Kopiëren';
+
+  @override
+  String get replyCopied => 'Gekopieerd!';
+
+  @override
+  String get shareReply => 'Delen';
+
+  @override
+  String get regenerateReply => 'Opnieuw genereren';
+
+  @override
+  String get rateReplyPositive => 'Goed antwoord';
+
+  @override
+  String get rateReplyNegative => 'Slecht antwoord';
 }

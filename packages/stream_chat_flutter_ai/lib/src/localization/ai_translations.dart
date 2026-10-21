@@ -230,6 +230,25 @@ abstract class AITranslations {
   /// Shown under a tool call's question when the answer couldn't be sent.
   String get toolApprovalNotSent;
 
+  /// Tooltip on the copy button under a finished reply.
+  String get copyReply;
+
+  /// Tooltip on the copy button under a reply for a moment after a copy, while
+  /// it shows its confirmation.
+  String get replyCopied;
+
+  /// Tooltip on the share button under a reply.
+  String get shareReply;
+
+  /// Tooltip on the button under a reply that asks for a new one.
+  String get regenerateReply;
+
+  /// Tooltip on the thumbs-up button under a reply.
+  String get rateReplyPositive;
+
+  /// Tooltip on the thumbs-down button under a reply.
+  String get rateReplyNegative;
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -385,6 +404,24 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get toolApprovalNotSent => "Your answer couldn't be sent. Try again.";
+
+  @override
+  String get copyReply => 'Copy';
+
+  @override
+  String get replyCopied => 'Copied!';
+
+  @override
+  String get shareReply => 'Share';
+
+  @override
+  String get regenerateReply => 'Regenerate';
+
+  @override
+  String get rateReplyPositive => 'Good response';
+
+  @override
+  String get rateReplyNegative => 'Bad response';
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {

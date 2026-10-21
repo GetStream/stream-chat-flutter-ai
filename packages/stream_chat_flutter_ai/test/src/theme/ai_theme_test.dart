@@ -141,6 +141,29 @@ void main() {
       });
     });
 
+    group('reply actions theme', () {
+      const replyActions = ReplyActionsThemeData(iconColor: Color(0xFF0A0A0A));
+      const replyActions2 = ReplyActionsThemeData(iconColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().replyActionsTheme, const ReplyActionsThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(replyActionsTheme: replyActions);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(replyActionsTheme: replyActions));
+        expect(theme.copyWith(replyActionsTheme: replyActions2).replyActionsTheme, replyActions2);
+        expect(theme.copyWith().replyActionsTheme, replyActions);
+        expect(
+          theme.lerp(const AITheme(replyActionsTheme: replyActions2), 0.5).replyActionsTheme,
+          ReplyActionsThemeData.lerp(replyActions, replyActions2, 0.5),
+        );
+      });
+    });
+
     group('tool approval theme', () {
       const toolApproval = ToolApprovalThemeData(accentColor: Color(0xFF0A0A0A));
       const toolApproval2 = ToolApprovalThemeData(accentColor: Color(0xFFFAFAFA));
