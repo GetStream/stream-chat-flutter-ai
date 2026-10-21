@@ -21,6 +21,7 @@
 - `AILocalModel` and `AIConversationTurn` for streaming a fallback reply from an on-device model.
 - `AIReplyActionsView` — copy, share, regenerate and rate buttons under a finished reply, themed via `ReplyActionsThemeData`.
 - `AIConversationView` — an AI conversation laid out in turns, with `AIMessage`, `AIPendingMessage`, `AIUserMessageView`, `AIAssistantMessageView`, `AIMessageAttachmentView` and `AIThinkingView`, themed via `ConversationThemeData`.
+- `AIVoiceGlowView` / `AIVoiceWaveView` — fragment-shader visualizations of what a voice agent is doing (`AIVoiceAgentState`), following a live `audioLevel`.
 
 ## 0.1.0
 

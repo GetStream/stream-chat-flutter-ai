@@ -925,6 +925,25 @@ AIComponentFactory(
 )
 ```
 
+### Voice: `AIVoiceGlowView` and `AIVoiceWaveView`
+
+Two ways to show a voice agent on a call: a soft globe of drifting color, or a single waveform line.
+Each moves with the agent's `AIVoiceAgentState` (idle, connecting, listening, thinking, speaking),
+easing from one into the next, and with a live `audioLevel` when you have one, such as the call
+participant's. They fill the space they are given, ripple where they are tapped and barely move with
+reduced motion on. Both are fragment shaders, so they look the same on every platform.
+
+```dart
+SizedBox.square(
+  dimension: 280,
+  child: AIVoiceGlowView(
+    state: agentSpeaking ? AIVoiceAgentState.speaking : AIVoiceAgentState.listening,
+    colors: const [Color(0xFF005FFF), Color(0xFF8E44FF)], // one to five; the theme's primary by default
+    audioLevel: participant.audioLevel,
+  ),
+)
+```
+
 ### Replacing components: `AIComponentFactory`
 
 `AIComponentFactory` replaces the components the package creates inside its own widgets, the same

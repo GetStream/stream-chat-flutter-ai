@@ -54,6 +54,9 @@ dev_dependencies:
 # This package supports all platforms listed below.
 flutter:
   uses-material-design: true
+  shaders:
+    - shaders/voice_glow.frag
+    - shaders/voice_wave.frag
 
 platforms:
   android:
