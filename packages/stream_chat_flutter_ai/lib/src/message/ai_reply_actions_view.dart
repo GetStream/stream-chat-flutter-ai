@@ -73,7 +73,7 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
     if (!mounted) return;
     setState(() => _copied = true);
     _resetTimer?.cancel();
-    _resetTimer = Timer(const Duration(milliseconds: 1500), () => setState(() => _copied = false));
+    _resetTimer = Timer(const Duration(seconds: 2), () => setState(() => _copied = false));
   }
 
   @override
@@ -92,18 +92,18 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
     final actions = widget.actions;
 
     Widget button(IconData icon, String label, VoidCallback onPressed, {bool? selected}) {
+      final glyph = Icon(icon, size: size, color: selected ?? false ? selectedColor : color);
       return IconButton(
         onPressed: onPressed,
-        // Non-null makes it a toggle, which is what reports the rating given
-        // as selected.
+        // Material 3 styles a toggle by it; the Semantics below reports the
+        // state under Material 2 as well, which ignores it.
         isSelected: selected,
-        icon: Icon(icon, size: size, color: selected ?? false ? selectedColor : color),
+        icon: selected == null ? glyph : Semantics(selected: selected, child: glyph),
         tooltip: label,
-        style: IconButton.styleFrom(
-          minimumSize: const Size(32, 32),
-          padding: EdgeInsets.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
+        // Set on the button rather than in `style`, which Material 2 ignores.
+        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+        padding: EdgeInsets.zero,
+        style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
       );
     }
 

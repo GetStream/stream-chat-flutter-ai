@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,10 +15,8 @@ Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
 List<String> _labels(WidgetTester tester) =>
     tester.widgetList<IconButton>(find.byType(IconButton)).map((b) => b.tooltip!).toList();
 
-IconData _iconOf(WidgetTester tester, String tooltip) {
-  final button = tester.widgetList<IconButton>(find.byType(IconButton)).firstWhere((b) => b.tooltip == tooltip);
-  return (button.icon as Icon).icon!;
-}
+IconData _iconOf(WidgetTester tester, String tooltip) =>
+    tester.widget<Icon>(find.descendant(of: find.byTooltip(tooltip), matching: find.byType(Icon))).icon!;
 
 void main() {
   group('AIReplyActionsView', () {
@@ -53,7 +53,7 @@ void main() {
       expect(_labels(tester), ['Copied!']);
       expect(_iconOf(tester, 'Copied!'), Icons.check);
 
-      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(seconds: 2));
       expect(_labels(tester), ['Copy']);
     });
 
@@ -121,35 +121,36 @@ void main() {
         expect(await tapRating(tester, AIMessageRating.positive, 'Good response'), [null]);
       });
 
-      testWidgets('fills the rating given and marks it selected', (tester) async {
-        final semantics = tester.ensureSemantics();
-        await tester.pumpWidget(
-          _wrap(
-            AIReplyActionsView(
-              text: 'Hi',
-              actions: AIReplyActions(rating: AIMessageRating.positive, onRate: (_) {}),
+      for (final material3 in [true, false]) {
+        testWidgets('fills the rating given and marks it selected (Material ${material3 ? 3 : 2})', (tester) async {
+          final semantics = tester.ensureSemantics();
+          await tester.pumpWidget(
+            _wrap(
+              AIReplyActionsView(
+                text: 'Hi',
+                actions: AIReplyActions(rating: AIMessageRating.positive, onRate: (_) {}),
+              ),
+              theme: ThemeData(useMaterial3: material3),
             ),
-          ),
-        );
+          );
 
-        expect(_iconOf(tester, 'Good response'), Icons.thumb_up);
-        expect(_iconOf(tester, 'Bad response'), Icons.thumb_down_outlined);
-        expect(
-          tester.getSemantics(find.byTooltip('Good response')),
-          matchesSemantics(
-            isSelected: true,
-            hasSelectedState: true,
-            isButton: true,
-            hasEnabledState: true,
-            isEnabled: true,
-            isFocusable: true,
-            hasTapAction: true,
-            hasFocusAction: true,
-            tooltip: 'Good response',
-          ),
-        );
-        semantics.dispose();
-      });
+          expect(_iconOf(tester, 'Good response'), Icons.thumb_up);
+          expect(_iconOf(tester, 'Bad response'), Icons.thumb_down_outlined);
+          expect(tester.getSemantics(find.byTooltip('Good response')).flagsCollection.isSelected, Tristate.isTrue);
+          expect(tester.getSemantics(find.byTooltip('Bad response')).flagsCollection.isSelected, Tristate.isFalse);
+          expect(tester.getSize(find.byTooltip('Good response')), const Size(32, 32));
+          semantics.dispose();
+        });
+      }
+    });
+
+    testWidgets('a confirmation still showing is dropped with the view', (tester) async {
+      await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'Hi')));
+      await tester.tap(find.byType(IconButton));
+      await tester.pump();
+      await tester.pumpWidget(_wrap(const SizedBox()));
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('takes its icon color and size from the theme', (tester) async {
