@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reply_actions_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
@@ -41,6 +42,8 @@ import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_the
 ///  * [CodeBlockThemeData] and [CodeBlockTheme], for code blocks.
 ///  * [ComposerThemeData] and [ComposerTheme], for the composer and its
 ///    attachment sheet.
+///  * [ConversationThemeData] and [ConversationTheme], for the conversation
+///    and its messages.
 ///  * [ReasoningThemeData] and [ReasoningTheme], for the reasoning panel.
 ///  * [ReplyActionsThemeData] and [ReplyActionsTheme], for the buttons under a
 ///    reply.
@@ -57,6 +60,7 @@ class AITheme extends ThemeExtension<AITheme> {
     ChartThemeData? chartTheme,
     CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
+    ConversationThemeData? conversationTheme,
     ReasoningThemeData? reasoningTheme,
     ReplyActionsThemeData? replyActionsTheme,
     SuggestionsThemeData? suggestionsTheme,
@@ -66,6 +70,7 @@ class AITheme extends ThemeExtension<AITheme> {
   }) : chartTheme = chartTheme ?? const ChartThemeData(),
        codeBlockTheme = codeBlockTheme ?? const CodeBlockThemeData(),
        composerTheme = composerTheme ?? const ComposerThemeData(),
+       conversationTheme = conversationTheme ?? const ConversationThemeData(),
        reasoningTheme = reasoningTheme ?? const ReasoningThemeData(),
        replyActionsTheme = replyActionsTheme ?? const ReplyActionsThemeData(),
        suggestionsTheme = suggestionsTheme ?? const SuggestionsThemeData(),
@@ -85,6 +90,11 @@ class AITheme extends ThemeExtension<AITheme> {
   /// `const ComposerThemeData()`, which derives every field from the ambient
   /// [ThemeData].
   final ComposerThemeData composerTheme;
+
+  /// How the conversation and its messages are drawn. Defaults to
+  /// `const ConversationThemeData()`, which derives every field from the
+  /// ambient [ThemeData].
+  final ConversationThemeData conversationTheme;
 
   /// How the reasoning panel is drawn. Defaults to `const ReasoningThemeData()`,
   /// which derives every field from the ambient [ThemeData].
@@ -125,6 +135,7 @@ class AITheme extends ThemeExtension<AITheme> {
     ChartThemeData? chartTheme,
     CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
+    ConversationThemeData? conversationTheme,
     ReasoningThemeData? reasoningTheme,
     ReplyActionsThemeData? replyActionsTheme,
     SuggestionsThemeData? suggestionsTheme,
@@ -135,6 +146,7 @@ class AITheme extends ThemeExtension<AITheme> {
     chartTheme: chartTheme ?? this.chartTheme,
     codeBlockTheme: codeBlockTheme ?? this.codeBlockTheme,
     composerTheme: composerTheme ?? this.composerTheme,
+    conversationTheme: conversationTheme ?? this.conversationTheme,
     reasoningTheme: reasoningTheme ?? this.reasoningTheme,
     replyActionsTheme: replyActionsTheme ?? this.replyActionsTheme,
     suggestionsTheme: suggestionsTheme ?? this.suggestionsTheme,
@@ -150,6 +162,7 @@ class AITheme extends ThemeExtension<AITheme> {
       chartTheme: ChartThemeData.lerp(chartTheme, other.chartTheme, t),
       codeBlockTheme: CodeBlockThemeData.lerp(codeBlockTheme, other.codeBlockTheme, t),
       composerTheme: ComposerThemeData.lerp(composerTheme, other.composerTheme, t),
+      conversationTheme: ConversationThemeData.lerp(conversationTheme, other.conversationTheme, t),
       reasoningTheme: ReasoningThemeData.lerp(reasoningTheme, other.reasoningTheme, t),
       replyActionsTheme: ReplyActionsThemeData.lerp(replyActionsTheme, other.replyActionsTheme, t),
       suggestionsTheme: SuggestionsThemeData.lerp(suggestionsTheme, other.suggestionsTheme, t),
@@ -169,6 +182,7 @@ class AITheme extends ThemeExtension<AITheme> {
         other.chartTheme == chartTheme &&
         other.codeBlockTheme == codeBlockTheme &&
         other.composerTheme == composerTheme &&
+        other.conversationTheme == conversationTheme &&
         other.reasoningTheme == reasoningTheme &&
         other.replyActionsTheme == replyActionsTheme &&
         other.suggestionsTheme == suggestionsTheme &&
@@ -182,6 +196,7 @@ class AITheme extends ThemeExtension<AITheme> {
     chartTheme,
     codeBlockTheme,
     composerTheme,
+    conversationTheme,
     reasoningTheme,
     replyActionsTheme,
     suggestionsTheme,

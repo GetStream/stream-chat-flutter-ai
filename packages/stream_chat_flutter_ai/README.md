@@ -883,14 +883,57 @@ StreamBuilder<String>(
 
 The reply exists only on the device; send it to your backend yourself if it should be kept.
 
+### Conversations: `AIConversationView`
+
+`AIConversationView` lays out a conversation the way an AI assistant does, rather than a chat
+message list: it starts at the top and grows down, a question the person sends scrolls to the top,
+and the reply types out below it without the list moving. A conversation that loads opens at its
+end, older messages load at its start without moving what is on screen, and a button scrolls back
+to the latest message.
+
+Give it your messages as `AIMessage`s — mix `AIMessage` into your own type or wrap one:
+
+```dart
+AIConversationView(
+  messages: [for (final m in channel.messages) ChatMessageAdapter(m)],
+  pendingMessage: sending, // shows a question at once, until its copy arrives
+  isThinking: waitingForReply, // "Thinking… 4s" under the question
+  approver: approver,
+  loadOlderMessages: hasMore ? loadOlder : null,
+  emptyContent: const Text('How can I help?'),
+)
+```
+
+The rows are `AIUserMessageView` and `AIAssistantMessageView`, with attachments as
+`AIMessageAttachmentView`. Under each finished reply there is room for actions, empty until you
+set `AIComponentBuilders.replyActions`, typically to an `AIReplyActionsView` (copy, share,
+regenerate, rate):
+
+```dart
+AIComponentFactory(
+  builders: AIComponentBuilders(
+    replyActions: (context, props) => AIReplyActionsView(
+      text: props.text,
+      actions: AIReplyActions(
+        rating: ratings[props.message.id],
+        onRate: (rating) => rate(props.message, rating),
+        onShare: (text, origin) => SharePlus.instance.share(ShareParams(text: text, sharePositionOrigin: origin)),
+      ),
+    ),
+  ),
+  child: conversation,
+)
+```
+
 ### Replacing components: `AIComponentFactory`
 
 `AIComponentFactory` replaces the components the package creates inside its own widgets, the same
 way `StreamComponentFactory` does in Stream's other Flutter SDKs: the code blocks and charts in
-markdown, the reasoning, tool call and unsupported-step views, the tool approval card, and (through
-`composer`) the `ChatComposerFactory` a `ChatComposer` uses when it is given none. Each builder in
-`AIComponentBuilders` is nullable; leave one out and its component keeps its default. A part
-builder may return `AIMessagePartsView.hidden` to leave the step out.
+markdown, the reasoning, tool call and unsupported-step views, the tool approval card, the messages
+of an `AIConversationView`, and (through `composer`) the `ChatComposerFactory` a `ChatComposer` uses
+when it is given none. Each builder in `AIComponentBuilders` is nullable; leave one out and its
+component keeps its default. A part builder may return `AIMessagePartsView.hidden` to leave the
+step out.
 
 ```dart
 Widget codeBlock(BuildContext context, AICodeBlockProps props) =>
