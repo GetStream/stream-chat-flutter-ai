@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/local_model/ai_local_model.dart';
+import 'package:stream_chat_flutter_ai/src/local_model/ai_local_model_exception.dart';
 
 /// Who said an [AIConversationTurn].
 enum AIConversationRole {
@@ -15,7 +16,7 @@ enum AIConversationRole {
 
 /// One turn of a conversation, for an [AILocalModel].
 @immutable
-class AIConversationTurn {
+final class AIConversationTurn {
   /// A turn said by [role].
   const AIConversationTurn({required this.role, required this.text});
 
@@ -32,7 +33,7 @@ class AIConversationTurn {
   final String text;
 
   /// The number of tokens [text] is estimated to take: three bytes of UTF-8
-  /// per token, rounded up, so any text costs at least one.
+  /// per token, rounded up, so any non-empty text costs at least one.
   ///
   /// This overcounts English, which tokenizers pack at about four characters
   /// per token, so a budget filled by this estimate leaves some room spare.
@@ -53,12 +54,16 @@ class AIConversationTurn {
   ///
   /// The last of the merged turns is always kept, even when it alone is over
   /// the budget: it is never truncated, as a cut-off question would get an
-  /// answer to something else. It is whatever the conversation ends with, so
+  /// answer to something else. A model then fails with
+  /// [AILocalModelErrorReason.contextExceeded]. It is whatever the conversation ends with, so
   /// pass one that ends with the question, a [AIConversationRole.user] turn.
   /// Older turns are then added newest first while they fit, and the first
   /// that doesn't ends the history, so the result is always an unbroken run of
-  /// the newest turns. [instructions], the system prompt the model is given
-  /// alongside the turns, counts against the budget too.
+  /// the newest turns. It can start with an [AIConversationRole.assistant]
+  /// turn, such as a greeting, or a reply whose question didn't fit; drop it
+  /// for a model whose prompt format requires the person to speak first.
+  /// [instructions], the system prompt the model is given alongside the turns,
+  /// counts against the budget too.
   ///
   /// A turn costs its [estimateTokens] plus [tokensPerTurn]. [maxTokens] must
   /// be positive.

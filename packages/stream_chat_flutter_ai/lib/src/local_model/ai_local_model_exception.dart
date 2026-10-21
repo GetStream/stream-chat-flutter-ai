@@ -12,6 +12,10 @@ enum AILocalModelErrorReason {
   /// empty, or doesn't end with the person's question. A bug in the caller.
   invalidConversation,
 
+  /// The conversation doesn't fit the model's context, such as a question
+  /// that alone is longer than it. Trying again the same way won't work.
+  contextExceeded,
+
   /// The model started but failed, for example it ran out of memory or
   /// refused the content. Show a message; trying again may work.
   failed,
@@ -19,7 +23,7 @@ enum AILocalModelErrorReason {
 
 /// The error an [AILocalModel.reply] stream emits when the model can't
 /// answer.
-class AILocalModelException implements Exception {
+final class AILocalModelException implements Exception {
   /// An error for [reason], described by [message], caused by [cause] if
   /// there was an underlying error.
   const AILocalModelException(this.reason, this.message, {this.cause});

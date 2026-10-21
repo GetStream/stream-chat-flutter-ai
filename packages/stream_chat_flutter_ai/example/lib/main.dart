@@ -78,10 +78,16 @@ class _Message {
     this.reasoning = '',
     this.isThinking = false,
     this.toolCalls = const [],
+    this.note = '',
   });
 
   final String text;
   final bool isUser;
+
+  /// What the app says about a reply it couldn't finish, such as that the
+  /// on-device model is unavailable. Shown under the reply, and never sent to
+  /// a model as part of the conversation.
+  final String note;
 
   /// The model's reasoning so far, shown in a [StreamingReasoningView] above
   /// the reply. Empty for user messages.
@@ -100,6 +106,7 @@ class _Message {
     reasoning: reasoning ?? this.reasoning,
     isThinking: isThinking ?? this.isThinking,
     toolCalls: toolCalls ?? this.toolCalls,
+    note: note,
   );
 }
 
@@ -626,14 +633,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
     bool available;
     try {
       available = await _localModel.isAvailable;
-    } on Object catch (error) {
+    } on Exception catch (error) {
+      // isAvailable answers false rather than throwing; anything else is a bug
+      // and is left to surface.
       debugPrint('Checking the on-device model failed: $error');
       available = false;
     }
     // Stop was tapped, another message was sent, or the screen went away
     // while the check ran.
     if (!mounted || generation != _replyGeneration) return;
-    if (!available) return _endLocalReply('_On-device model unavailable._');
+    if (!available) return _endLocalReply('The on-device model is not available right now.');
 
     _localReply = _localModel
         .reply(instructions: 'Answer briefly. You have no tools.', turns: turns)
@@ -645,7 +654,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
           },
           onError: (Object error) {
             debugPrint('The on-device model failed: $error');
-            _endLocalReply('_The on-device model could not answer._');
+            _endLocalReply(switch (error) {
+              AILocalModelException(reason: AILocalModelErrorReason.unavailable) =>
+                'The on-device model is not available right now.',
+              AILocalModelException(reason: AILocalModelErrorReason.contextExceeded) =>
+                'That question is too long for the on-device model.',
+              AILocalModelException(reason: AILocalModelErrorReason.invalidConversation) =>
+                'The on-device model could not read this conversation.',
+              _ => 'The on-device model could not answer. Try again.',
+            });
           },
           onDone: () {
             _localReply = null;
@@ -654,14 +671,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
         );
   }
 
-  /// Ends a local reply that failed, showing [note] in its bubble (after any
-  /// answer it had already given) and leaving the generating state at once.
+  /// Ends a local reply that failed, showing [note] under any answer it had
+  /// already given, and leaving the generating state at once.
   void _endLocalReply(String note) {
     _localReply = null;
     if (!mounted) return;
     setState(() {
-      final text = _messages.last.text;
-      _messages[_messages.length - 1] = _Message(text: text.isEmpty ? note : '$text\n\n$note', isUser: false);
+      _messages[_messages.length - 1] = _Message(text: _messages.last.text, isUser: false, note: note);
       _streamComplete = true;
       _composerController.isGenerating = false;
     });
@@ -766,7 +782,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           // color them live here. See `code_highlighter.dart`.
                           codeHighlighter: highlightCode,
                         );
-                        if (message.reasoning.isEmpty && message.toolCalls.isEmpty) return reply;
+                        final note = message.note.isEmpty
+                            ? null
+                            : Text(
+                                message.note,
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              );
+                        if (message.reasoning.isEmpty && message.toolCalls.isEmpty && note == null) return reply;
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           spacing: 12,
@@ -784,6 +809,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                                 approver: _approver,
                               ),
                             if (message.text.isNotEmpty) reply,
+                            ?note,
                           ],
                         );
                       },
