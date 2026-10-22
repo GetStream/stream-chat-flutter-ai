@@ -3,6 +3,8 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 // Here for the [AIReasoningPart.preview] doc link only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
@@ -66,6 +68,12 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 /// toolCallBuilder: (context, call) => call.name == 'log_event' ? AIMessagePartsView.hidden : null,
 /// ```
 ///
+/// Pass an [approver] to ask the person on this device about the tool calls
+/// waiting for their approval: such a call's row gets an [AIToolApprovalView]
+/// under it, which goes away once the call stops waiting. A call a builder
+/// shows its own way gets no question; put an [AIToolApprovalView] in your
+/// own widget then.
+///
 /// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
 /// list grows while a reply streams in. A part whose id an earlier part already
 /// used is keyed by the id and how many parts with that id came before it.
@@ -77,6 +85,7 @@ class AIMessagePartsView extends StatelessWidget {
     required this.parts,
     this.partBuilder,
     this.toolCallBuilder,
+    this.approver,
     this.spacing = 8,
   });
 
@@ -92,7 +101,13 @@ class AIMessagePartsView extends StatelessWidget {
   /// [partBuilder] left to the default.
   final AIToolCallWidgetBuilder? toolCallBuilder;
 
-  /// The vertical gap between two parts.
+  /// Who answers tool calls' questions on this device. With one, a tool call
+  /// awaiting this person's approval shows an [AIToolApprovalView] under its
+  /// row; without one, no questions are asked.
+  final AIToolApprover? approver;
+
+  /// The vertical gap between two parts, and between a tool call's row and its
+  /// question.
   final double spacing;
 
   /// Returned from [partBuilder] or [toolCallBuilder], hides that part: it is
@@ -134,12 +149,33 @@ class AIMessagePartsView extends StatelessWidget {
   /// text, when an app has it, goes through a [partBuilder] returning
   /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
   /// goes to [toolCallBuilder] first (which may return [hidden]), and gets an
-  /// [AIToolCallView] when that returns `null`.
+  /// [AIToolCallView] when that returns `null` — with its question under it
+  /// when an [approver] is given.
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     if (!part.isSupported) return const AIUnsupportedPartView();
     if (part.reasoning case final reasoning?) return StreamingReasoningView.part(reasoning);
-    if (part.toolCall case final call?) return toolCallBuilder?.call(context, call) ?? AIToolCallView(call: call);
+    if (part.toolCall case final call?) return toolCallBuilder?.call(context, call) ?? _toolCallView(call);
     return null;
+  }
+
+  Widget _toolCallView(AIToolCallPart call) {
+    final approver = this.approver;
+    // The same column with or without an approver, and with or without a
+    // question, so the row keeps its state as either comes and goes. The
+    // question view stays in while the call no longer waits — it is empty
+    // then — so its approver can forget the answer.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AIToolCallView(call: call),
+        if (approver != null)
+          Padding(
+            padding: EdgeInsets.only(top: approver.identity.canApprove(call) ? spacing : 0),
+            child: AIToolApprovalView(call: call, approver: approver),
+          ),
+      ],
+    );
   }
 }
 
