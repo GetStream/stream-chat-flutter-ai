@@ -92,7 +92,7 @@ class AISuggestionsView extends StatelessWidget {
                 textScaler: textScaler,
                 textDirection: textDirection,
                 maxWidth: itemMaxWidth,
-                color: theme.backgroundColor ?? colors.backgroundSurface,
+                color: theme.backgroundColor ?? const Color(0x00000000),
                 borderColor: theme.borderColor ?? colors.borderDefault,
                 onTap: () => onSuggestionSelected(suggestion),
               ),

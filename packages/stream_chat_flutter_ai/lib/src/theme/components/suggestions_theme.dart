@@ -37,8 +37,8 @@ class SuggestionsThemeData with Diagnosticable {
   /// Creates a [SuggestionsThemeData].
   const SuggestionsThemeData({this.backgroundColor, this.borderColor, this.textStyle});
 
-  /// The fill behind a chip. Falls back to the Stream theme's
-  /// `backgroundSurface`, matching [ComposerThemeData.fillColor]'s default.
+  /// The fill behind a chip. Transparent by default, like
+  /// [ComposerThemeData.fillColor], so a chip is outlined by [borderColor].
   final Color? backgroundColor;
 
   /// The hairline around a chip. Falls back to the Stream theme's

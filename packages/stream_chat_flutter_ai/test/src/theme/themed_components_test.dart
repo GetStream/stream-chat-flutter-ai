@@ -453,9 +453,9 @@ void main() {
       );
 
       final scheme = StreamTheme.light().colorScheme;
-      expect(_pill(tester).color, scheme.backgroundSurface);
+      expect(_pill(tester).color, const Color(0x00000000), reason: 'outlined, not filled');
       expect(_borderColor(_pill(tester)), scheme.borderDefault);
-      expect(_leadingButton(tester).color, scheme.backgroundSurface);
+      expect(_leadingButton(tester).color, const Color(0x00000000));
       expect(_iconColor(tester, _icons.plus), scheme.textPrimary);
       expect(
         _hasActionButtonWithFill(tester, scheme.accentPrimary),
@@ -549,10 +549,12 @@ void main() {
         ),
       );
 
-      final scheme = StreamTheme.light().colorScheme;
       final boxes = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox));
       expect(
-        boxes.map((b) => b.decoration).whereType<BoxDecoration>().any((d) => d.color == scheme.backgroundSurface),
+        boxes
+            .map((b) => b.decoration)
+            .whereType<BoxDecoration>()
+            .any((d) => d.color == const Color(0x00000000) && d.border != null),
         isTrue,
       );
     });

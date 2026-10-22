@@ -189,9 +189,9 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
     final listening = _speech.isListening;
-    // Idle, the mic occupies the send button's slot and takes its color, so the
-    // two read as one control morphing in place rather than two buttons.
-    final color = listening ? theme.recordingButtonColor : theme.sendButtonColor;
+    // Idle, the mic is a quiet ghost button in the composer's icon color, as in
+    // Stream's voice agent demo; listening, it is the filled stop button.
+    final color = listening ? theme.recordingButtonColor : theme.iconColor;
 
     // Rendered even before the recognizer has been initialized, and even when it
     // turns out to be unavailable (disabled, in that case). Hiding it outright
@@ -228,10 +228,26 @@ class _MicButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final translations = AITranslations.of(context);
 
+    if (!recording) {
+      return StreamButton.icon(
+        icon: Icon(context.streamIcons.voice),
+        style: .secondary,
+        type: .ghost,
+        onPressed: onTap,
+        tooltip: translations.voiceInput,
+        themeStyle: StreamButtonThemeStyle(
+          foregroundColor: .resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? ResolvedComposerTheme.resolve(context).disabledIconColor
+                : color,
+          ),
+        ),
+      );
+    }
     return ComposerActionButton(
-      icon: recording ? context.streamIcons.stopFill : context.streamIcons.voice,
+      icon: context.streamIcons.stopFill,
       onPressed: onTap,
-      tooltip: recording ? translations.stopRecording : translations.voiceInput,
+      tooltip: translations.stopRecording,
       color: color,
     );
   }

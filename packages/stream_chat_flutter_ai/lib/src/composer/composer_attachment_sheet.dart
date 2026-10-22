@@ -329,6 +329,7 @@ class _CameraTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.fillColor,
         borderRadius: borderRadius,
+        border: Border.all(color: theme.borderColor),
       ),
       // Above the fill, so the ink splash is actually visible.
       child: Material(
@@ -406,7 +407,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
                   builder: (context, snapshot) {
                     final bytes = snapshot.data;
                     if (bytes == null) {
-                      return ColoredBox(color: theme.fillColor);
+                      return ColoredBox(color: theme.attachmentPlaceholderColor);
                     }
                     return Image.memory(bytes, fit: BoxFit.cover);
                   },
