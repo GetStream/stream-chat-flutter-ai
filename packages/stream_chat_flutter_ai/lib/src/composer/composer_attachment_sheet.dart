@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 import 'package:photo_manager/photo_manager.dart';
+// Imported for the [streamAIComponentBuilders] doc links only.
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// How many asset-id → file-path mappings to remember. Comfortably more than
 /// the strip shows at once, small enough to stay cheap.
@@ -32,7 +34,7 @@ final _assetPathCache = LruCache<String, String>(_kAssetPathCacheCapacity);
 void debugClearAssetPathCache() => _assetPathCache.clear();
 
 /// The combined attachment / chat-option sheet opened from the composer's
-/// leading "+" button by default (see [ChatComposerFactory.buildLeading]).
+/// leading "+" button by default (see the `composerLeading` builder of [streamAIComponentBuilders]).
 ///
 /// Shows, in a single scrollable sheet:
 /// - A camera tile and a horizontal strip of the user's recent photos, each
@@ -62,15 +64,19 @@ void debugClearAssetPathCache() => _assetPathCache.clear();
 ///
 /// This sheet's own strings resolve through [AITranslations.of]. It works the
 /// same however the sheet is presented: [AITranslationsScope] is an
-/// [InheritedTheme], so `showModalBottomSheet` carries whatever scope was
+/// [InheritedTheme], so `showStreamSheet` carries whatever scope was
 /// above the caller across the push, exactly as it does [Theme].
 class ComposerAttachmentSheet extends StatefulWidget {
   /// Creates a [ComposerAttachmentSheet].
-  const ComposerAttachmentSheet({super.key, required this.controller});
+  const ComposerAttachmentSheet({super.key, required this.controller, this.scrollController});
 
   /// The controller whose [ChatComposerController.attachments] and
   /// [ChatComposerController.chatOptions] this sheet reads and mutates.
   final ChatComposerController controller;
+
+  /// The sheet's scroll controller, such as the one `showStreamSheet` gives
+  /// its builder.
+  final ScrollController? scrollController;
 
   @override
   State<ComposerAttachmentSheet> createState() => _ComposerAttachmentSheetState();
@@ -240,22 +246,19 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
+        controller: widget.scrollController,
         padding: const EdgeInsets.only(bottom: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-              child: Row(
-                children: [
-                  Text(translations.photos, style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: atCapacity ? null : _pickFromFullLibrary,
-                    child: Text(translations.allPhotos),
-                  ),
-                ],
+            StreamSheetHeader(
+              title: Text(translations.photos),
+              trailing: StreamButton(
+                type: .ghost,
+                size: .small,
+                onPressed: atCapacity ? null : _pickFromFullLibrary,
+                child: Text(translations.allPhotos),
               ),
             ),
             SizedBox(
@@ -267,15 +270,17 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
                   _CameraTile(onTap: atCapacity ? null : _pickFromCamera),
                   const SizedBox(width: 8),
                   if (_isLoading)
-                    const SizedBox(
+                    SizedBox(
                       width: _tileSize,
-                      child: Center(child: CircularProgressIndicator()),
+                      child: Center(child: StreamLoadingSpinner()),
                     )
                   else if (!_hasAccess)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Center(
-                        child: TextButton(
+                        child: StreamButton(
+                          type: .ghost,
+                          size: .small,
                           onPressed: PhotoManager.openSetting,
                           child: Text(translations.allowPhotoAccess),
                         ),
@@ -324,6 +329,7 @@ class _CameraTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.fillColor,
         borderRadius: borderRadius,
+        border: Border.all(color: theme.borderColor),
       ),
       // Above the fill, so the ink splash is actually visible.
       child: Material(
@@ -334,7 +340,7 @@ class _CameraTile extends StatelessWidget {
           onTap: onTap,
           child: Tooltip(
             message: AITranslations.of(context).takePhoto,
-            child: Center(child: Icon(Icons.camera_alt_outlined, color: iconColor)),
+            child: Center(child: Icon(context.streamIcons.camera, color: iconColor)),
           ),
         ),
       ),
@@ -401,7 +407,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
                   builder: (context, snapshot) {
                     final bytes = snapshot.data;
                     if (bytes == null) {
-                      return ColoredBox(color: theme.fillColor);
+                      return ColoredBox(color: theme.attachmentPlaceholderColor);
                     }
                     return Image.memory(bytes, fit: BoxFit.cover);
                   },
@@ -423,7 +429,7 @@ class _RecentPhotoTileState extends State<_RecentPhotoTile> {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(color: theme.photoSelectionColor, shape: BoxShape.circle),
-                  child: Icon(Icons.check, size: 14, color: theme.actionButtonForegroundColor),
+                  child: Icon(context.streamIcons.checkmark, size: 14, color: theme.actionButtonForegroundColor),
                 ),
               ),
           ],
@@ -442,7 +448,7 @@ class _ChatOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
-    return ListTile(
+    return StreamListTile(
       leading: option.icon != null ? Icon(option.icon, color: theme.chatOptionIconColor) : null,
       title: Text(option.text),
       subtitle: option.description != null ? Text(option.description!) : null,

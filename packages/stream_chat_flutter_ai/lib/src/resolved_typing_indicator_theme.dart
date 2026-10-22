@@ -6,16 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
-
-const _kDefaultDotSize = 8.0;
-const _kDefaultDotCount = 3;
-const _kDefaultDotSpacing = 4.0;
+import 'package:stream_core_flutter/chat.dart';
 
 /// A [TypingIndicatorThemeData] with every field resolved.
 ///
 /// Internal. Resolution order is: the widget's own parameters, then the nearest
 /// [TypingIndicatorTheme], then [AITheme.typingIndicatorTheme], then defaults
-/// derived from the ambient [ThemeData].
+/// derived from the Stream theme ([StreamTheme]).
 @immutable
 @internal
 class ResolvedTypingIndicatorTheme {
@@ -23,7 +20,6 @@ class ResolvedTypingIndicatorTheme {
     required this.textStyle,
     required this.dotColor,
     required this.dotSize,
-    required this.dotCount,
     required this.dotSpacing,
   });
 
@@ -38,11 +34,11 @@ class ResolvedTypingIndicatorTheme {
   /// they are clamped to zero, so a release build draws nothing rather than
   /// throwing at layout.
   factory ResolvedTypingIndicatorTheme.resolve(BuildContext context, {TypingIndicatorThemeData? override}) {
-    final theme = Theme.of(context);
+    final colors = context.streamColorScheme;
     final data = TypingIndicatorTheme.of(context);
 
-    final defaultColor = theme.colorScheme.onSurfaceVariant;
-    final base = (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(color: defaultColor);
+    final defaultColor = colors.textSecondary;
+    final base = context.streamTextTheme.bodyDefault.copyWith(color: defaultColor);
     var textStyle = mergeTextStyle(mergeTextStyle(base, data.textStyle), override?.textStyle);
     // An `inherit: false` override replaces the base outright, color and all.
     if (textStyle.color == null) textStyle = textStyle.copyWith(color: defaultColor);
@@ -50,11 +46,12 @@ class ResolvedTypingIndicatorTheme {
     return ResolvedTypingIndicatorTheme._(
       textStyle: textStyle,
       dotColor: override?.dotColor ?? data.dotColor ?? textStyle.color!,
-      dotSize: math.max<double>(0, override?.dotSize ?? data.dotSize ?? _kDefaultDotSize),
-      dotCount: math.max(0, override?.dotCount ?? data.dotCount ?? _kDefaultDotCount),
-      dotSpacing: math.max<double>(0, override?.dotSpacing ?? data.dotSpacing ?? _kDefaultDotSpacing),
+      dotSize: _nonNegative(override?.dotSize ?? data.dotSize),
+      dotSpacing: _nonNegative(override?.dotSpacing ?? data.dotSpacing),
     );
   }
+
+  static double? _nonNegative(double? value) => value == null ? null : math.max(0, value);
 
   /// See [TypingIndicatorThemeData.textStyle]. Always carries a color.
   final TextStyle textStyle;
@@ -63,13 +60,10 @@ class ResolvedTypingIndicatorTheme {
   final Color dotColor;
 
   /// See [TypingIndicatorThemeData.dotSize].
-  final double dotSize;
-
-  /// See [TypingIndicatorThemeData.dotCount].
-  final int dotCount;
+  final double? dotSize;
 
   /// See [TypingIndicatorThemeData.dotSpacing].
-  final double dotSpacing;
+  final double? dotSpacing;
 
   @override
   bool operator ==(Object other) {
@@ -78,10 +72,9 @@ class ResolvedTypingIndicatorTheme {
         other.textStyle == textStyle &&
         other.dotColor == dotColor &&
         other.dotSize == dotSize &&
-        other.dotCount == dotCount &&
         other.dotSpacing == dotSpacing;
   }
 
   @override
-  int get hashCode => Object.hash(textStyle, dotColor, dotSize, dotCount, dotSpacing);
+  int get hashCode => Object.hash(textStyle, dotColor, dotSize, dotSpacing);
 }

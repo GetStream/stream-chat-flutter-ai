@@ -5,11 +5,14 @@ import 'package:stream_chat_flutter_ai/src/composer/suggestions_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// Overrides for how [AISuggestionsView] draws its chips.
 ///
-/// Every field is nullable, and `null` means "derive it from the ambient
-/// [ThemeData]" — so a host overrides what it cares about and the rest keeps
+/// Every field is nullable, and `null` means "derive it from the Stream theme"
+/// ([StreamTheme], which falls back to Stream's defaults for the app's
+/// brightness when the app sets none) — so a host overrides what it cares about and the rest keeps
 /// following the app.
 ///
 /// ```dart
@@ -34,17 +37,17 @@ class SuggestionsThemeData with Diagnosticable {
   /// Creates a [SuggestionsThemeData].
   const SuggestionsThemeData({this.backgroundColor, this.borderColor, this.textStyle});
 
-  /// The fill behind a chip. Falls back to [ColorScheme.surfaceContainerHigh],
-  /// matching [ComposerThemeData.fillColor]'s default.
+  /// The fill behind a chip. Transparent by default, like
+  /// [ComposerThemeData.fillColor], so a chip is outlined by [borderColor].
   final Color? backgroundColor;
 
-  /// The hairline around a chip. Falls back to [ColorScheme.outlineVariant],
-  /// matching [ComposerThemeData.borderColor]'s default.
+  /// The hairline around a chip. Falls back to the Stream theme's
+  /// `borderDefault`, matching [ComposerThemeData.borderColor]'s default.
   final Color? borderColor;
 
-  /// The style of a chip's text, merged over the ambient [DefaultTextStyle] in
-  /// [ColorScheme.onSurface]: a style that sets only a weight keeps the app's
-  /// font, size and that color. An `inherit: false` style replaces the rest,
+  /// The style of a chip's text, merged over the Stream theme's `bodyDefault`
+  /// in `textPrimary` (itself over the ambient [DefaultTextStyle]): a style
+  /// that sets only a weight keeps that font, size and color. An `inherit: false` style replaces the rest,
   /// but still keeps that color unless it sets its own.
   ///
   /// Chips are measured before they are laid out — each one shrinks to fit its
@@ -143,7 +146,7 @@ class SuggestionsTheme extends InheritedTheme {
   /// over [AITheme]'s.
   ///
   /// Depends on both, so the chips repaint when either changes. Never `null`;
-  /// with neither present every field derives from the ambient [ThemeData].
+  /// with neither present every field derives from the Stream theme.
   static SuggestionsThemeData of(BuildContext context) {
     final local = context.dependOnInheritedWidgetOfExactType<SuggestionsTheme>();
     return AITheme.of(context).suggestionsTheme.merge(local?.data);

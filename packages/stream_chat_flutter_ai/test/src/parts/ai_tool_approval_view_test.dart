@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/dropped_answer_report.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 const _allow = AIToolApprovalDecision.allowed;
 const _decline = AIToolApprovalDecision.declined;
 const _notSent = "Your answer couldn't be sent. Try again.";
@@ -94,6 +96,10 @@ ButtonStyleButton _button(WidgetTester tester, String label) => tester.widget<Bu
 );
 
 bool _enabled(WidgetTester tester, String label) => _button(tester, label).onPressed != null;
+
+/// The allow and decline buttons.
+final _allowButton = find.ancestor(of: find.text('Allow'), matching: find.byType(StreamButton));
+final _declineButton = find.ancestor(of: find.text("Don't Allow"), matching: find.byType(StreamButton));
 
 void main() {
   group('AIClientIdentity', () {
@@ -402,7 +408,7 @@ void main() {
         testWidgets(description, (tester) async {
           await tester.pumpWidget(_wrap(AIToolApprovalView(call: call, approver: approver(_FakeBackend()))));
           expect(_card, findsNothing);
-          expect(find.byType(FilledButton), findsNothing);
+          expect(find.byType(StreamButton), findsNothing);
           expect(tester.getSize(find.byType(AIToolApprovalView)).height, 0);
         });
       }
@@ -520,10 +526,12 @@ void main() {
         await tester.tap(find.text('Allow'));
         await tester.pump();
 
-        final allow = tester.getSemantics(find.byType(FilledButton));
+        // StreamButton merges its contents into one node, so read the merged
+        // data rather than the node's own.
+        final allow = tester.getSemantics(_allowButton).getSemanticsData();
         expect(allow.label, contains('Sending your answer…'));
         expect(allow.flagsCollection.isEnabled, Tristate.isFalse);
-        expect(tester.getSemantics(find.byType(OutlinedButton)).flagsCollection.isEnabled, Tristate.isFalse);
+        expect(tester.getSemantics(_declineButton).getSemanticsData().flagsCollection.isEnabled, Tristate.isFalse);
         semantics.dispose();
       });
 
@@ -553,10 +561,10 @@ void main() {
         expect(_enabled(tester, "Don't Allow"), isFalse);
         // The pressed button shows the progress; reduced motion makes it still.
         expect(
-          find.descendant(of: find.byType(OutlinedButton), matching: find.byIcon(Icons.more_horiz_rounded)),
+          find.descendant(of: _declineButton, matching: find.byIcon(_icons.moreHorizontal)),
           findsOneWidget,
         );
-        expect(find.descendant(of: find.byType(FilledButton), matching: find.byType(Icon)), findsNothing);
+        expect(find.descendant(of: _allowButton, matching: find.byType(Icon)), findsNothing);
 
         await tester.tap(find.text('Allow'), warnIfMissed: false);
         await tester.tap(find.text("Don't Allow"), warnIfMissed: false);
@@ -570,11 +578,11 @@ void main() {
         await tester.pump();
         expect(backend.answers, [('call_1', _allow)]);
         expect(
-          find.descendant(of: find.byType(FilledButton), matching: find.byType(CircularProgressIndicator)),
+          find.descendant(of: _allowButton, matching: find.byType(StreamLoadingSpinner)),
           findsOneWidget,
         );
         expect(
-          find.descendant(of: find.byType(OutlinedButton), matching: find.byType(CircularProgressIndicator)),
+          find.descendant(of: _declineButton, matching: find.byType(StreamLoadingSpinner)),
           findsNothing,
         );
       });
@@ -644,7 +652,7 @@ void main() {
         backend.pending.single.complete();
         await tester.pump();
         expect(find.text('Sent'), findsOneWidget);
-        expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+        expect(find.byIcon(_icons.checkmark), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing, reason: 'no spinner once sent');
         expect(_enabled(tester, 'Allow'), isFalse, reason: 'sent, but the step has not changed yet');
 
@@ -958,21 +966,23 @@ void main() {
         return (box.decoration as BoxDecoration).color;
       }
 
-      testWidgets('defaults derive from the color scheme', (tester) async {
+      testWidgets('defaults derive from the Stream theme', (tester) async {
         final theme = ThemeData();
+        final streamTheme = StreamTheme.light();
+        final colors = streamTheme.colorScheme;
         await tester.pumpWidget(
           _wrap(
             AIToolApprovalView(call: _call(), approver: approver),
             theme: theme,
           ),
         );
-        expect(background(tester), theme.colorScheme.surfaceContainerLow);
+        expect(background(tester), colors.backgroundSurfaceCard);
         final title = tester.widget<Text>(find.text('Send the summary by email?'));
-        expect(title.style?.color, theme.colorScheme.onSurface);
-        expect(title.style?.fontWeight, FontWeight.w600);
+        expect(title.style?.color, colors.textPrimary);
+        expect(title.style?.fontWeight, streamTheme.textTheme.bodyEmphasis.fontWeight);
         final allow = _button(tester, 'Allow').style!;
-        expect(allow.backgroundColor?.resolve({}), theme.colorScheme.primary);
-        expect(allow.foregroundColor?.resolve({}), theme.colorScheme.onPrimary);
+        expect(allow.backgroundColor?.resolve({}), colors.accentPrimary);
+        expect(allow.foregroundColor?.resolve({}), colors.textOnAccent);
       });
 
       testWidgets('resolves the widget, then the scope, then AITheme', (tester) async {
@@ -1040,7 +1050,7 @@ void main() {
         final message = tester.widget<Text>(find.text('It goes to you only.')).style!;
         expect(message.inherit, isFalse);
         expect(message.fontSize, 9);
-        expect(message.color, theme.colorScheme.onSurfaceVariant);
+        expect(message.color, StreamTheme.light().colorScheme.textSecondary);
       });
     });
 

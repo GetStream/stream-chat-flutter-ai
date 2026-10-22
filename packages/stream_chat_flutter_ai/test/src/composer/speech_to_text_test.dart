@@ -9,6 +9,8 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text_platform_interface/speech_to_text_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 /// A [SpeechToTextPlatform] that records what it was asked to do and lets the
 /// test drive results and status changes back into the plugin.
 class _FakeSpeechPlatform extends SpeechToTextPlatform {
@@ -278,10 +280,10 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
 
-      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.stopFill), findsOneWidget);
 
       // The first recognised word gives the field content. The trailing control
       // used to morph into send at this point, disposing the mic — which
@@ -290,16 +292,16 @@ void main() {
       await settle(tester);
 
       expect(controller.text, 'hello');
-      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
+      expect(find.byIcon(_icons.stopFill), findsOneWidget);
+      expect(find.byIcon(_icons.arrowUp), findsNothing);
       expect(platform.cancelCalls, 0);
       expect(SpeechToTextController.instance.isListening, isTrue);
 
       // Stopping hands the field back to the send button.
-      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await tester.tap(find.byIcon(_icons.stopFill));
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.arrowUp), findsOneWidget);
     });
 
     testWidgets('stopping before the engine reports anything still fills the field', (tester) async {
@@ -316,12 +318,12 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
 
       // Stopped within the first couple of seconds, before any partial — on a
       // Galaxy A05s the first one takes ~3.3s.
-      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await tester.tap(find.byIcon(_icons.stopFill));
       await settle(tester);
 
       expect(SpeechToTextController.instance.isListening, isFalse);
@@ -362,11 +364,11 @@ void main() {
       // The session is owned by the process, not by the button, so a rebuilt
       // mic still reflects and controls it — every instance after the first
       // used to render a mic that no status callback ever reached.
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
 
       expect(SpeechToTextController.instance.isListening, isTrue);
-      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.stopFill), findsOneWidget);
 
       await endSession(tester);
     });
@@ -389,7 +391,7 @@ void main() {
       // reach the mic through a custom slot — the same widget the composer
       // builds, just placed where content doesn't displace it.
       await tester.pumpWidget(_wrap(SpeechToTextButton(controller: controller)));
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
 
       platform.emitWords('and spoken');
@@ -426,7 +428,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
       expect(SpeechToTextController.instance.isListening, isTrue);
 
@@ -453,7 +455,7 @@ void main() {
 
       expect(find.byType(SpeechToTextButton), findsNothing);
       final sendButton = tester.widget<ComposerActionButton>(find.byType(ComposerActionButton));
-      expect(sendButton.icon, Icons.arrow_upward_rounded);
+      expect(sendButton.icon, _icons.arrowUp);
       expect(sendButton.onPressed, isNotNull);
     });
 
@@ -481,7 +483,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
       expect(SpeechToTextController.instance.isListening, isTrue);
 
@@ -524,7 +526,7 @@ void main() {
       }
 
       await tester.pumpWidget(build(showInput: true));
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
       expect(SpeechToTextController.instance.isListening, isTrue);
 
@@ -546,7 +548,7 @@ void main() {
         _wrap(ChatComposer(enableSpeechToText: true, onSendPressed: (_, _, _) {})),
       );
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
       expect(SpeechToTextController.instance.isListening, isTrue);
 
@@ -564,9 +566,9 @@ void main() {
       // disposing the controller regardless, so navigating away mid-dictation
       // crashed with "A TextEditingController was used after being disposed"
       // when the session's final transcript landed.
-      await tester.pumpWidget(_wrap(ChatComposer(factory: _MicFactory(), onSendPressed: (_, _, _) {})));
+      await tester.pumpWidget(_wrap(_slotted(_MicFactory(), ChatComposer(onSendPressed: (_, _, _) {}))));
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
       expect(SpeechToTextController.instance.isListening, isTrue);
 
@@ -586,15 +588,12 @@ void main() {
   group('SpeechToTextButton theming', () {
     Future<void> settle(WidgetTester tester) => tester.pump(const Duration(milliseconds: 200));
 
-    Color? micFill(WidgetTester tester) {
-      final box = tester.widget<DecoratedBox>(
-        find.ancestor(of: find.byType(InkWell), matching: find.byType(DecoratedBox)).first,
-      );
-      return (box.decoration as BoxDecoration).color;
-    }
+    Color? micFill(WidgetTester tester) => tester
+        .widget<Material>(find.descendant(of: find.byType(ComposerActionButton), matching: find.byType(Material)))
+        .color;
 
-    testWidgets('idles in sendButtonColor and listens in recordingButtonColor', (tester) async {
-      const send = Color(0xFF123456);
+    testWidgets('idles as a ghost button in iconColor and listens in recordingButtonColor', (tester) async {
+      const icon = Color(0xFF123456);
       const recording = Color(0xFF654321);
       final controller = ChatComposerController();
       addTearDown(controller.dispose);
@@ -602,20 +601,26 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           ComposerTheme(
-            data: const ComposerThemeData(sendButtonColor: send, recordingButtonColor: recording),
+            data: const ComposerThemeData(iconColor: icon, recordingButtonColor: recording),
             child: SpeechToTextButton(controller: controller),
           ),
         ),
       );
 
-      // Idle, the mic takes the send button's slot and its color, so the two
-      // read as one control morphing in place.
-      expect(micFill(tester), send);
+      // Idle, the mic is a quiet ghost button: no fill, and its glyph in the
+      // composer's icon color.
+      expect(find.byType(ComposerActionButton), findsNothing);
+      final mic = find.byIcon(_icons.voice);
+      expect(
+        tester.widget<StreamButton>(find.ancestor(of: mic, matching: find.byType(StreamButton))).props.type,
+        StreamButtonType.ghost,
+      );
+      expect(IconTheme.of(tester.element(mic)).color, icon);
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
 
-      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.stopFill), findsOneWidget);
       expect(micFill(tester), recording);
 
       await SpeechToTextController.instance.stop();
@@ -645,7 +650,7 @@ void main() {
 
       expect(find.byTooltip('SPREEK'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);
 
       expect(find.byTooltip('KOP DICHT'), findsOneWidget);
@@ -671,8 +676,36 @@ class _TestTranslations extends DefaultAITranslations {
 
 /// Places the mic in the leading slot, exactly as [SpeechToTextButton]'s class
 /// documentation shows.
-class _MicFactory extends ChatComposerFactory {
+class _MicFactory extends _Slots {
   @override
-  Widget buildLeading(BuildContext context, ChatComposerLeadingProps props) =>
+  Widget? leading(BuildContext context, ChatComposerLeadingProps props) =>
       SpeechToTextButton(controller: props.controller);
 }
+
+/// The composer's slots for a test, registered through
+/// [streamAIComponentBuilders]. A slot left `null` keeps its default.
+abstract class _Slots {
+  Widget? leading(BuildContext context, ChatComposerLeadingProps props) => null;
+
+  Widget? trailing(BuildContext context, ChatComposerTrailingProps props) => null;
+
+  Widget? input(BuildContext context, ChatComposerInputProps props) => null;
+
+  Widget? attachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) => null;
+
+  /// Whether to register [trailing], which has no default to fall back to.
+  bool get hasTrailing => false;
+
+  StreamComponentBuilders get builders => StreamComponentBuilders(
+    extensions: streamAIComponentBuilders(
+      composerLeading: (context, props) => leading(context, props) ?? ComposerAttachmentButton(props: props),
+      composerTrailing: hasTrailing ? (context, props) => trailing(context, props)! : null,
+      composerInput: (context, props) => input(context, props) ?? ChatComposerInput(props: props),
+      composerAttachmentSheet: (context, props) =>
+          attachmentSheet(context, props) ??
+          ComposerAttachmentSheet(controller: props.controller, scrollController: props.scrollController),
+    ),
+  );
+}
+
+Widget _slotted(_Slots slots, Widget child) => StreamComponentFactory(builders: slots.builders, child: child);

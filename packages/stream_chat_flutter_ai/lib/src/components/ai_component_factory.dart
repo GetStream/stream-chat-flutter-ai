@@ -1,9 +1,13 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
@@ -24,234 +28,113 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
-/// Provides [AIComponentBuilders] to the widgets below it, to replace the
-/// components this package builds inside its own widgets: code blocks and
-/// charts in markdown, agent steps, the tool approval card, the messages of an
-/// [AIConversationView] and the composer's slots.
+/// The builders that replace the components this package builds inside its
+/// own widgets: code blocks and charts in markdown, agent steps, the tool
+/// approval card, the messages of an [AIConversationView] and the composer's
+/// slots.
+///
+/// Each builder is registered as a [StreamComponentBuilderExtension] keyed by
+/// its props type. Pass them to a [StreamComponentFactory] as `extensions`,
+/// next to Stream Chat's own when the app uses both:
 ///
 /// ```dart
-/// AIComponentFactory(
-///   builders: AIComponentBuilders(
-///     codeBlock: (context, props) => MyCodeBlock(code: props.code),
+/// StreamComponentFactory(
+///   builders: StreamComponentBuilders(
+///     extensions: [
+///       ...streamChatComponentBuilders(...),
+///       ...streamAIComponentBuilders(
+///         codeBlock: (context, props) => MyCodeBlock(code: props.code),
+///       ),
+///     ],
 ///   ),
 ///   child: MaterialApp(...),
 /// )
 /// ```
 ///
-/// The nearest factory wins: a nested one replaces its parent's builders
-/// rather than merging with them. Per-widget builders such as
-/// [AIMessagePartsView.partBuilder] are asked before the factory.
-class AIComponentFactory extends InheritedTheme {
-  /// Creates an [AIComponentFactory].
-  const AIComponentFactory({super.key, required this.builders, required super.child});
-
-  /// The builders provided to the subtree.
-  final AIComponentBuilders builders;
-
-  /// The builders of the nearest [AIComponentFactory] above [context], or
-  /// empty ones, which leave every component to its default, when there is
-  /// none.
-  static AIComponentBuilders of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<AIComponentFactory>()?.builders ?? const AIComponentBuilders();
-  }
-
-  @override
-  Widget wrap(BuildContext context, Widget child) => AIComponentFactory(builders: builders, child: child);
-
-  @override
-  bool updateShouldNotify(AIComponentFactory oldWidget) => builders != oldWidget.builders;
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<AIComponentBuilders>('builders', builders));
-  }
-}
-
-/// Builds a widget from a [BuildContext] and typed props.
-typedef AIComponentBuilder<T> = Widget Function(BuildContext context, T props);
-
-/// The builders an [AIComponentFactory] provides. Each is nullable: when
-/// `null`, its component uses its default.
+/// A builder left out keeps its default. The nearest factory wins: a nested
+/// one replaces its parent's builders rather than merging with them.
+/// Per-widget builders such as [AIMessagePartsView.partBuilder] are asked
+/// before the factory.
 ///
 /// From [reasoning], [toolCall] and [unsupportedPart], return
 /// [AIMessagePartsView.hidden] to leave the part out of the list.
 ///
-/// Builders are compared by identity, so keep the instance stable, ideally
-/// `const` with top-level or static functions: a new one rebuilds every widget
-/// that reads it.
-@immutable
-class AIComponentBuilders with Diagnosticable {
-  /// Creates [AIComponentBuilders]. A builder left out keeps its default.
-  const AIComponentBuilders({
-    this.codeBlock,
-    this.chart,
-    this.reasoning,
-    this.toolCall,
-    this.toolApproval,
-    this.unsupportedPart,
-    this.userMessage,
-    this.assistantMessage,
-    this.replyActions,
-    this.messageAttachment,
-    this.composer,
-  });
+/// The builders:
+///
+/// * [codeBlock]: a non-chart code fence in markdown. Defaults to
+///   [CodeBlockView].
+/// * [chart]: a code fence that parsed as chart data. Defaults to [ChartView].
+/// * [reasoning]: a round of reasoning in [AIMessagePartsView]. Defaults to
+///   [StreamingReasoningView.part].
+/// * [toolCall]: a tool call's row in [AIMessagePartsView]. Defaults to
+///   [AIToolCallView]. Only the row: its approval question comes from
+///   [toolApproval], and is still asked when this returns
+///   [AIMessagePartsView.hidden].
+/// * [toolApproval]: the question an [AIToolApprovalView] asks. Defaults to
+///   [AIToolApprovalCard]. Return `const SizedBox.shrink()` to ask nothing.
+/// * [unsupportedPart]: a part this package can't read. Defaults to
+///   [AIUnsupportedPartView].
+/// * [userMessage] and [assistantMessage]: the rows of an
+///   [AIConversationView]. Default to [AIUserMessageView] and
+///   [AIAssistantMessageView]. A row is built again only when what its
+///   [AIMessage] says changes, so read anything else that changes, such as a
+///   send status, from your own listenable.
+/// * [replyActions]: what the person can do with a finished reply, under it in
+///   [AIConversationView]. Nothing by default; an [AIReplyActionsView] is what
+///   to return.
+/// * [messageAttachment]: one of a message's attachments. Defaults to
+///   [AIMessageAttachmentView].
+/// * [composerLeading], [composerTrailing] and [composerInput]: the slots of a
+///   [ChatComposer]. Default to the "+" button, nothing, and
+///   [ChatComposerInput].
+/// * [composerAttachmentSheet]: the sheet the "+" button opens. Defaults to
+///   [ComposerAttachmentSheet].
+Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
+  StreamComponentBuilder<AICodeBlockProps>? codeBlock,
+  StreamComponentBuilder<AIChartProps>? chart,
+  StreamComponentBuilder<AIReasoningProps>? reasoning,
+  StreamComponentBuilder<AIToolCallProps>? toolCall,
+  StreamComponentBuilder<AIToolApprovalProps>? toolApproval,
+  StreamComponentBuilder<AIUnsupportedPartProps>? unsupportedPart,
+  StreamComponentBuilder<AIUserMessageProps>? userMessage,
+  StreamComponentBuilder<AIAssistantMessageProps>? assistantMessage,
+  StreamComponentBuilder<AIReplyActionsProps>? replyActions,
+  StreamComponentBuilder<AIMessageAttachmentProps>? messageAttachment,
+  StreamComponentBuilder<ChatComposerLeadingProps>? composerLeading,
+  StreamComponentBuilder<ChatComposerTrailingProps>? composerTrailing,
+  StreamComponentBuilder<ChatComposerInputProps>? composerInput,
+  StreamComponentBuilder<ChatComposerAttachmentSheetProps>? composerAttachmentSheet,
+}) {
+  final builders = [
+    if (codeBlock != null) StreamComponentBuilderExtension(builder: codeBlock),
+    if (chart != null) StreamComponentBuilderExtension(builder: chart),
+    if (reasoning != null) StreamComponentBuilderExtension(builder: reasoning),
+    if (toolCall != null) StreamComponentBuilderExtension(builder: toolCall),
+    if (toolApproval != null) StreamComponentBuilderExtension(builder: toolApproval),
+    if (unsupportedPart != null) StreamComponentBuilderExtension(builder: unsupportedPart),
+    if (userMessage != null) StreamComponentBuilderExtension(builder: userMessage),
+    if (assistantMessage != null) StreamComponentBuilderExtension(builder: assistantMessage),
+    if (replyActions != null) StreamComponentBuilderExtension(builder: replyActions),
+    if (messageAttachment != null) StreamComponentBuilderExtension(builder: messageAttachment),
+    if (composerLeading != null) StreamComponentBuilderExtension(builder: composerLeading),
+    if (composerTrailing != null) StreamComponentBuilderExtension(builder: composerTrailing),
+    if (composerInput != null) StreamComponentBuilderExtension(builder: composerInput),
+    if (composerAttachmentSheet != null) StreamComponentBuilderExtension(builder: composerAttachmentSheet),
+  ];
 
-  /// A non-chart code fence in markdown. Defaults to [CodeBlockView].
-  final AIComponentBuilder<AICodeBlockProps>? codeBlock;
-
-  /// A code fence in markdown that parsed as chart data. Defaults to
-  /// [ChartView].
-  final AIComponentBuilder<AIChartProps>? chart;
-
-  /// A round of reasoning in [AIMessagePartsView]. Defaults to
-  /// [StreamingReasoningView.part].
-  final AIComponentBuilder<AIReasoningProps>? reasoning;
-
-  /// A tool call's row in [AIMessagePartsView]. Defaults to [AIToolCallView].
-  ///
-  /// Only the row: the approval question under it comes from [toolApproval],
-  /// and is still asked when this returns [AIMessagePartsView.hidden].
-  final AIComponentBuilder<AIToolCallProps>? toolCall;
-
-  /// The question an [AIToolApprovalView] asks. Defaults to
-  /// [AIToolApprovalCard]. Return `const SizedBox.shrink()` to ask nothing.
-  final AIComponentBuilder<AIToolApprovalProps>? toolApproval;
-
-  /// A part this package can't read, in [AIMessagePartsView]. Defaults to
-  /// [AIUnsupportedPartView].
-  final AIComponentBuilder<AIUnsupportedPartProps>? unsupportedPart;
-
-  /// A message the person sent, in [AIConversationView]. Defaults to
-  /// [AIUserMessageView].
-  ///
-  /// The conversation builds a row again only when what [AIMessage] says about
-  /// it changes, so read anything else that changes, such as a send status,
-  /// from your own listenable rather than from the message.
-  final AIComponentBuilder<AIUserMessageProps>? userMessage;
-
-  /// A reply of the agent, in [AIConversationView]. Defaults to
-  /// [AIAssistantMessageView]. Like [userMessage], it is built again only when
-  /// what [AIMessage] says about the reply changes.
-  final AIComponentBuilder<AIAssistantMessageProps>? assistantMessage;
-
-  /// What the person can do with a finished reply, shown under it in
-  /// [AIConversationView] once its answer is typed out. Nothing by default; an
-  /// [AIReplyActionsView] is what to return:
-  ///
-  /// ```dart
-  /// replyActions: (context, props) => AIReplyActionsView(
-  ///   text: props.text,
-  ///   actions: AIReplyActions(onRegenerate: props.isLatestReply ? chat.regenerate : null),
-  /// ),
-  /// ```
-  final AIComponentBuilder<AIReplyActionsProps>? replyActions;
-
-  /// One of a message's attachments. Defaults to [AIMessageAttachmentView].
-  final AIComponentBuilder<AIMessageAttachmentProps>? messageAttachment;
-
-  /// The composer's slots, used by a `ChatComposer` given no factory of its
-  /// own. Defaults to [ChatComposerFactory].
-  final ChatComposerFactory? composer;
-
-  /// A copy with the given builders replaced. A `null` argument keeps the
-  /// current builder.
-  AIComponentBuilders copyWith({
-    AIComponentBuilder<AICodeBlockProps>? codeBlock,
-    AIComponentBuilder<AIChartProps>? chart,
-    AIComponentBuilder<AIReasoningProps>? reasoning,
-    AIComponentBuilder<AIToolCallProps>? toolCall,
-    AIComponentBuilder<AIToolApprovalProps>? toolApproval,
-    AIComponentBuilder<AIUnsupportedPartProps>? unsupportedPart,
-    AIComponentBuilder<AIUserMessageProps>? userMessage,
-    AIComponentBuilder<AIAssistantMessageProps>? assistantMessage,
-    AIComponentBuilder<AIReplyActionsProps>? replyActions,
-    AIComponentBuilder<AIMessageAttachmentProps>? messageAttachment,
-    ChatComposerFactory? composer,
-  }) => AIComponentBuilders(
-    codeBlock: codeBlock ?? this.codeBlock,
-    chart: chart ?? this.chart,
-    reasoning: reasoning ?? this.reasoning,
-    toolCall: toolCall ?? this.toolCall,
-    toolApproval: toolApproval ?? this.toolApproval,
-    unsupportedPart: unsupportedPart ?? this.unsupportedPart,
-    userMessage: userMessage ?? this.userMessage,
-    assistantMessage: assistantMessage ?? this.assistantMessage,
-    replyActions: replyActions ?? this.replyActions,
-    messageAttachment: messageAttachment ?? this.messageAttachment,
-    composer: composer ?? this.composer,
-  );
-
-  /// These builders with [other]'s set ones layered on top, such as to add to
-  /// an enclosing factory's builders.
-  AIComponentBuilders merge(AIComponentBuilders? other) {
-    if (other == null || identical(this, other)) return this;
-    return copyWith(
-      codeBlock: other.codeBlock,
-      chart: other.chart,
-      reasoning: other.reasoning,
-      toolCall: other.toolCall,
-      toolApproval: other.toolApproval,
-      unsupportedPart: other.unsupportedPart,
-      userMessage: other.userMessage,
-      assistantMessage: other.assistantMessage,
-      replyActions: other.replyActions,
-      messageAttachment: other.messageAttachment,
-      composer: other.composer,
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties
-      ..add(FlagProperty('codeBlock', value: codeBlock != null, ifTrue: 'custom codeBlock'))
-      ..add(FlagProperty('chart', value: chart != null, ifTrue: 'custom chart'))
-      ..add(FlagProperty('reasoning', value: reasoning != null, ifTrue: 'custom reasoning'))
-      ..add(FlagProperty('toolCall', value: toolCall != null, ifTrue: 'custom toolCall'))
-      ..add(FlagProperty('toolApproval', value: toolApproval != null, ifTrue: 'custom toolApproval'))
-      ..add(FlagProperty('unsupportedPart', value: unsupportedPart != null, ifTrue: 'custom unsupportedPart'))
-      ..add(FlagProperty('userMessage', value: userMessage != null, ifTrue: 'custom userMessage'))
-      ..add(FlagProperty('assistantMessage', value: assistantMessage != null, ifTrue: 'custom assistantMessage'))
-      ..add(FlagProperty('replyActions', value: replyActions != null, ifTrue: 'custom replyActions'))
-      ..add(FlagProperty('messageAttachment', value: messageAttachment != null, ifTrue: 'custom messageAttachment'))
-      ..add(DiagnosticsProperty<ChatComposerFactory>('composer', composer, defaultValue: null));
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AIComponentBuilders &&
-          other.codeBlock == codeBlock &&
-          other.chart == chart &&
-          other.reasoning == reasoning &&
-          other.toolCall == toolCall &&
-          other.toolApproval == toolApproval &&
-          other.unsupportedPart == unsupportedPart &&
-          other.userMessage == userMessage &&
-          other.assistantMessage == assistantMessage &&
-          other.replyActions == replyActions &&
-          other.messageAttachment == messageAttachment &&
-          other.composer == composer;
-
-  @override
-  int get hashCode => Object.hash(
-    codeBlock,
-    chart,
-    reasoning,
-    toolCall,
-    toolApproval,
-    unsupportedPart,
-    userMessage,
-    assistantMessage,
-    replyActions,
-    messageAttachment,
-    composer,
-  );
+  return builders;
 }
 
-/// What [AIComponentBuilders.codeBlock] gets.
+/// Reads the builders [streamAIComponentBuilders] registered.
+extension StreamAIComponentBuildersExtension on BuildContext {
+  /// The builder registered for props of type [T] in the nearest
+  /// [StreamComponentFactory], or `null` to use the default.
+  StreamComponentBuilder<T>? aiComponentBuilder<T>() => StreamComponentFactory.of(this).extension<T>();
+}
+
+/// What the `codeBlock` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AICodeBlockProps {
   /// Creates an [AICodeBlockProps].
@@ -270,7 +153,7 @@ final class AICodeBlockProps {
   final CodeBlockThemeData? theme;
 }
 
-/// What [AIComponentBuilders.chart] gets.
+/// What the `chart` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIChartProps {
   /// Creates an [AIChartProps].
@@ -280,7 +163,7 @@ final class AIChartProps {
   final USpec spec;
 }
 
-/// What [AIComponentBuilders.reasoning] gets.
+/// What the `reasoning` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIReasoningProps {
   /// Creates an [AIReasoningProps].
@@ -297,7 +180,7 @@ final class AIReasoningProps {
   final Duration? duration;
 }
 
-/// What [AIComponentBuilders.toolCall] gets.
+/// What the `toolCall` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIToolCallProps {
   /// Creates an [AIToolCallProps].
@@ -307,7 +190,7 @@ final class AIToolCallProps {
   final AIToolCallPart call;
 }
 
-/// What [AIComponentBuilders.unsupportedPart] gets.
+/// What the `unsupportedPart` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIUnsupportedPartProps {
   /// Creates an [AIUnsupportedPartProps].
@@ -317,7 +200,7 @@ final class AIUnsupportedPartProps {
   final AIMessagePart part;
 }
 
-/// What [AIComponentBuilders.toolApproval] gets.
+/// What the `toolApproval` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIToolApprovalProps {
   /// Creates an [AIToolApprovalProps].
@@ -348,7 +231,7 @@ final class AIToolApprovalProps {
   final ToolApprovalThemeData? theme;
 }
 
-/// What [AIComponentBuilders.userMessage] gets.
+/// What the `userMessage` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIUserMessageProps {
   /// Creates an [AIUserMessageProps].
@@ -368,7 +251,7 @@ final class AIUserMessageProps {
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 }
 
-/// What [AIComponentBuilders.assistantMessage] gets.
+/// What the `assistantMessage` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIAssistantMessageProps {
   /// Creates an [AIAssistantMessageProps].
@@ -397,7 +280,7 @@ final class AIAssistantMessageProps {
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 }
 
-/// What [AIComponentBuilders.replyActions] gets.
+/// What the `replyActions` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIReplyActionsProps {
   /// Creates an [AIReplyActionsProps].
@@ -414,7 +297,7 @@ final class AIReplyActionsProps {
   final bool isLatestReply;
 }
 
-/// What [AIComponentBuilders.messageAttachment] gets.
+/// What the `messageAttachment` builder of [streamAIComponentBuilders] gets.
 @immutable
 final class AIMessageAttachmentProps {
   /// Creates an [AIMessageAttachmentProps].

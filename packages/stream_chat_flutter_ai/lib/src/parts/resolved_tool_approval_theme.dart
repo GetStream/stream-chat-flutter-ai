@@ -5,12 +5,13 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: [ToolApprovalTheme.of] supplies the themed fields.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// A [ToolApprovalThemeData] with every field resolved.
 ///
 /// Internal. Resolution order is: the widget's own parameters, then the nearest
 /// [ToolApprovalTheme], then [AITheme.toolApprovalTheme], then defaults derived
-/// from the ambient [ThemeData].
+/// from the Stream theme ([StreamTheme]).
 @immutable
 @internal
 class ResolvedToolApprovalTheme {
@@ -31,8 +32,8 @@ class ResolvedToolApprovalTheme {
   /// theme's rather than replacing them, so a widget passing only a font size
   /// keeps the themed color.
   factory ResolvedToolApprovalTheme.resolve(BuildContext context, {ToolApprovalThemeData? override}) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
     final data = ToolApprovalTheme.of(context);
 
     TextStyle resolveStyle(TextStyle? base, Color color, TextStyle? themed, TextStyle? local) {
@@ -42,32 +43,32 @@ class ResolvedToolApprovalTheme {
       return style;
     }
 
-    final accentColor = override?.accentColor ?? data.accentColor ?? colors.primary;
+    final accentColor = override?.accentColor ?? data.accentColor ?? colors.accentPrimary;
     return ResolvedToolApprovalTheme._(
       titleStyle: resolveStyle(
-        theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        colors.onSurface,
+        text.bodyEmphasis,
+        colors.textPrimary,
         data.titleStyle,
         override?.titleStyle,
       ),
       messageStyle: resolveStyle(
-        theme.textTheme.bodySmall,
-        colors.onSurfaceVariant,
+        text.captionDefault,
+        colors.textSecondary,
         data.messageStyle,
         override?.messageStyle,
       ),
-      backgroundColor: override?.backgroundColor ?? data.backgroundColor ?? colors.surfaceContainerLow,
-      borderColor: override?.borderColor ?? data.borderColor ?? colors.outlineVariant,
+      backgroundColor: override?.backgroundColor ?? data.backgroundColor ?? colors.backgroundSurfaceCard,
+      borderColor: override?.borderColor ?? data.borderColor ?? colors.borderDefault,
       accentColor: accentColor,
       // The scheme's own pairing when the accent is the scheme's, otherwise
       // whichever of black and white reads on it.
-      onAccentColor: accentColor == colors.primary
-          ? colors.onPrimary
+      onAccentColor: accentColor == colors.accentPrimary
+          ? colors.textOnAccent
           : switch (ThemeData.estimateBrightnessForColor(accentColor)) {
-              Brightness.dark => Colors.white,
-              Brightness.light => Colors.black,
+              Brightness.dark => const Color(0xFFFFFFFF),
+              Brightness.light => const Color(0xFF000000),
             },
-      failureStyle: resolveStyle(theme.textTheme.bodySmall, colors.error, data.failureStyle, override?.failureStyle),
+      failureStyle: resolveStyle(text.captionDefault, colors.accentError, data.failureStyle, override?.failureStyle),
     );
   }
 

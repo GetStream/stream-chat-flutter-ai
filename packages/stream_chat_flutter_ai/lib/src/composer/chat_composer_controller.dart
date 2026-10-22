@@ -31,13 +31,12 @@ class ChatComposerController extends ChangeNotifier {
   /// Creates an [ChatComposerController].
   ///
   /// [initialText] pre-fills the text field.
-  /// [chatOptions] sets the initial list of selectable options.
+  /// `chatOptions` sets the initial list of selectable options.
   ChatComposerController({
     String initialText = '',
-    List<ChatOption> chatOptions = const [],
+    this._chatOptions = const [],
     this.maxAttachments = 3,
   }) : assert(maxAttachments > 0, 'maxAttachments must be at least 1'),
-       _chatOptions = chatOptions,
        _textController = TextEditingController(text: initialText) {
     _textController.addListener(_onTextChanged);
   }

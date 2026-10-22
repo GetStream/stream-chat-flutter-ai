@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 /// Mirror the private keys `ChatComposer` stamps on the 8px gaps it inserts
@@ -205,7 +207,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.arrowUp), findsOneWidget);
       controller.dispose();
     });
 
@@ -220,7 +222,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.stopFill), findsOneWidget);
       controller.dispose();
     });
 
@@ -272,7 +274,7 @@ void main() {
       await tester.pump();
 
       // Tap send.
-      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.tap(find.byIcon(_icons.arrowUp));
       await tester.pump();
 
       expect(capturedText, equals('Hello AI'));
@@ -294,7 +296,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await tester.tap(find.byIcon(_icons.stopFill));
       await tester.pump();
       expect(stopped, isTrue);
       controller.dispose();
@@ -317,8 +319,8 @@ void main() {
       // isn't: the button used to hide itself until the platform recognizer had
       // initialized, so this passed while the trailing slot rendered nothing at
       // all — no mic and no send button either.
-      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsNothing);
+      expect(find.byIcon(_icons.voice), findsOneWidget);
+      expect(find.byIcon(_icons.arrowUp), findsNothing);
       controller.dispose();
     });
 
@@ -348,7 +350,7 @@ void main() {
 
       expect(calls, isEmpty, reason: 'mounting the composer must not ask for the microphone');
 
-      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await tester.tap(find.byIcon(_icons.voice));
       await tester.pump();
 
       expect(calls, contains('initialize'));
@@ -370,7 +372,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Hi');
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+      expect(find.byIcon(_icons.arrowUp), findsOneWidget);
       controller.dispose();
     });
 
@@ -386,9 +388,9 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byIcon(Icons.close), findsOneWidget);
+      expect(find.byIcon(_icons.xmarkSmall), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(_icons.xmarkSmall));
       await tester.pump();
 
       expect(controller.attachments, isEmpty);
@@ -403,11 +405,11 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byIcon(_icons.plus), findsOneWidget);
     });
 
     testWidgets('does not reserve a spacer for the absent trailing factory slot', (tester) async {
-      // Regression test: `buildTrailing` defaults to `null` (no widget), and
+      // Regression test: `trailing` defaults to `null` (no widget), and
       // the composer must only insert its 8px gap next to a slot that
       // actually renders something. Previously this was decided by comparing
       // the built widget against a `SizedBox.shrink()` sentinel, which is
@@ -435,9 +437,11 @@ void main() {
       // attachment.
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            factory: _TrailingSlotFactory(),
-            onSendPressed: (_, __, ___) {},
+          _slotted(
+            _TrailingSlotFactory(),
+            ChatComposer(
+              onSendPressed: (_, __, ___) {},
+            ),
           ),
         ),
       );
@@ -462,9 +466,9 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(_icons.plus));
       // Not `pumpAndSettle` — the sheet shows an indeterminate
-      // `CircularProgressIndicator` while its (unmocked, platform-channel-based)
+      // `StreamLoadingSpinner` while its (unmocked, platform-channel-based)
       // photo permission/gallery check is in flight, which never "settles" on
       // its own. A bounded pump is enough to open the sheet; none of these
       // assertions depend on that photo section finishing loading.
@@ -486,9 +490,9 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(_icons.plus));
       // Not `pumpAndSettle` — the sheet shows an indeterminate
-      // `CircularProgressIndicator` while its (unmocked, platform-channel-based)
+      // `StreamLoadingSpinner` while its (unmocked, platform-channel-based)
       // photo permission/gallery check is in flight, which never "settles" on
       // its own. A bounded pump is enough to open the sheet; none of these
       // assertions depend on that photo section finishing loading.
@@ -497,12 +501,13 @@ void main() {
 
       await tester.tap(find.text('Deep research'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      // The sheet's route takes 500ms to animate out.
+      await tester.pump(const Duration(milliseconds: 600));
 
       expect(controller.selectedChatOption, equals(option));
       // The sheet's own option row is gone (it closed); the one remaining
       // "Deep research" is the composer's inline selected-option chip.
-      expect(find.byType(ListTile), findsNothing);
+      expect(find.byType(StreamListTile), findsNothing);
       expect(find.text('Deep research'), findsOneWidget);
       controller.dispose();
     });
@@ -516,34 +521,36 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(_icons.plus));
       // Not `pumpAndSettle` — the sheet shows an indeterminate
-      // `CircularProgressIndicator` while its (unmocked, platform-channel-based)
+      // `StreamLoadingSpinner` while its (unmocked, platform-channel-based)
       // photo permission/gallery check is in flight, which never "settles" on
       // its own. A bounded pump is enough to open the sheet; none of these
       // assertions depend on that photo section finishing loading.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.byType(ListTile), findsNothing);
+      expect(find.byType(StreamListTile), findsNothing);
       controller.dispose();
     });
   });
 
-  group('ChatComposerFactory', () {
+  group('composer slots', () {
     testWidgets('default input slot renders a ChatComposerInput', (tester) async {
       await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {})));
 
       expect(find.byType(ChatComposerInput), findsOneWidget);
     });
 
-    testWidgets('buildInput can wrap the default input', (tester) async {
+    testWidgets('composerInput can wrap the default input', (tester) async {
       var sent = false;
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            factory: _WrappingInputFactory(),
-            onSendPressed: (_, __, ___) => sent = true,
+          _slotted(
+            _WrappingInputFactory(),
+            ChatComposer(
+              onSendPressed: (_, __, ___) => sent = true,
+            ),
           ),
         ),
       );
@@ -558,24 +565,26 @@ void main() {
       // has both the disabled and the enabled send button on screen while it
       // cross-fades, and `tap` needs one target.
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
+      await tester.tap(find.byIcon(_icons.arrowUp));
       await tester.pump();
 
       expect(sent, isTrue);
     });
 
-    testWidgets('buildInput can replace the input and reuse the send wiring', (tester) async {
+    testWidgets('composerInput can replace the input and reuse the send wiring', (tester) async {
       final controller = ChatComposerController();
       final focusNode = FocusNode();
       String? sentText;
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            focusNode: focusNode,
-            factory: _ReplacementInputFactory(),
-            onSendPressed: (text, _, __) => sentText = text,
+          _slotted(
+            _ReplacementInputFactory(),
+            ChatComposer(
+              controller: controller,
+              focusNode: focusNode,
+              onSendPressed: (text, _, __) => sentText = text,
+            ),
           ),
         ),
       );
@@ -609,9 +618,11 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            factory: _ReplacementInputFactory(),
-            onSendPressed: (_, __, ___) => sends++,
+          _slotted(
+            _ReplacementInputFactory(),
+            ChatComposer(
+              onSendPressed: (_, __, ___) => sends++,
+            ),
           ),
         ),
       );
@@ -632,10 +643,12 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: _ReplacementInputFactory(),
-            onSendPressed: (_, __, ___) => sends++,
+          _slotted(
+            _ReplacementInputFactory(),
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) => sends++,
+            ),
           ),
         ),
       );
@@ -654,11 +667,13 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            allowSendWhileGenerating: true,
-            factory: _ReplacementInputFactory(),
-            onSendPressed: (text, _, __) => sentText = text,
+          _slotted(
+            _ReplacementInputFactory(),
+            ChatComposer(
+              controller: controller,
+              allowSendWhileGenerating: true,
+              onSendPressed: (text, _, __) => sentText = text,
+            ),
           ),
         ),
       );
@@ -681,11 +696,13 @@ void main() {
       Future<void> pump({required bool allow}) {
         return tester.pumpWidget(
           _wrap(
-            ChatComposer(
-              controller: controller,
-              allowSendWhileGenerating: allow,
-              factory: factory,
-              onSendPressed: (_, __, ___) => sends++,
+            _slotted(
+              factory,
+              ChatComposer(
+                controller: controller,
+                allowSendWhileGenerating: allow,
+                onSendPressed: (_, __, ___) => sends++,
+              ),
             ),
           ),
         );
@@ -722,11 +739,13 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: _ReplacementInputFactory(),
-            onSendPressed: (_, __, ___) {},
-            onStopPressed: () => stopped = true,
+          _slotted(
+            _ReplacementInputFactory(),
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) {},
+              onStopPressed: () => stopped = true,
+            ),
           ),
         ),
       );
@@ -746,10 +765,12 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: factory,
-            onSendPressed: (_, __, ___) {},
+          _slotted(
+            factory,
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) {},
+            ),
           ),
         ),
       );
@@ -759,7 +780,7 @@ void main() {
       // And the default input disables its stop button rather than offering
       // a dead one.
       final stopButton = tester.widget<ComposerActionButton>(find.byType(ComposerActionButton));
-      expect(stopButton.icon, equals(Icons.stop_rounded));
+      expect(stopButton.icon, equals(_icons.stopFill));
       expect(stopButton.onPressed, isNull);
       controller.dispose();
     });
@@ -777,10 +798,12 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: _ReplacementInputFactory(),
-            onSendPressed: (_, __, ___) async => throw StateError('send failed'),
+          _slotted(
+            _ReplacementInputFactory(),
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) async => throw StateError('send failed'),
+            ),
           ),
         ),
       );
@@ -793,23 +816,25 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('buildInput receives the composer controller, focus node and config', (tester) async {
+    testWidgets('composerInput receives the composer controller, focus node and config', (tester) async {
       final controller = ChatComposerController();
       final focusNode = FocusNode();
       final factory = _CapturingInputFactory();
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            focusNode: focusNode,
-            factory: factory,
-            hintText: 'Ask me',
-            minLines: 2,
-            maxLines: 4,
-            textInputAction: TextInputAction.send,
-            enableSpeechToText: true,
-            onSendPressed: (_, __, ___) {},
+          _slotted(
+            factory,
+            ChatComposer(
+              controller: controller,
+              focusNode: focusNode,
+              hintText: 'Ask me',
+              minLines: 2,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              enableSpeechToText: true,
+              onSendPressed: (_, __, ___) {},
+            ),
           ),
         ),
       );
@@ -840,7 +865,7 @@ void main() {
       final factory = _CapturingInputFactory();
 
       await tester.pumpWidget(
-        _wrap(ChatComposer(factory: factory, onSendPressed: (_, __, ___) {})),
+        _wrap(_slotted(factory, ChatComposer(onSendPressed: (_, __, ___) {}))),
       );
 
       expect(factory.captured!.hintText, isNull);
@@ -853,7 +878,7 @@ void main() {
       final factory = _CapturingInputFactory();
 
       await tester.pumpWidget(
-        _wrap(ChatComposer(factory: factory, hintText: 'Ask me', onSendPressed: (_, __, ___) {})),
+        _wrap(_slotted(factory, ChatComposer(hintText: 'Ask me', onSendPressed: (_, __, ___) {}))),
       );
 
       expect(factory.captured!.hintText, equals('Ask me'));
@@ -905,9 +930,9 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(_icons.plus));
       // Not `pumpAndSettle` — the default sheet shows an indeterminate
-      // `CircularProgressIndicator` while its (unmocked,
+      // `StreamLoadingSpinner` while its (unmocked,
       // platform-channel-based) photo permission/gallery check is in flight,
       // which never "settles" on its own.
       await tester.pump();
@@ -917,29 +942,31 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('buildAttachmentSheet replaces the sheet the default "+" button opens', (tester) async {
+    testWidgets('composerAttachmentSheet replaces the sheet the default "+" button opens', (tester) async {
       // Regression test for the plumbing that makes a sheet-only override
       // work: `_AttachmentButton` used to construct `ComposerAttachmentSheet`
       // itself, so a factory overriding just the sheet was silently ignored.
-      // The default `buildLeading` now hands the button the factory instance,
-      // and this factory leaves `buildLeading` alone — so the "+" below is
+      // The default `leading` now hands the button the factory instance,
+      // and this factory leaves `leading` alone — so the "+" below is
       // still the default button.
       final controller = ChatComposerController();
       final factory = _CustomSheetFactory();
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: factory,
-            onSendPressed: (_, __, ___) {},
+          _slotted(
+            factory,
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) {},
+            ),
           ),
         ),
       );
 
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byIcon(_icons.plus), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(_icons.plus));
       // `pumpAndSettle` is safe here, unlike in the test above: the
       // replacement sheet makes no platform-channel call, so there is nothing
       // left spinning once the modal's entrance animation finishes.
@@ -953,7 +980,7 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('buildTrailing can send, using the wiring every slot now carries', (tester) async {
+    testWidgets('composerTrailing can send, using the wiring every slot now carries', (tester) async {
       // The payoff of hanging focusNode/onSend/onStop off ChatComposerSlotProps
       // rather than ChatComposerInputProps alone: a control outside the input
       // pill can drive the composer. `stream_chat_flutter` puts its send button
@@ -963,10 +990,12 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: _TrailingSendFactory(),
-            onSendPressed: (text, _, __) => sentText = text,
+          _slotted(
+            _TrailingSendFactory(),
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (text, _, __) => sentText = text,
+            ),
           ),
         ),
       );
@@ -994,10 +1023,12 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: factory,
-            onSendPressed: (_, __, ___) => sends++,
+          _slotted(
+            factory,
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) => sends++,
+            ),
           ),
         ),
       );
@@ -1021,11 +1052,13 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: factory,
-            onSendPressed: (_, __, ___) {},
-            onStopPressed: () => stops++,
+          _slotted(
+            factory,
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) {},
+              onStopPressed: () => stops++,
+            ),
           ),
         ),
       );
@@ -1038,17 +1071,19 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('buildInput returning an Expanded is rejected', (tester) async {
+    testWidgets('composerInput returning an Expanded is rejected', (tester) async {
       // The composer already wraps the result in an Expanded. Nesting one
       // throws from a debug-only ParentDataWidget assert several frames away
       // from the factory that caused it, and mis-applies parent data in
-      // release — so buildInput's dartdoc forbids it and this pins the check
+      // release — so composerInput's dartdoc forbids it and this pins the check
       // that enforces it.
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            factory: _ExpandedInputFactory(),
-            onSendPressed: (_, __, ___) {},
+          _slotted(
+            _ExpandedInputFactory(),
+            ChatComposer(
+              onSendPressed: (_, __, ___) {},
+            ),
           ),
         ),
       );
@@ -1061,20 +1096,22 @@ void main() {
         isA<AssertionError>().having(
           (it) => it.message.toString(),
           'message',
-          contains('buildInput must not return an Expanded'),
+          contains('composerInput builder must not return an Expanded'),
         ),
       );
     });
 
-    testWidgets('buildTrailing receives the composer controller', (tester) async {
+    testWidgets('composerTrailing receives the composer controller', (tester) async {
       final controller = ChatComposerController();
 
       await tester.pumpWidget(
         _wrap(
-          ChatComposer(
-            controller: controller,
-            factory: _TrailingSlotFactory(),
-            onSendPressed: (_, __, ___) {},
+          _slotted(
+            _TrailingSlotFactory(),
+            ChatComposer(
+              controller: controller,
+              onSendPressed: (_, __, ___) {},
+            ),
           ),
         ),
       );
@@ -1122,7 +1159,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final sendButton = tester.widget<ComposerActionButton>(find.byType(ComposerActionButton));
-      expect(sendButton.icon, equals(Icons.arrow_upward_rounded));
+      expect(sendButton.icon, equals(_icons.arrowUp));
       expect(sendButton.onPressed, isNotNull);
 
       controller.dispose();
@@ -1253,7 +1290,7 @@ void main() {
 
       await tester.pumpWidget(
         _wrapTranslated(
-          ChatComposer(factory: factory, onSendPressed: (_, __, ___) {}),
+          _slotted(factory, ChatComposer(onSendPressed: (_, __, ___) {})),
         ),
       );
 
@@ -1352,7 +1389,8 @@ void main() {
       expect(find.byTooltip('STOP MAAR'), findsOneWidget);
     });
 
-    testWidgets('the attachment-thumbnail dismiss tooltip is translated', (tester) async {
+    testWidgets('the attachment-thumbnail dismiss label is translated', (tester) async {
+      final semantics = tester.ensureSemantics();
       final controller = ChatComposerController()..addAttachments([XFile('a.png')]);
       addTearDown(controller.dispose);
 
@@ -1363,7 +1401,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byTooltip('WEG ERMEE'), findsOneWidget);
+      // Core's remove control carries it as its semantics label, not a
+      // tooltip.
+      expect(find.bySemanticsLabel('WEG ERMEE'), findsOneWidget);
+      semantics.dispose();
     });
 
     testWidgets('the selected-option chip dismiss tooltip is translated, with the option interpolated', (tester) async {
@@ -1396,7 +1437,7 @@ void main() {
         _wrapTranslated(ChatComposer(onSendPressed: (_, __, ___) {})),
       );
 
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(_icons.plus));
       // Bounded pump rather than `pumpAndSettle` — see the note in the
       // ComposerAttachmentSheet group above.
       await tester.pump();
@@ -1467,33 +1508,38 @@ void main() {
 
 /// Renders something in the otherwise-empty trailing slot, so the composer's
 /// gap handling can be observed on both sides of the input.
-class _TrailingSlotFactory extends ChatComposerFactory {
+class _TrailingSlotFactory extends _Slots {
   @override
-  Widget buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
+  bool get hasTrailing => true;
+
+  @override
+  Widget? trailing(BuildContext context, ChatComposerTrailingProps props) {
     return Text('trailing:${props.controller.selectedChatOption?.text ?? ''}');
   }
 }
 
 /// Drives the composer from the trailing slot, which carries the same wiring
 /// the input slot does.
-class _TrailingSendFactory extends ChatComposerFactory {
+class _TrailingSendFactory extends _Slots {
   @override
-  Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
+  bool get hasTrailing => true;
+
+  @override
+  Widget? trailing(BuildContext context, ChatComposerTrailingProps props) {
     return TextButton(onPressed: props.onSend, child: const Text('send outside'));
   }
 }
 
-/// Violates the layout contract `buildInput`'s dartdoc states.
-class _ExpandedInputFactory extends ChatComposerFactory {
+/// Violates the layout contract `input`'s dartdoc states.
+class _ExpandedInputFactory extends _Slots {
   @override
-  Widget buildInput(BuildContext context, ChatComposerInputProps props) =>
-      Expanded(child: ChatComposerInput(props: props));
+  Widget? input(BuildContext context, ChatComposerInputProps props) => Expanded(child: ChatComposerInput(props: props));
 }
 
 /// Keeps the default input and decorates around it.
-class _WrappingInputFactory extends ChatComposerFactory {
+class _WrappingInputFactory extends _Slots {
   @override
-  Widget buildInput(BuildContext context, ChatComposerInputProps props) =>
+  Widget? input(BuildContext context, ChatComposerInputProps props) =>
       _InputWrapper(child: ChatComposerInput(props: props));
 }
 
@@ -1510,9 +1556,9 @@ class _InputWrapper extends StatelessWidget {
 
 /// Discards the default input entirely, wiring a bare field and button to the
 /// composer's own send handler.
-class _ReplacementInputFactory extends ChatComposerFactory {
+class _ReplacementInputFactory extends _Slots {
   @override
-  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+  Widget? input(BuildContext context, ChatComposerInputProps props) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1530,22 +1576,22 @@ class _ReplacementInputFactory extends ChatComposerFactory {
 }
 
 /// Records the props the composer passes to the input slot.
-class _CapturingInputFactory extends ChatComposerFactory {
+class _CapturingInputFactory extends _Slots {
   ChatComposerInputProps? captured;
 
   @override
-  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
+  Widget? input(BuildContext context, ChatComposerInputProps props) {
     captured = props;
     return ChatComposerInput(props: props);
   }
 }
 
-/// Swaps the sheet's contents without touching [ChatComposerFactory.buildLeading].
-class _CustomSheetFactory extends ChatComposerFactory {
+/// Swaps the sheet's contents without touching `leading`.
+class _CustomSheetFactory extends _Slots {
   ChatComposerAttachmentSheetProps? captured;
 
   @override
-  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) {
+  Widget? attachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) {
     captured = props;
     return const Text('custom sheet');
   }
@@ -1592,3 +1638,31 @@ class _TestTranslations extends DefaultAITranslations {
   @override
   String get takePhoto => 'LACH EENS';
 }
+
+/// The composer's slots for a test, registered through
+/// [streamAIComponentBuilders]. A slot left `null` keeps its default.
+abstract class _Slots {
+  Widget? leading(BuildContext context, ChatComposerLeadingProps props) => null;
+
+  Widget? trailing(BuildContext context, ChatComposerTrailingProps props) => null;
+
+  Widget? input(BuildContext context, ChatComposerInputProps props) => null;
+
+  Widget? attachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) => null;
+
+  /// Whether to register [trailing], which has no default to fall back to.
+  bool get hasTrailing => false;
+
+  StreamComponentBuilders get builders => StreamComponentBuilders(
+    extensions: streamAIComponentBuilders(
+      composerLeading: (context, props) => leading(context, props) ?? ComposerAttachmentButton(props: props),
+      composerTrailing: hasTrailing ? (context, props) => trailing(context, props)! : null,
+      composerInput: (context, props) => input(context, props) ?? ChatComposerInput(props: props),
+      composerAttachmentSheet: (context, props) =>
+          attachmentSheet(context, props) ??
+          ComposerAttachmentSheet(controller: props.controller, scrollController: props.scrollController),
+    ),
+  );
+}
+
+Widget _slotted(_Slots slots, Widget child) => StreamComponentFactory(builders: slots.builders, child: child);

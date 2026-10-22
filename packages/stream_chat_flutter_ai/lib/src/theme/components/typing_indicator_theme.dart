@@ -1,5 +1,3 @@
-import 'dart:ui' show lerpDouble;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // Imported for the doc links below only; nothing in this file's code uses it.
@@ -7,12 +5,16 @@ import 'package:stream_chat_flutter_ai/src/ai_typing_indicator_view.dart';
 // Not doc-only: [TypingIndicatorTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
-/// Overrides for how [AITypingIndicatorView] and [AnimatedDots] are drawn: the
-/// caption's style and the dots' color, size, count and spacing.
+/// Overrides for how [AITypingIndicatorView] is drawn: the caption's style and
+/// the dots' color, size and spacing.
 ///
 /// Every field is nullable, and `null` means "use the default", which derives
-/// from the ambient [ThemeData] — so one instance covers light and dark mode.
+/// from the Stream theme ([StreamTheme], which falls back to Stream's defaults for
+/// the app's brightness when the app sets none) — so one instance covers light and dark
+/// mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -33,27 +35,22 @@ class TypingIndicatorThemeData with Diagnosticable {
     this.textStyle,
     this.dotColor,
     this.dotSize,
-    this.dotCount,
     this.dotSpacing,
-  }) : assert(dotCount == null || dotCount >= 0, 'dotCount must not be negative'),
-       assert(dotSize == null || dotSize >= 0, 'dotSize must not be negative'),
+  }) : assert(dotSize == null || dotSize >= 0, 'dotSize must not be negative'),
        assert(dotSpacing == null || dotSpacing >= 0, 'dotSpacing must not be negative');
 
-  /// The caption's style, merged over [TextTheme.bodyMedium] in
-  /// [ColorScheme.onSurfaceVariant].
+  /// The caption's style, merged over the Stream theme's `bodyDefault` in
+  /// `textSecondary`.
   final TextStyle? textStyle;
 
   /// The dots' color. Defaults to the resolved [textStyle]'s color, so the dots
   /// always match the caption.
   final Color? dotColor;
 
-  /// The diameter of each dot. Defaults to 8.
+  /// The diameter of each dot. Defaults to [StreamTypingIndicatorDots]'.
   final double? dotSize;
 
-  /// How many dots to draw. Defaults to 3.
-  final int? dotCount;
-
-  /// The gap between two dots. Defaults to 4.
+  /// The gap between two dots. Defaults to [StreamTypingIndicatorDots]'.
   final double? dotSpacing;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
@@ -62,14 +59,12 @@ class TypingIndicatorThemeData with Diagnosticable {
     TextStyle? textStyle,
     Color? dotColor,
     double? dotSize,
-    int? dotCount,
     double? dotSpacing,
   }) {
     return TypingIndicatorThemeData(
       textStyle: textStyle ?? this.textStyle,
       dotColor: dotColor ?? this.dotColor,
       dotSize: dotSize ?? this.dotSize,
-      dotCount: dotCount ?? this.dotCount,
       dotSpacing: dotSpacing ?? this.dotSpacing,
     );
   }
@@ -83,24 +78,18 @@ class TypingIndicatorThemeData with Diagnosticable {
       textStyle: other.textStyle,
       dotColor: other.dotColor,
       dotSize: other.dotSize,
-      dotCount: other.dotCount,
       dotSpacing: other.dotSpacing,
     );
   }
 
   /// Linearly interpolates between two [TypingIndicatorThemeData]s. Runs on
   /// every theme animation, including a light/dark switch.
-  ///
-  /// [dotCount] rounds to the nearest whole dot.
   static TypingIndicatorThemeData lerp(TypingIndicatorThemeData a, TypingIndicatorThemeData b, double t) {
     if (identical(a, b)) return a;
     return TypingIndicatorThemeData(
       textStyle: lerpTextStyleOrSwap(a.textStyle, b.textStyle, t),
       dotColor: lerpColorOrSwap(a.dotColor, b.dotColor, t),
       dotSize: lerpDoubleOrSwap(a.dotSize, b.dotSize, t),
-      dotCount: bothSet(a.dotCount, b.dotCount)
-          ? lerpDouble(a.dotCount, b.dotCount, t)!.round()
-          : swapAtMidpoint(a.dotCount, b.dotCount, t),
       dotSpacing: lerpDoubleOrSwap(a.dotSpacing, b.dotSpacing, t),
     );
   }
@@ -112,7 +101,6 @@ class TypingIndicatorThemeData with Diagnosticable {
       ..add(DiagnosticsProperty<TextStyle>('textStyle', textStyle, defaultValue: null))
       ..add(ColorProperty('dotColor', dotColor, defaultValue: null))
       ..add(DoubleProperty('dotSize', dotSize, defaultValue: null))
-      ..add(IntProperty('dotCount', dotCount, defaultValue: null))
       ..add(DoubleProperty('dotSpacing', dotSpacing, defaultValue: null));
   }
 
@@ -123,12 +111,11 @@ class TypingIndicatorThemeData with Diagnosticable {
         other.textStyle == textStyle &&
         other.dotColor == dotColor &&
         other.dotSize == dotSize &&
-        other.dotCount == dotCount &&
         other.dotSpacing == dotSpacing;
   }
 
   @override
-  int get hashCode => Object.hash(textStyle, dotColor, dotSize, dotCount, dotSpacing);
+  int get hashCode => Object.hash(textStyle, dotColor, dotSize, dotSpacing);
 }
 
 /// Overrides the typing indicator theme for the widgets below it.

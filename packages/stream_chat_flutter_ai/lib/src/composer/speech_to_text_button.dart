@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-// `chat_composer` and `chat_composer_factory` are here for the doc links below
+// `ai_component_factory` and `chat_composer` are here for the doc links below
 // only; nothing in this file's code uses either.
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// A microphone button that feeds speech-to-text results directly into an
 /// [ChatComposerController]'s text field.
@@ -67,17 +68,13 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 /// by side.
 ///
 /// To place it elsewhere instead (e.g. always visible in a custom slot), use
-/// it directly via [ChatComposerFactory]. The trailing slot is the one to
-/// reach for: it is empty by default, whereas overriding
-/// [ChatComposerFactory.buildLeading] would replace the "+" button and take
-/// the attachment sheet with it.
+/// it directly through [streamAIComponentBuilders]. The trailing slot is the
+/// one to reach for: it is empty by default, whereas `composerLeading` would
+/// replace the "+" button and take the attachment sheet with it.
 /// ```dart
-/// class MyFactory extends ChatComposerFactory {
-///   @override
-///   Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
-///     return SpeechToTextButton(controller: props.controller);
-///   }
-/// }
+/// streamAIComponentBuilders(
+///   composerTrailing: (context, props) => SpeechToTextButton(controller: props.controller),
+/// )
 /// ```
 class SpeechToTextButton extends StatefulWidget {
   /// Creates a [SpeechToTextButton].
@@ -192,9 +189,9 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
     final listening = _speech.isListening;
-    // Idle, the mic occupies the send button's slot and takes its color, so the
-    // two read as one control morphing in place rather than two buttons.
-    final color = listening ? theme.recordingButtonColor : theme.sendButtonColor;
+    // Idle, the mic is a quiet ghost button in the composer's icon color, as in
+    // Stream's voice agent demo; listening, it is the filled stop button.
+    final color = listening ? theme.recordingButtonColor : theme.iconColor;
 
     // Rendered even before the recognizer has been initialized, and even when it
     // turns out to be unavailable (disabled, in that case). Hiding it outright
@@ -231,10 +228,26 @@ class _MicButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final translations = AITranslations.of(context);
 
+    if (!recording) {
+      return StreamButton.icon(
+        icon: Icon(context.streamIcons.voice),
+        style: .secondary,
+        type: .ghost,
+        onPressed: onTap,
+        tooltip: translations.voiceInput,
+        themeStyle: StreamButtonThemeStyle(
+          foregroundColor: .resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? ResolvedComposerTheme.resolve(context).disabledIconColor
+                : color,
+          ),
+        ),
+      );
+    }
     return ComposerActionButton(
-      icon: recording ? Icons.stop_rounded : Icons.mic_none_rounded,
+      icon: context.streamIcons.stopFill,
       onPressed: onTap,
-      tooltip: recording ? translations.stopRecording : translations.voiceInput,
+      tooltip: translations.stopRecording,
       color: color,
     );
   }

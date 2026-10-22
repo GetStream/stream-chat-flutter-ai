@@ -6,11 +6,14 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// Overrides for how [ChatComposer] and [ComposerAttachmentSheet] are drawn.
 ///
-/// Every field is nullable, and `null` means "derive it from the ambient
-/// [ThemeData]" — so a host overrides what it cares about and the rest keeps
+/// Every field is nullable, and `null` means "derive it from the Stream theme"
+/// ([StreamTheme], which falls back to Stream's defaults for the app's
+/// brightness when the app sets none) — so a host overrides what it cares about and the rest keeps
 /// following the app, in light and dark alike.
 ///
 /// ```dart
@@ -51,34 +54,35 @@ class ComposerThemeData with Diagnosticable {
   });
 
   /// The fill behind the input pill, the leading "+" button and the attachment
-  /// sheet's tiles — the surfaces that read as one connected control — and
-  /// behind a sheet photo tile while its thumbnail loads. Falls back to
-  /// [ColorScheme.surfaceContainerHigh].
+  /// sheet's camera tile — the surfaces that read as one connected control.
+  /// Transparent by default, so they are outlined by [borderColor] on whatever
+  /// they sit on.
   final Color? fillColor;
 
-  /// The hairline around the input pill, the leading button, the attachment
-  /// thumbnail's remove badge and the sheet's divider. Falls back to
-  /// [ColorScheme.outlineVariant].
+  /// The hairline around the input pill, the leading button and the sheet's
+  /// divider. Falls back to
+  /// the Stream theme's `borderDefault`.
   final Color? borderColor;
 
   /// The style of the placeholder in the text field, merged over a default of
-  /// [ColorScheme.onSurfaceVariant] at 60% opacity: a style that sets only a
+  /// the Stream theme's `textSecondary` at 60% opacity: a style that sets only a
   /// `fontSize` keeps the default color, and so does one with no color at all.
   ///
   /// This is the placeholder's *appearance*; its text comes from
   /// [ChatComposer.hintText] or `AITranslations.composerHint`.
   final TextStyle? hintStyle;
 
-  /// The color of the icons drawn on [fillColor]: the leading "+" and the
-  /// sheet's camera tile. Falls back to [ColorScheme.onSurface].
+  /// The color of the icons drawn on [fillColor]: the leading "+", the idle
+  /// microphone and the sheet's camera tile. Falls back to the Stream theme's
+  /// `textPrimary`.
   ///
   /// Only those, so it need only contrast with [fillColor]. An attachment
   /// thumbnail's glyphs sit on [attachmentPlaceholderColor] and take
   /// [attachmentPlaceholderForegroundColor]; the sheet's chat-option icons sit
   /// on the sheet's own background, which this theme does not set, and follow
-  /// [ColorScheme.onSurface].
+  /// the Stream theme's `textPrimary`.
   ///
-  /// Not the icon inside the filled send/stop/mic circle — that is
+  /// Not the icon inside the filled send/stop circle — that is
   /// [actionButtonForegroundColor], which sits on a saturated fill instead.
   final Color? iconColor;
 
@@ -88,55 +92,54 @@ class ComposerThemeData with Diagnosticable {
   /// scaled to 30%.
   final Color? disabledIconColor;
 
-  /// The fill of the send button. Falls back to [ColorScheme.primary].
+  /// The fill of the send button. Falls back to the Stream theme's
+  /// `accentPrimary`.
   ///
   /// Dimmed to 30% by the button itself when there is nothing to send, so an
   /// override does not need a second, disabled shade.
   final Color? sendButtonColor;
 
   /// The fill of the stop button shown while the AI is generating. Falls back
-  /// to [ColorScheme.error].
+  /// to the Stream theme's `accentError`.
   final Color? stopButtonColor;
 
   /// The fill of the microphone button while it is listening. Falls back to
-  /// [ColorScheme.error].
+  /// the Stream theme's `accentError`.
   ///
-  /// Idle, the microphone uses [sendButtonColor] — it occupies the send
-  /// button's slot, and the two read as one control morphing in place.
+  /// Idle, the microphone is a ghost button in [iconColor].
   final Color? recordingButtonColor;
 
   /// The color of the icon inside the filled send/stop/mic circle, and of the
   /// check on a selected photo's [photoSelectionColor] badge. Falls back to
-  /// white, which is what the default fills are legible against.
+  /// the Stream theme's `textOnAccent`, which the default fills are legible
+  /// against.
   ///
-  /// Set this alongside a pale [sendButtonColor]; white on pale is the one
+  /// Set this alongside a pale [sendButtonColor]; a pale fill is the one
   /// combination the defaults cannot anticipate.
   final Color? actionButtonForegroundColor;
 
   /// The fill of the selected-`ChatOption` chip inside the pill. Falls back to
-  /// [ColorScheme.primaryContainer].
+  /// the Stream theme's `backgroundSelected`.
   final Color? selectedOptionColor;
 
-  /// The text and icon color on that chip. Falls back to
-  /// [ColorScheme.onPrimaryContainer].
+  /// The text and icon color on that chip. Falls back to the Stream theme's
+  /// `textPrimary`.
   final Color? selectedOptionForegroundColor;
 
   /// The ring and the check badge's fill marking a selected photo in the
-  /// attachment sheet's grid. Falls back to [ColorScheme.primary].
+  /// attachment sheet's grid. Falls back to the Stream theme's `accentPrimary`.
   ///
   /// The check itself is [actionButtonForegroundColor].
   final Color? photoSelectionColor;
 
   /// The placeholder behind an attachment thumbnail that is still decoding or
-  /// failed to, and the fill of its remove badge. Falls back to
-  /// [ColorScheme.surface].
+  /// failed to. Falls back to the Stream theme's `backgroundElevation1`. The
+  /// thumbnail's remove badge is core's `StreamRemoveControl`, with its own
+  /// colors.
   final Color? attachmentPlaceholderColor;
 
-  /// The glyphs drawn on [attachmentPlaceholderColor]: the remove badge's "×"
-  /// and the icon on a thumbnail that failed to decode.
-  ///
-  /// Unset, the "×" falls back to [ColorScheme.onSurface] and the broken-image
-  /// icon to the quieter [ColorScheme.onSurfaceVariant]; set, both take it.
+  /// The icon drawn on [attachmentPlaceholderColor] when a thumbnail failed to
+  /// decode. Falls back to the Stream theme's `textSecondary`.
   final Color? attachmentPlaceholderForegroundColor;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
@@ -328,8 +331,7 @@ class ComposerTheme extends InheritedTheme {
   /// [AITheme]'s.
   ///
   /// Depends on both, so the composer repaints when either changes. Never
-  /// `null`; with neither present every field derives from the ambient
-  /// [ThemeData].
+  /// `null`; with neither present every field derives from the Stream theme.
   static ComposerThemeData of(BuildContext context) {
     final local = context.dependOnInheritedWidgetOfExactType<ComposerTheme>();
     return AITheme.of(context).composerTheme.merge(local?.data);

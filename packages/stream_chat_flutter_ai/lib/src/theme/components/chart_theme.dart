@@ -9,6 +9,8 @@ import 'package:stream_chat_flutter_ai/src/chart/heatmap_chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// The palette [ChartView] cycles through when nothing overrides it.
 ///
@@ -36,8 +38,9 @@ enum ChartLegendPosition {
 
 /// Overrides for how [ChartView] and [HeatmapChartView] draw a chart.
 ///
-/// Every field is nullable, and `null` means "derive it from the ambient
-/// [ThemeData]" — so a host overrides what it cares about and the rest keeps
+/// Every field is nullable, and `null` means "derive it from the Stream theme"
+/// ([StreamTheme], which falls back to Stream's defaults for the app's
+/// brightness when the app sets none) — so a host overrides what it cares about and the rest keeps
 /// following the app.
 ///
 /// ```dart
@@ -108,7 +111,7 @@ class ChartThemeData with Diagnosticable {
   final int? histogramBinCount;
 
   /// The style of axis tick labels, and of a heatmap's row, column and legend
-  /// labels. Falls back to 10pt in [ColorScheme.onSurfaceVariant].
+  /// labels. Falls back to 10pt in the Stream theme's `textSecondary`.
   final TextStyle? axisLabelStyle;
 
   /// The style of the labels on [USpecKind.pie] slices: their percentage (see
@@ -120,11 +123,12 @@ class ChartThemeData with Diagnosticable {
   final TextStyle? pieLabelStyle;
 
   /// The style of the heading above a chart carrying a [USpec.title]. Falls
-  /// back to [TextTheme.titleSmall] in [ColorScheme.onSurface].
+  /// back to the Stream theme's `bodyEmphasis` in `textPrimary`.
   final TextStyle? titleTextStyle;
 
   /// The color of grid lines, heatmap cell borders and the legend bar's border
-  /// — the same hairline chrome. Falls back to [ColorScheme.outlineVariant].
+  /// — the same hairline chrome. Falls back to the Stream theme's
+  /// `borderDefault`.
   final Color? gridLineColor;
 
   /// The lowest stop of a heatmap's scale. Falls back to a pale blue on a light
@@ -148,8 +152,8 @@ class ChartThemeData with Diagnosticable {
   /// [ChartLegendPosition.bottom].
   final ChartLegendPosition? legendPosition;
 
-  /// The style of the legend's entry names. Falls back to 11pt in
-  /// [ColorScheme.onSurfaceVariant].
+  /// The style of the legend's entry names. Falls back to 11pt in the Stream
+  /// theme's `textSecondary`.
   final TextStyle? legendTextStyle;
 
   /// Whether [USpecKind.pie] slices are labelled with their rounded share of
@@ -399,7 +403,7 @@ class ChartTheme extends InheritedTheme {
   /// [AITheme]'s.
   ///
   /// Depends on both, so a chart repaints when either changes. Never `null`;
-  /// with neither present every field derives from the ambient [ThemeData].
+  /// with neither present every field derives from the Stream theme.
   static ChartThemeData of(BuildContext context) {
     final local = context.dependOnInheritedWidgetOfExactType<ChartTheme>();
     return AITheme.of(context).chartTheme.merge(local?.data);

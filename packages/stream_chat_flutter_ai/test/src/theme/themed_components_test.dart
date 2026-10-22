@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 /// The end of the theming chain: the theme data classes are unit-tested next
 /// door, but a field that resolves correctly and is then never read by the
 /// widget is exactly the bug this file exists to catch.
@@ -54,15 +56,20 @@ BoxDecoration _pill(WidgetTester tester) {
   return box.decoration as BoxDecoration;
 }
 
-/// The leading "+" button's circle.
-BoxDecoration _leadingButton(WidgetTester tester) {
-  final container = tester.widget<Container>(
-    find.ancestor(of: find.byIcon(Icons.add), matching: find.byType(Container)).first,
-  );
-  return container.decoration! as BoxDecoration;
-}
+/// The leading "+" button's surface: the Material its [StreamButton] paints.
+Material _leadingButton(WidgetTester tester) =>
+    tester.widget<Material>(find.ancestor(of: find.byIcon(_icons.plus), matching: find.byType(Material)).first);
 
 Color? _borderColor(BoxDecoration decoration) => (decoration.border as Border?)?.top.color;
+
+Color? _buttonBorderColor(Material material) => (material.shape as OutlinedBorder?)?.side.color;
+
+/// The color [icon] is drawn in: its own, or the [IconTheme] a [StreamButton]
+/// sets around it.
+Color? _iconColor(WidgetTester tester, IconData icon) {
+  final finder = find.byIcon(icon);
+  return tester.widget<Icon>(finder).color ?? IconTheme.of(tester.element(finder)).color;
+}
 
 bool _hasBoxWithColor(WidgetTester tester, Finder scope, Color color) {
   final boxes = tester.widgetList<DecoratedBox>(
@@ -74,22 +81,20 @@ bool _hasBoxWithColor(WidgetTester tester, Finder scope, Color color) {
   });
 }
 
-bool _hasCircleWithColor(WidgetTester tester, Color color) {
-  // The send/stop/mic circle is an AnimatedContainer, which renders through a
-  // DecoratedBox carrying its current (settled) decoration — so scan those for
-  // a circle, rather than reading the widget's own target `decoration`.
-  final found = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox));
-  return found.any((box) {
-    final decoration = box.decoration;
-    return decoration is BoxDecoration && decoration.color == color && decoration.shape == BoxShape.circle;
-  });
+bool _hasActionButtonWithFill(WidgetTester tester, Color color) {
+  // The send/stop/mic circle is a StreamButton, which paints its fill on a
+  // Material — so scan the action buttons' Materials for it.
+  final found = tester.widgetList<Material>(
+    find.descendant(of: find.byType(ComposerActionButton), matching: find.byType(Material)),
+  );
+  return found.any((material) => material.color == color);
 }
 
 /// Opens the real attachment sheet from the "+" button.
 Future<void> _openSheet(WidgetTester tester) async {
-  await tester.tap(find.byIcon(Icons.add));
+  await tester.tap(find.byIcon(_icons.plus));
   // Not `pumpAndSettle` — the sheet's photo section spins a
-  // CircularProgressIndicator while its (unmocked) permission check is in
+  // StreamLoadingSpinner while its (unmocked) permission check is in
   // flight, which never settles. See chat_composer_test.dart.
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
@@ -117,8 +122,8 @@ void main() {
       expect(_pill(tester).color, _fill, reason: 'the input pill takes fillColor');
       expect(_borderColor(_pill(tester)), _border, reason: 'the input pill takes borderColor');
       expect(_leadingButton(tester).color, _fill, reason: 'the leading "+" takes the same fill');
-      expect(_borderColor(_leadingButton(tester)), _border, reason: 'the leading "+" takes the same border');
-      expect(tester.widget<Icon>(find.byIcon(Icons.add)).color, _icon, reason: 'an enabled "+" takes iconColor');
+      expect(_buttonBorderColor(_leadingButton(tester)), _border, reason: 'the leading "+" takes the same border');
+      expect(_iconColor(tester, _icons.plus), _icon, reason: 'an enabled "+" takes iconColor');
     });
 
     testWidgets('through a ComposerTheme scope', (tester) async {
@@ -152,14 +157,14 @@ void main() {
         ),
       );
 
-      expect(_hasCircleWithColor(tester, _send), isTrue, reason: 'send takes sendButtonColor');
+      expect(_hasActionButtonWithFill(tester, _send), isTrue, reason: 'send takes sendButtonColor');
 
       controller.isGenerating = true;
       await tester.pumpAndSettle();
 
-      expect(_hasCircleWithColor(tester, _stop), isTrue, reason: 'stop takes stopButtonColor');
+      expect(_hasActionButtonWithFill(tester, _stop), isTrue, reason: 'stop takes stopButtonColor');
       expect(
-        _hasCircleWithColor(tester, _send),
+        _hasActionButtonWithFill(tester, _send),
         isFalse,
         reason: 'the send fill is gone once generating',
       );
@@ -176,8 +181,7 @@ void main() {
         ),
       );
 
-      final sendIcon = tester.widget<Icon>(find.byIcon(Icons.arrow_upward_rounded));
-      expect(sendIcon.color, _actionForeground);
+      expect(_iconColor(tester, _icons.arrowUp), _actionForeground);
     });
 
     testWidgets("a ComposerActionButton's own foregroundColor wins over the theme", (tester) async {
@@ -201,9 +205,9 @@ void main() {
         ),
       );
 
-      expect(tester.widget<Icon>(find.byIcon(Icons.star)).color, own);
+      expect(_iconColor(tester, Icons.star), own);
       expect(
-        tester.widget<Icon>(find.byIcon(Icons.favorite)).color,
+        _iconColor(tester, Icons.favorite),
         _actionForeground,
         reason: 'unset, it follows the theme',
       );
@@ -245,10 +249,10 @@ void main() {
         ),
       );
 
-      final addIcon = tester.widget<Icon>(find.byIcon(Icons.add));
+      final addIcon = _iconColor(tester, _icons.plus);
       // Not set on the theme, so it derives from the *resolved* iconColor — a
       // host setting only `iconColor` gets a matching disabled shade for free.
-      expect(addIcon.color, _icon.withValues(alpha: 0.3));
+      expect(addIcon, _icon.withValues(alpha: 0.3));
     });
 
     testWidgets('dims to a disabledIconColor that scales a translucent iconColor', (tester) async {
@@ -263,10 +267,10 @@ void main() {
         ),
       );
 
-      final addIcon = tester.widget<Icon>(find.byIcon(Icons.add));
+      final addIcon = _iconColor(tester, _icons.plus);
       // Scaled, not replaced: a disabled shade never more opaque than the
       // enabled one.
-      expect(addIcon.color, translucent.withValues(alpha: translucent.a * 0.3));
+      expect(addIcon, translucent.withValues(alpha: translucent.a * 0.3));
     });
 
     testWidgets('honours an explicit disabledIconColor', (tester) async {
@@ -283,12 +287,12 @@ void main() {
         ),
       );
 
-      expect(tester.widget<Icon>(find.byIcon(Icons.add)).color, disabled);
+      expect(_iconColor(tester, _icons.plus), disabled);
     });
 
     group('hintStyle', () {
       InputDecoration hint(WidgetTester tester) => tester.widget<TextField>(find.byType(TextField)).decoration!;
-      final derived = ThemeData().colorScheme.onSurfaceVariant.withValues(alpha: 0.6);
+      final derived = StreamTheme.light().colorScheme.textSecondary.withValues(alpha: 0.6);
 
       Future<void> pump(WidgetTester tester, TextStyle style) async {
         final controller = ChatComposerController();
@@ -324,7 +328,7 @@ void main() {
     });
 
     group('attachment thumbnails', () {
-      testWidgets('draw the placeholder, badge and glyphs from the theme', (tester) async {
+      testWidgets('draw the placeholder and its glyph from the theme', (tester) async {
         const placeholder = Color(0xFF0C0D0E);
         const glyph = Color(0xFF0E0D0C);
         final controller = ChatComposerController()..addAttachments([XFile('does-not-exist.png')]);
@@ -348,14 +352,13 @@ void main() {
         // what this test is about.
         expect(tester.takeException(), isA<Exception>());
 
-        final broken = find.byIcon(Icons.broken_image_outlined);
+        final broken = find.byIcon(_icons.image);
         expect(broken, findsOneWidget);
         expect(tester.widget<Icon>(broken).color, glyph, reason: 'the error glyph takes the placeholder foreground');
         expect(
           tester.widget<ColoredBox>(find.ancestor(of: broken, matching: find.byType(ColoredBox)).first).color,
           placeholder,
         );
-        expect(tester.widget<Icon>(find.byIcon(Icons.close)).color, glyph, reason: 'so does the remove "×"');
       });
 
       testWidgets('keep their scheme defaults under a host iconColor', (tester) async {
@@ -375,12 +378,10 @@ void main() {
         await _failThumbnail(tester);
         expect(tester.takeException(), isA<Exception>());
 
-        final scheme = ThemeData().colorScheme;
-        expect(tester.widget<Icon>(find.byIcon(Icons.close)).color, scheme.onSurface);
-        // The quieter onSurfaceVariant, as before theming.
+        // The quieter textSecondary, as before theming.
         expect(
-          tester.widget<Icon>(find.byIcon(Icons.broken_image_outlined)).color,
-          scheme.onSurfaceVariant,
+          tester.widget<Icon>(find.byIcon(_icons.image)).color,
+          StreamTheme.light().colorScheme.textSecondary,
         );
       });
     });
@@ -406,7 +407,7 @@ void main() {
         final sheet = find.byType(ComposerAttachmentSheet);
         expect(sheet, findsOneWidget);
 
-        final camera = find.byIcon(Icons.camera_alt_outlined);
+        final camera = find.byIcon(_icons.camera);
         expect(tester.widget<Icon>(camera).color, _icon, reason: 'the camera tile takes iconColor');
         final cameraTile = tester.widget<Container>(find.ancestor(of: camera, matching: find.byType(Container)).first);
         expect((cameraTile.decoration! as BoxDecoration).color, _fill, reason: 'the camera tile takes fillColor');
@@ -418,7 +419,7 @@ void main() {
         );
         expect(
           tester.widget<Icon>(find.byIcon(Icons.science)).color,
-          ThemeData().colorScheme.onSurface,
+          StreamTheme.light().colorScheme.textPrimary,
           reason: 'option icons sit on the unthemed sheet background, so they follow the scheme, not iconColor',
         );
       });
@@ -437,7 +438,7 @@ void main() {
         );
         await _openSheet(tester);
 
-        expect(tester.widget<Icon>(find.byIcon(Icons.camera_alt_outlined)).color, _icon.withValues(alpha: 0.3));
+        expect(tester.widget<Icon>(find.byIcon(_icons.camera)).color, _icon.withValues(alpha: 0.3));
       });
     });
 
@@ -451,17 +452,21 @@ void main() {
         ),
       );
 
-      final scheme = ThemeData().colorScheme;
-      expect(_pill(tester).color, scheme.surfaceContainerHigh);
-      expect(_borderColor(_pill(tester)), scheme.outlineVariant);
-      expect(_leadingButton(tester).color, scheme.surfaceContainerHigh);
-      expect(tester.widget<Icon>(find.byIcon(Icons.add)).color, scheme.onSurface);
-      expect(_hasCircleWithColor(tester, scheme.primary), isTrue, reason: 'send falls back to primary');
-      expect(tester.widget<Icon>(find.byIcon(Icons.arrow_upward_rounded)).color, Colors.white);
+      final scheme = StreamTheme.light().colorScheme;
+      expect(_pill(tester).color, const Color(0x00000000), reason: 'outlined, not filled');
+      expect(_borderColor(_pill(tester)), scheme.borderDefault);
+      expect(_leadingButton(tester).color, const Color(0x00000000));
+      expect(_iconColor(tester, _icons.plus), scheme.textPrimary);
+      expect(
+        _hasActionButtonWithFill(tester, scheme.accentPrimary),
+        isTrue,
+        reason: 'send falls back to accentPrimary',
+      );
+      expect(_iconColor(tester, _icons.arrowUp), scheme.textOnAccent);
 
       controller.isGenerating = true;
       await tester.pumpAndSettle();
-      expect(_hasCircleWithColor(tester, scheme.error), isTrue, reason: 'stop falls back to error');
+      expect(_hasActionButtonWithFill(tester, scheme.accentError), isTrue, reason: 'stop falls back to accentError');
     });
   });
 
@@ -497,7 +502,7 @@ void main() {
       expect(text.style?.fontWeight, FontWeight.bold, reason: 'the theme weight applies');
       expect(
         text.style?.color,
-        ThemeData().colorScheme.onSurface,
+        StreamTheme.light().colorScheme.textPrimary,
         reason: 'a partial override keeps the derived color',
       );
     });
@@ -514,7 +519,7 @@ void main() {
 
       final text = tester.widget<Text>(find.text('Tell me a joke'));
       expect(text.style?.fontWeight, FontWeight.bold);
-      expect(text.style?.color, ThemeData().colorScheme.onSurface);
+      expect(text.style?.color, StreamTheme.light().colorScheme.textPrimary);
     });
 
     testWidgets('resizes the chips to a larger textStyle rather than overflowing', (tester) async {
@@ -544,10 +549,12 @@ void main() {
         ),
       );
 
-      final scheme = ThemeData().colorScheme;
       final boxes = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox));
       expect(
-        boxes.map((b) => b.decoration).whereType<BoxDecoration>().any((d) => d.color == scheme.surfaceContainerHigh),
+        boxes
+            .map((b) => b.decoration)
+            .whereType<BoxDecoration>()
+            .any((d) => d.color == const Color(0x00000000) && d.border != null),
         isTrue,
       );
     });

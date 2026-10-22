@@ -3,7 +3,7 @@ publish_to: none
 repository: https://github.com/GetStream/stream-chat-flutter-ai
 
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.12.0
 
 # Pub workspace members. Pub requires explicit paths here — globs are not
 # supported, so every package has to be listed.
@@ -25,9 +25,9 @@ melos:
     bootstrap:
       # Dart and Flutter environment used in the project.
       environment:
-        sdk: ^3.11.0
+        sdk: ^3.12.0
         # We are not using caret '^' syntax here because flutter don't follow semantic versioning.
-        flutter: ">=3.41.0"
+        flutter: ">=3.44.0"
 
       # List of all the dependencies used in the project.
       dependencies:
@@ -48,6 +48,9 @@ melos:
         # `example/lib/code_highlighter.dart`.
         re_highlight: ^0.0.3
         speech_to_text: ^7.0.0
+        # Stream's design system: theme tokens, the component factory and the
+        # base components (buttons, sheets, list tiles, icons) this package builds on.
+        stream_core_flutter: ^0.5.3
 
       # List of all the dev_dependencies used in the project.
       dev_dependencies:

@@ -13,6 +13,7 @@ import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart'
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// The messages of an AI conversation, oldest first.
 ///
@@ -37,9 +38,9 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// )
 /// ```
 ///
-/// The rows can be replaced through [AIComponentBuilders.userMessage] and
-/// [AIComponentBuilders.assistantMessage], and under each finished reply
-/// [AIComponentBuilders.replyActions] shows the person's actions, nothing until
+/// The rows can be replaced through the `userMessage` builder of [streamAIComponentBuilders] and
+/// the `assistantMessage` builder of [streamAIComponentBuilders], and under each finished reply
+/// the `replyActions` builder of [streamAIComponentBuilders] shows the person's actions, nothing until
 /// you set it. A row is only built again when what it shows changes, so a
 /// reply streaming in does not rebuild the rest of the conversation.
 ///
@@ -248,7 +249,6 @@ class _AIConversationViewState extends State<AIConversationView> {
   Widget build(BuildContext context) {
     final turns = _turns();
     final theme = ConversationTheme.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final loadOlder = widget.loadOlderMessages;
 
     return LayoutBuilder(
@@ -300,7 +300,7 @@ class _AIConversationViewState extends State<AIConversationView> {
                           : _OlderMessagesLoader(
                               firstTurn: turns.first.id,
                               load: loadOlder!,
-                              color: theme.scrollButtonIconColor ?? scheme.onSurface,
+                              color: theme.scrollButtonIconColor,
                             ),
                     ),
                     // Turns from the anchor on, which the list grows down from.
@@ -484,7 +484,6 @@ class _EntryViewState extends State<_EntryView> {
   }
 
   Widget _content(BuildContext context) {
-    final builders = AIComponentFactory.of(context);
     final entry = widget.entry;
     final message = entry.message;
     if (entry.isFromUser) {
@@ -494,7 +493,7 @@ class _EntryViewState extends State<_EntryView> {
         attachments: entry.attachments,
         onAttachmentTap: widget.onAttachmentTap,
       );
-      return builders.userMessage?.call(context, props) ??
+      return context.aiComponentBuilder<AIUserMessageProps>()?.call(context, props) ??
           AIUserMessageView(text: props.text, attachments: props.attachments, onAttachmentTap: props.onAttachmentTap);
     }
 
@@ -511,7 +510,7 @@ class _EntryViewState extends State<_EntryView> {
       mainAxisSize: MainAxisSize.min,
       spacing: 4,
       children: [
-        builders.assistantMessage?.call(context, assistant) ??
+        context.aiComponentBuilder<AIAssistantMessageProps>()?.call(context, assistant) ??
             AIAssistantMessageView(
               text: reply.text,
               isGenerating: reply.isGenerating,
@@ -524,7 +523,7 @@ class _EntryViewState extends State<_EntryView> {
         AnimatedSwitcher(
           duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
           child: showsActions
-              ? builders.replyActions?.call(
+              ? context.aiComponentBuilder<AIReplyActionsProps>()?.call(
                       context,
                       AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply),
                     ) ??
@@ -545,7 +544,7 @@ class _OlderMessagesLoader extends StatefulWidget {
 
   final String firstTurn;
   final Future<void> Function() load;
-  final Color color;
+  final Color? color;
 
   @override
   State<_OlderMessagesLoader> createState() => _OlderMessagesLoaderState();
@@ -616,10 +615,7 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5, color: widget.color),
-        ),
+        child: StreamLoadingSpinner(size: .md, color: widget.color),
       ),
     );
   }
@@ -633,15 +629,18 @@ class _ScrollToLatestButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = ConversationTheme.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: theme.scrollButtonBackgroundColor ?? scheme.surface,
-      shape: CircleBorder(side: BorderSide(color: theme.scrollButtonBorderColor ?? scheme.outlineVariant)),
-      elevation: 2,
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: AITranslations.of(context).scrollToLatest,
-        icon: Icon(Icons.arrow_downward, size: 20, color: theme.scrollButtonIconColor ?? scheme.onSurface),
+    WidgetStateProperty<Color?>? all(Color? color) => color == null ? null : WidgetStatePropertyAll(color);
+    return StreamButton.icon(
+      onPressed: onPressed,
+      style: .secondary,
+      type: .outline,
+      isFloating: true,
+      tooltip: AITranslations.of(context).scrollToLatest,
+      icon: Icon(context.streamIcons.arrowDown),
+      themeStyle: StreamButtonThemeStyle(
+        backgroundColor: all(theme.scrollButtonBackgroundColor),
+        borderColor: all(theme.scrollButtonBorderColor),
+        foregroundColor: all(theme.scrollButtonIconColor),
       ),
     );
   }

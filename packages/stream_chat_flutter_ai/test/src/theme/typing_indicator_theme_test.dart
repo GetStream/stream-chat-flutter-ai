@@ -23,8 +23,8 @@ Future<TypingIndicatorThemeData> _resolve(
 void main() {
   group('TypingIndicatorThemeData', () {
     test('describes only the fields it sets to DevTools', () {
-      final description = const TypingIndicatorThemeData(dotCount: 4).toDiagnosticsNode().toStringDeep();
-      expect(description, contains('dotCount'));
+      final description = const TypingIndicatorThemeData(dotSpacing: 4).toDiagnosticsNode().toStringDeep();
+      expect(description, contains('dotSpacing'));
       expect(description, isNot(contains('dotColor')), reason: 'unset fields stay out of the tree');
     });
 
@@ -33,7 +33,6 @@ void main() {
         textStyle: TextStyle(fontSize: 11),
         dotColor: Color(0xFF111111),
         dotSize: 6,
-        dotCount: 3,
         dotSpacing: 2,
       );
 
@@ -66,14 +65,6 @@ void main() {
               read: (t) => t.dotSize,
             ),
             (
-              // 3 → 7 is far enough apart that a quarter of the way rounds to a
-              // new whole dot.
-              name: 'dotCount',
-              only: const TypingIndicatorThemeData(dotCount: 7),
-              copied: () => base.copyWith(dotCount: 7),
-              read: (t) => t.dotCount,
-            ),
-            (
               name: 'dotSpacing',
               only: const TypingIndicatorThemeData(dotSpacing: 10),
               copied: () => base.copyWith(dotSpacing: 10),
@@ -84,8 +75,8 @@ void main() {
       test('the table covers every field the class declares', () {
         // Guards the loop itself: add a field without a row here and this fails
         // rather than silently leaving the new field untested.
-        expect(fields, hasLength(5));
-        expect(fields.map((f) => f.name).toSet(), hasLength(5));
+        expect(fields, hasLength(4));
+        expect(fields.map((f) => f.name).toSet(), hasLength(4));
       });
 
       for (final field in fields) {
@@ -129,21 +120,13 @@ void main() {
     });
 
     test('lerp swaps an unset field instead of growing it from zero', () {
-      const set = TypingIndicatorThemeData(dotSize: 12, dotCount: 5);
+      const set = TypingIndicatorThemeData(dotSize: 12, dotSpacing: 5);
       const unset = TypingIndicatorThemeData();
 
       expect(TypingIndicatorThemeData.lerp(set, unset, 0.25).dotSize, 12);
-      expect(TypingIndicatorThemeData.lerp(set, unset, 0.25).dotCount, 5);
+      expect(TypingIndicatorThemeData.lerp(set, unset, 0.25).dotSpacing, 5);
       expect(TypingIndicatorThemeData.lerp(set, unset, 0.75).dotSize, isNull);
-      expect(TypingIndicatorThemeData.lerp(set, unset, 0.75).dotCount, isNull);
-    });
-
-    test('lerp rounds dotCount to a whole dot', () {
-      const a = TypingIndicatorThemeData(dotCount: 2);
-      const b = TypingIndicatorThemeData(dotCount: 4);
-
-      expect(TypingIndicatorThemeData.lerp(a, b, 0.4).dotCount, 3);
-      expect(TypingIndicatorThemeData.lerp(a, b, 0.1).dotCount, 2);
+      expect(TypingIndicatorThemeData.lerp(set, unset, 0.75).dotSpacing, isNull);
     });
 
     test('lerp with identical themes returns the first', () {
@@ -181,14 +164,14 @@ void main() {
         scope: (child) => TypingIndicatorTheme(
           data: const TypingIndicatorThemeData(dotSize: 6),
           child: TypingIndicatorTheme.merge(
-            data: const TypingIndicatorThemeData(dotCount: 5),
+            data: const TypingIndicatorThemeData(dotSpacing: 5),
             child: child,
           ),
         ),
       );
 
       expect(resolved.dotSize, 6);
-      expect(resolved.dotCount, 5);
+      expect(resolved.dotSpacing, 5);
     });
 
     testWidgets('a nested scope replaces rather than layers', (tester) async {
@@ -197,14 +180,14 @@ void main() {
         scope: (child) => TypingIndicatorTheme(
           data: const TypingIndicatorThemeData(dotSize: 6),
           child: TypingIndicatorTheme(
-            data: const TypingIndicatorThemeData(dotCount: 5),
+            data: const TypingIndicatorThemeData(dotSpacing: 5),
             child: child,
           ),
         ),
       );
 
       expect(resolved.dotSize, isNull);
-      expect(resolved.dotCount, 5);
+      expect(resolved.dotSpacing, 5);
     });
   });
 }

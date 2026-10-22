@@ -11,6 +11,7 @@ import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart'
 import 'package:stream_chat_flutter_ai/src/markdown/math_syntax.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// Callback fired when the user taps a hyperlink in the rendered markdown.
 ///
@@ -115,7 +116,7 @@ Widget _buildFenceCached(
   return _fenceWidgetCache.set(key, RepaintBoundary(child: child));
 }
 
-/// A cached fence: holds its data and asks the [AIComponentFactory] for the
+/// A cached fence: holds its data and asks the [StreamComponentFactory] for the
 /// widget in its own build, so swapping the builders rebuilds it without
 /// invalidating the cache.
 class _Fence extends StatelessWidget {
@@ -128,9 +129,10 @@ class _Fence extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final builders = AIComponentFactory.of(context);
-    if (chart case final chart?) return builders.chart?.call(context, chart) ?? ChartView(spec: chart.spec);
-    return builders.codeBlock?.call(context, codeBlock) ??
+    if (chart case final chart?) {
+      return context.aiComponentBuilder<AIChartProps>()?.call(context, chart) ?? ChartView(spec: chart.spec);
+    }
+    return context.aiComponentBuilder<AICodeBlockProps>()?.call(context, codeBlock) ??
         CodeBlockView(
           code: codeBlock.code,
           language: codeBlock.language,
@@ -155,8 +157,8 @@ class _Fence extends StatelessWidget {
 ///   supplied.
 ///
 /// To replace the code block or chart widgets, set
-/// [AIComponentBuilders.codeBlock] or [AIComponentBuilders.chart] on an
-/// [AIComponentFactory].
+/// the `codeBlock` builder of [streamAIComponentBuilders] or the `chart` builder of [streamAIComponentBuilders] on an
+/// [StreamComponentFactory].
 ///
 /// Letting `package:markdown` find the fences — rather than pre-splitting the
 /// string with a regex and stitching several [MarkdownBody] widgets together —
@@ -191,14 +193,8 @@ class AIMarkdownBody extends StatefulWidget {
   final bool selectable;
 
   /// Style overrides for the rendered markdown (paragraph text, links,
-  /// headings, etc.). Defaults to `flutter_markdown_plus`'s own
-  /// `MarkdownStyleSheet.fromTheme(Theme.of(context))` when not provided.
-  ///
-  /// Host apps that also render non-AI messages via `stream_chat_flutter`
-  /// can pass a sheet built from that package's own message text style (e.g.
-  /// `context.streamTextTheme.bodyDefault`) so AI and regular messages share
-  /// the same font size/weight — this package has no dependency on
-  /// `stream_chat_flutter`/`stream_core_flutter`, so it can't do that itself.
+  /// headings, etc.). Defaults to the Stream theme's text styles, the same
+  /// ones Stream Chat's messages use.
   ///
   /// `codeblockDecoration` is always overridden, because code fences are
   /// rendered by [CodeBlockView], which brings its own background.
@@ -314,9 +310,31 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
     ];
   }
 
+  /// The Material sheet with Stream's text styles and colors laid over it.
+  static MarkdownStyleSheet _streamStyleSheet(BuildContext context) {
+    final text = context.streamTextTheme;
+    final colors = context.streamColorScheme;
+    final body = text.bodyDefault.copyWith(color: colors.textPrimary);
+    TextStyle heading(TextStyle style) => style.copyWith(color: colors.textPrimary);
+    return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: body,
+      a: text.bodyLink.copyWith(color: colors.textLink),
+      h1: heading(text.headingLg),
+      h2: heading(text.headingMd),
+      h3: heading(text.headingSm),
+      h4: heading(text.headingXs),
+      h5: heading(text.headingXs),
+      h6: heading(text.headingXs),
+      listBullet: body,
+      tableHead: text.bodyEmphasis.copyWith(color: colors.textPrimary),
+      tableBody: body,
+      blockquote: body.copyWith(color: colors.textSecondary),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final sheet = widget.styleSheet ?? MarkdownStyleSheet.fromTheme(Theme.of(context));
+    final sheet = widget.styleSheet ?? _streamStyleSheet(context);
 
     return MarkdownBody(
       key: ValueKey(_configGeneration),
