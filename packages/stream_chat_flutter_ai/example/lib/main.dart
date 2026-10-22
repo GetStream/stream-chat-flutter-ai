@@ -8,6 +8,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
+import 'package:stream_chat_flutter_ai_example/fake_local_model.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -77,10 +78,16 @@ class _Message {
     this.reasoning = '',
     this.isThinking = false,
     this.toolCalls = const [],
+    this.note = '',
   });
 
   final String text;
   final bool isUser;
+
+  /// What the app says about a reply it couldn't finish, such as that the
+  /// on-device model is unavailable. Shown under the reply, and never sent to
+  /// a model as part of the conversation.
+  final String note;
 
   /// The model's reasoning so far, shown in a [StreamingReasoningView] above
   /// the reply. Empty for user messages.
@@ -99,6 +106,7 @@ class _Message {
     reasoning: reasoning ?? this.reasoning,
     isThinking: isThinking ?? this.isThinking,
     toolCalls: toolCalls ?? this.toolCalls,
+    note: note,
   );
 }
 
@@ -365,6 +373,20 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// How much of the reply each simulated chunk delivers.
   static const _chunkSize = 40;
 
+  /// Whether to pretend the backend is unreachable and answer from
+  /// [_localModel] instead, as an app would when offline or out of quota.
+  bool _offline = false;
+
+  final AILocalModel _localModel = const FakeLocalModel();
+
+  /// Non-null while the local model is answering; cancelling it stops the
+  /// model.
+  StreamSubscription<String>? _localReply;
+
+  /// Bumped by every local reply and every stop, so a reply still waiting on
+  /// [AILocalModel.isAvailable] can tell it has been superseded.
+  int _replyGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -394,6 +416,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _streamTimer?.cancel();
     _approver.dispose();
     _toolRunner.close();
+    unawaited(_localReply?.cancel());
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -412,6 +435,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
     _composerController.clear();
     _scrollToEnd();
+
+    if (_offline) {
+      unawaited(_replyLocally());
+      return;
+    }
 
     // Stand in for a real request: pause on the typing indicator, then let the
     // model think out loud before it answers.
@@ -589,11 +617,92 @@ class _AssistantScreenState extends State<AssistantScreen> {
     });
   }
 
+  /// Answers from the on-device model. Each event is the whole answer so far,
+  /// which is exactly what [StreamingMessageView.text] takes.
+  Future<void> _replyLocally() async {
+    final generation = ++_replyGeneration;
+    await _localReply?.cancel();
+    _localReply = null;
+
+    final turns = [
+      for (final message in _messages)
+        if (message.isUser) AIConversationTurn.user(message.text) else AIConversationTurn.assistant(message.text),
+    ];
+    setState(() => _messages.add(const _Message(text: '', isUser: false)));
+
+    bool available;
+    try {
+      available = await _localModel.isAvailable;
+    } on Exception catch (error) {
+      // isAvailable answers false rather than throwing; anything else is a bug
+      // and is left to surface.
+      debugPrint('Checking the on-device model failed: $error');
+      available = false;
+    }
+    // Stop was tapped, another message was sent, or the screen went away
+    // while the check ran.
+    if (!mounted || generation != _replyGeneration) return;
+    if (!available) return _endLocalReply('The on-device model is not available right now.');
+
+    _localReply = _localModel
+        .reply(instructions: 'Answer briefly. You have no tools.', turns: turns)
+        .listen(
+          (answer) {
+            if (!mounted) return;
+            setState(() => _messages[_messages.length - 1] = _Message(text: answer, isUser: false));
+            _scrollToEnd();
+          },
+          onError: (Object error) {
+            debugPrint('The on-device model failed: $error');
+            _endLocalReply(switch (error) {
+              AILocalModelException(reason: AILocalModelErrorReason.unavailable) =>
+                'The on-device model is not available right now.',
+              AILocalModelException(reason: AILocalModelErrorReason.contextExceeded) =>
+                'That question is too long for the on-device model.',
+              AILocalModelException(reason: AILocalModelErrorReason.invalidConversation) =>
+                'The on-device model could not read this conversation.',
+              _ => 'The on-device model could not answer. Try again.',
+            });
+          },
+          onDone: () {
+            _localReply = null;
+            _finishWhenTyped();
+          },
+        );
+  }
+
+  /// Ends a local reply that failed, showing [note] under any answer it had
+  /// already given, and leaving the generating state at once.
+  void _endLocalReply(String note) {
+    _localReply = null;
+    if (!mounted) return;
+    setState(() {
+      _messages[_messages.length - 1] = _Message(text: _messages.last.text, isUser: false, note: note);
+      _streamComplete = true;
+      _composerController.isGenerating = false;
+    });
+  }
+
+  /// Ends a local reply whose stream closed. The reply's `onFinished` leaves
+  /// the generating state once it is typed out; an empty answer never shows,
+  /// so it leaves at once.
+  void _finishWhenTyped() {
+    if (!mounted) return;
+    setState(() {
+      _streamComplete = true;
+      if (_messages.last.text.isEmpty) _composerController.isGenerating = false;
+    });
+  }
+
   void _stop() {
     _thinkingTimer?.cancel();
     _reasoningTimer?.cancel();
     _toolTimer?.cancel();
     _streamTimer?.cancel();
+    _replyGeneration++;
+    unawaited(_localReply?.cancel());
+    _localReply = null;
+    if (!mounted) return;
     setState(() {
       // Stopping mid-reply ends the thinking and cancels a tool still running.
       if (_messages.lastOrNull case final last? when !last.isUser) {
@@ -627,7 +736,18 @@ class _AssistantScreenState extends State<AssistantScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI Assistant')),
+      appBar: AppBar(
+        title: const Text('AI Assistant'),
+        actions: [
+          IconButton(
+            tooltip: _offline ? 'Offline: answering on device' : 'Online',
+            isSelected: _offline,
+            icon: const Icon(Icons.cloud_outlined),
+            selectedIcon: const Icon(Icons.cloud_off_outlined),
+            onPressed: () => setState(() => _offline = !_offline),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -662,7 +782,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           // color them live here. See `code_highlighter.dart`.
                           codeHighlighter: highlightCode,
                         );
-                        if (message.reasoning.isEmpty && message.toolCalls.isEmpty) return reply;
+                        final note = message.note.isEmpty
+                            ? null
+                            : Text(
+                                message.note,
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              );
+                        if (message.reasoning.isEmpty && message.toolCalls.isEmpty && note == null) return reply;
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           spacing: 12,
@@ -680,6 +809,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                                 approver: _approver,
                               ),
                             if (message.text.isNotEmpty) reply,
+                            ?note,
                           ],
                         );
                       },
