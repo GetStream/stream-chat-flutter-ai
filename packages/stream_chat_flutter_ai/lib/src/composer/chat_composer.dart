@@ -63,7 +63,7 @@ const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing')
 /// [ChatComposerInput], the default occupant of the input slot.
 ///
 /// All four regions are customisable via [ChatComposerFactory] — passed as
-/// [factory], or app-wide as [AIComponentFactory.composer].
+/// [factory], or app-wide as [AIComponentBuilders.composer].
 ///
 /// Example:
 /// ```dart
@@ -110,8 +110,8 @@ class ChatComposer extends StatefulWidget {
   /// Factory used to build the composer's slots — leading, trailing, the
   /// input field, and the attachment sheet the default leading button opens.
   ///
-  /// `null` uses the nearest [AIComponents]' [AIComponentFactory.composer], or
-  /// the default.
+  /// `null` uses the nearest [AIComponentFactory]'s
+  /// [AIComponentBuilders.composer], or the default.
   final ChatComposerFactory? factory;
 
   /// Focus node for the text field.
@@ -359,7 +359,7 @@ class _ChatComposerState extends State<ChatComposer> {
           onStop: widget.onStopPressed == null ? null : _onStop,
         );
 
-        final factory = widget.factory ?? AIComponents.of(context).composer;
+        final factory = widget.factory ?? AIComponentFactory.of(context).composer ?? const ChatComposerFactory();
         final leading = factory.buildLeading(context, ChatComposerLeadingProps.from(props));
         final trailing = factory.buildTrailing(context, ChatComposerTrailingProps.from(props));
         final input = factory.buildInput(context, props);

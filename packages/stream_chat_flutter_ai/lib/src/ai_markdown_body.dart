@@ -116,7 +116,7 @@ Widget _buildFenceCached(
 }
 
 /// A cached fence: holds its data and asks the [AIComponentFactory] for the
-/// widget in its own build, so swapping the factory rebuilds it without
+/// widget in its own build, so swapping the builders rebuilds it without
 /// invalidating the cache.
 class _Fence extends StatelessWidget {
   const _Fence({required this.chart, required this.codeBlock});
@@ -128,9 +128,15 @@ class _Fence extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final factory = AIComponents.of(context);
-    if (chart case final chart?) return factory.buildChart(context, chart);
-    return factory.buildCodeBlock(context, codeBlock);
+    final builders = AIComponentFactory.of(context);
+    if (chart case final chart?) return builders.chart?.call(context, chart) ?? ChartView(spec: chart.spec);
+    return builders.codeBlock?.call(context, codeBlock) ??
+        CodeBlockView(
+          code: codeBlock.code,
+          language: codeBlock.language,
+          highlighter: codeBlock.highlighter,
+          theme: codeBlock.theme,
+        );
   }
 }
 
@@ -148,8 +154,9 @@ class _Fence extends StatelessWidget {
 /// - **LaTeX** (`\(…\)` and `\[…\]`) is handed to [mathBuilder], when one is
 ///   supplied.
 ///
-/// To replace the code block or chart widgets, provide an [AIComponentFactory]
-/// through [AIComponents].
+/// To replace the code block or chart widgets, set
+/// [AIComponentBuilders.codeBlock] or [AIComponentBuilders.chart] on an
+/// [AIComponentFactory].
 ///
 /// Letting `package:markdown` find the fences — rather than pre-splitting the
 /// string with a regex and stitching several [MarkdownBody] widgets together —

@@ -21,7 +21,7 @@ typedef AIToolApprovalDecider = Future<void> Function(AIToolCallPart call, AIToo
 typedef AIToolApprovalAnswer = void Function(AIToolApprovalDecision decision);
 
 /// Builds your own content for an [AIToolApprovalView] in place of
-/// [AIComponentFactory.buildToolApproval].
+/// [AIComponentBuilders.toolApproval].
 ///
 /// [approval] is the call's question, or `null` when the call awaits approval
 /// without one — ask in your own words then. [state] says where the answer

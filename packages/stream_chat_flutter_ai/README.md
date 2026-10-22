@@ -885,26 +885,26 @@ The reply exists only on the device; send it to your backend yourself if it shou
 
 ### Replacing components: `AIComponentFactory`
 
-`AIComponentFactory` builds the components the package creates inside its own widgets: the code
-blocks and charts in markdown, the reasoning, tool call and unsupported-step views, the tool
-approval card, and (through `composer`) the `ChatComposerFactory` a `ChatComposer` uses when it is
-given none. Subclass it, override the slots you want (a part slot may return
-`AIMessagePartsView.hidden` to leave the step out), and provide it once with `AIComponents`:
+`AIComponentFactory` replaces the components the package creates inside its own widgets, the same
+way `StreamComponentFactory` does in Stream's other Flutter SDKs: the code blocks and charts in
+markdown, the reasoning, tool call and unsupported-step views, the tool approval card, and (through
+`composer`) the `ChatComposerFactory` a `ChatComposer` uses when it is given none. Each builder in
+`AIComponentBuilders` is nullable; leave one out and its component keeps its default. A part
+builder may return `AIMessagePartsView.hidden` to leave the step out.
 
 ```dart
-class MyComponents extends AIComponentFactory {
-  const MyComponents();
+Widget codeBlock(BuildContext context, AICodeBlockProps props) =>
+    MyCodeBlock(code: props.code, language: props.language);
 
-  @override
-  Widget buildCodeBlock(BuildContext context, AICodeBlockProps props) =>
-      MyCodeBlock(code: props.code, language: props.language);
-}
-
-AIComponents(factory: const MyComponents(), child: MaterialApp(home: ...));
+AIComponentFactory(
+  builders: const AIComponentBuilders(codeBlock: codeBlock),
+  child: MaterialApp(home: ...),
+);
 ```
 
 Per-widget builders (`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.builder`,
-`ChatComposer.factory`) still win where given. Keep the factory instance stable, ideally `const`.
+`ChatComposer.factory`) still win where given. Keep the builders stable, ideally `const` with
+top-level functions: a new instance rebuilds every widget that reads it.
 
 ### Theming
 

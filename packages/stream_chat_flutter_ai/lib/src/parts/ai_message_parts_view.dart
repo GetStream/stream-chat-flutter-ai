@@ -150,19 +150,23 @@ class AIMessagePartsView extends StatelessWidget {
   /// [approver]'s question goes under the factory's row. Reasoning shows its
   /// [AIReasoningPart.preview]; full text goes through a [partBuilder].
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
-    final factory = AIComponents.of(context);
-    if (!part.isSupported) return factory.buildUnsupportedPart(context, AIUnsupportedPartProps(part: part));
+    final builders = AIComponentFactory.of(context);
+    if (!part.isSupported) {
+      return builders.unsupportedPart?.call(context, AIUnsupportedPartProps(part: part)) ??
+          const AIUnsupportedPartView();
+    }
     if (part.reasoning case final reasoning?) {
-      return factory.buildReasoning(context, AIReasoningProps(reasoning: reasoning));
+      return builders.reasoning?.call(context, AIReasoningProps(reasoning: reasoning)) ??
+          StreamingReasoningView.part(reasoning);
     }
     if (part.toolCall case final call?) {
-      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, factory, call);
+      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, builders, call);
     }
     return null;
   }
 
-  Widget _toolCallView(BuildContext context, AIComponentFactory factory, AIToolCallPart call) {
-    final row = factory.buildToolCall(context, AIToolCallProps(call: call));
+  Widget _toolCallView(BuildContext context, AIComponentBuilders builders, AIToolCallPart call) {
+    final row = builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
     final showRow = !identical(row, hidden);
     final approver = this.approver;
     final asks = approver != null && approver.identity.canApprove(call);

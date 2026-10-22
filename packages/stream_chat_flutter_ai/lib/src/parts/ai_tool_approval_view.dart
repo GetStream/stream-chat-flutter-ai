@@ -60,7 +60,7 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 /// )
 /// ```
 ///
-/// Without one it shows [AIComponentFactory.buildToolApproval] — by default an
+/// Without one it shows [AIComponentBuilders.toolApproval] — by default an
 /// [AIToolApprovalCard], styled by [theme], then the nearest
 /// [ToolApprovalTheme], then [AITheme.toolApprovalTheme]. Override that slot
 /// to replace the card everywhere.
@@ -75,7 +75,7 @@ class AIToolApprovalView extends StatefulWidget {
   /// Who answers on this device, how the answer is sent, and where it is.
   final AIToolApprover approver;
 
-  /// Builds your own content in place of [AIComponentFactory.buildToolApproval].
+  /// Builds your own content in place of [AIComponentBuilders.toolApproval].
   final AIToolApprovalContentBuilder? builder;
 
   /// Overrides for the default card, layered over the ambient
@@ -146,16 +146,21 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
     if (!approver.identity.canApprove(call)) return const SizedBox.shrink();
 
     if (widget.builder case final builder?) return builder(context, call.approval, state, _answerFor(call));
-    return AIComponents.of(context).buildToolApproval(
-      context,
-      AIToolApprovalProps(
-        call: call,
-        toolName: _toolName(call),
-        state: state,
-        onAnswer: _answerFor(call),
-        theme: widget.theme,
-      ),
+    final props = AIToolApprovalProps(
+      call: call,
+      toolName: _toolName(call),
+      state: state,
+      onAnswer: _answerFor(call),
+      theme: widget.theme,
     );
+    return AIComponentFactory.of(context).toolApproval?.call(context, props) ??
+        AIToolApprovalCard(
+          approval: props.approval,
+          toolName: props.toolName,
+          state: props.state,
+          onAnswer: props.onAnswer,
+          theme: props.theme,
+        );
   }
 }
 

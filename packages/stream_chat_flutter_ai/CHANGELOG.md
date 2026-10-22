@@ -4,7 +4,7 @@
 
 - `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
 - `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
-- `AIComponentFactory` / `AIComponents` replace the code blocks, charts, agent steps, approval card and composer slots the package builds; `ChatComposer.factory` is now nullable and falls back to the factory from `AIComponents`, or the default.
+- `AIComponentFactory` / `AIComponentBuilders` replace the code blocks, charts, agent steps, approval card and composer slots the package builds; `ChatComposer.factory` is now nullable and falls back to `AIComponentBuilders.composer`, or the default.
 
 ✅ Added
 

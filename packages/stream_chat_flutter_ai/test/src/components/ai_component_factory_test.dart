@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
-Widget _wrap(Widget child, {AIComponentFactory? factory}) {
+Widget _wrap(Widget child, {AIComponentBuilders? builders}) {
   final body = Align(
     alignment: Alignment.topLeft,
     child: SizedBox(width: 360, child: child),
   );
   return MaterialApp(
     home: Scaffold(
-      body: factory == null ? body : AIComponents(factory: factory, child: body),
+      body: builders == null ? body : AIComponentFactory(builders: builders, child: body),
     ),
   );
 }
@@ -45,38 +45,19 @@ AIToolApprover _approver({List<AIToolApprovalDecision>? answers}) => AIToolAppro
   decide: (call, decision) async => answers?.add(decision),
 );
 
-/// Overrides every slot with a labelled [Text].
-class _Custom extends AIComponentFactory {
-  const _Custom([this.tag = 'custom']);
-
-  final String tag;
-
-  @override
-  Widget buildCodeBlock(BuildContext context, AICodeBlockProps props) =>
-      Text('$tag code ${props.language}: ${props.code}');
-
-  @override
-  Widget buildChart(BuildContext context, AIChartProps props) => Text('$tag chart ${props.spec.kind.name}');
-
-  @override
-  Widget buildReasoning(BuildContext context, AIReasoningProps props) => Text('$tag reasoning');
-
-  @override
-  Widget buildToolCall(BuildContext context, AIToolCallProps props) => Text('$tag tool ${props.call.name}');
-
-  @override
-  Widget buildToolApproval(BuildContext context, AIToolApprovalProps props) => TextButton(
+/// Builders for every slot, each a labelled [Text].
+AIComponentBuilders _custom([String tag = 'custom']) => AIComponentBuilders(
+  codeBlock: (context, props) => Text('$tag code ${props.language}: ${props.code}'),
+  chart: (context, props) => Text('$tag chart ${props.spec.kind.name}'),
+  reasoning: (context, props) => Text('$tag reasoning'),
+  toolCall: (context, props) => Text('$tag tool ${props.call.name}'),
+  toolApproval: (context, props) => TextButton(
     onPressed: () => props.onAnswer(AIToolApprovalDecision.allowed),
     child: Text('$tag approval ${props.toolName}'),
-  );
-
-  @override
-  Widget buildUnsupportedPart(BuildContext context, AIUnsupportedPartProps props) =>
-      Text('$tag unsupported ${props.part.id}');
-
-  @override
-  ChatComposerFactory get composer => _CustomComposer(tag);
-}
+  ),
+  unsupportedPart: (context, props) => Text('$tag unsupported ${props.part.id}'),
+  composer: _CustomComposer(tag),
+);
 
 class _CustomComposer extends ChatComposerFactory {
   const _CustomComposer(this.tag);
@@ -88,137 +69,123 @@ class _CustomComposer extends ChatComposerFactory {
 
   @override
   Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) => Builder(
-    builder: (context) => Text(AIComponents.of(context) is _Custom ? 'sheet sees custom' : 'sheet sees default'),
+    builder: (context) => Text(
+      AIComponentFactory.of(context).composer is _CustomComposer ? 'sheet sees custom' : 'sheet sees default',
+    ),
   );
 }
 
-class _Hiding extends AIComponentFactory {
-  const _Hiding();
+Widget _hidden(BuildContext context, Object props) => AIMessagePartsView.hidden;
 
-  @override
-  Widget buildReasoning(BuildContext context, AIReasoningProps props) => AIMessagePartsView.hidden;
-
-  @override
-  Widget buildToolCall(BuildContext context, AIToolCallProps props) => AIMessagePartsView.hidden;
-
-  @override
-  Widget buildUnsupportedPart(BuildContext context, AIUnsupportedPartProps props) => AIMessagePartsView.hidden;
-}
+const _hiding = AIComponentBuilders(reasoning: _hidden, toolCall: _hidden, unsupportedPart: _hidden);
 
 /// Records the props each slot gets, and renders the approval state.
-class _Recording extends AIComponentFactory {
-  _Recording();
-
+class _Recording {
   final codeBlocks = <AICodeBlockProps>[];
   final charts = <AIChartProps>[];
   final approvals = <AIToolApprovalProps>[];
 
-  @override
-  Widget buildCodeBlock(BuildContext context, AICodeBlockProps props) {
-    codeBlocks.add(props);
-    return const Text('code');
-  }
-
-  @override
-  Widget buildChart(BuildContext context, AIChartProps props) {
-    charts.add(props);
-    return const Text('chart');
-  }
-
-  @override
-  Widget buildToolApproval(BuildContext context, AIToolApprovalProps props) {
-    approvals.add(props);
-    return TextButton(
-      onPressed: () => props.onAnswer(AIToolApprovalDecision.allowed),
-      child: Text('state ${props.state.runtimeType}'),
-    );
-  }
+  late final builders = AIComponentBuilders(
+    codeBlock: (context, props) {
+      codeBlocks.add(props);
+      return const Text('code');
+    },
+    chart: (context, props) {
+      charts.add(props);
+      return const Text('chart');
+    },
+    toolApproval: (context, props) {
+      approvals.add(props);
+      return TextButton(
+        onPressed: () => props.onAnswer(AIToolApprovalDecision.allowed),
+        child: Text('state ${props.state.runtimeType}'),
+      );
+    },
+  );
 }
 
 void main() {
   setUp(debugClearFenceCaches);
 
-  group('AIComponentFactory defaults', () {
-    testWidgets('each slot builds the package widget', (tester) async {
-      const factory = AIComponentFactory();
-      late BuildContext context;
-      await tester.pumpWidget(
-        _wrap(
-          Builder(
-            builder: (c) {
-              context = c;
-              return const SizedBox();
-            },
-          ),
-        ),
-      );
-
-      final code = factory.buildCodeBlock(context, const AICodeBlockProps(code: 'x', language: 'dart'));
-      expect(
-        code,
-        isA<CodeBlockView>().having((v) => v.code, 'code', 'x').having((v) => v.language, 'language', 'dart'),
-      );
-
-      final spec = USpecParser.tryParse('{"type": "bar", "data": {"labels": ["a"], "datasets": [{"data": [1]}]}}')!;
-      expect(
-        factory.buildChart(context, AIChartProps(spec: spec)),
-        isA<ChartView>().having((v) => v.spec, 'spec', spec),
-      );
-
-      final reasoning = _parts[0].reasoning!;
-      expect(factory.buildReasoning(context, AIReasoningProps(reasoning: reasoning)), isA<StreamingReasoningView>());
-
-      final call = _parts[1].toolCall!;
-      expect(
-        factory.buildToolCall(context, AIToolCallProps(call: call)),
-        isA<AIToolCallView>().having((v) => v.call, 'call', call),
-      );
-
-      void onAnswer(AIToolApprovalDecision _) {}
-      final approval = factory.buildToolApproval(
-        context,
-        AIToolApprovalProps(
-          call: _awaiting,
-          toolName: 'send email',
-          state: const AIToolApprovalIdle(),
-          onAnswer: onAnswer,
-        ),
-      );
-      expect(
-        approval,
-        isA<AIToolApprovalCard>()
-            .having((v) => v.approval, 'approval', _awaiting.approval)
-            .having((v) => v.toolName, 'toolName', 'send email')
-            .having((v) => v.onAnswer, 'onAnswer', onAnswer),
-      );
-
-      expect(
-        factory.buildUnsupportedPart(context, AIUnsupportedPartProps(part: _parts[2])),
-        isA<AIUnsupportedPartView>(),
-      );
-      expect(factory.composer, isA<ChatComposerFactory>());
+  group('AIComponentBuilders', () {
+    test('leaves every component to its default when empty', () {
+      const builders = AIComponentBuilders();
+      expect(builders.codeBlock, isNull);
+      expect(builders.chart, isNull);
+      expect(builders.reasoning, isNull);
+      expect(builders.toolCall, isNull);
+      expect(builders.toolApproval, isNull);
+      expect(builders.unsupportedPart, isNull);
+      expect(builders.composer, isNull);
     });
 
-    testWidgets('AIComponents.of falls back to the default factory', (tester) async {
-      late AIComponentFactory found;
+    test('copyWith and merge replace only what they set', () {
+      final custom = _custom();
+      final merged = const AIComponentBuilders(reasoning: _hidden).merge(AIComponentBuilders(chart: custom.chart));
+      expect(merged.reasoning, _hidden);
+      expect(merged.chart, same(custom.chart));
+      expect(merged.codeBlock, isNull);
+      expect(merged.copyWith(codeBlock: custom.codeBlock).codeBlock, same(custom.codeBlock));
+      expect(const AIComponentBuilders().merge(null), const AIComponentBuilders());
+    });
+
+    test('compares its builders by identity', () {
+      const same = AIComponentBuilders(reasoning: _hidden, toolCall: _hidden, unsupportedPart: _hidden);
+      expect(_hiding, same);
+      expect(_hiding.hashCode, same.hashCode);
+      expect(_custom(), isNot(_custom()), reason: 'new closures are new builders');
+    });
+
+    testWidgets('AIComponentFactory.of falls back to empty builders', (tester) async {
+      late AIComponentBuilders found;
       await tester.pumpWidget(
         _wrap(
           Builder(
             builder: (context) {
-              found = AIComponents.of(context);
+              found = AIComponentFactory.of(context);
               return const SizedBox();
             },
           ),
         ),
       );
-      expect(found.runtimeType, AIComponentFactory);
+      expect(found, const AIComponentBuilders());
+    });
+
+    testWidgets('without builders every component is the package widget', (tester) async {
+      final approver = _approver();
+      addTearDown(approver.dispose);
+      await tester.pumpWidget(
+        _wrap(
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                const AIMarkdownBody(data: '$_codeFence\n\n$_chartFence'),
+                AIMessagePartsView(
+                  parts: [
+                    ..._parts,
+                    AIMessagePart.fromToolCall(_awaiting.copyWith(id: 'call_2')),
+                  ],
+                  approver: approver,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CodeBlockView), findsOneWidget);
+      expect(find.byType(ChartView), findsOneWidget);
+      expect(find.byType(StreamingReasoningView), findsOneWidget);
+      expect(find.byType(AIToolCallView), findsNWidgets(2));
+      expect(find.byType(AIUnsupportedPartView), findsOneWidget);
+      expect(find.byType(AIToolApprovalCard), findsOneWidget);
     });
   });
 
   group('overridden slots', () {
     testWidgets('AIMarkdownBody builds its code blocks and charts through the factory', (tester) async {
       await tester.pumpWidget(
-        _wrap(const AIMarkdownBody(data: '$_codeFence\n\n$_chartFence'), factory: const _Custom()),
+        _wrap(const AIMarkdownBody(data: '$_codeFence\n\n$_chartFence'), builders: _custom()),
       );
 
       expect(find.text('custom code dart: void main() {}'), findsOneWidget);
@@ -227,17 +194,17 @@ void main() {
       expect(find.byType(ChartView), findsNothing);
     });
 
-    testWidgets('swapping the factory updates an already rendered AIMarkdownBody', (tester) async {
+    testWidgets('swapping the builders updates an already rendered AIMarkdownBody', (tester) async {
       const body = AIMarkdownBody(data: '$_codeFence\n\n$_chartFence');
       await tester.pumpWidget(_wrap(body));
       expect(find.byType(CodeBlockView), findsOneWidget);
       expect(find.byType(ChartView), findsOneWidget);
 
-      await tester.pumpWidget(_wrap(body, factory: const _Custom('first')));
+      await tester.pumpWidget(_wrap(body, builders: _custom('first')));
       expect(find.text('first code dart: void main() {}'), findsOneWidget);
       expect(find.text('first chart bar'), findsOneWidget);
 
-      await tester.pumpWidget(_wrap(body, factory: const _Custom('second')));
+      await tester.pumpWidget(_wrap(body, builders: _custom('second')));
       expect(find.text('second code dart: void main() {}'), findsOneWidget);
       expect(find.text('second chart bar'), findsOneWidget);
     });
@@ -245,7 +212,7 @@ void main() {
     testWidgets('AIMessagePartsView builds reasoning, tool calls and unsupported parts through the factory', (
       tester,
     ) async {
-      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts), factory: const _Custom()));
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts), builders: _custom()));
 
       expect(find.text('custom reasoning'), findsOneWidget);
       expect(find.text('custom tool get_weather'), findsOneWidget);
@@ -259,7 +226,7 @@ void main() {
     });
 
     testWidgets('AIMessagePartsView leaves out a part the factory returns hidden for', (tester) async {
-      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts), factory: const _Hiding()));
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts), builders: _hiding));
       expect(find.byType(Column), findsNothing);
     });
 
@@ -271,7 +238,7 @@ void main() {
             partBuilder: (context, part) => part.reasoning != null ? const Text('own reasoning') : null,
             toolCallBuilder: (context, call) => const Text('own tool'),
           ),
-          factory: const _Custom(),
+          builders: _custom(),
         ),
       );
 
@@ -287,7 +254,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           AIMessagePartsView(parts: [AIMessagePart.fromToolCall(_awaiting)], approver: approver),
-          factory: const _Custom(),
+          builders: _custom(),
         ),
       );
 
@@ -308,7 +275,7 @@ void main() {
             approver: approver,
             builder: (context, approval, state, answer) => const Text('own approval'),
           ),
-          factory: const _Custom(),
+          builders: _custom(),
         ),
       );
 
@@ -316,8 +283,8 @@ void main() {
       expect(find.textContaining('custom approval'), findsNothing);
     });
 
-    testWidgets('ChatComposer takes its slots from AIComponents without a factory of its own', (tester) async {
-      await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {}), factory: const _Custom()));
+    testWidgets('ChatComposer takes its slots from AIComponentFactory without a factory of its own', (tester) async {
+      await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {}), builders: _custom()));
       expect(find.text('custom trailing'), findsOneWidget);
     });
 
@@ -325,14 +292,14 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           ChatComposer(onSendPressed: (_, __, ___) {}, factory: const ChatComposerFactory()),
-          factory: const _Custom(),
+          builders: _custom(),
         ),
       );
       expect(find.text('custom trailing'), findsNothing);
     });
 
     testWidgets('the inherited factory reaches the attachment sheet route', (tester) async {
-      await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {}), factory: const _Custom()));
+      await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {}), builders: _custom()));
 
       await tester.tap(find.byIcon(Icons.add));
       await tester.pumpAndSettle();
@@ -342,7 +309,7 @@ void main() {
     testWidgets('AIMarkdownBody passes its theme, highlighter and language to the code block', (tester) async {
       const theme = CodeBlockThemeData(backgroundColor: Colors.black);
       TextSpan? highlighter(CodeHighlightRequest request) => null;
-      final factory = _Recording();
+      final recording = _Recording();
       await tester.pumpWidget(
         _wrap(
           AIMarkdownBody(
@@ -350,34 +317,34 @@ void main() {
             codeBlockTheme: theme,
             codeHighlighter: highlighter,
           ),
-          factory: factory,
+          builders: recording.builders,
         ),
       );
 
-      expect(factory.charts, isEmpty);
-      expect(factory.codeBlocks.map((p) => (p.language, p.code)), [
+      expect(recording.charts, isEmpty);
+      expect(recording.codeBlocks.map((p) => (p.language, p.code)), [
         ('dart', 'void main() {}'),
         (null, 'plain'),
         ('chartjs', 'not json'),
       ]);
-      for (final props in factory.codeBlocks) {
+      for (final props in recording.codeBlocks) {
         expect(props.theme, same(theme));
         expect(props.highlighter, same(highlighter));
       }
     });
 
-    testWidgets('one fence under two AIComponents at once uses each factory', (tester) async {
+    testWidgets('one fence under two factories at once uses the builders of each', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const Column(
+          Column(
             children: [
-              AIComponents(
-                factory: _Custom('a'),
-                child: AIMarkdownBody(data: _codeFence),
+              AIComponentFactory(
+                builders: _custom('a'),
+                child: const AIMarkdownBody(data: _codeFence),
               ),
-              AIComponents(
-                factory: _Custom('b'),
-                child: AIMarkdownBody(data: _codeFence),
+              AIComponentFactory(
+                builders: _custom('b'),
+                child: const AIMarkdownBody(data: _codeFence),
               ),
             ],
           ),
@@ -388,12 +355,12 @@ void main() {
       expect(find.text('b code dart: void main() {}'), findsOneWidget);
     });
 
-    testWidgets('swapping the factory updates an already built AIMessagePartsView', (tester) async {
+    testWidgets('swapping the builders updates an already built AIMessagePartsView', (tester) async {
       final view = AIMessagePartsView(parts: _parts);
-      await tester.pumpWidget(_wrap(view, factory: const _Custom('first')));
+      await tester.pumpWidget(_wrap(view, builders: _custom('first')));
       expect(find.text('first tool get_weather'), findsOneWidget);
 
-      await tester.pumpWidget(_wrap(view, factory: const _Custom('second')));
+      await tester.pumpWidget(_wrap(view, builders: _custom('second')));
       expect(find.text('second tool get_weather'), findsOneWidget);
       expect(find.textContaining('first'), findsNothing);
     });
@@ -408,7 +375,7 @@ void main() {
       var notified = 0;
       Widget build(AIToolCallPart call) => _wrap(
         AIMessagePartsView(parts: [AIMessagePart.fromToolCall(call)], approver: approver),
-        factory: const _Hiding(),
+        builders: _hiding,
       );
 
       await tester.pumpWidget(build(_awaiting));
@@ -430,7 +397,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           AIMessagePartsView(parts: [AIMessagePart.fromToolCall(_awaiting)], approver: approver),
-          factory: const _Hiding(),
+          builders: _hiding,
         ),
       );
 
@@ -444,7 +411,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           AIMessagePartsView(parts: _parts, approver: approver),
-          factory: const _Hiding(),
+          builders: _hiding,
         ),
       );
       expect(find.byType(Column), findsNothing);
@@ -466,7 +433,7 @@ void main() {
       expect(find.byType(Column), findsNothing);
     });
 
-    testWidgets('buildToolApproval gets the call, theme and current state', (tester) async {
+    testWidgets('the toolApproval builder gets the call, theme and current state', (tester) async {
       final pending = Completer<void>();
       final approver = AIToolApprover(
         identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
@@ -474,30 +441,30 @@ void main() {
       );
       addTearDown(approver.dispose);
       const theme = ToolApprovalThemeData(backgroundColor: Colors.amber);
-      final factory = _Recording();
+      final recording = _Recording();
       await tester.pumpWidget(
         _wrap(
           AIToolApprovalView(call: _awaiting, approver: approver, theme: theme),
-          factory: factory,
+          builders: recording.builders,
         ),
       );
 
       expect(find.text('state AIToolApprovalIdle'), findsOneWidget);
-      expect(factory.approvals.last.call, same(_awaiting));
-      expect(factory.approvals.last.approval, same(_awaiting.approval));
-      expect(factory.approvals.last.theme, same(theme));
+      expect(recording.approvals.last.call, same(_awaiting));
+      expect(recording.approvals.last.approval, same(_awaiting.approval));
+      expect(recording.approvals.last.theme, same(theme));
 
       await tester.tap(find.byType(TextButton));
       await tester.pump();
       expect(find.text('state AIToolApprovalSending'), findsOneWidget);
     });
 
-    testWidgets('swapping the factory updates a ChatComposer without its own', (tester) async {
+    testWidgets('swapping the builders updates a ChatComposer without its own', (tester) async {
       final composer = ChatComposer(onSendPressed: (_, __, ___) {});
-      await tester.pumpWidget(_wrap(composer, factory: const _Custom('first')));
+      await tester.pumpWidget(_wrap(composer, builders: _custom('first')));
       expect(find.text('first trailing'), findsOneWidget);
 
-      await tester.pumpWidget(_wrap(composer, factory: const _Custom('second')));
+      await tester.pumpWidget(_wrap(composer, builders: _custom('second')));
       expect(find.text('second trailing'), findsOneWidget);
       expect(find.text('first trailing'), findsNothing);
     });
