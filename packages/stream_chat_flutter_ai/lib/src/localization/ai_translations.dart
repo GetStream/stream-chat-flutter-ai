@@ -7,6 +7,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 // Here for the [AIUnsupportedPartView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
+// Here for the [StreamingReasoningView] doc link below only.
+import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 
 /// The user-facing strings the package renders itself.
 ///
@@ -128,6 +130,28 @@ abstract class AITranslations {
   /// [AIUnsupportedPartView].
   String get unsupportedMessagePart;
 
+  /// The reasoning header while the model thinks, before a second has passed.
+  /// See [StreamingReasoningView].
+  String get reasoningThinking;
+
+  /// The reasoning header while the model thinks, where `elapsed` is how long
+  /// it has thought so far: `Thinking… 7s`.
+  String reasoningThinkingFor(Duration elapsed);
+
+  /// The reasoning header once the model is done, when how long it thought is
+  /// unknown: `Thought process`.
+  String get reasoningTitle;
+
+  /// The reasoning header once the model is done, where `duration` is how long
+  /// it thought, never under a second: `Thought for 12s`.
+  String reasoningThoughtFor(Duration duration);
+
+  /// The screen-reader hint on the folded reasoning header.
+  String get reasoningShowHint;
+
+  /// The screen-reader hint on the open reasoning header.
+  String get reasoningHideHint;
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -196,6 +220,34 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get unsupportedMessagePart => "A step this app version can't show";
+
+  @override
+  String get reasoningThinking => 'Thinking…';
+
+  @override
+  String reasoningThinkingFor(Duration elapsed) => 'Thinking… ${reasoningDuration(elapsed)}';
+
+  @override
+  String get reasoningTitle => 'Thought process';
+
+  @override
+  String reasoningThoughtFor(Duration duration) => 'Thought for ${reasoningDuration(duration)}';
+
+  /// How long the model thought, in whole seconds rounded down: `7s` under a
+  /// minute, then `1m 5s`, or `2m` on the minute. Override it to change how
+  /// both reasoning headers spell a duration.
+  String reasoningDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60);
+    if (minutes == 0) return '${seconds}s';
+    return seconds == 0 ? '${minutes}m' : '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String get reasoningShowHint => "Shows the model's reasoning";
+
+  @override
+  String get reasoningHideHint => "Hides the model's reasoning";
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {

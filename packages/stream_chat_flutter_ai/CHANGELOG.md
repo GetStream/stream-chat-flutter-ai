@@ -12,6 +12,7 @@
   usually falls behind the backend, so this fires later than the end of generation, which
   `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
 - `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments), and `AITranslations.unsupportedMessagePart`.
+- `StreamingReasoningView` — a collapsible "Thinking… / Thought for Ns" reasoning panel, themed via `ReasoningThemeData`.
 
 ## 0.1.0
 
