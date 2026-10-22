@@ -3,7 +3,6 @@
 💥 Breaking
 
 - `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
-- `AITranslations` gains abstract strings for the new widgets: extend `DefaultAITranslations` rather than implementing it, and you only override what you translate.
 - `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
 
 ✅ Added
@@ -12,7 +11,7 @@
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
   `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
-- `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments).
+- `AIMessagePart` models and `AIMessagePartsView` for agent steps (`ai_reasoning` / `ai_tool_call` attachments), and `AITranslations.unsupportedMessagePart`.
 
 ## 0.1.0
 

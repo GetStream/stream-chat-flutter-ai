@@ -22,25 +22,25 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 /// the only accessible label those buttons expose. Translating them is what
 /// makes the composer legible to a screen reader in another locale.
 ///
-/// **Subclass [DefaultAITranslations], not this class**, and override only the
-/// strings you are changing:
+/// **Implement this class**, rather than extending [DefaultAITranslations]:
 ///
 /// ```dart
-/// class DutchTranslations extends DefaultAITranslations {
+/// class DutchTranslations implements AITranslations {
 ///   const DutchTranslations();
 ///
 ///   @override
 ///   String get send => 'Verstuur';
 ///
-///   @override
-///   String clearOption(String option) => '$option wissen';
+///   // ...and every other string.
 /// }
 /// ```
 ///
-/// Implementing [AITranslations] directly works, but then every string this
-/// package later adds is a compile error rather than an untranslated default.
+/// That way a string this package adds later is a compile error that tells
+/// you there is something new to translate, instead of English silently
+/// showing up in your app. Adding a string is not considered a breaking
+/// change.
 ///
-/// **Give your subclass a `const` constructor** and construct it as
+/// **Give your class a `const` constructor** and construct it as
 /// `const DutchTranslations()`. A scope compares instances to decide whether
 /// to notify, so a fresh instance per `build` rebuilds every dependent.
 @immutable
@@ -143,8 +143,8 @@ abstract class AITranslations {
 /// The English strings this package ships, and what every widget renders when
 /// no [AITranslationsScope] is in the tree.
 ///
-/// Subclass to override individual strings — see [AITranslations] for the
-/// idiom and for why the subclass wants a `const` constructor.
+/// Implement [AITranslations] for your own languages rather than subclassing
+/// this — see there for why.
 class DefaultAITranslations extends AITranslations {
   /// Creates a [DefaultAITranslations].
   const DefaultAITranslations();
@@ -265,7 +265,7 @@ class DefaultAITranslations extends AITranslations {
 
   static String _range(ChartSemantics chart) => 'values ${chart.valueMin} to ${chart.valueMax}';
 
-  /// `'1 row'`, `'4 columns'`. English pluralization, which a subclass replaces
+  /// `'1 row'`, `'4 columns'`. English pluralization, which a translation replaces
   /// along with the rest of the sentence.
   static String _count(int count, String singular, {String? plural}) =>
       '$count ${count == 1 ? singular : plural ?? '${singular}s'}';

@@ -97,6 +97,9 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 - Imports inside `lib/` use `package:stream_chat_flutter_ai/...` (`always_use_package_imports`),
   not relative paths.
 - New public widgets get exported from `lib/stream_chat_flutter_ai.dart`.
+- Customers should `implement` `AITranslations`, not extend `DefaultAITranslations`, so a new
+  string shows up as a compile error. Adding a string still isn't a breaking change: list it under
+  `✅ Added`, not `💥 Breaking`.
 
 ## PR & commit conventions
 

@@ -760,10 +760,10 @@ Every string the package renders itself resolves through an `AITranslations` ins
 none and the widgets use `DefaultAITranslations` and render the English they always have, so this
 is opt-in.
 
-Subclass `DefaultAITranslations` and override only what you're changing:
+Implement `AITranslations` for each language you support:
 
 ```dart
-class DutchTranslations extends DefaultAITranslations {
+class DutchTranslations implements AITranslations {
   const DutchTranslations();
 
   @override
@@ -774,8 +774,14 @@ class DutchTranslations extends DefaultAITranslations {
 
   @override
   String clearOption(String option) => '$option wissen';
+
+  // ...and every other string.
 }
 ```
+
+Implement it rather than extending `DefaultAITranslations`: when a later version adds a string, you
+get a compile error telling you there is something new to translate, instead of English silently
+showing up in your app. Adding a string is not considered a breaking change.
 
 Then hand them to the app through `AITranslationsDelegate`, a `LocalizationsDelegate` like any
 other, so Flutter picks the instance for the app's locale and swaps it when the locale changes:
@@ -826,7 +832,7 @@ the scope first, then the locale's delegate, then the English defaults, and neve
 
 Three things worth knowing:
 
-- **Give your subclass a `const` constructor** and construct it as `const DutchTranslations()`.
+- **Give your class a `const` constructor** and construct it as `const DutchTranslations()`.
   A scope compares instances to decide whether to notify, so a fresh instance built in a `build`
   method rebuilds every dependent. A `const` map of them also makes the delegate itself `const`.
 - **`ChatComposer.hintText` wins over `AITranslations.composerHint`.** A hint written for one
@@ -871,9 +877,6 @@ axis a bar chart draws, `pointCount` counts plotted points (a pie's slices, a hi
 and `rowCount`/`columnLabels` are a heatmap's grid. Check `chart.isEmpty` before reading
 `valueMin`/`valueMax`: they are `null` for a chart with no points. `sizeMin`/`sizeMax` are non-null
 only for a bubble chart, the one kind that draws `UPoint.size`.
-
-Subclassing `DefaultAITranslations` rather than implementing `AITranslations` directly means a
-string added in a later version arrives as an untranslated default rather than a compile error.
 
 ---
 
