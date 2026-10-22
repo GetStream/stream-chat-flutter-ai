@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
-// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
 
@@ -109,17 +109,20 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         : step.isStreaming
         ? scope.clock.elapsed(scope.turn)
         : scope.clock.durationOfFirstStep(scope.turn, step.duration);
-    return AIComponents.of(
-      context,
-    ).buildReasoning(
-      context,
-      AIReasoningProps(reasoning: step, text: widget.reasoningText?.call(step), duration: duration),
+    final props = AIReasoningProps(reasoning: step, text: widget.reasoningText?.call(step), duration: duration);
+    if (AIComponentFactory.of(context).reasoning case final builder?) return builder(context, props);
+    if (duration == null) return StreamingReasoningView.part(step, text: props.text);
+    return StreamingReasoningView(
+      text: props.text ?? step.preview ?? '',
+      isThinking: step.isStreaming,
+      duration: duration,
+      summary: step.summary,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final factory = AIComponents.of(context);
+    final builders = AIComponentFactory.of(context);
     final onAttachmentTap = widget.onAttachmentTap;
 
     return Column(
@@ -131,8 +134,9 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         if (widget.text.isNotEmpty)
           StreamingMessageView(text: widget.text, expectMoreText: widget.isGenerating, onFinished: _onFinished),
         for (final attachment in widget.attachments)
-          factory.buildMessageAttachment(
+          AIMessageAttachmentView.of(
             context,
+            builders,
             AIMessageAttachmentProps(
               attachment: attachment,
               isFromUser: false,

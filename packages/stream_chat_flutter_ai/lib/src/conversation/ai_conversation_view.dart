@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_thinking_view.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_user_message_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
@@ -35,10 +37,10 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// )
 /// ```
 ///
-/// The rows come from [AIComponentFactory.buildUserMessage],
-/// [AIComponentFactory.buildAssistantMessage] and, under each finished reply,
-/// [AIComponentFactory.buildReplyActions], which shows nothing until you
-/// override it. A row is only built again when what it shows changes, so a
+/// The rows can be replaced through [AIComponentBuilders.userMessage] and
+/// [AIComponentBuilders.assistantMessage], and under each finished reply
+/// [AIComponentBuilders.replyActions] shows the person's actions, nothing until
+/// you set it. A row is only built again when what it shows changes, so a
 /// reply streaming in does not rebuild the rest of the conversation.
 ///
 /// Place the composer below the list rather than over it, so the list knows how
@@ -482,22 +484,26 @@ class _EntryViewState extends State<_EntryView> {
   }
 
   Widget _content(BuildContext context) {
-    final factory = AIComponents.of(context);
+    final builders = AIComponentFactory.of(context);
     final entry = widget.entry;
     final message = entry.message;
     if (entry.isFromUser) {
-      return factory.buildUserMessage(
-        context,
-        AIUserMessageProps(
-          message: message,
-          text: message?.text ?? entry.pending?.text ?? '',
-          attachments: entry.attachments,
-          onAttachmentTap: widget.onAttachmentTap,
-        ),
+      final props = AIUserMessageProps(
+        message: message,
+        text: message?.text ?? entry.pending?.text ?? '',
+        attachments: entry.attachments,
+        onAttachmentTap: widget.onAttachmentTap,
       );
+      return builders.userMessage?.call(context, props) ??
+          AIUserMessageView(text: props.text, attachments: props.attachments, onAttachmentTap: props.onAttachmentTap);
     }
 
     final reply = message!;
+    final assistant = AIAssistantMessageProps(
+      message: reply,
+      approver: widget.approver,
+      onAttachmentTap: widget.onAttachmentTap,
+    );
     final showsActions = !reply.isGenerating && reply.text.isNotEmpty && _writing.value != true;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Column(
@@ -505,17 +511,24 @@ class _EntryViewState extends State<_EntryView> {
       mainAxisSize: MainAxisSize.min,
       spacing: 4,
       children: [
-        factory.buildAssistantMessage(
-          context,
-          AIAssistantMessageProps(message: reply, approver: widget.approver, onAttachmentTap: widget.onAttachmentTap),
-        ),
+        builders.assistantMessage?.call(context, assistant) ??
+            AIAssistantMessageView(
+              text: reply.text,
+              isGenerating: reply.isGenerating,
+              parts: reply.parts,
+              attachments: reply.attachments,
+              approver: widget.approver,
+              reasoningText: reply.reasoningText,
+              onAttachmentTap: widget.onAttachmentTap,
+            ),
         AnimatedSwitcher(
           duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
           child: showsActions
-              ? factory.buildReplyActions(
-                  context,
-                  AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply),
-                )
+              ? builders.replyActions?.call(
+                      context,
+                      AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply),
+                    ) ??
+                    const SizedBox.shrink()
               : const SizedBox.shrink(),
         ),
       ],

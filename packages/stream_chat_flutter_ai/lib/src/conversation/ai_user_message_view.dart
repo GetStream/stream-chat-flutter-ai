@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
 
@@ -9,7 +10,7 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// the trailing edge. A long press offers to copy the text, and to edit it given
 /// [onEdit].
 ///
-/// Attachments are built by [AIComponentFactory.buildMessageAttachment].
+/// Attachments can be replaced through [AIComponentBuilders.messageAttachment].
 class AIUserMessageView extends StatelessWidget {
   /// Creates an [AIUserMessageView].
   const AIUserMessageView({
@@ -58,7 +59,7 @@ class AIUserMessageView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ConversationTheme.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final factory = AIComponents.of(context);
+    final builders = AIComponentFactory.of(context);
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 48),
@@ -67,8 +68,9 @@ class AIUserMessageView extends StatelessWidget {
         spacing: 8,
         children: [
           for (final attachment in attachments)
-            factory.buildMessageAttachment(
+            AIMessageAttachmentView.of(
               context,
+              builders,
               AIMessageAttachmentProps(
                 attachment: attachment,
                 isFromUser: true,

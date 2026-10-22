@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
@@ -10,6 +11,13 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 class AIMessageAttachmentView extends StatelessWidget {
   /// Creates an [AIMessageAttachmentView].
   const AIMessageAttachmentView({super.key, required this.attachment, this.imageSize = 180, this.onTap});
+
+  /// The view of [props]'s attachment: [builders]'
+  /// [AIComponentBuilders.messageAttachment], or else an
+  /// [AIMessageAttachmentView].
+  static Widget of(BuildContext context, AIComponentBuilders builders, AIMessageAttachmentProps props) =>
+      builders.messageAttachment?.call(context, props) ??
+      AIMessageAttachmentView(attachment: props.attachment, onTap: props.onTap);
 
   /// What to show.
   final AIMessageAttachment attachment;

@@ -44,13 +44,10 @@ List<_Message> _history(int count) => [
   ],
 ];
 
-class _Actions extends AIComponentFactory {
-  const _Actions();
+Widget _actions(BuildContext context, AIReplyActionsProps props) =>
+    Text('actions for ${props.message.id}${props.isLatestReply ? ' (latest)' : ''}');
 
-  @override
-  Widget buildReplyActions(BuildContext context, AIReplyActionsProps props) =>
-      Text('actions for ${props.message.id}${props.isLatestReply ? ' (latest)' : ''}');
-}
+const _withActions = AIComponentBuilders(replyActions: _actions);
 
 Future<void> _pump(
   WidgetTester tester,
@@ -58,7 +55,7 @@ Future<void> _pump(
   AIPendingMessage? pending,
   bool isThinking = false,
   Future<void> Function()? loadOlder,
-  AIComponentFactory factory = const _Actions(),
+  AIComponentBuilders builders = _withActions,
   Widget? footer,
   Widget? empty,
   bool settle = true,
@@ -67,8 +64,8 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    AIComponents(
-      factory: factory,
+    AIComponentFactory(
+      builders: builders,
       child: MaterialApp(
         home: MediaQuery(
           // No typewriter, so a reply is on screen at once.
@@ -266,20 +263,25 @@ void main() {
 
     testWidgets('builds a finished reply again only when what it shows changes', (tester) async {
       var builds = 0;
-      final factory = _CountingFactory(() => builds++);
+      final counting = AIComponentBuilders(
+        assistantMessage: (context, props) {
+          builds++;
+          return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
+        },
+      );
       await _pump(tester, [
         _user('u1'),
         _reply('r1'),
         _user('u2'),
         _reply('r2', text: 'A', generating: true),
-      ], factory: factory);
+      ], builders: counting);
       final first = builds;
       await _pump(tester, [
         _user('u1'),
         _reply('r1'),
         _user('u2'),
         _reply('r2', text: 'AB', generating: true),
-      ], factory: factory);
+      ], builders: counting);
       expect(builds - first, 1, reason: 'only the streaming reply');
     });
 
@@ -336,16 +338,4 @@ void main() {
       );
     });
   });
-}
-
-class _CountingFactory extends AIComponentFactory {
-  _CountingFactory(this.onBuild);
-
-  final VoidCallback onBuild;
-
-  @override
-  Widget buildAssistantMessage(BuildContext context, AIAssistantMessageProps props) {
-    onBuild();
-    return super.buildAssistantMessage(context, props);
-  }
 }
