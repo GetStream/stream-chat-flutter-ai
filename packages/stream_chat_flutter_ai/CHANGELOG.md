@@ -19,6 +19,7 @@
 - `AIClientToolRunner` runs `awaiting_client` tool calls once and sends each `AIClientToolResult` back to the agent; `AIResultClientTool` returns one.
 - Charts show a series legend (`ChartThemeData.showLegend` / `legendPosition`), and pie slices are labelled with their percentage.
 - `AILocalModel` and `AIConversationTurn` for streaming a fallback reply from an on-device model.
+- `AIReplyActionsView` — copy, share, regenerate and rate buttons under a finished reply, themed via `ReplyActionsThemeData`.
 
 ## 0.1.0
 
