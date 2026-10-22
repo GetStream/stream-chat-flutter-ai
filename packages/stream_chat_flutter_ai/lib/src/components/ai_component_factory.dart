@@ -4,6 +4,15 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_user_message_view.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
@@ -18,8 +27,8 @@ import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.
 
 /// Provides [AIComponentBuilders] to the widgets below it, to replace the
 /// components this package builds inside its own widgets: code blocks and
-/// charts in markdown, agent steps, the tool approval card and the composer's
-/// slots.
+/// charts in markdown, agent steps, the tool approval card, the messages of an
+/// [AIConversationView] and the composer's slots.
 ///
 /// ```dart
 /// AIComponentFactory(
@@ -82,6 +91,10 @@ class AIComponentBuilders with Diagnosticable {
     this.toolCall,
     this.toolApproval,
     this.unsupportedPart,
+    this.userMessage,
+    this.assistantMessage,
+    this.replyActions,
+    this.messageAttachment,
     this.composer,
   });
 
@@ -110,6 +123,34 @@ class AIComponentBuilders with Diagnosticable {
   /// [AIUnsupportedPartView].
   final AIComponentBuilder<AIUnsupportedPartProps>? unsupportedPart;
 
+  /// A message the person sent, in [AIConversationView]. Defaults to
+  /// [AIUserMessageView].
+  ///
+  /// The conversation builds a row again only when what [AIMessage] says about
+  /// it changes, so read anything else that changes, such as a send status,
+  /// from your own listenable rather than from the message.
+  final AIComponentBuilder<AIUserMessageProps>? userMessage;
+
+  /// A reply of the agent, in [AIConversationView]. Defaults to
+  /// [AIAssistantMessageView]. Like [userMessage], it is built again only when
+  /// what [AIMessage] says about the reply changes.
+  final AIComponentBuilder<AIAssistantMessageProps>? assistantMessage;
+
+  /// What the person can do with a finished reply, shown under it in
+  /// [AIConversationView] once its answer is typed out. Nothing by default; an
+  /// [AIReplyActionsView] is what to return:
+  ///
+  /// ```dart
+  /// replyActions: (context, props) => AIReplyActionsView(
+  ///   text: props.text,
+  ///   actions: AIReplyActions(onRegenerate: props.isLatestReply ? chat.regenerate : null),
+  /// ),
+  /// ```
+  final AIComponentBuilder<AIReplyActionsProps>? replyActions;
+
+  /// One of a message's attachments. Defaults to [AIMessageAttachmentView].
+  final AIComponentBuilder<AIMessageAttachmentProps>? messageAttachment;
+
   /// The composer's slots, used by a `ChatComposer` given no factory of its
   /// own. Defaults to [ChatComposerFactory].
   final ChatComposerFactory? composer;
@@ -123,6 +164,10 @@ class AIComponentBuilders with Diagnosticable {
     AIComponentBuilder<AIToolCallProps>? toolCall,
     AIComponentBuilder<AIToolApprovalProps>? toolApproval,
     AIComponentBuilder<AIUnsupportedPartProps>? unsupportedPart,
+    AIComponentBuilder<AIUserMessageProps>? userMessage,
+    AIComponentBuilder<AIAssistantMessageProps>? assistantMessage,
+    AIComponentBuilder<AIReplyActionsProps>? replyActions,
+    AIComponentBuilder<AIMessageAttachmentProps>? messageAttachment,
     ChatComposerFactory? composer,
   }) => AIComponentBuilders(
     codeBlock: codeBlock ?? this.codeBlock,
@@ -131,6 +176,10 @@ class AIComponentBuilders with Diagnosticable {
     toolCall: toolCall ?? this.toolCall,
     toolApproval: toolApproval ?? this.toolApproval,
     unsupportedPart: unsupportedPart ?? this.unsupportedPart,
+    userMessage: userMessage ?? this.userMessage,
+    assistantMessage: assistantMessage ?? this.assistantMessage,
+    replyActions: replyActions ?? this.replyActions,
+    messageAttachment: messageAttachment ?? this.messageAttachment,
     composer: composer ?? this.composer,
   );
 
@@ -145,6 +194,10 @@ class AIComponentBuilders with Diagnosticable {
       toolCall: other.toolCall,
       toolApproval: other.toolApproval,
       unsupportedPart: other.unsupportedPart,
+      userMessage: other.userMessage,
+      assistantMessage: other.assistantMessage,
+      replyActions: other.replyActions,
+      messageAttachment: other.messageAttachment,
       composer: other.composer,
     );
   }
@@ -159,6 +212,10 @@ class AIComponentBuilders with Diagnosticable {
       ..add(FlagProperty('toolCall', value: toolCall != null, ifTrue: 'custom toolCall'))
       ..add(FlagProperty('toolApproval', value: toolApproval != null, ifTrue: 'custom toolApproval'))
       ..add(FlagProperty('unsupportedPart', value: unsupportedPart != null, ifTrue: 'custom unsupportedPart'))
+      ..add(FlagProperty('userMessage', value: userMessage != null, ifTrue: 'custom userMessage'))
+      ..add(FlagProperty('assistantMessage', value: assistantMessage != null, ifTrue: 'custom assistantMessage'))
+      ..add(FlagProperty('replyActions', value: replyActions != null, ifTrue: 'custom replyActions'))
+      ..add(FlagProperty('messageAttachment', value: messageAttachment != null, ifTrue: 'custom messageAttachment'))
       ..add(DiagnosticsProperty<ChatComposerFactory>('composer', composer, defaultValue: null));
   }
 
@@ -172,10 +229,26 @@ class AIComponentBuilders with Diagnosticable {
           other.toolCall == toolCall &&
           other.toolApproval == toolApproval &&
           other.unsupportedPart == unsupportedPart &&
+          other.userMessage == userMessage &&
+          other.assistantMessage == assistantMessage &&
+          other.replyActions == replyActions &&
+          other.messageAttachment == messageAttachment &&
           other.composer == composer;
 
   @override
-  int get hashCode => Object.hash(codeBlock, chart, reasoning, toolCall, toolApproval, unsupportedPart, composer);
+  int get hashCode => Object.hash(
+    codeBlock,
+    chart,
+    reasoning,
+    toolCall,
+    toolApproval,
+    unsupportedPart,
+    userMessage,
+    assistantMessage,
+    replyActions,
+    messageAttachment,
+    composer,
+  );
 }
 
 /// What [AIComponentBuilders.codeBlock] gets.
@@ -211,10 +284,17 @@ final class AIChartProps {
 @immutable
 final class AIReasoningProps {
   /// Creates an [AIReasoningProps].
-  const AIReasoningProps({required this.reasoning});
+  const AIReasoningProps({required this.reasoning, this.text, this.duration});
 
   /// The round of reasoning to show.
   final AIReasoningPart reasoning;
+
+  /// The whole of its thinking when the app has it, or `null` for its preview.
+  final String? text;
+
+  /// How long it has thought, when the conversation timed it rather than the
+  /// step, such as its first step taking over the thinking count.
+  final Duration? duration;
 }
 
 /// What [AIComponentBuilders.toolCall] gets.
@@ -266,4 +346,86 @@ final class AIToolApprovalProps {
 
   /// The theme overrides the [AIToolApprovalView] was given.
   final ToolApprovalThemeData? theme;
+}
+
+/// What [AIComponentBuilders.userMessage] gets.
+@immutable
+final class AIUserMessageProps {
+  /// Creates an [AIUserMessageProps].
+  const AIUserMessageProps({this.message, required this.text, this.attachments = const [], this.onAttachmentTap});
+
+  /// The message, which is one of the app's own: cast it to read what else it
+  /// holds. `null` while the message is on its way.
+  final AIMessage? message;
+
+  /// What the person wrote.
+  final String text;
+
+  /// What they sent with it.
+  final List<AIMessageAttachment> attachments;
+
+  /// Opens one of the attachments.
+  final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+}
+
+/// What [AIComponentBuilders.assistantMessage] gets.
+@immutable
+final class AIAssistantMessageProps {
+  /// Creates an [AIAssistantMessageProps].
+  const AIAssistantMessageProps({required this.message, this.approver, this.onAttachmentTap});
+
+  /// The reply, which is one of the app's own messages: cast it to read what
+  /// else it holds.
+  final AIMessage message;
+
+  /// The answer, in markdown.
+  String get text => message.text;
+
+  /// Whether the agent is still writing it.
+  bool get isGenerating => message.isGenerating;
+
+  /// The steps the agent took, in order.
+  List<AIMessagePart> get parts => message.parts;
+
+  /// What the agent sent with it.
+  List<AIMessageAttachment> get attachments => message.attachments;
+
+  /// Who answers tool calls' questions on this device.
+  final AIToolApprover? approver;
+
+  /// Opens one of the attachments.
+  final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+}
+
+/// What [AIComponentBuilders.replyActions] gets.
+@immutable
+final class AIReplyActionsProps {
+  /// Creates an [AIReplyActionsProps].
+  const AIReplyActionsProps({required this.message, required this.isLatestReply});
+
+  /// The reply, which is one of the app's own messages: cast it to act on it.
+  final AIMessage message;
+
+  /// The reply's text, in markdown.
+  String get text => message.text;
+
+  /// Whether it is the latest reply in the conversation, such as the only one
+  /// an app offers to regenerate.
+  final bool isLatestReply;
+}
+
+/// What [AIComponentBuilders.messageAttachment] gets.
+@immutable
+final class AIMessageAttachmentProps {
+  /// Creates an [AIMessageAttachmentProps].
+  const AIMessageAttachmentProps({required this.attachment, required this.isFromUser, this.onTap});
+
+  /// The attachment.
+  final AIMessageAttachment attachment;
+
+  /// Whether the person sent the message that carries it.
+  final bool isFromUser;
+
+  /// Opens it.
+  final VoidCallback? onTap;
 }

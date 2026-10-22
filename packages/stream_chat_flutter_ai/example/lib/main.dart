@@ -1097,4 +1097,37 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get rateReplyNegative => 'Slecht antwoord';
+
+  @override
+  String get copyMessage => 'Kopiëren';
+
+  @override
+  String get editMessage => 'Bewerken';
+
+  @override
+  String get scrollToLatest => 'Naar nieuwste bericht';
+
+  @override
+  String get attachmentImage => 'Afbeelding';
+
+  @override
+  String get attachmentFile => 'Bestand';
+
+  @override
+  String attachmentDetails(String type, String size) => '$type · $size';
+
+  @override
+  String fileSize(int bytes) {
+    // Decimal units like the English, with a decimal comma as Dutch writes it.
+    if (bytes < 1000) return '$bytes bytes';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    var value = bytes / 1000;
+    var unit = 0;
+    while (value >= 1000 && unit < units.length - 1) {
+      value /= 1000;
+      unit++;
+    }
+    final digits = value >= 100 || unit == 0 ? 0 : 1;
+    return '${value.toStringAsFixed(digits).replaceAll('.', ',')} ${units[unit]}';
+  }
 }

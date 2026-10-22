@@ -20,6 +20,7 @@
 - Charts show a series legend (`ChartThemeData.showLegend` / `legendPosition`), and pie slices are labelled with their percentage.
 - `AILocalModel` and `AIConversationTurn` for streaming a fallback reply from an on-device model.
 - `AIReplyActionsView` — copy, share, regenerate and rate buttons under a finished reply, themed via `ReplyActionsThemeData`.
+- `AIConversationView` — an AI conversation laid out in turns, with `AIMessage`, `AIPendingMessage`, `AIUserMessageView`, `AIAssistantMessageView`, `AIMessageAttachmentView` and `AIThinkingView`, themed via `ConversationThemeData`.
 
 ## 0.1.0
 

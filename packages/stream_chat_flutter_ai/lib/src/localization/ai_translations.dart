@@ -15,6 +15,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 // Here for the [StreamingReasoningView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
+import 'package:stream_chat_flutter_ai/src/util/file_size.dart';
 
 /// The user-facing strings the package renders itself.
 ///
@@ -249,6 +250,28 @@ abstract class AITranslations {
   /// Tooltip on the thumbs-down button under a reply.
   String get rateReplyNegative;
 
+  /// Label of the menu item that copies one of the person's messages.
+  String get copyMessage;
+
+  /// Label of the menu item that edits one of the person's messages.
+  String get editMessage;
+
+  /// Tooltip on the button that scrolls a conversation back to its latest
+  /// message.
+  String get scrollToLatest;
+
+  /// The name of an image attachment that has none.
+  String get attachmentImage;
+
+  /// The name of a file attachment that has none.
+  String get attachmentFile;
+
+  /// A file attachment's [type] and [size], such as "PDF · 2.4 MB".
+  String attachmentDetails(String type, String size);
+
+  /// [bytes] as a file size, such as "2.4 MB".
+  String fileSize(int bytes);
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -422,6 +445,27 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get rateReplyNegative => 'Bad response';
+
+  @override
+  String get copyMessage => 'Copy';
+
+  @override
+  String get editMessage => 'Edit';
+
+  @override
+  String get scrollToLatest => 'Scroll to latest';
+
+  @override
+  String get attachmentImage => 'Image';
+
+  @override
+  String get attachmentFile => 'File';
+
+  @override
+  String attachmentDetails(String type, String size) => '$type · $size';
+
+  @override
+  String fileSize(int bytes) => formatFileSize(bytes);
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
