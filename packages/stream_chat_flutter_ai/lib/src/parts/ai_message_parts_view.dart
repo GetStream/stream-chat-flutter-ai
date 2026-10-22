@@ -1,0 +1,129 @@
+import 'package:flutter/material.dart';
+import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
+
+/// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
+/// [AIMessagePartsView]'s default for it.
+typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMessagePart part);
+
+/// {@template aiMessagePartsView}
+/// The steps an AI agent took while replying, in order. Show it before the
+/// reply's text.
+///
+/// ```dart
+/// AIMessagePartsView(parts: AIMessagePart.parseAll(attachments))
+/// ```
+///
+/// A part this package can't read — a kind it doesn't know, or a format
+/// version it doesn't read ([AIMessagePart.isSupported] is `false`) — shows
+/// [AIUnsupportedPartView], a neutral "a step this app version can't show". A
+/// part it can read shows its kind's default view.
+/// Reasoning and tool calls have no default view yet, so for now they show
+/// nothing at all (and take up no spacing) unless your [partBuilder] builds
+/// them.
+///
+/// To show some parts your own way, such as a kind of your own, pass a
+/// [partBuilder] and return `null` for the parts you leave to the default:
+///
+/// ```dart
+/// AIMessagePartsView(
+///   parts: parts,
+///   partBuilder: (context, part) => switch (part.kind.value) {
+///     'ai_citation' => CitationView(part: part),
+///     _ => null,
+///   },
+/// )
+/// ```
+///
+/// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
+/// list grows while a reply streams in. A part whose id an earlier part already
+/// used is keyed by the id and how many parts with that id came before it.
+/// {@endtemplate}
+class AIMessagePartsView extends StatelessWidget {
+  /// {@macro aiMessagePartsView}
+  const AIMessagePartsView({
+    super.key,
+    required this.parts,
+    this.partBuilder,
+    this.spacing = 8,
+  });
+
+  /// The steps to show, in order.
+  final List<AIMessagePart> parts;
+
+  /// Builds a part your own way; returning `null` falls back to the default
+  /// for that part.
+  final AIMessagePartWidgetBuilder? partBuilder;
+
+  /// The vertical gap between two parts.
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final occurrences = <String, int>{};
+    final children = <Widget>[];
+    for (final part in parts) {
+      // Counted for every part, shown or not, so a part's key doesn't change
+      // when an earlier one starts or stops showing.
+      final occurrence = occurrences.update(part.id, (count) => count + 1, ifAbsent: () => 0);
+      final child = partBuilder?.call(context, part) ?? _defaultPartView(part);
+      if (child == null) continue;
+      children.add(
+        KeyedSubtree(
+          key: occurrence == 0 ? ValueKey<Object>(part.id) : ValueKey<Object>((part.id, occurrence)),
+          child: child,
+        ),
+      );
+    }
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      spacing: spacing,
+      children: children,
+    );
+  }
+
+  /// The one place a part's default view is chosen, or `null` to show nothing.
+  ///
+  /// A part this package can't read gets the placeholder. A part it can read
+  /// gets its kind's view — and reasoning and tool calls have none yet, so they
+  /// show nothing until their views are added here.
+  static Widget? _defaultPartView(AIMessagePart part) {
+    if (!part.isSupported) return const AIUnsupportedPartView();
+    return null;
+  }
+}
+
+/// A neutral placeholder for an agent step this app version can't show: a kind
+/// it doesn't know, a format newer than it reads, or a payload it couldn't
+/// decode. It says that something happened without guessing what.
+///
+/// The text is [AITranslations.unsupportedMessagePart].
+class AIUnsupportedPartView extends StatelessWidget {
+  /// Creates an [AIUnsupportedPartView].
+  const AIUnsupportedPartView({super.key, this.textStyle, this.iconColor});
+
+  /// The style of the text, merged over `bodySmall` in `onSurfaceVariant`.
+  final TextStyle? textStyle;
+
+  /// The color of the sparkles icon; defaults to the text's color.
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.onSurfaceVariant).merge(textStyle);
+    final iconSize = (style.fontSize ?? 12) * 1.25;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.auto_awesome_outlined, size: iconSize, color: iconColor ?? style.color),
+        const SizedBox(width: 6),
+        Flexible(child: Text(AITranslations.of(context).unsupportedMessagePart, style: style)),
+      ],
+    );
+  }
+}
