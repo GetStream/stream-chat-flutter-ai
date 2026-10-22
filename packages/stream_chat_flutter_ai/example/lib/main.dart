@@ -188,7 +188,7 @@ Then code blocks in two languages, to show highlighting follows the fence rather
 
 Some LaTeX would be good too: one inline formula and one display block.
 
-Finally charts: a bar chart, a pie (the amber slice tests label contrast) and a heatmap with an unnamed series, which exercises `AITranslations.unnamedChartSeries`.
+Finally charts: a two-series bar chart (for the legend), a pie (the amber slice tests label contrast) and a heatmap with an unnamed series, which exercises `AITranslations.unnamedChartSeries`.
 ''';
 
 /// A one-line summary shown beside "Thought for Ns" once the reasoning folds.
@@ -251,6 +251,16 @@ Inline like \(e^{i\pi} + 1 = 0\), or as its own block:
         {"x": "Wed", "y": 8},
         {"x": "Thu", "y": 24},
         {"x": "Fri", "y": 17}
+      ]
+    },
+    {
+      "name": "Replies",
+      "points": [
+        {"x": "Mon", "y": 9},
+        {"x": "Tue", "y": 14},
+        {"x": "Wed", "y": 6},
+        {"x": "Thu", "y": 20},
+        {"x": "Fri", "y": 11}
       ]
     }
   ]

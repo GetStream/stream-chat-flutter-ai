@@ -36,8 +36,15 @@ highlighting.
 **`SpeechToTextButton`** — records voice input and streams the recognized transcript into the
 composer.
 
+**`AIMessagePartsView`** — the steps an agent took while replying: its reasoning
+(**`StreamingReasoningView`**), its tool calls (**`AIToolCallView`**) and the tool calls waiting for
+the user's approval (**`AIToolApprovalView`**).
+
 **`AIToolRegistry`** / **`AIClientToolRunner`** — client-side tool calling, letting the agent reach
 into your app to open a screen, show an alert or read a sensor, and get the result back.
+
+**`AILocalModel`** — a base class to implement over an on-device model, for answering when the
+agent can't, such as when the user is offline.
 
 This repository also includes a [showcase app](example) demonstrating every component, which needs
 no API key to run.
@@ -112,10 +119,10 @@ AITypingIndicatorView(
 ```
 
 Style it app-wide with `AITheme(typingIndicatorTheme: TypingIndicatorThemeData(...))` or for a
-subtree with `TypingIndicatorTheme`; by default the caption is `bodyMedium` in `onSurfaceVariant`
-and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
-it mounted and change `text` to have each new state announced. With reduced motion on, the dots
-are static, and `StreamingMessageView` shows each update in full instead of typing it out.
+subtree with `TypingIndicatorTheme`. The indicator is a screen-reader live region labelled with
+`text`, so keep it mounted and change `text` to have each new state announced. With reduced motion
+on, the dots are static, and `StreamingMessageView` shows each update in full instead of typing it
+out.
 
 ### `TypewriterController`
 
@@ -315,10 +322,23 @@ MaterialApp(
 Every field is nullable, and leaving one unset means "derive it from the ambient `ThemeData`" — so
 overriding the palette leaves the grid lines, axis labels and heatmap ramp following your app, in
 light and dark alike. The sizing fields (`height`, the scatter and bubble radii, `histogramBinCount`)
-have no theme to derive from, so they fall back to fixed defaults instead. Override it for a subtree with `ChartTheme(data: ..., child: ...)`, or for
-one chart with `ChartView(theme: ...)`; those three compose, most specific first.
+have no theme to derive from, so they fall back to fixed defaults instead. Override it for a
+subtree with `ChartTheme(data: ..., child: ...)`, or for one chart with `ChartView(theme: ...)`;
+those three compose, most specific first.
 
-Two things worth knowing:
+**Legends.** Pies, and line, area, bar, scatter and bubble charts with two or more series, get a
+legend below the plot. Turn it off, or move it above, with `showLegend` and `legendPosition`. Pie
+slices big enough for it (`piePercentageThreshold`) are labelled with their percentage unless
+`showPiePercentages` is `false`:
+
+```dart
+ChartView(
+  spec: spec,
+  theme: const ChartThemeData(legendPosition: ChartLegendPosition.top, showPiePercentages: false),
+);
+```
+
+Three things worth knowing:
 
 - **`ThemeData.copyWith(extensions:)` replaces the whole extension set.** If your app already
   registers others, re-list them:
@@ -562,12 +582,16 @@ separate button alongside send.
 ```dart
 SpeechToTextButton(
   controller: controller,
-  localeId: 'en-US',                             // optional; defaults to device locale
-  listenFor: Duration(seconds: 30),
-  pauseFor: Duration(seconds: 3),
-  onError: (error) => print(error.errorMsg),
+  config: SpeechToTextConfig(
+    localeId: 'en-US', // optional; defaults to the device locale
+    listenFor: Duration(seconds: 30),
+    pauseFor: Duration(seconds: 3),
+    onError: (error) => debugPrint(error.errorMsg),
+  ),
 );
 ```
+
+`ChatComposer(enableSpeechToText: true, speechToTextConfig: ...)` takes the same config.
 
 #### Required platform permissions
 
@@ -599,6 +623,80 @@ SpeechToTextButton(
 <key>com.apple.security.device.microphone</key>
 <true/>
 ```
+
+### Agent steps: `AIMessagePartsView`
+
+An agent writes each step it takes — a round of reasoning, a tool call — as a custom attachment on
+its reply (`ai_reasoning`, `ai_tool_call`, …), in order, with the final answer in the message text.
+`AIMessagePart.parseAll` decodes those attachments, given as `(type:, payload:)` records, skipping
+any that aren't steps, and `AIMessagePartsView` shows them; put it above the reply's text (see
+[Using with Stream Chat](#using-with-stream-chat) for reading a Stream Chat message's attachments):
+
+```dart
+AIMessagePartsView(parts: AIMessagePart.parseAll(attachments));
+```
+
+Reasoning gets a `StreamingReasoningView`, a tool call an `AIToolCallView`, and a step this version
+can't read a neutral `AIUnsupportedPartView`. To show some steps your own way, return a widget from
+`partBuilder` (any part) or `toolCallBuilder` (tool calls only); return `null` to keep the default,
+or `AIMessagePartsView.hidden` to leave the step out:
+
+```dart
+AIMessagePartsView(
+  parts: parts,
+  toolCallBuilder: (context, call) => switch (call.name) {
+    'get_weather' => WeatherCard(call: call),
+    'log_event' => AIMessagePartsView.hidden,
+    _ => null,
+  },
+);
+```
+
+### `StreamingReasoningView`
+
+A model's reasoning: open under a "Thinking… 7s" header while it streams, then folded into "Thought
+for 12s" and its summary, which the reader can tap to open again. `expandedWhenDone` keeps it open
+once done, and `showsLiveReasoning: false` keeps it folded while it streams. For an `ai_reasoning`
+step, `StreamingReasoningView.part` reads the status, duration and summary from the step.
+
+```dart
+StreamingReasoningView(text: reasoning, isThinking: answer.isEmpty, duration: elapsed);
+```
+
+The header counts for as long as `isThinking` is `true`, so end it yourself if your stream stalls or
+fails. Style it with `ReasoningThemeData` (see its API docs for the fields).
+
+### `AIToolCallView`
+
+One tool call as a row: a status icon, the tool's title, a summary or status line, and the duration
+once it has finished. Style it with `ToolCallThemeData` (see its API docs for the fields).
+
+```dart
+AIToolCallView(call: part.toolCall!);
+```
+
+### Tool approvals: `AIToolApprover`
+
+An agent can ask the user before running a tool: the call waits with status `awaiting_approval`, and
+the user's answer, `AIToolApprovalDecision.allowed` or `.declined`, goes to your backend through an
+`AIToolApprover`. Pass one to `AIMessagePartsView` and each call waiting for this user gets an
+`AIToolApprovalView` under its row, which goes away once the backend updates the call.
+
+```dart
+late final approver = AIToolApprover(
+  identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
+  // Throw to let the person answer again.
+  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+);
+
+AIMessagePartsView(parts: parts, approver: approver);
+```
+
+Create the approver once (not in `build`) and `dispose` it when done. A call you draw yourself
+through `toolCallBuilder` or `partBuilder` gets no question; put an
+`AIToolApprovalView(call: call, approver: approver)` in your widget then. Pass it a `builder` to ask
+in your own design, and style the default card with `ToolApprovalThemeData` (see its API docs for
+the fields).
 
 ### `AIToolRegistry`
 
@@ -734,7 +832,7 @@ final runner = AIClientToolRunner(
 
 // Register runner.registrations with your backend, send installId as `client_id`
 // in every message's custom data, then on every update of an AI reply:
-unawaited(runner.handle(parts));
+unawaited(runner.handle(parts)); // parts from AIMessagePart.parseAll
 ```
 
 The round trip: the agent writes a call with `target_user_id` / `target_client_id`;
@@ -755,11 +853,42 @@ Keep one runner per conversation: a fresh runner doesn't know what an old one ra
 their results, so `send` must not rely on a widget's state; `whenIdle()` completes when
 they are done.
 
+### `AILocalModel`
+
+A fallback for when your agent can't answer — the user is offline, or the agent hit its usage limit
+— from a model on the device. The package ships no model: extend `AILocalModel` over the one you
+choose. `reply` streams the **whole answer so far** with each event, which is what
+`StreamingMessageView.text` takes; cancelling the subscription stops the model, and failures arrive
+as an `AILocalModelException`. On-device contexts are small, so your `reply` should fit the turns
+with `AIConversationTurn.fitToBudget`.
+
+```dart
+if (await localModel.isAvailable) {
+  // Create the stream once, when the question is sent — never in `build`.
+  setState(() {
+    _answers = localModel.reply(
+      instructions: 'Answer briefly. You have no tools.',
+      turns: [...history, AIConversationTurn.user(text)],
+    );
+  });
+}
+
+StreamBuilder<String>(
+  stream: _answers,
+  builder: (context, snapshot) => snapshot.hasError
+      ? const Text('The on-device model could not answer.')
+      : StreamingMessageView(text: snapshot.data ?? ''),
+);
+```
+
+The reply exists only on the device; send it to your backend yourself if it should be kept.
+
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
 data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData`,
-`SuggestionsThemeData` and `TypingIndicatorThemeData`:
+`ReasoningThemeData`, `SuggestionsThemeData`, `ToolApprovalThemeData`, `ToolCallThemeData` and
+`TypingIndicatorThemeData`:
 
 ```dart
 MaterialApp(
@@ -793,7 +922,10 @@ chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` a
 `TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize`, `dotCount` and `dotSpacing`.
 
 Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme`, `ComposerTheme`,
-`SuggestionsTheme` or `TypingIndicatorTheme`:
+`ReasoningTheme`, `SuggestionsTheme`, `ToolApprovalTheme`, `ToolCallTheme` or
+`TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
+`HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView`,
+`AIToolApprovalView` or `AIToolApprovalCard`:
 
 ```dart
 ComposerTheme(
@@ -814,7 +946,7 @@ Four things worth knowing:
   `recordingButtonColor` applies only while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
   each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
-  enclosing scope instead of shadowing it. All five are `InheritedTheme`s, so they carry across a
+  enclosing scope instead of shadowing it. All eight are `InheritedTheme`s, so they carry across a
   `Navigator` — a scope above the composer still reaches the attachment sheet that
   `showModalBottomSheet` pushes.
 
@@ -983,6 +1115,21 @@ StreamingMessageView(
   onFinished: () => controller.isGenerating = false,
 );
 ```
+
+Turn a message's attachments into [agent steps](#agent-steps-aimessagepartsview):
+
+```dart
+final parts = AIMessagePart.parseAll([
+  for (final attachment in message.attachments)
+    if (attachment.rawType case final type?)
+      (type: type, payload: {'id': attachment.id, ...attachment.extraData}),
+]);
+```
+
+Use `rawType` (`type` can be rewritten, such as into a link preview), and spread `extraData` last
+so the agent's step `id` wins over `Attachment.id`; keep `Attachment.id` too, since a message read
+back from the offline database carries the step's `id` there. Pass the same `parts` to
+`AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
 
 Route client-tool invocations to your `AIToolRegistry`:
 
