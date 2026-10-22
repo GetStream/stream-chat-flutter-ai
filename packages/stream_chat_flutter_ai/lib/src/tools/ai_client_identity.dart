@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 // Not doc-only: the matchers below call into it.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/tools/ai_client_tool_runner.dart';
 
 /// Who is signed in on this device, and which install this is — what a tool
 /// call's `target_user_id` and `target_client_id` are matched against.
@@ -24,7 +26,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 ///    install, so a call without `target_client_id`, or an identity without a
 ///    [clientId], never runs here: two devices must never both run it.
 ///
-/// See [AIToolApprover].
+/// See [AIToolApprover] and [AIClientToolRunner].
 @immutable
 class AIClientIdentity {
   /// Creates an [AIClientIdentity]. [userId] must not be empty.
