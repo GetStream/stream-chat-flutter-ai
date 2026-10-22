@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_button.dart';
 // Here for the [SpeechToTextButton] doc link on `enableSpeechToText` only;
 // nothing in this file's code uses it.
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
@@ -54,7 +54,7 @@ const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing')
 ///   picker, opened from the composer's leading "+" button by default.
 /// - A row of image thumbnails inside the input box, above the text field,
 ///   once the user has picked attachments — through the leading "+" button by
-///   default (see [ChatComposerFactory.buildLeading]).
+///   default (see the `composerLeading` builder of [streamAIComponentBuilders]).
 /// - A single circular trailing control that morphs between voice input
 ///   (empty field), send (field has content), and stop (while
 ///   [ChatComposerController.isGenerating] is `true`).
@@ -62,8 +62,9 @@ const _trailingGapKey = Key('stream_chat_flutter_ai.composer.slot_gap.trailing')
 /// The chip, the thumbnails and the trailing control all live in
 /// [ChatComposerInput], the default occupant of the input slot.
 ///
-/// All four regions are customisable via [ChatComposerFactory] — passed as
-/// [factory], or app-wide as [AIComponentBuilders.composer].
+/// All four regions can be replaced through [streamAIComponentBuilders]:
+/// `composerLeading`, `composerTrailing`, `composerInput` and
+/// `composerAttachmentSheet`.
 ///
 /// Example:
 /// ```dart
@@ -82,7 +83,6 @@ class ChatComposer extends StatefulWidget {
     this.controller,
     required this.onSendPressed,
     this.onStopPressed,
-    this.factory,
     this.focusNode,
     this.hintText,
     this.minLines = 1,
@@ -101,18 +101,17 @@ class ChatComposer extends StatefulWidget {
   /// automatically.
   final ChatComposerController? controller;
 
+  /// What the `composerLeading` or `composerTrailing` builder of
+  /// [streamAIComponentBuilders] returns to leave its slot out, gap and all,
+  /// such as a composer without the "+" button. Compared by identity, so
+  /// return this very instance.
+  static const Widget hidden = SizedBox.shrink();
+
   /// Called when the user taps the send button.
   final ChatComposerSendCallback onSendPressed;
 
   /// Called when the user taps the stop button while the AI is generating.
   final VoidCallback? onStopPressed;
-
-  /// Factory used to build the composer's slots — leading, trailing, the
-  /// input field, and the attachment sheet the default leading button opens.
-  ///
-  /// `null` uses the nearest [AIComponentFactory]'s
-  /// [AIComponentBuilders.composer], or the default.
-  final ChatComposerFactory? factory;
 
   /// Focus node for the text field.
   final FocusNode? focusNode;
@@ -161,7 +160,7 @@ class ChatComposer extends StatefulWidget {
   /// the trailing control is a stop button, so there is no send button to
   /// press. The flag applies that same rule to [ChatComposerSlotProps.onSend]
   /// itself, so a slot supplying its own send control — through
-  /// [ChatComposerFactory.buildInput] or [ChatComposerFactory.buildTrailing] —
+  /// the `composerInput` builder of [streamAIComponentBuilders] or the `composerTrailing` builder of [streamAIComponentBuilders] —
   /// cannot sidestep it.
   ///
   /// Set `true` if your backend accepts a follow-up while it is still
@@ -256,7 +255,7 @@ class _ChatComposerState extends State<ChatComposer> {
     // composer that offered it — nothing would be left to stop it.
     //
     // Not gated on `enableSpeechToText`: a host can place a [SpeechToTextButton]
-    // itself through a [ChatComposerFactory] and leave that flag false, which is
+    // itself through `composerTrailing` and leave that flag false, which is
     // exactly the arrangement [SpeechToTextButton]'s own documentation
     // recommends. Skipping the cancel there left a live session writing into the
     // controller disposed on the next line.
@@ -359,10 +358,17 @@ class _ChatComposerState extends State<ChatComposer> {
           onStop: widget.onStopPressed == null ? null : _onStop,
         );
 
-        final factory = widget.factory ?? AIComponentFactory.of(context).composer ?? const ChatComposerFactory();
-        final leading = factory.buildLeading(context, ChatComposerLeadingProps.from(props));
-        final trailing = factory.buildTrailing(context, ChatComposerTrailingProps.from(props));
-        final input = factory.buildInput(context, props);
+        final leadingProps = ChatComposerLeadingProps.from(props);
+        final trailingProps = ChatComposerTrailingProps.from(props);
+        final leading =
+            context.aiComponentBuilder<ChatComposerLeadingProps>()?.call(context, leadingProps) ??
+            ComposerAttachmentButton(props: leadingProps);
+        final trailing = context.aiComponentBuilder<ChatComposerTrailingProps>()?.call(context, trailingProps);
+        final showLeading = !identical(leading, ChatComposer.hidden);
+        final showTrailing = trailing != null && !identical(trailing, ChatComposer.hidden);
+        final input =
+            context.aiComponentBuilder<ChatComposerInputProps>()?.call(context, props) ??
+            ChatComposerInput(props: props);
 
         // The layout contract `buildInput`'s dartdoc states, enforced: an
         // `Expanded` returned here lands inside the one below, which throws
@@ -371,7 +377,7 @@ class _ChatComposerState extends State<ChatComposer> {
         // both.
         assert(
           input is! Flexible,
-          'ChatComposerFactory.buildInput must not return an Expanded or '
+          'The composerInput builder must not return an Expanded or '
           'Flexible — ChatComposer already wraps the result in one.',
         );
 
@@ -387,9 +393,9 @@ class _ChatComposerState extends State<ChatComposer> {
             // pill's height rather than flush to its bottom edge.
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (leading != null) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
+              if (showLeading) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
               Expanded(child: input),
-              if (trailing != null) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
+              if (showTrailing) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
             ],
           ),
         );

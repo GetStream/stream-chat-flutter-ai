@@ -3,13 +3,15 @@ import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart'
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// One of a message's attachments: an image as a thumbnail, and any other kind
 /// as a file card with its name, type and size.
 ///
 /// To show a kind of your own, such as an artifact or a file in an agent's
-/// sandbox, set [AIComponentBuilders.messageAttachment], read its raw fields
-/// from [AIMessageAttachment.extraData], and return this view for the kinds you
+/// sandbox, register a `messageAttachment` builder with
+/// [streamAIComponentBuilders], read its raw fields from
+/// [AIMessageAttachment.extraData], and return this view for the kinds you
 /// don't handle.
 ///
 /// Opening it is the app's: pass [onTap], such as to launch its URL.
@@ -17,11 +19,10 @@ class AIMessageAttachmentView extends StatelessWidget {
   /// Creates an [AIMessageAttachmentView].
   const AIMessageAttachmentView({super.key, required this.attachment, this.imageSize = 180, this.onTap});
 
-  /// The view of [props]'s attachment: [builders]'
-  /// [AIComponentBuilders.messageAttachment], or else an
-  /// [AIMessageAttachmentView].
-  static Widget of(BuildContext context, AIComponentBuilders builders, AIMessageAttachmentProps props) =>
-      builders.messageAttachment?.call(context, props) ??
+  /// The view of [props]'s attachment: the `messageAttachment` builder of
+  /// [streamAIComponentBuilders], or else an [AIMessageAttachmentView].
+  static Widget of(BuildContext context, AIMessageAttachmentProps props) =>
+      context.aiComponentBuilder<AIMessageAttachmentProps>()?.call(context, props) ??
       AIMessageAttachmentView(attachment: props.attachment, onTap: props.onTap);
 
   /// What to show.
@@ -36,10 +37,11 @@ class AIMessageAttachmentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = ConversationTheme.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final colors = context.streamColorScheme;
+    final textTheme = context.streamTextTheme;
+    final radius = BorderRadius.all(context.streamRadius.xl);
     final translations = AITranslations.of(context);
-    final background = theme.attachmentBackgroundColor ?? scheme.surfaceContainerHigh;
+    final background = theme.attachmentBackgroundColor ?? colors.backgroundSurface;
     final isImage = attachment.kind == AIMessageAttachmentKind.image;
     final url = attachment.url;
     final name = attachment.displayName ?? (isImage ? translations.attachmentImage : translations.attachmentFile);
@@ -53,7 +55,7 @@ class AIMessageAttachmentView extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: radius,
             child: SizedBox.square(
               dimension: imageSize,
               child: Image(
@@ -64,7 +66,7 @@ class AIMessageAttachmentView extends StatelessWidget {
                     frame == null && !wasSynchronouslyLoaded ? ColoredBox(color: background) : child,
                 errorBuilder: (context, error, stackTrace) => ColoredBox(
                   color: background,
-                  child: Icon(Icons.broken_image_outlined, color: scheme.onSurfaceVariant),
+                  child: Icon(context.streamIcons.image, color: colors.textSecondary),
                 ),
               ),
             ),
@@ -86,7 +88,7 @@ class AIMessageAttachmentView extends StatelessWidget {
       button: onTap != null,
       child: Material(
         color: background,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: radius,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -98,7 +100,7 @@ class AIMessageAttachmentView extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 spacing: 12,
                 children: [
-                  Icon(Icons.insert_drive_file_outlined, color: scheme.onSurfaceVariant),
+                  StreamFileTypeIcon.fromMimeType(mimeType: attachment.mimeType, size: .md),
                   Flexible(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -108,8 +110,8 @@ class AIMessageAttachmentView extends StatelessWidget {
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w500, color: scheme.onSurface)
+                          style: textTheme.bodyEmphasis
+                              .copyWith(color: colors.textPrimary)
                               .merge(theme.attachmentTitleStyle),
                         ),
                         if (details != null)
@@ -117,8 +119,8 @@ class AIMessageAttachmentView extends StatelessWidget {
                             details,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant)
+                            style: textTheme.captionDefault
+                                .copyWith(color: colors.textSecondary)
                                 .merge(theme.attachmentDetailsStyle),
                           ),
                       ],

@@ -5,12 +5,16 @@ import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 // Not doc-only: [ReplyActionsTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// Overrides for how [AIReplyActionsView] is drawn: the color and size of its
 /// icons.
 ///
 /// Every field is nullable, and `null` means "use the default", which derives
-/// from the ambient [ThemeData] — so one instance covers light and dark mode.
+/// from the Stream theme ([StreamTheme], which falls back to Stream's defaults for
+/// the app's brightness when the app sets none) — so one instance covers light and dark
+/// mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -29,7 +33,7 @@ class ReplyActionsThemeData with Diagnosticable {
   /// Creates a [ReplyActionsThemeData].
   const ReplyActionsThemeData({this.iconColor, this.selectedIconColor, this.iconSize});
 
-  /// The icons' color. Defaults to [ColorScheme.onSurfaceVariant].
+  /// The icons' color. Defaults to the Stream theme's `textSecondary`.
   final Color? iconColor;
 
   /// The color of the rating the person gave. Defaults to [iconColor]; the

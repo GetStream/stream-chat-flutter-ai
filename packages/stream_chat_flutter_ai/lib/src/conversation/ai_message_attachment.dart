@@ -40,7 +40,8 @@ extension type const AIMessageAttachmentKind(String _) implements String {
 ///
 /// An attachment of a kind of your own carries its raw fields in [extraData],
 /// such as an artifact's `{type: "athena_image", artifact_id, revision, title,
-/// alt}`, for [AIComponentBuilders.messageAttachment] to show:
+/// alt}`, for the `messageAttachment` builder of [streamAIComponentBuilders] to
+/// show:
 ///
 /// ```dart
 /// AIMessageAttachment(kind: AIMessageAttachmentKind(raw['type']! as String), extraData: raw)

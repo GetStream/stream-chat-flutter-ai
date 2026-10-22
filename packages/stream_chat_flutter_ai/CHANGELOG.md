@@ -2,13 +2,15 @@
 
 💥 Breaking
 
+- Built on `stream_core_flutter`: defaults come from `StreamTheme` instead of Material's `ColorScheme`/`TextTheme`, and buttons, sheets, spinners and icons are core components.
+- Flutter 3.44 / Dart 3.12 are the minimum, matching `stream_core_flutter`.
 - `CodeHighlighter` now takes a single `CodeHighlightRequest` instead of `(code, language, baseStyle)`.
 - `CodeBlockView.backgroundColor` and `CodeBlockView.foregroundColor` are replaced by `CodeBlockView.theme`.
 - `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
-- `AITypingIndicatorView.dotCount` and `dotSize` are now nullable; unset, they come from the theme.
-- `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable; unset, they come from the theme.
-- `ChatComposer.factory` is nullable; `null` uses `AIComponentBuilders.composer`, then the default.
+- `AITypingIndicatorView.dotSize` is now nullable; unset, it comes from the theme.
+- `AITypingIndicatorView.dotCount`, `TypingIndicatorThemeData.dotCount` and `AnimatedDots` are removed; the dots are core's `StreamTypingIndicatorDots`.
+- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`.
 - `StreamingMessageView` types only while `expectMoreText` is `true`; given only `text`, it shows each new text in full. Pass `expectMoreText: isGenerating` while a reply streams.
 
 ✅ Added

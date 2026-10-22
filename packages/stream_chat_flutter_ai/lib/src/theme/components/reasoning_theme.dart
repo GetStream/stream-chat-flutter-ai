@@ -5,13 +5,17 @@ import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.da
 // Not doc-only: [ReasoningTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// Overrides for how [StreamingReasoningView] is drawn: the header, the
 /// reasoning text and footnote, the shimmer and rule colors, and how tall the
 /// open panel grows.
 ///
 /// Every field is nullable, and `null` means "use the default", which derives
-/// from the ambient [ThemeData] — so one instance covers light and dark mode.
+/// from the Stream theme ([StreamTheme], which falls back to Stream's defaults for
+/// the app's brightness when the app sets none) — so one instance covers light and dark
+/// mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -42,25 +46,24 @@ class ReasoningThemeData with Diagnosticable {
        );
 
   /// The header's style — "Thinking… 7s", "Thought for 12s" — merged over
-  /// [TextTheme.bodyMedium] in [ColorScheme.onSurfaceVariant] at a medium
-  /// weight. The summary beside it uses [textStyle].
+  /// the Stream theme's `bodyEmphasis` in `textSecondary`. The summary beside it uses [textStyle].
   final TextStyle? titleStyle;
 
-  /// The reasoning's style, and the summary's, merged over
-  /// [TextTheme.bodyMedium] in [ColorScheme.onSurfaceVariant].
+  /// The reasoning's style, and the summary's, merged over the Stream theme's
+  /// `bodyDefault` in `textSecondary`.
   final TextStyle? textStyle;
 
-  /// The footnote's style, merged over [TextTheme.bodySmall] in
-  /// [ColorScheme.outline].
+  /// The footnote's style, merged over the Stream theme's `captionDefault` in
+  /// `textTertiary`.
   final TextStyle? footnoteStyle;
 
   /// The highlight sweeping across the header while the model thinks, the
   /// color of the rule beside the reasoning meanwhile, and the color of links in
-  /// the reasoning. Defaults to [ColorScheme.primary].
+  /// the reasoning. Defaults to the Stream theme's `accentPrimary`.
   final Color? shimmerColor;
 
-  /// The 2pt rule beside the reasoning once the model is done. Defaults to
-  /// [ColorScheme.outlineVariant].
+  /// The 2pt rule beside the reasoning once the model is done. Defaults to the
+  /// Stream theme's `borderDefault`.
   final Color? ruleColor;
 
   /// The thinking icon and the chevron. Defaults to the resolved

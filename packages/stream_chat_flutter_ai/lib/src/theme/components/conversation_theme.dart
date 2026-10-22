@@ -5,12 +5,16 @@ import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dar
 // Not doc-only: [ConversationTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// Overrides for how [AIConversationView] and its message views are drawn: the
 /// person's bubble, attachments and the scroll-to-latest button.
 ///
 /// Every field is nullable, and `null` means "use the default", which derives
-/// from the ambient [ThemeData] — so one instance covers light and dark mode.
+/// from the Stream theme ([StreamTheme], which falls back to Stream's defaults for
+/// the app's brightness when the app sets none) — so one instance covers light and dark
+/// mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -38,36 +42,37 @@ class ConversationThemeData with Diagnosticable {
     this.scrollButtonBorderColor,
   });
 
-  /// The fill of the person's message bubble. Defaults to
-  /// [ColorScheme.surfaceContainerHighest].
+  /// The fill of the person's message bubble. Defaults to the Stream theme's
+  /// `backgroundSurface`.
   final Color? userMessageBackgroundColor;
 
-  /// The style of the person's messages, merged over [TextTheme.bodyLarge] in
-  /// [ColorScheme.onSurface].
+  /// The style of the person's messages, merged over the Stream theme's
+  /// `bodyDefault` in `textPrimary`.
   final TextStyle? userMessageTextStyle;
 
   /// The fill of a file attachment's card, and of an image while it loads.
-  /// Defaults to [ColorScheme.surfaceContainerHigh].
+  /// Defaults to the Stream theme's `backgroundSurface`.
   final Color? attachmentBackgroundColor;
 
-  /// The style of a file attachment's name, merged over a medium
-  /// [TextTheme.bodyMedium] in [ColorScheme.onSurface].
+  /// The style of a file attachment's name, merged over the Stream theme's
+  /// `bodyEmphasis` in `textPrimary`.
   final TextStyle? attachmentTitleStyle;
 
-  /// The style of a file attachment's type and size, merged over
-  /// [TextTheme.bodySmall] in [ColorScheme.onSurfaceVariant].
+  /// The style of a file attachment's type and size, merged over the Stream
+  /// theme's `captionDefault` in `textSecondary`.
   final TextStyle? attachmentDetailsStyle;
 
-  /// The fill of the scroll-to-latest button. Defaults to
-  /// [ColorScheme.surface].
+  /// The fill of the scroll-to-latest button. Defaults to the Stream theme's
+  /// secondary outline button style.
   final Color? scrollButtonBackgroundColor;
 
   /// The arrow of the scroll-to-latest button, and the spinner shown while
-  /// older messages load. Defaults to [ColorScheme.onSurface].
+  /// older messages load. Defaults to the Stream theme's secondary outline
+  /// button and loading spinner styles.
   final Color? scrollButtonIconColor;
 
-  /// The outline of the scroll-to-latest button. Defaults to
-  /// [ColorScheme.outlineVariant].
+  /// The outline of the scroll-to-latest button. Defaults to the Stream theme's
+  /// secondary outline button style.
   final Color? scrollButtonBorderColor;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the

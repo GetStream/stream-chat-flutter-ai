@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// A fixed-size, circular filled icon button.
 ///
@@ -26,16 +27,15 @@ class ComposerActionButton extends StatelessWidget {
   /// The tooltip message shown on long-press/hover.
   final String tooltip;
 
-  /// The button's fill color when enabled.
-  ///
-  /// Automatically dimmed when [onPressed] is `null`.
+  /// The button's fill color when enabled. A disabled button takes the
+  /// Stream theme's disabled colors.
   final Color color;
 
   /// The icon's color. Falls back to the theme's
   /// `ComposerThemeData.actionButtonForegroundColor`.
   ///
   /// Set it alongside a [color] the theme's foreground was not chosen for — a
-  /// pale fill, say, under the default white.
+  /// pale fill, say, under the default `textOnAccent`.
   final Color? foregroundColor;
 
   /// The button's fixed diameter.
@@ -46,30 +46,18 @@ class ComposerActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onPressed != null;
+    final colorScheme = context.streamColorScheme;
     final foregroundColor = this.foregroundColor ?? ResolvedComposerTheme.resolve(context).actionButtonForegroundColor;
-    return Tooltip(
-      message: tooltip,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: enabled ? color : color.withValues(alpha: 0.3),
-          shape: BoxShape.circle,
-        ),
-        // The Material sits *above* the fill so the ink splash is visible — an
-        // InkWell wrapped around an opaque decoration paints its ripple behind
-        // it, leaving the tap with no feedback.
-        child: Material(
-          type: MaterialType.transparency,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: Center(child: Icon(icon, color: foregroundColor, size: 22)),
-          ),
-        ),
+    Color? resolve(Set<WidgetState> states, Color enabled, Color disabled) =>
+        states.contains(WidgetState.disabled) ? disabled : enabled;
+    return StreamButton.icon(
+      // `medium` is [size] across.
+      icon: Icon(icon),
+      onPressed: onPressed,
+      tooltip: tooltip,
+      themeStyle: StreamButtonThemeStyle(
+        backgroundColor: .resolveWith((states) => resolve(states, color, colorScheme.backgroundDisabled)),
+        foregroundColor: .resolveWith((states) => resolve(states, foregroundColor, colorScheme.textDisabled)),
       ),
     );
   }

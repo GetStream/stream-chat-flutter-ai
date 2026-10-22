@@ -50,7 +50,9 @@ List<_Message> _history(int count) => [
 Widget _actions(BuildContext context, AIReplyActionsProps props) =>
     Text('actions for ${props.message.id}${props.isLatestReply ? ' (latest)' : ''}');
 
-const _withActions = AIComponentBuilders(replyActions: _actions);
+final _withActions = StreamComponentBuilders(
+  extensions: streamAIComponentBuilders(replyActions: _actions),
+);
 
 Future<void> _pump(
   WidgetTester tester,
@@ -58,7 +60,7 @@ Future<void> _pump(
   AIPendingMessage? pending,
   bool isThinking = false,
   Future<void> Function()? loadOlder,
-  AIComponentBuilders builders = _withActions,
+  StreamComponentBuilders? builders,
   Widget? footer,
   Widget? empty,
   ThemeData? theme,
@@ -70,8 +72,8 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    AIComponentFactory(
-      builders: builders,
+    StreamComponentFactory(
+      builders: builders ?? _withActions,
       child: MaterialApp(
         theme: theme,
         home: MediaQuery(
@@ -460,11 +462,13 @@ void main() {
 
     testWidgets('builds a finished reply again only when what it shows changes', (tester) async {
       var builds = 0;
-      final counting = AIComponentBuilders(
-        assistantMessage: (context, props) {
-          builds++;
-          return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
-        },
+      final counting = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          assistantMessage: (context, props) {
+            builds++;
+            return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
+          },
+        ),
       );
       await _pump(tester, [
         _user('u1'),
@@ -503,11 +507,13 @@ void main() {
 
     testWidgets('builds a reply again only when its attachments change, not when decoded again', (tester) async {
       var builds = 0;
-      final counting = AIComponentBuilders(
-        assistantMessage: (context, props) {
-          builds++;
-          return AIAssistantMessageView(text: props.text, attachments: props.attachments);
-        },
+      final counting = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          assistantMessage: (context, props) {
+            builds++;
+            return AIAssistantMessageView(text: props.text, attachments: props.attachments);
+          },
+        ),
       );
       List<AIMessage> conversation(String title) {
         final raw = jsonDecode('{"type": "athena_image", "artifact_id": "a1", "meta": {"title": "$title"}}');
@@ -577,7 +583,7 @@ void main() {
         await _pump(
           tester,
           [_user('u1', 'Q1'), _reply('r1'), _user('u2', 'Q2'), _reply('r2')],
-          builders: const AIComponentBuilders(),
+          builders: StreamComponentBuilders(),
         );
         await tester.drag(find.byType(Scrollable), const Offset(0, 200));
         await tester.pumpAndSettle();
@@ -591,19 +597,16 @@ void main() {
         await _pump(tester, _history(1), loadOlder: () => Completer<void>().future, settle: false);
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
         await _frames(tester, const Duration(milliseconds: 16), 5);
-        expect(tester.getSize(find.byType(CircularProgressIndicator)), const Size.square(20));
-        expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).strokeWidth, 2);
+        expect(tester.getSize(find.byType(StreamLoadingSpinner)), const Size.square(20));
       });
 
       testWidgets('gives the scroll-to-latest button a 40 dp circle in a 48 dp tap target', (tester) async {
         await _pump(tester, _history(6));
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
         await tester.pumpAndSettle();
-        final button = find.byTooltip('Scroll to latest');
-        final circle = find.ancestor(
-          of: button,
-          matching: find.byWidgetPredicate((w) => w is Material && w.shape is CircleBorder),
-        );
+        final button = find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(StreamButton));
+        final circle = find.descendant(of: button, matching: find.byType(Material)).first;
+        expect(tester.getSize(button), const Size.square(48));
         expect(tester.getSize(circle), const Size.square(40));
       });
 
@@ -618,15 +621,12 @@ void main() {
         expect(find.text('Question 5'), findsOneWidget);
       });
 
-      testWidgets("casts the scroll-to-latest button's shadow in the theme's shadow color", (tester) async {
-        await _pump(tester, _history(6), theme: ThemeData(shadowColor: const Color(0xFF112233)));
-        final box = tester.widget<DecoratedBox>(
-          find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(DecoratedBox)).at(0),
+      testWidgets("draws the scroll-to-latest button as core's floating button", (tester) async {
+        await _pump(tester, _history(6));
+        final button = tester.widget<StreamButton>(
+          find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(StreamButton)),
         );
-        final shadow = (box.decoration as BoxDecoration).boxShadow!.single;
-        expect(shadow.color, const Color(0xFF112233).withValues(alpha: 0.14));
-        expect(shadow.offset, const Offset(0, 2));
-        expect(shadow.blurRadius, 6);
+        expect(button.props.isFloating, isTrue);
       });
 
       testWidgets('shows the scroll-to-latest button once the end is more than 24 out of view', (tester) async {

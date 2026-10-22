@@ -5,6 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
   theme: theme,
   home: Scaffold(
@@ -26,7 +28,7 @@ final _view = find.byType(StreamingReasoningView);
 Finder _inView(Finder finder) => find.descendant(of: _view, matching: finder);
 
 /// The header's chevron — a spot on the header to tap.
-final _chevron = _inView(find.byIcon(Icons.chevron_right));
+final _chevron = _inView(find.byIcon(_icons.chevronRight));
 
 /// The reasoning's scroll position. Only valid while the panel is mounted.
 ScrollPosition _position(WidgetTester tester) =>
@@ -725,7 +727,7 @@ void main() {
         await tester.pumpWidget(build('Weighing', thinking: true));
         expect(find.text('Weighing'), findsOneWidget, reason: 'open at once');
         expect(tester.hasRunningAnimations, isFalse);
-        expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: "only the panel's fade, no shimmer");
+        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing, reason: 'no shimmer');
         expect(
           find.descendant(of: _view, matching: find.byType(Opacity)),
           findsNothing,
@@ -744,7 +746,7 @@ void main() {
       testWidgets('shimmers and pulses while thinking with motion on', (tester) async {
         await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: true)));
         await tester.pump(StreamingReasoningView.foldDuration);
-        expect(_inView(find.byType(ShaderMask)), findsNWidgets(2));
+        expect(_inView(find.byType(StreamSkeletonLoading)), findsOneWidget, reason: 'the title shimmers');
         expect(tester.hasRunningAnimations, isTrue);
 
         await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false)));
@@ -756,15 +758,16 @@ void main() {
     group('theme', () {
       testWidgets('defaults derive from the ambient theme', (tester) async {
         final theme = ThemeData();
+        final colors = StreamTheme.light().colorScheme;
         _reduceMotion(tester);
         await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: true), theme: theme));
 
-        expect(_ruleColor(tester), theme.colorScheme.primary, reason: 'the shimmer color while thinking');
+        expect(_ruleColor(tester), colors.accentPrimary, reason: 'the shimmer color while thinking');
         final text = tester.widget<Text>(find.text('Weighing'));
-        expect(text.style!.color, theme.colorScheme.onSurfaceVariant);
+        expect(text.style!.color, colors.textSecondary);
 
         await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false), theme: theme));
-        expect(_ruleColor(tester), theme.colorScheme.outlineVariant, reason: 'the rule color once done');
+        expect(_ruleColor(tester), colors.borderDefault, reason: 'the rule color once done');
       });
 
       testWidgets('resolves widget > ReasoningTheme > AITheme > defaults', (tester) async {

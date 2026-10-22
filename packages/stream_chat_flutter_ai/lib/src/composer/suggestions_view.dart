@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// Padding inside each suggestion chip — matched when measuring text (see
 /// [_SuggestionChip._measureContentWidth]) so the computed width leaves
@@ -59,17 +60,17 @@ class AISuggestionsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colors = context.streamColorScheme;
     final theme = SuggestionsTheme.of(context);
-    // Merged onto the ambient DefaultTextStyle rather than used raw, so a theme
-    // setting only a color or weight keeps the app's font and size. The chips
+    // Stream's `bodyDefault` merged onto the ambient DefaultTextStyle, so a theme
+    // setting only a color or weight keeps that font and size. The chips
     // are measured with this exact style — see `_measureContentWidth`.
     final merged = DefaultTextStyle.of(
       context,
-    ).style.merge(TextStyle(color: colorScheme.onSurface)).merge(theme.textStyle);
+    ).style.merge(context.streamTextTheme.bodyDefault.copyWith(color: colors.textPrimary)).merge(theme.textStyle);
     // An `inherit: false` override replaces the base outright, color and all —
     // restore it, as the composer does for its hint.
-    final textStyle = merged.color == null ? merged.copyWith(color: colorScheme.onSurface) : merged;
+    final textStyle = merged.color == null ? merged.copyWith(color: colors.textPrimary) : merged;
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
 
@@ -91,8 +92,8 @@ class AISuggestionsView extends StatelessWidget {
                 textScaler: textScaler,
                 textDirection: textDirection,
                 maxWidth: itemMaxWidth,
-                color: theme.backgroundColor ?? colorScheme.surfaceContainerHigh,
-                borderColor: theme.borderColor ?? colorScheme.outlineVariant,
+                color: theme.backgroundColor ?? colors.backgroundSurface,
+                borderColor: theme.borderColor ?? colors.borderDefault,
                 onTap: () => onSuggestionSelected(suggestion),
               ),
               const SizedBox(width: 8),
@@ -178,6 +179,7 @@ class _SuggestionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final contentWidth = _measureContentWidth(maxWidth - _kChipPadding.horizontal);
+    final radius = BorderRadius.all(context.streamRadius.xl);
 
     return DecoratedBox(
       // Same fill/border tokens as the composer's input pill (see
@@ -185,14 +187,14 @@ class _SuggestionChip extends StatelessWidget {
       // one connected surface rather than mismatched colors.
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: radius,
         border: Border.all(color: borderColor),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: radius,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: radius,
           onTap: onTap,
           child: Padding(
             padding: _kChipPadding,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// The heatmap ramp on a light [Brightness]: higher values darker.
 const _kLightScale = (low: Color(0xFFEAF2FB), mid: Color(0xFF4A90D9), high: Color(0xFF1B4F8A));
@@ -11,7 +12,7 @@ const _kLightScale = (low: Color(0xFFEAF2FB), mid: Color(0xFF4A90D9), high: Colo
 /// light-to-dark ramp on a dark surface makes the busiest cells recede.
 const _kDarkScale = (low: Color(0xFF12283F), mid: Color(0xFF3B7CB8), high: Color(0xFFC3DDF6));
 
-/// A [ChartThemeData] with every field resolved, bar [titleTextStyle].
+/// A [ChartThemeData] with every field resolved.
 ///
 /// Internal. [ChartThemeData]'s fields are nullable, but the chart widgets need
 /// a concrete value for each, so resolving once at the top of `build` keeps the
@@ -44,9 +45,9 @@ class ResolvedChartTheme {
   /// argument — layered on top.
   factory ResolvedChartTheme.resolve(BuildContext context, {ChartThemeData? override}) {
     final theme = ChartTheme.of(context).merge(override);
-    final themeData = Theme.of(context);
-    final colorScheme = themeData.colorScheme;
-    final scale = themeData.brightness == Brightness.dark ? _kDarkScale : _kLightScale;
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
+    final scale = colors.brightness == Brightness.dark ? _kDarkScale : _kLightScale;
     final palette = theme.seriesColors;
 
     final axisLabel = mergeTextStyle(const TextStyle(fontSize: 10), theme.axisLabelStyle);
@@ -61,18 +62,18 @@ class ResolvedChartTheme {
       bubbleMinRadius: theme.bubbleMinRadius ?? 6,
       bubbleMaxRadius: theme.bubbleMaxRadius ?? 40,
       histogramBinCount: theme.histogramBinCount ?? 10,
-      axisLabelStyle: axisLabel.color == null ? axisLabel.copyWith(color: colorScheme.onSurfaceVariant) : axisLabel,
+      axisLabelStyle: axisLabel.color == null ? axisLabel.copyWith(color: colors.textSecondary) : axisLabel,
       // The color is deliberately left unset when the host set none: the pie
       // builder then picks one per slice, since each slice is a different fill.
       pieLabelStyle: mergeTextStyle(const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), theme.pieLabelStyle),
-      titleTextStyle: theme.titleTextStyle ?? themeData.textTheme.titleSmall?.copyWith(color: colorScheme.onSurface),
-      gridLineColor: theme.gridLineColor ?? colorScheme.outlineVariant,
+      titleTextStyle: theme.titleTextStyle ?? text.bodyEmphasis.copyWith(color: colors.textPrimary),
+      gridLineColor: theme.gridLineColor ?? colors.borderDefault,
       heatmapLowColor: theme.heatmapLowColor ?? scale.low,
       heatmapMidColor: theme.heatmapMidColor ?? scale.mid,
       heatmapHighColor: theme.heatmapHighColor ?? scale.high,
       showLegend: theme.showLegend ?? true,
       legendPosition: theme.legendPosition ?? ChartLegendPosition.bottom,
-      legendTextStyle: legendText.color == null ? legendText.copyWith(color: colorScheme.onSurfaceVariant) : legendText,
+      legendTextStyle: legendText.color == null ? legendText.copyWith(color: colors.textSecondary) : legendText,
       showPiePercentages: theme.showPiePercentages ?? true,
       piePercentageThreshold: switch (theme.piePercentageThreshold) {
         // The constructor asserts the range; this keeps release builds sane.
@@ -107,8 +108,7 @@ class ResolvedChartTheme {
   /// one; [ChartView] fills it in per slice otherwise.
   final TextStyle pieLabelStyle;
 
-  /// See [ChartThemeData.titleTextStyle]. The one nullable field — null only
-  /// when the ambient [TextTheme.titleSmall] is.
+  /// See [ChartThemeData.titleTextStyle].
   final TextStyle? titleTextStyle;
 
   /// See [ChartThemeData.gridLineColor].

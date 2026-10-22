@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-// The [ChatComposer] and [ChatComposerFactory] references in the doc comments
-// below are doc links only; nothing in this file's code uses them.
+// The [streamAIComponentBuilders] and [ChatComposer] references in the doc
+// comments below are doc links only; nothing in this file's code uses them.
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
@@ -15,13 +15,17 @@ import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// The composer's input pill — [ChatComposer]'s default input slot.
 ///
 /// A rounded, outlined surface containing, top to bottom: the inline selected
 /// [ChatOption] chip, a row of attachment thumbnails, and the text field with
 /// the morphing mic/send/stop control at its right edge. Its content and
-/// wiring come out of [props]; its colors come from the ambient [Theme], and
+/// wiring come out of [props]; its colors come from [ComposerTheme] over the
+/// Stream theme, and
 /// the mic's listening state from the process-wide
 /// [SpeechToTextController.instance].
 ///
@@ -30,20 +34,17 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 /// [SpeechToTextController.instance] too — so it renders correctly standalone
 /// as well as inside [ChatComposer], where the nesting is a harmless no-op.
 ///
-/// This is what [ChatComposerFactory.buildInput] returns by default. Construct
-/// it with the props that slot hands you to keep the default input while
-/// decorating around it:
+/// This is the default of the `composerInput` builder of
+/// [streamAIComponentBuilders]. Construct it with the props that slot hands
+/// you to keep the default input while decorating around it:
 ///
 /// ```dart
-/// class MyFactory extends ChatComposerFactory {
-///   @override
-///   Widget buildInput(BuildContext context, ChatComposerInputProps props) {
-///     return Padding(
-///       padding: const EdgeInsets.only(bottom: 4),
-///       child: ChatComposerInput(props: props),
-///     );
-///   }
-/// }
+/// streamAIComponentBuilders(
+///   composerInput: (context, props) => Padding(
+///     padding: const EdgeInsets.only(bottom: 4),
+///     child: ChatComposerInput(props: props),
+///   ),
+/// )
 /// ```
 class ChatComposerInput extends StatefulWidget {
   /// Creates a [ChatComposerInput].
@@ -158,21 +159,20 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-                  child: _TrailingControl(
-                    key: ValueKey(
-                      _trailingState(controller, props.enableSpeechToText),
-                    ),
-                    controller: controller,
-                    onSend: props.onSend,
-                    onStop: props.onStop,
-                    enableSpeechToText: props.enableSpeechToText,
-                    speechToTextConfig: props.speechToTextConfig,
+              // No padding: the button's 48px tap target already insets the 40px
+              // circle by 4px, the same as above and below it in the 48px field.
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                child: _TrailingControl(
+                  key: ValueKey(
+                    _trailingState(controller, props.enableSpeechToText),
                   ),
+                  controller: controller,
+                  onSend: props.onSend,
+                  onStop: props.onStop,
+                  enableSpeechToText: props.enableSpeechToText,
+                  speechToTextConfig: props.speechToTextConfig,
                 ),
               ),
             ],
@@ -229,7 +229,7 @@ class _TrailingControl extends StatelessWidget {
 
     if (controller.isGenerating) {
       return ComposerActionButton(
-        icon: Icons.stop_rounded,
+        icon: context.streamIcons.stopFill,
         onPressed: onStop,
         tooltip: translations.stopGenerating,
         color: theme.stopButtonColor,
@@ -245,7 +245,7 @@ class _TrailingControl extends StatelessWidget {
     // Disabled rather than absent on an empty field: the button holds its
     // place so the pill's width doesn't jump as the user types.
     return ComposerActionButton(
-      icon: Icons.arrow_upward_rounded,
+      icon: context.streamIcons.arrowUp,
       onPressed: controller.hasContent ? onSend : null,
       tooltip: translations.send,
       color: theme.sendButtonColor,
@@ -357,72 +357,25 @@ class _AttachmentThumbnailState extends State<_AttachmentThumbnail> {
     // Decode at thumbnail resolution instead of full camera resolution.
     final cacheWidth = (_size * MediaQuery.devicePixelRatioOf(context)).round();
 
-    return SizedBox(
-      width: _size,
-      height: _size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: _size,
-              height: _size,
-              child: FutureBuilder<Uint8List>(
-                future: _bytes,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return ColoredBox(
-                      color: theme.attachmentPlaceholderColor,
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        size: 24,
-                        color: theme.brokenAttachmentIconColor,
-                      ),
-                    );
-                  }
-                  final bytes = snapshot.data;
-                  if (bytes == null) {
-                    return ColoredBox(color: theme.attachmentPlaceholderColor);
-                  }
-                  return Image.memory(bytes, fit: BoxFit.cover, cacheWidth: cacheWidth);
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            top: -6,
-            right: -6,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: theme.attachmentPlaceholderColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: theme.borderColor),
-              ),
-              // The Material sits *above* the fill so the ink splash is
-              // visible — an InkWell wrapped around an opaque decoration
-              // paints its ripple behind it, leaving the tap with no feedback.
-              child: Material(
-                type: MaterialType.transparency,
-                shape: const CircleBorder(),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: widget.onRemove,
-                  child: Tooltip(
-                    message: AITranslations.of(context).removeAttachment,
-                    child: Icon(
-                      Icons.close,
-                      size: 14,
-                      color: theme.removeAttachmentIconColor,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return StreamMessageComposerMediaAttachment(
+      onRemovePressed: widget.onRemove,
+      semanticLabel: AITranslations.of(context).removeAttachment,
+      style: const StreamMessageComposerMediaAttachmentThemeData(size: Size.square(_size)),
+      child: FutureBuilder<Uint8List>(
+        future: _bytes,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return ColoredBox(
+              color: theme.attachmentPlaceholderColor,
+              child: Icon(context.streamIcons.image, size: 24, color: theme.brokenAttachmentIconColor),
+            );
+          }
+          final bytes = snapshot.data;
+          if (bytes == null) {
+            return ColoredBox(color: theme.attachmentPlaceholderColor);
+          }
+          return Image.memory(bytes, fit: BoxFit.cover, cacheWidth: cacheWidth);
+        },
       ),
     );
   }
@@ -461,10 +414,7 @@ class _SelectedOptionChip extends StatelessWidget {
                 ],
                 Text(
                   option.text,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: theme.selectedOptionForegroundColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: context.streamTextTheme.captionEmphasis.copyWith(color: theme.selectedOptionForegroundColor),
                 ),
                 const SizedBox(width: 6),
                 Material(
@@ -475,7 +425,7 @@ class _SelectedOptionChip extends StatelessWidget {
                     onTap: onDismiss,
                     child: Tooltip(
                       message: AITranslations.of(context).clearOption(option.text),
-                      child: Icon(Icons.close, size: 18, color: theme.selectedOptionForegroundColor),
+                      child: Icon(context.streamIcons.xmarkSmall, size: 18, color: theme.selectedOptionForegroundColor),
                     ),
                   ),
                 ),
