@@ -131,6 +131,15 @@ abstract class AITranslations {
   /// [chartSemanticsLabel].
   String get unnamedChartSeries;
 
+  /// The name to use for a pie slice the data didn't name, given its 1-based
+  /// [number] in the data. Shown in the chart's legend and read out by
+  /// [chartSemanticsLabel].
+  String unnamedChartSlice(int number);
+
+  /// The last entry of a chart legend too long to list in full, standing for
+  /// the [count] entries left out.
+  String chartLegendMore(int count);
+
   /// The placeholder shown for an agent step this app version can't show — a
   /// kind it doesn't know, or a format version it doesn't read. See
   /// [AIUnsupportedPartView].
@@ -288,6 +297,12 @@ class DefaultAITranslations extends AITranslations {
   String get unnamedChartSeries => 'Series';
 
   @override
+  String unnamedChartSlice(int number) => 'Slice $number';
+
+  @override
+  String chartLegendMore(int count) => '+$count more';
+
+  @override
   String get unsupportedMessagePart => "A step this app version can't show";
 
   @override
@@ -398,13 +413,15 @@ class DefaultAITranslations extends AITranslations {
       // the y label, and for a heatmap, whose series *are* its rows and are
       // named as such below.
       if (chart.seriesNames.length > 1 && chart.kind != USpecKind.heatmap) {
-        parts.add('${chart.seriesNames.length} series: ${chart.seriesNames.join(', ')}');
+        parts.add('${chart.seriesNames.length} series: ${_names(chart.seriesNames)}');
       }
     }
 
     switch (chart.kind) {
       case USpecKind.pie:
-        parts.add(_count(chart.pointCount, 'slice'));
+        // The slices' names are drawn outside the semantics tree, so a reader
+        // only hears them here. An empty pie said "no data" above.
+        parts.add('${_count(chart.sliceLabels.length, 'slice')}: ${_names(chart.sliceLabels)}');
         if (chart.largestSliceLabel case final label? when chart.largestSlicePercent != null) {
           parts.add('largest $label at ${chart.largestSlicePercent} percent');
         }
@@ -435,6 +452,14 @@ class DefaultAITranslations extends AITranslations {
     }
 
     return parts.join(', ');
+  }
+
+  /// [names] joined into a list, cut off after eight so a long legend doesn't
+  /// become a minute of speech: `'A, B, C'`, `'A, …, H, and 4 more'`.
+  static String _names(List<String> names) {
+    const max = 8;
+    if (names.length <= max) return names.join(', ');
+    return '${names.take(max).join(', ')}, and ${names.length - max} more';
   }
 
   static String _range(ChartSemantics chart) => 'values ${chart.valueMin} to ${chart.valueMax}';

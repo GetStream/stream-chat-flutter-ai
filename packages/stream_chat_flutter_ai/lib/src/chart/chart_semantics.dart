@@ -21,6 +21,7 @@ class ChartSemantics {
     required this.categoryCount,
     required this.rowCount,
     required this.columnLabels,
+    this.sliceLabels = const [],
     this.title,
     this.xLabel,
     this.yLabel,
@@ -36,7 +37,13 @@ class ChartSemantics {
   ///
   /// [unnamedSeries] stands in for a series the chart data didn't name — the
   /// parser leaves those empty rather than inventing an English word for them.
-  factory ChartSemantics.fromSpec(USpec spec, {required String unnamedSeries}) {
+  /// [unnamedSlice] does the same for a [USpecKind.pie] slice, given its
+  /// 1-based position in the data; it falls back to [unnamedSeries].
+  factory ChartSemantics.fromSpec(
+    USpec spec, {
+    required String unnamedSeries,
+    String Function(int number)? unnamedSlice,
+  }) {
     // A pie and a histogram plot the first series and ignore the rest, so
     // describing every one would announce a count the chart never draws.
     final drawn = switch (spec.kind) {
@@ -82,15 +89,21 @@ class ChartSemantics {
 
     String? largestLabel;
     String? largestPercent;
+    var sliceLabels = const <String>[];
     if (spec.kind == USpecKind.pie) {
-      // `points` is already the first series alone, and non-empty past the
-      // guard above — so `reduce` has something to fold.
-      final slices = points;
-      final total = slices.fold<double>(0, (sum, p) => sum + p.y);
-      final largest = slices.reduce((a, b) => b.y > a.y ? b : a);
-      largestLabel = _orNull(largest.x.trim());
-      // Shares of a zero or negative total aren't percentages of anything.
-      if (total > 0) largestPercent = _formatValue((largest.y / total * 100).roundToDouble());
+      // `points` is already the first series alone. Only the slices that are
+      // actually drawn count: a zero, negative or non-finite one has no area.
+      final slices = drawnPieSlices(points, unnamed: unnamedSlice ?? (_) => unnamedSeries);
+      sliceLabels = [for (final slice in slices) slice.label];
+      final total = slices.fold<double>(0, (sum, s) => sum + s.value);
+      if (slices.isNotEmpty) {
+        final largest = slices.reduce((a, b) => b.value > a.value ? b : a);
+        largestLabel = largest.label;
+        // A sum of finite values can still overflow to infinity.
+        if (total.isFinite && total > 0) {
+          largestPercent = _formatValue((largest.value / total * 100).roundToDouble());
+        }
+      }
     }
 
     return ChartSemantics._(
@@ -100,6 +113,7 @@ class ChartSemantics {
       categoryCount: _categoryCount(drawn),
       rowCount: drawn.length,
       columnLabels: columns,
+      sliceLabels: sliceLabels,
       title: _orNull(title),
       xLabel: _orNull(xLabel),
       yLabel: _orNull(yLabel),
@@ -163,6 +177,14 @@ class ChartSemantics {
   /// null when no point carries one.
   final String? sizeMax;
 
+  /// The names of the [USpecKind.pie] slices that are drawn — those with a
+  /// positive, finite value — in data order, with unnamed ones filled in.
+  /// Empty for every other kind.
+  ///
+  /// The summary is where a screen reader hears them: the legend, or the
+  /// labels on the slices without one, are excluded from the semantics tree.
+  final List<String> sliceLabels;
+
   /// The label of the biggest [USpecKind.pie] slice, or null for other kinds.
   final String? largestSliceLabel;
 
@@ -170,8 +192,9 @@ class ChartSemantics {
   /// kinds, and when the slices don't sum to anything positive.
   final String? largestSlicePercent;
 
-  /// Whether the chart has nothing to plot.
-  bool get isEmpty => pointCount == 0;
+  /// Whether the chart has nothing to plot, such as a pie whose slices are all
+  /// zero, negative or not finite.
+  bool get isEmpty => pointCount == 0 || (kind == USpecKind.pie && sliceLabels.isEmpty);
 
   @override
   bool operator ==(Object other) =>
@@ -186,6 +209,7 @@ class ChartSemantics {
           other.categoryCount == categoryCount &&
           other.rowCount == rowCount &&
           const ListEquality<String>().equals(other.columnLabels, columnLabels) &&
+          const ListEquality<String>().equals(other.sliceLabels, sliceLabels) &&
           other.valueMin == valueMin &&
           other.valueMax == valueMax &&
           other.sizeMin == sizeMin &&
@@ -206,6 +230,7 @@ class ChartSemantics {
     categoryCount,
     rowCount,
     Object.hashAll(columnLabels),
+    Object.hashAll(sliceLabels),
     valueMin,
     valueMax,
     sizeMin,
@@ -213,6 +238,20 @@ class ChartSemantics {
     largestSliceLabel,
     largestSlicePercent,
   );
+
+  /// The [points] of a pie that are actually drawn — positive and finite —
+  /// paired with a display name, [unnamed] standing in for a blank one.
+  ///
+  /// Internal: shared by [ChartView] and the summary, so the legend, the
+  /// slices and what a screen reader hears all agree.
+  @internal
+  static List<({String label, double value})> drawnPieSlices(
+    List<UPoint> points, {
+    required String Function(int number) unnamed,
+  }) => [
+    for (final (i, point) in points.indexed)
+      if (point.y.isFinite && point.y > 0) (label: point.x.trim().isEmpty ? unnamed(i + 1) : point.x, value: point.y),
+  ];
 
   static String? _orNull(String? value) => (value == null || value.isEmpty) ? null : value;
 

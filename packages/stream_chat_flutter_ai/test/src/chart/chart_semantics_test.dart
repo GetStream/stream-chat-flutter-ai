@@ -122,6 +122,64 @@ void main() {
         expect(chart.largestSlicePercent, '60', reason: 'a share of the drawn series, not of all four points');
       });
 
+      test('a pie names only the slices it draws, with unnamed ones numbered', () {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: 5),
+                UPoint(x: 'Refund', y: -3),
+                UPoint(x: 'Zero', y: 0),
+                UPoint(x: 'Bad', y: double.nan),
+                UPoint(x: 'Huge', y: double.infinity),
+                UPoint(x: '  ', y: 5),
+              ],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series', unnamedSlice: (n) => 'Slice $n');
+
+        expect(chart.sliceLabels, ['A', 'Slice 6']);
+        expect(chart.largestSlicePercent, '50', reason: 'a share of the drawn slices alone');
+      });
+
+      test('an unnamed slice falls back to the series fallback without a slice one', () {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [UPoint(x: '', y: 1)],
+            ),
+          ],
+        );
+
+        final chart = ChartSemantics.fromSpec(spec, unnamedSeries: 'Series');
+
+        expect(chart.sliceLabels, ['Series']);
+        expect(chart.largestSliceLabel, 'Series');
+      });
+
+      test('a pie whose values overflow to infinity when summed reports no share', () {
+        const spec = USpec(
+          kind: USpecKind.pie,
+          series: [
+            USeries(
+              name: 'S',
+              points: [
+                UPoint(x: 'A', y: double.maxFinite),
+                UPoint(x: 'B', y: double.maxFinite),
+              ],
+            ),
+          ],
+        );
+
+        expect(ChartSemantics.fromSpec(spec, unnamedSeries: 'Series').largestSlicePercent, isNull);
+      });
+
       test('a histogram counts only the samples it bins', () {
         const spec = USpec(
           kind: USpecKind.histogram,
@@ -511,6 +569,11 @@ void main() {
         ]),
       ),
       'sizeMin': (bubble(5), bubble(6)),
+      // Same count, range and biggest slice; only another slice's name.
+      'sliceLabels': (
+        pie(const [UPoint(x: 'Chrome', y: 60), UPoint(x: 'Safari', y: 40)]),
+        pie(const [UPoint(x: 'Chrome', y: 60), UPoint(x: 'Edge', y: 40)]),
+      ),
       // Same labels, same range, same count — only which slice is biggest.
       'largestSliceLabel': (
         pie(const [UPoint(x: 'Chrome', y: 60), UPoint(x: 'Safari', y: 40)]),
@@ -538,7 +601,10 @@ void main() {
       expect(_label(_lineSpec), 'Line chart, Sales, 3 points, values 10 to 25');
       expect(_label(_areaSpec), 'Area chart, 3 points, values 10 to 25');
       expect(_label(_barSpec), 'Bar chart, Messages per day, 5 categories, values 8 to 24');
-      expect(_label(_pieSpec), 'Pie chart, Browser share, 4 slices, largest Chrome at 60 percent');
+      expect(
+        _label(_pieSpec),
+        'Pie chart, Browser share, 4 slices: Chrome, Safari, Firefox, Edge, largest Chrome at 60 percent',
+      );
       expect(_label(_scatterSpec), 'Scatter chart, 2 series: A, B, 4 points, values 1 to 8');
       expect(_label(_bubbleSpec), 'Bubble chart, 3 points, values 1 to 3, sizes 5 to 50');
       expect(
@@ -585,7 +651,36 @@ void main() {
       expect(_label(spec), 'Bar chart, Nothing yet, no data');
     });
 
-    test('omits the pie share when the slices do not sum to anything positive', () {
+    test('names at most eight pie slices and counts the rest', () {
+      final spec = USpec(
+        kind: USpecKind.pie,
+        series: [
+          USeries(
+            name: 'S',
+            points: [for (var i = 0; i < 11; i++) UPoint(x: 'P$i', y: 11.0 - i)],
+          ),
+        ],
+      );
+
+      expect(_label(spec), startsWith('Pie chart, 11 slices: P0, P1, P2, P3, P4, P5, P6, P7, and 3 more, largest P0'));
+    });
+
+    test('names at most eight series and counts the rest', () {
+      final spec = USpec(
+        kind: USpecKind.line,
+        series: [
+          for (var i = 0; i < 10; i++)
+            USeries(
+              name: 'S$i',
+              points: const [UPoint(x: 'A', y: 1)],
+            ),
+        ],
+      );
+
+      expect(_label(spec), contains('10 series: S0, S1, S2, S3, S4, S5, S6, S7, and 2 more'));
+    });
+
+    test('reads a pie with no slice to draw as no data', () {
       const spec = USpec(
         kind: USpecKind.pie,
         series: [
@@ -599,7 +694,7 @@ void main() {
         ],
       );
 
-      expect(_label(spec), 'Pie chart, 2 slices');
+      expect(_label(spec), 'Pie chart, no data');
     });
 
     test('counts a single anything in the singular', () {
@@ -611,7 +706,7 @@ void main() {
         ),
       );
 
-      expect(labelOf(USpecKind.pie), 'Pie chart, 1 slice, largest A at 100 percent');
+      expect(labelOf(USpecKind.pie), 'Pie chart, 1 slice: A, largest A at 100 percent');
       expect(labelOf(USpecKind.bar), 'Bar chart, 1 category, values 1 to 1');
       expect(labelOf(USpecKind.histogram), 'Histogram, 1 sample, values 1 to 1');
       expect(labelOf(USpecKind.line), 'Line chart, 1 point, values 1 to 1');
