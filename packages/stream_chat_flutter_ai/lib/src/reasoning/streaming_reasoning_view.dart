@@ -14,6 +14,7 @@ import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: the `theme` parameter is a [ReasoningThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
+import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 
 /// Live text shorter than this many characters, arriving as the panel first
 /// appears, is
@@ -534,7 +535,7 @@ class _Header extends StatelessWidget {
     );
     Widget icon = Icon(Icons.psychology_outlined, size: iconSize, color: theme.iconColor);
     if (activity case final activity?) {
-      titleText = _Shimmer(
+      titleText = Shimmer(
         animation: activity,
         base: titleStyle.color!,
         highlight: theme.shimmerColor,
@@ -556,37 +557,6 @@ class _Header extends StatelessWidget {
           child: Icon(Icons.chevron_right, size: iconSize, color: theme.iconColor),
         ),
       ],
-    );
-  }
-}
-
-/// A highlight sweeping across [child] while [animation] runs.
-class _Shimmer extends StatelessWidget {
-  const _Shimmer({required this.animation, required this.base, required this.highlight, required this.child});
-
-  final Animation<double> animation;
-  final Color base;
-  final Color highlight;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        // From fully left of the text to fully right of it.
-        final x = -1.6 + 3.2 * animation.value;
-        return ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => LinearGradient(
-            begin: Alignment(x - 0.6, 0),
-            end: Alignment(x + 0.6, 0),
-            colors: [base, highlight, base],
-          ).createShader(bounds),
-          child: child,
-        );
-      },
     );
   }
 }

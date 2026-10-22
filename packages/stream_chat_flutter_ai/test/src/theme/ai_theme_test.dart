@@ -141,6 +141,29 @@ void main() {
       });
     });
 
+    group('tool call theme', () {
+      const toolCall = ToolCallThemeData(accentColor: Color(0xFF0A0A0A));
+      const toolCall2 = ToolCallThemeData(accentColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().toolCallTheme, const ToolCallThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(toolCallTheme: toolCall);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(toolCallTheme: toolCall));
+        expect(theme.copyWith(toolCallTheme: toolCall2).toolCallTheme, toolCall2);
+        expect(theme.copyWith().toolCallTheme, toolCall);
+        expect(
+          theme.lerp(const AITheme(toolCallTheme: toolCall2), 0.5).toolCallTheme,
+          ToolCallThemeData.lerp(toolCall, toolCall2, 0.5),
+        );
+      });
+    });
+
     group('composer and suggestions themes', () {
       // Each case is one component field on AITheme. A field left out of `==`
       // would let Theme.updateShouldNotify skip the rebuild after a host changed
