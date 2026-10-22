@@ -248,7 +248,8 @@ class _StatusIcon extends StatelessWidget {
       _ToolCallState.running when reduceMotion => icon(icons.moreHorizontal, theme.accentColor),
       _ToolCallState.running => scaled(StreamLoadingSpinner(size: .xs, color: theme.accentColor)),
       _ToolCallState.awaitingApproval => waiting(icons.raiseHandFill),
-      _ToolCallState.awaitingClient => waiting(icons.presentMobileFill),
+      // Core has no plain phone outline; its closest is a screen-share glyph.
+      _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
       _ToolCallState.completed => icon(icons.checkmark, theme.successColor),
       _ToolCallState.failed => scaled(
         StreamErrorBadgeTheme(

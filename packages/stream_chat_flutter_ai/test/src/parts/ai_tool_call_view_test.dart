@@ -282,7 +282,7 @@ void main() {
           ),
           (
             call: _call(status: AIToolCallStatus.awaitingClient),
-            icon: _icons.presentMobileFill,
+            icon: Icons.smartphone_outlined,
             color: colors.accentPrimary,
           ),
           (call: _call(status: AIToolCallStatus.cancelled), icon: _icons.xmark, color: colors.textSecondary),
