@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
@@ -18,8 +20,8 @@ typedef AIToolApprovalDecider = Future<void> Function(AIToolCallPart call, AIToo
 /// [AIToolApprovalDecision.allowed] or [AIToolApprovalDecision.declined].
 typedef AIToolApprovalAnswer = void Function(AIToolApprovalDecision decision);
 
-/// Builds your own content for an [AIToolApprovalView] in place of the
-/// [AIToolApprovalCard].
+/// Builds your own content for an [AIToolApprovalView] in place of
+/// [AIComponentBuilders.toolApproval].
 ///
 /// [approval] is the call's question, or `null` when the call awaits approval
 /// without one — ask in your own words then. [state] says where the answer

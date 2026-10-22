@@ -164,8 +164,11 @@ void main() {
 
         const data = '```dart\nvar x = 1;\n```';
 
+        // The cached widget's private `_Fence`, which holds the fence's data.
+        Widget cachedFence() => tester.widget(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Fence'));
+
         await tester.pumpWidget(_wrap(const AIMarkdownBody(data: data)));
-        final fence = tester.widget<CodeBlockView>(find.byType(CodeBlockView));
+        final fence = cachedFence();
         expect(find.byTooltip('Copy code'), findsOneWidget);
 
         await tester.pumpWidget(
@@ -178,7 +181,7 @@ void main() {
         );
 
         // Same cached widget instance, different rendered string.
-        expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)), same(fence));
+        expect(cachedFence(), same(fence));
         expect(find.byTooltip('KOPIEER'), findsOneWidget);
         expect(find.byTooltip('Copy code'), findsNothing);
       });
