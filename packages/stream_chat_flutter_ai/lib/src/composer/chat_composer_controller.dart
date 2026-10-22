@@ -31,7 +31,7 @@ class ChatComposerController extends ChangeNotifier {
   /// Creates an [ChatComposerController].
   ///
   /// [initialText] pre-fills the text field.
-  /// [_chatOptions] sets the initial list of selectable options.
+  /// `chatOptions` sets the initial list of selectable options.
   ChatComposerController({
     String initialText = '',
     this._chatOptions = const [],
