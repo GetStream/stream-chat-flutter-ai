@@ -592,8 +592,8 @@ void main() {
         .widget<Material>(find.descendant(of: find.byType(ComposerActionButton), matching: find.byType(Material)))
         .color;
 
-    testWidgets('idles in sendButtonColor and listens in recordingButtonColor', (tester) async {
-      const send = Color(0xFF123456);
+    testWidgets('idles as a ghost button in iconColor and listens in recordingButtonColor', (tester) async {
+      const icon = Color(0xFF123456);
       const recording = Color(0xFF654321);
       final controller = ChatComposerController();
       addTearDown(controller.dispose);
@@ -601,15 +601,21 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           ComposerTheme(
-            data: const ComposerThemeData(sendButtonColor: send, recordingButtonColor: recording),
+            data: const ComposerThemeData(iconColor: icon, recordingButtonColor: recording),
             child: SpeechToTextButton(controller: controller),
           ),
         ),
       );
 
-      // Idle, the mic takes the send button's slot and its color, so the two
-      // read as one control morphing in place.
-      expect(micFill(tester), send);
+      // Idle, the mic is a quiet ghost button: no fill, and its glyph in the
+      // composer's icon color.
+      expect(find.byType(ComposerActionButton), findsNothing);
+      final mic = find.byIcon(_icons.voice);
+      expect(
+        tester.widget<StreamButton>(find.ancestor(of: mic, matching: find.byType(StreamButton))).props.type,
+        StreamButtonType.ghost,
+      );
+      expect(IconTheme.of(tester.element(mic)).color, icon);
 
       await tester.tap(find.byIcon(_icons.voice));
       await settle(tester);

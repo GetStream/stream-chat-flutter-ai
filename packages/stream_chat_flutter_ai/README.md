@@ -1005,17 +1005,17 @@ Four things worth knowing:
   `theme.copyWith(extensions: [...theme.extensions.values, const AITheme()])`.
 - **`disabledIconColor` derives from the *resolved* `iconColor`.** Set only `iconColor` and the
   disabled states dim to match it, rather than to a dimmed `textPrimary` that no longer relates.
-- **The idle microphone uses `sendButtonColor`, not `recordingButtonColor`.** It occupies the send
-  button's slot, and the two are meant to read as one control morphing in place;
-  `recordingButtonColor` applies only while it is listening.
+- **The idle microphone is a ghost button in `iconColor`**, not a filled one. It turns into a
+  filled stop button in `recordingButtonColor` while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
   each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
   enclosing scope instead of shadowing it. All eight are `InheritedTheme`s, so they carry across a
   `Navigator` — a scope above the composer still reaches the attachment sheet that
   `showStreamSheet` pushes.
 
-The suggestion chips default to the same tokens as the composer's input pill, since a suggestion
-row is normally docked directly above it. Recolor that surface and you want both.
+The input pill, the "+" button, the sheet's camera tile and the suggestion chips are outlined rather
+than filled by default: `fillColor` and `SuggestionsThemeData.backgroundColor` are transparent, so
+they sit on whatever surface the composer is placed on. Set both to fill them.
 
 ---
 

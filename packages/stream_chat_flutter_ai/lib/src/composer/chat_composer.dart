@@ -14,6 +14,7 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 // Doc links only.
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// Callback fired when the user taps the send button.
 ///
@@ -382,7 +383,9 @@ class _ChatComposerState extends State<ChatComposer> {
         );
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          // The same side inset as AISuggestionsView's chips, which usually sit
+          // right above.
+          padding: EdgeInsets.symmetric(horizontal: context.streamSpacing.md, vertical: context.streamSpacing.xs),
           child: Row(
             // Centered, not `.end` — the pill is taller than the fixed-size
             // leading/trailing circles (its height grows with multi-line

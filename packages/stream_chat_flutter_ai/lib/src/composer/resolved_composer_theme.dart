@@ -40,7 +40,7 @@ class ResolvedComposerTheme {
     final hintStyle = mergeTextStyle(TextStyle(color: hintColor), theme.hintStyle);
 
     return ResolvedComposerTheme._(
-      fillColor: theme.fillColor ?? colors.backgroundSurface,
+      fillColor: theme.fillColor ?? const Color(0x00000000),
       borderColor: theme.borderColor ?? colors.borderDefault,
       // An `inherit: false` override replaces the base outright, color and all.
       hintStyle: hintStyle.color == null ? hintStyle.copyWith(color: hintColor) : hintStyle,

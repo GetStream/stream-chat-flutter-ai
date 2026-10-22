@@ -54,9 +54,9 @@ class ComposerThemeData with Diagnosticable {
   });
 
   /// The fill behind the input pill, the leading "+" button and the attachment
-  /// sheet's tiles — the surfaces that read as one connected control — and
-  /// behind a sheet photo tile while its thumbnail loads. Falls back to
-  /// the Stream theme's `backgroundSurface`.
+  /// sheet's camera tile — the surfaces that read as one connected control.
+  /// Transparent by default, so they are outlined by [borderColor] on whatever
+  /// they sit on.
   final Color? fillColor;
 
   /// The hairline around the input pill, the leading button and the sheet's
@@ -72,8 +72,9 @@ class ComposerThemeData with Diagnosticable {
   /// [ChatComposer.hintText] or `AITranslations.composerHint`.
   final TextStyle? hintStyle;
 
-  /// The color of the icons drawn on [fillColor]: the leading "+" and the
-  /// sheet's camera tile. Falls back to the Stream theme's `textPrimary`.
+  /// The color of the icons drawn on [fillColor]: the leading "+", the idle
+  /// microphone and the sheet's camera tile. Falls back to the Stream theme's
+  /// `textPrimary`.
   ///
   /// Only those, so it need only contrast with [fillColor]. An attachment
   /// thumbnail's glyphs sit on [attachmentPlaceholderColor] and take
@@ -81,7 +82,7 @@ class ComposerThemeData with Diagnosticable {
   /// on the sheet's own background, which this theme does not set, and follow
   /// the Stream theme's `textPrimary`.
   ///
-  /// Not the icon inside the filled send/stop/mic circle — that is
+  /// Not the icon inside the filled send/stop circle — that is
   /// [actionButtonForegroundColor], which sits on a saturated fill instead.
   final Color? iconColor;
 
@@ -105,8 +106,7 @@ class ComposerThemeData with Diagnosticable {
   /// The fill of the microphone button while it is listening. Falls back to
   /// the Stream theme's `accentError`.
   ///
-  /// Idle, the microphone uses [sendButtonColor] — it occupies the send
-  /// button's slot, and the two read as one control morphing in place.
+  /// Idle, the microphone is a ghost button in [iconColor].
   final Color? recordingButtonColor;
 
   /// The color of the icon inside the filled send/stop/mic circle, and of the
