@@ -72,3 +72,5 @@ export 'src/tools/ai_tool_definition.dart';
 export 'src/tools/ai_tool_invocation.dart';
 export 'src/tools/ai_tool_registry.dart';
 export 'src/typewriter_builder.dart';
+export 'src/voice/ai_voice_agent_state.dart';
+export 'src/voice/ai_voice_views.dart';

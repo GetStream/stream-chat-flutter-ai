@@ -1130,4 +1130,22 @@ class DutchTranslations implements AITranslations {
     final digits = value >= 100 || unit == 0 ? 0 : 1;
     return '${value.toStringAsFixed(digits).replaceAll('.', ',')} ${units[unit]}';
   }
+
+  @override
+  String get voiceAgent => 'Spraakassistent';
+
+  @override
+  String get voiceIdle => 'Klaar';
+
+  @override
+  String get voiceConnecting => 'Verbinden';
+
+  @override
+  String get voiceListening => 'Luistert';
+
+  @override
+  String get voiceThinking => 'Denkt na';
+
+  @override
+  String get voiceSpeaking => 'Spreekt';
 }
