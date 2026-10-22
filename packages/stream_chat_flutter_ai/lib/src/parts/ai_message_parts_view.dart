@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
 /// [AIMessagePartsView]'s default for it, or [AIMessagePartsView.hidden] to
@@ -16,7 +17,7 @@ import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.da
 typedef AIMessagePartWidgetBuilder = Widget? Function(BuildContext context, AIMessagePart part);
 
 /// Builds the widget for one tool call, or returns `null` to fall back to the
-/// [AIComponentFactory]'s row for it, or [AIMessagePartsView.hidden] to show
+/// [StreamComponentFactory]'s row for it, or [AIMessagePartsView.hidden] to show
 /// nothing for it.
 typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolCallPart call);
 
@@ -60,7 +61,7 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 ///
 /// A [partBuilder] is asked first; [toolCallBuilder] only sees the tool calls
 /// it returned `null` for. To replace a kind's view everywhere instead, use an
-/// [AIComponentFactory]; these builders are asked before it.
+/// [StreamComponentFactory]; these builders are asked before it.
 ///
 /// To hide a part, return [AIMessagePartsView.hidden] from either builder: it
 /// is left out entirely, taking up no [spacing], where an empty widget would
@@ -113,7 +114,7 @@ class AIMessagePartsView extends StatelessWidget {
   final double spacing;
 
   /// Returned from [partBuilder], [toolCallBuilder] or an
-  /// [AIComponentFactory] part slot, hides that part: it is left out of the
+  /// [StreamComponentFactory] part slot, hides that part: it is left out of the
   /// list, with no [spacing] around it. Compared by identity, so return this
   /// very instance.
   static const Widget hidden = _HiddenPart();
@@ -145,28 +146,29 @@ class AIMessagePartsView extends StatelessWidget {
     );
   }
 
-  /// A part's default view from the [AIComponentFactory], [AIMessagePartsView.hidden]
+  /// A part's default view from the [StreamComponentFactory], [AIMessagePartsView.hidden]
   /// to leave it out, or `null` to show nothing. Tool calls ask [toolCallBuilder] first, then the factory; the
   /// [approver]'s question goes under the factory's row. Reasoning shows its
   /// [AIReasoningPart.preview]; full text goes through a [partBuilder].
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
-    final builders = AIComponentFactory.of(context);
     if (!part.isSupported) {
-      return builders.unsupportedPart?.call(context, AIUnsupportedPartProps(part: part)) ??
+      return context.aiComponentBuilder<AIUnsupportedPartProps>()?.call(context, AIUnsupportedPartProps(part: part)) ??
           const AIUnsupportedPartView();
     }
     if (part.reasoning case final reasoning?) {
-      return builders.reasoning?.call(context, AIReasoningProps(reasoning: reasoning)) ??
+      return context.aiComponentBuilder<AIReasoningProps>()?.call(context, AIReasoningProps(reasoning: reasoning)) ??
           StreamingReasoningView.part(reasoning);
     }
     if (part.toolCall case final call?) {
-      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, builders, call);
+      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, call);
     }
     return null;
   }
 
-  Widget _toolCallView(BuildContext context, AIComponentBuilders builders, AIToolCallPart call) {
-    final row = builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
+  Widget _toolCallView(BuildContext context, AIToolCallPart call) {
+    final row =
+        context.aiComponentBuilder<AIToolCallProps>()?.call(context, AIToolCallProps(call: call)) ??
+        AIToolCallView(call: call);
     final showRow = !identical(row, hidden);
     final approver = this.approver;
     final asks = approver != null && approver.identity.canApprove(call);
@@ -214,22 +216,24 @@ class AIUnsupportedPartView extends StatelessWidget {
   /// Creates an [AIUnsupportedPartView].
   const AIUnsupportedPartView({super.key, this.textStyle, this.iconColor});
 
-  /// The style of the text, merged over `bodySmall` in `onSurfaceVariant`.
+  /// The style of the text, merged over the Stream theme's `captionDefault` in
+  /// `textSecondary`.
   final TextStyle? textStyle;
 
-  /// The color of the sparkles icon; defaults to the text's color.
+  /// The color of the icon; defaults to the text's color.
   final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.onSurfaceVariant).merge(textStyle);
+    final style = context.streamTextTheme.captionDefault
+        .copyWith(color: context.streamColorScheme.textSecondary)
+        .merge(textStyle);
     final iconSize = (style.fontSize ?? 12) * 1.25;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.auto_awesome_outlined, size: iconSize, color: iconColor ?? style.color),
+        Icon(context.streamIcons.unsupportedAttachment, size: iconSize, color: iconColor ?? style.color),
         const SizedBox(width: 6),
         Flexible(child: Text(AITranslations.of(context).unsupportedMessagePart, style: style)),
       ],

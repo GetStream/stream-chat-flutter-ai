@@ -4,7 +4,8 @@
 
 - `CodeBlockThemeData` (`AITheme.codeBlockTheme`) replaces the code color parameters, and `CodeHighlighter` now takes a `CodeHighlightRequest`.
 - `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
-- `AIComponentFactory` / `AIComponentBuilders` replace the code blocks, charts, agent steps, approval card and composer slots the package builds; `ChatComposer.factory` is now nullable and falls back to `AIComponentBuilders.composer`, or the default.
+- `streamAIComponentBuilders` registers replacements for the code blocks, charts, agent steps, approval card, conversation rows and composer slots with `stream_core_flutter`'s `StreamComponentFactory`, next to Stream Chat's; it replaces `ChatComposerFactory` and `ChatComposer.factory`.
+- Built on `stream_core_flutter`: defaults come from `StreamTheme` instead of Material's `ColorScheme`/`TextTheme`, buttons, sheets, spinners and icons are core components, `StreamTypingIndicatorDots` replaces `AnimatedDots` and `TypingIndicatorThemeData.dotCount`, and Flutter 3.44 / Dart 3.12 are the minimum.
 
 ✅ Added
 

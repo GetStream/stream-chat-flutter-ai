@@ -13,6 +13,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// {@template aiToolApprovalView}
 /// Asks the person a tool call waits for whether it may run — the question on
@@ -60,7 +61,7 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 /// )
 /// ```
 ///
-/// Without one it shows [AIComponentBuilders.toolApproval] — by default an
+/// Without one it shows the `toolApproval` builder of [streamAIComponentBuilders] — by default an
 /// [AIToolApprovalCard], styled by [theme], then the nearest
 /// [ToolApprovalTheme], then [AITheme.toolApprovalTheme]. Override that slot
 /// to replace the card everywhere.
@@ -75,7 +76,7 @@ class AIToolApprovalView extends StatefulWidget {
   /// Who answers on this device, how the answer is sent, and where it is.
   final AIToolApprover approver;
 
-  /// Builds your own content in place of [AIComponentBuilders.toolApproval].
+  /// Builds your own content in place of the `toolApproval` builder of [streamAIComponentBuilders].
   final AIToolApprovalContentBuilder? builder;
 
   /// Overrides for the default card, layered over the ambient
@@ -153,7 +154,7 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
       onAnswer: _answerFor(call),
       theme: widget.theme,
     );
-    return AIComponentFactory.of(context).toolApproval?.call(context, props) ??
+    return context.aiComponentBuilder<AIToolApprovalProps>()?.call(context, props) ??
         AIToolApprovalCard(
           approval: props.approval,
           toolName: props.toolName,
@@ -237,6 +238,8 @@ class AIToolApprovalCard extends StatelessWidget {
     final translations = AITranslations.of(context);
     final busy = state.isBusy;
     final sending = state is AIToolApprovalSending;
+    final colors = context.streamColorScheme;
+    final spacing = context.streamSpacing;
 
     final title = _nonBlank(approval?.title) ?? translations.toolApprovalTitle(toolName);
     final allowLabel = _nonBlank(approval?.allowTitle) ?? translations.toolApprovalAllow;
@@ -251,10 +254,10 @@ class AIToolApprovalCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.backgroundColor,
             border: Border.all(color: theme.borderColor),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(context.streamRadius.lg),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(spacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -265,35 +268,34 @@ class AIToolApprovalCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(line, style: theme.messageStyle),
                   ),
-                const SizedBox(height: 10),
+                SizedBox(height: spacing.sm),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: spacing.xs,
+                  runSpacing: spacing.xs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    FilledButton(
+                    StreamButton(
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.allowed),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: theme.accentColor,
-                        foregroundColor: theme.onAccentColor,
-                        visualDensity: VisualDensity.compact,
+                      size: .small,
+                      iconLeft: sending && state.decision == AIToolApprovalDecision.allowed ? const _Sending() : null,
+                      themeStyle: StreamButtonThemeStyle(
+                        backgroundColor: .resolveWith(
+                          (states) =>
+                              states.contains(WidgetState.disabled) ? colors.backgroundDisabled : theme.accentColor,
+                        ),
+                        foregroundColor: .resolveWith(
+                          (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.onAccentColor,
+                        ),
                       ),
-                      child: _ButtonLabel(
-                        allowLabel,
-                        busy: sending && state.decision == AIToolApprovalDecision.allowed,
-                      ),
+                      child: Text(allowLabel),
                     ),
-                    OutlinedButton(
+                    StreamButton(
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.declined),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.accentColor,
-                        side: BorderSide(color: theme.borderColor),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: _ButtonLabel(
-                        declineLabel,
-                        busy: sending && state.decision == AIToolApprovalDecision.declined,
-                      ),
+                      style: .secondary,
+                      type: .outline,
+                      size: .small,
+                      iconLeft: sending && state.decision == AIToolApprovalDecision.declined ? const _Sending() : null,
+                      child: Text(declineLabel),
                     ),
                     if (state.isSent)
                       Semantics(
@@ -301,7 +303,7 @@ class AIToolApprovalCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_rounded, size: 16, color: theme.messageStyle.color),
+                            Icon(context.streamIcons.checkmark, size: 16, color: theme.messageStyle.color),
                             const SizedBox(width: 4),
                             Text(translations.toolApprovalSent, style: theme.messageStyle),
                           ],
@@ -326,38 +328,19 @@ class AIToolApprovalCard extends StatelessWidget {
   }
 }
 
-/// A button's label, led by a small progress indicator while its answer is
-/// on its way.
-class _ButtonLabel extends StatelessWidget {
-  const _ButtonLabel(this.text, {required this.busy});
-
-  final String text;
-  final bool busy;
+/// Leads a button's label while its answer is on its way.
+class _Sending extends StatelessWidget {
+  const _Sending();
 
   @override
   Widget build(BuildContext context) {
-    if (!busy) return Text(text);
-
-    // The button's own (disabled) foreground, which it puts in the icon theme.
-    final color = IconTheme.of(context).color;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    const size = 14.0;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          label: AITranslations.of(context).toolApprovalSending,
-          child: SizedBox.square(
-            dimension: size,
-            // A spinner never stops, so reduced motion gets a still "in progress".
-            child: reduceMotion
-                ? Icon(Icons.more_horiz_rounded, size: size, color: color)
-                : CircularProgressIndicator(strokeWidth: 2, color: color),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(text),
-      ],
+    return Semantics(
+      label: AITranslations.of(context).toolApprovalSending,
+      // A spinner never stops, so reduced motion gets a still "in progress".
+      child: reduceMotion
+          ? Icon(context.streamIcons.moreHorizontal, size: 16)
+          : StreamLoadingSpinner(size: .xs, color: IconTheme.of(context).color),
     );
   }
 }

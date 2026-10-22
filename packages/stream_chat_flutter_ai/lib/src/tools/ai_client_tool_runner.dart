@@ -84,7 +84,7 @@ final class AIClientToolRunner {
   AIClientToolRunner({
     required this.identity,
     required List<AIClientTool> tools,
-    required AIClientToolResultSender send,
+    required this._send,
     this.maxAttempts = 3,
     this.retryDelay = const Duration(seconds: 1),
     this.runTimeout,
@@ -93,8 +93,7 @@ final class AIClientToolRunner {
     this.onToolError,
     this.onDeliveryError,
   }) : assert(maxAttempts >= 1, 'maxAttempts must be at least 1'),
-       assert(retryDelay >= Duration.zero, 'retryDelay must not be negative'),
-       _send = send {
+       assert(retryDelay >= Duration.zero, 'retryDelay must not be negative') {
     tools.forEach(_registry.register);
   }
 

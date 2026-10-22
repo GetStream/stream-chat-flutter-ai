@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/resolved_code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// Builds the highlighted span tree for a fenced code block.
 ///
@@ -496,19 +497,15 @@ class _CopyButtonState extends State<_CopyButton> {
   Widget build(BuildContext context) {
     final translations = AITranslations.of(context);
 
-    return IconButton(
+    final icons = context.streamIcons;
+    return StreamButton.icon(
       onPressed: _onTap,
-      icon: Icon(
-        _copied ? Icons.check : Icons.content_copy,
-        size: 16,
-        color: _copied ? widget.copiedColor : widget.color,
-      ),
+      style: .secondary,
+      type: .ghost,
+      size: .small,
+      icon: Icon(_copied ? icons.checkmark : icons.copy, size: 16, color: _copied ? widget.copiedColor : widget.color),
       tooltip: _copied ? translations.codeCopied : translations.copyCode,
-      style: IconButton.styleFrom(
-        minimumSize: const Size(32, 32),
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      themeStyle: const StreamButtonThemeStyle(tapTargetSize: .shrinkWrap),
     );
   }
 }

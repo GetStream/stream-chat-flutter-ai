@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/voice/ai_voice_agent_state.dart';
 import 'package:stream_chat_flutter_ai/src/voice/voice_visualization_driver.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// A soft, airy globe of drifting color that shows what a voice agent is
 /// doing.
@@ -29,7 +30,8 @@ class AIVoiceGlowView extends StatelessWidget {
   /// What the agent is doing.
   final AIVoiceAgentState state;
 
-  /// One to five colors to paint it with. Defaults to [ColorScheme.primary].
+  /// One to five colors to paint it with. Defaults to the Stream theme's
+  /// `accentPrimary`.
   final List<Color>? colors;
 
   /// How lively the motion is, from 0, nearly still, through 1 to 2, twice as
@@ -72,7 +74,8 @@ class AIVoiceWaveView extends StatelessWidget {
   /// What the agent is doing.
   final AIVoiceAgentState state;
 
-  /// One to five colors to paint it with. Defaults to [ColorScheme.primary].
+  /// One to five colors to paint it with. Defaults to the Stream theme's
+  /// `accentPrimary`.
   final List<Color>? colors;
 
   /// How lively the motion is, from 0, nearly still, through 1 to 2, twice as
@@ -203,7 +206,7 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
 
   VoiceInput _input(BuildContext context) {
     final colors = widget.colors;
-    final palette = colors == null || colors.isEmpty ? [Theme.of(context).colorScheme.primary] : colors;
+    final palette = colors == null || colors.isEmpty ? [context.streamColorScheme.accentPrimary] : colors;
     return VoiceInput(
       state: widget.state,
       colors: [for (final color in palette.take(kVoiceMaxColors)) voiceHsv(color)],
@@ -247,7 +250,7 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
     final driver = (_driver ??= VoiceVisualizationDriver(input, levelResponse: widget.style.levelResponse))
       ..input = input;
     final translations = AITranslations.of(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    final dark = context.streamColorScheme.brightness == Brightness.dark;
     final pixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
 
     return Semantics(

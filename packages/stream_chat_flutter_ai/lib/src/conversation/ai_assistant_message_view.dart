@@ -110,7 +110,7 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         ? scope.clock.elapsed(scope.turn)
         : scope.clock.durationOfFirstStep(scope.turn, step.duration);
     final props = AIReasoningProps(reasoning: step, text: widget.reasoningText?.call(step), duration: duration);
-    if (AIComponentFactory.of(context).reasoning case final builder?) return builder(context, props);
+    if (context.aiComponentBuilder<AIReasoningProps>() case final builder?) return builder(context, props);
     if (duration == null) return StreamingReasoningView.part(step, text: props.text);
     return StreamingReasoningView(
       text: props.text ?? step.preview ?? '',
@@ -122,7 +122,6 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
 
   @override
   Widget build(BuildContext context) {
-    final builders = AIComponentFactory.of(context);
     final onAttachmentTap = widget.onAttachmentTap;
 
     return Column(
@@ -136,7 +135,6 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         for (final attachment in widget.attachments)
           AIMessageAttachmentView.of(
             context,
-            builders,
             AIMessageAttachmentProps(
               attachment: attachment,
               isFromUser: false,

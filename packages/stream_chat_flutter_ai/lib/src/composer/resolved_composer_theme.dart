@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 /// A [ComposerThemeData] with every field resolved.
 ///
@@ -25,7 +26,6 @@ class ResolvedComposerTheme {
     required this.selectedOptionForegroundColor,
     required this.photoSelectionColor,
     required this.attachmentPlaceholderColor,
-    required this.removeAttachmentIconColor,
     required this.brokenAttachmentIconColor,
     required this.chatOptionIconColor,
   });
@@ -33,37 +33,34 @@ class ResolvedComposerTheme {
   /// Resolves the theme at [context].
   factory ResolvedComposerTheme.resolve(BuildContext context) {
     final theme = ComposerTheme.of(context);
-    final colorScheme = Theme.of(context).colorScheme;
+    final colors = context.streamColorScheme;
 
-    final iconColor = theme.iconColor ?? colorScheme.onSurface;
-    final hintColor = colorScheme.onSurfaceVariant.withValues(alpha: 0.6);
+    final iconColor = theme.iconColor ?? colors.textPrimary;
+    final hintColor = colors.textSecondary.withValues(alpha: 0.6);
     final hintStyle = mergeTextStyle(TextStyle(color: hintColor), theme.hintStyle);
 
     return ResolvedComposerTheme._(
-      fillColor: theme.fillColor ?? colorScheme.surfaceContainerHigh,
-      borderColor: theme.borderColor ?? colorScheme.outlineVariant,
+      fillColor: theme.fillColor ?? colors.backgroundSurface,
+      borderColor: theme.borderColor ?? colors.borderDefault,
       // An `inherit: false` override replaces the base outright, color and all.
       hintStyle: hintStyle.color == null ? hintStyle.copyWith(color: hintColor) : hintStyle,
       iconColor: iconColor,
       // Derived from the *resolved* icon color, not the scheme's: a host that
       // sets only `iconColor` gets a matching disabled shade for free, rather
-      // than a dimmed `onSurface` that no longer relates to it. Scaled rather
+      // than a dimmed `textPrimary` that no longer relates to it. Scaled rather
       // than replaced, so a translucent `iconColor` never gets a disabled shade
       // more opaque than itself.
       disabledIconColor: theme.disabledIconColor ?? iconColor.withValues(alpha: iconColor.a * 0.3),
-      sendButtonColor: theme.sendButtonColor ?? colorScheme.primary,
-      stopButtonColor: theme.stopButtonColor ?? colorScheme.error,
-      recordingButtonColor: theme.recordingButtonColor ?? colorScheme.error,
-      actionButtonForegroundColor: theme.actionButtonForegroundColor ?? Colors.white,
-      selectedOptionColor: theme.selectedOptionColor ?? colorScheme.primaryContainer,
-      selectedOptionForegroundColor: theme.selectedOptionForegroundColor ?? colorScheme.onPrimaryContainer,
-      photoSelectionColor: theme.photoSelectionColor ?? colorScheme.primary,
-      attachmentPlaceholderColor: theme.attachmentPlaceholderColor ?? colorScheme.surface,
-      // One field for both glyphs on the placeholder, with the defaults each
-      // has always had: the broken-image icon is the quieter of the two.
-      removeAttachmentIconColor: theme.attachmentPlaceholderForegroundColor ?? colorScheme.onSurface,
-      brokenAttachmentIconColor: theme.attachmentPlaceholderForegroundColor ?? colorScheme.onSurfaceVariant,
-      chatOptionIconColor: colorScheme.onSurface,
+      sendButtonColor: theme.sendButtonColor ?? colors.accentPrimary,
+      stopButtonColor: theme.stopButtonColor ?? colors.accentError,
+      recordingButtonColor: theme.recordingButtonColor ?? colors.accentError,
+      actionButtonForegroundColor: theme.actionButtonForegroundColor ?? colors.textOnAccent,
+      selectedOptionColor: theme.selectedOptionColor ?? colors.backgroundSelected,
+      selectedOptionForegroundColor: theme.selectedOptionForegroundColor ?? colors.textPrimary,
+      photoSelectionColor: theme.photoSelectionColor ?? colors.accentPrimary,
+      attachmentPlaceholderColor: theme.attachmentPlaceholderColor ?? colors.backgroundElevation1,
+      brokenAttachmentIconColor: theme.attachmentPlaceholderForegroundColor ?? colors.textSecondary,
+      chatOptionIconColor: colors.textPrimary,
     );
   }
 
@@ -106,9 +103,6 @@ class ResolvedComposerTheme {
   /// See [ComposerThemeData.attachmentPlaceholderColor].
   final Color attachmentPlaceholderColor;
 
-  /// The remove badge's "×". See [ComposerThemeData.attachmentPlaceholderForegroundColor].
-  final Color removeAttachmentIconColor;
-
   /// The glyph on an attachment thumbnail that failed to decode. See
   /// [ComposerThemeData.attachmentPlaceholderForegroundColor].
   final Color brokenAttachmentIconColor;
@@ -116,8 +110,8 @@ class ResolvedComposerTheme {
   /// A chat option's icon in the attachment sheet.
   ///
   /// Not themed: it sits on the sheet's own background, which follows the
-  /// ambient [ColorScheme] rather than [ComposerThemeData], so the icon has to
-  /// follow the scheme too to stay legible against it.
+  /// Stream theme rather than [ComposerThemeData], so the icon has to follow
+  /// the Stream theme too (`textPrimary`) to stay legible against it.
   final Color chatOptionIconColor;
 
   /// The icon color for a control in the given enabled state.

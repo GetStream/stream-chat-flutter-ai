@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 /// A short Dart snippet with a keyword, a string, a comment and a number, so
 /// any highlighter has to emit several distinct runs for it.
 const _dartSnippet = '''
@@ -127,16 +129,16 @@ void main() {
 
       await tester.pumpWidget(wrap(const CodeBlockView(code: 'var x = 1;', language: 'dart')));
 
-      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      expect(find.byIcon(_icons.copy), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.tap(find.byIcon(_icons.copy));
       await tester.pump();
 
       expect(written, ['var x = 1;']);
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(_icons.checkmark), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 2));
-      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      expect(find.byIcon(_icons.copy), findsOneWidget);
     });
 
     testWidgets('the copy tooltip is translated in both states', (tester) async {
@@ -153,7 +155,7 @@ void main() {
 
       expect(find.byTooltip('KOPIEER'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.tap(find.byIcon(_icons.copy));
       await tester.pump();
 
       expect(find.byTooltip('GEKOPIEERD'), findsOneWidget);
@@ -167,19 +169,19 @@ void main() {
 
       await tester.pumpWidget(wrap(const CodeBlockView(code: 'x', language: 'dart')));
 
-      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.tap(find.byIcon(_icons.copy));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1500));
 
-      await tester.tap(find.byIcon(Icons.check));
+      await tester.tap(find.byIcon(_icons.checkmark));
       await tester.pump();
 
       // 1s past the *first* tap's deadline, but only 1s into the second's.
       await tester.pump(const Duration(milliseconds: 1000));
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(_icons.checkmark), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 1000));
-      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      expect(find.byIcon(_icons.copy), findsOneWidget);
     });
 
     testWidgets('disposal mid-copy does not throw', (tester) async {
@@ -206,7 +208,7 @@ void main() {
 
       await tester.pumpWidget(wrap(const CodeBlockView(code: 'x', language: 'dart')));
 
-      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.tap(find.byIcon(_icons.copy));
       // Tear the block down while the clipboard write is still pending.
       await tester.pumpWidget(wrap(const SizedBox()));
       gate.complete();
@@ -331,7 +333,7 @@ void main() {
         expect(spanOf(tester), isNull);
         expect(plainOf(tester), _dartSnippet);
         expect(find.byType(CodeBlockView), findsOneWidget);
-        expect(find.byIcon(Icons.content_copy), findsOneWidget);
+        expect(find.byIcon(_icons.copy), findsOneWidget);
 
         expect(reported, hasLength(1));
         expect(reported.single.library, 'stream_chat_flutter_ai');
@@ -449,7 +451,7 @@ void main() {
         // rather than a hardcoded grey.
         final expectedLabel = foreground.withValues(alpha: 0.6);
         expect(tester.widget<Text>(find.text('dart')).style?.color, expectedLabel);
-        expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, expectedLabel);
+        expect(tester.widget<Icon>(find.byIcon(_icons.copy)).color, expectedLabel);
       });
 
       testWidgets('hands the highlighter the block base style', (tester) async {
@@ -668,12 +670,12 @@ void main() {
             );
             final chrome = kDefaultCodeForegroundColor.withValues(alpha: 0.6);
             expect(tester.widget<Text>(find.text('dart')).style?.color, chrome);
-            expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, chrome);
+            expect(tester.widget<Icon>(find.byIcon(_icons.copy)).color, chrome);
             expect(headerFill(), findsNothing, reason: 'no separate header fill by default');
 
-            await tester.tap(find.byIcon(Icons.content_copy));
+            await tester.tap(find.byIcon(_icons.copy));
             await tester.pump();
-            expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, Colors.greenAccent);
+            expect(tester.widget<Icon>(find.byIcon(_icons.checkmark)).color, Colors.greenAccent);
             await tester.pump(const Duration(seconds: 2));
           });
         }
@@ -699,7 +701,7 @@ void main() {
 
           expect(frameOf(tester).color, const Color(0xFF000003), reason: 'the widget theme wins');
           expect(
-            tester.widget<Icon>(find.byIcon(Icons.content_copy)).color,
+            tester.widget<Icon>(find.byIcon(_icons.copy)).color,
             const Color(0xFF000022),
             reason: 'the scope beats the extension',
           );
@@ -721,11 +723,11 @@ void main() {
 
           final text = tester.widget<SelectableText>(find.byType(SelectableText)).style!.color!;
           expect(ThemeData.estimateBrightnessForColor(text), Brightness.dark);
-          expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, text.withValues(alpha: 0.6));
+          expect(tester.widget<Icon>(find.byIcon(_icons.copy)).color, text.withValues(alpha: 0.6));
 
-          await tester.tap(find.byIcon(Icons.content_copy));
+          await tester.tap(find.byIcon(_icons.copy));
           await tester.pump();
-          expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, isNot(Colors.greenAccent));
+          expect(tester.widget<Icon>(find.byIcon(_icons.checkmark)).color, isNot(Colors.greenAccent));
           await tester.pump(const Duration(seconds: 2));
         });
 
@@ -923,13 +925,13 @@ void main() {
           expect(frameOf(tester).color, const Color(0xFFF6F8FA));
           final text = codeColor(tester)!;
           expect(text, const Color(0xFF1F2328));
-          expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, text.withValues(alpha: 0.6));
+          expect(tester.widget<Icon>(find.byIcon(_icons.copy)).color, text.withValues(alpha: 0.6));
           expect(highlighter.requests.single.brightness, Brightness.light);
           expect(highlighter.requests.single.theme.brightness, Brightness.light);
 
-          await tester.tap(find.byIcon(Icons.content_copy));
+          await tester.tap(find.byIcon(_icons.copy));
           await tester.pump();
-          expect(tester.widget<Icon>(find.byIcon(Icons.check)).color, isNot(Colors.greenAccent));
+          expect(tester.widget<Icon>(find.byIcon(_icons.checkmark)).color, isNot(Colors.greenAccent));
           await tester.pump(const Duration(seconds: 2));
         });
 

@@ -47,7 +47,7 @@ List<_Message> _history(int count) => [
 Widget _actions(BuildContext context, AIReplyActionsProps props) =>
     Text('actions for ${props.message.id}${props.isLatestReply ? ' (latest)' : ''}');
 
-const _withActions = AIComponentBuilders(replyActions: _actions);
+final _withActions = StreamComponentBuilders(extensions: streamAIComponentBuilders(replyActions: _actions));
 
 Future<void> _pump(
   WidgetTester tester,
@@ -55,7 +55,7 @@ Future<void> _pump(
   AIPendingMessage? pending,
   bool isThinking = false,
   Future<void> Function()? loadOlder,
-  AIComponentBuilders builders = _withActions,
+  StreamComponentBuilders? builders,
   Widget? footer,
   Widget? empty,
   bool settle = true,
@@ -64,8 +64,8 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    AIComponentFactory(
-      builders: builders,
+    StreamComponentFactory(
+      builders: builders ?? _withActions,
       child: MaterialApp(
         home: MediaQuery(
           // No typewriter, so a reply is on screen at once.
@@ -263,11 +263,13 @@ void main() {
 
     testWidgets('builds a finished reply again only when what it shows changes', (tester) async {
       var builds = 0;
-      final counting = AIComponentBuilders(
-        assistantMessage: (context, props) {
-          builds++;
-          return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
-        },
+      final counting = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          assistantMessage: (context, props) {
+            builds++;
+            return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
+          },
+        ),
       );
       await _pump(tester, [
         _user('u1'),

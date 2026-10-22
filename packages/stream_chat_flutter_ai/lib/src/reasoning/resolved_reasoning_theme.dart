@@ -7,6 +7,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: [ReasoningTheme.of] supplies the themed fields.
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 const _kDefaultMaxExpandedHeight = 260.0;
 
@@ -14,7 +15,7 @@ const _kDefaultMaxExpandedHeight = 260.0;
 ///
 /// Internal. Resolution order is: the widget's own parameters, then the nearest
 /// [ReasoningTheme], then [AITheme.reasoningTheme], then defaults derived from
-/// the ambient [ThemeData].
+/// the Stream theme ([StreamTheme]).
 @immutable
 @internal
 class ResolvedReasoningTheme {
@@ -36,8 +37,8 @@ class ResolvedReasoningTheme {
   /// keeps the themed color. A negative height is rejected by the constructors'
   /// asserts; here it is clamped to zero.
   factory ResolvedReasoningTheme.resolve(BuildContext context, {ReasoningThemeData? override}) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
     final data = ReasoningTheme.of(context);
 
     TextStyle resolveStyle(TextStyle? base, Color color, TextStyle? themed, TextStyle? local) {
@@ -48,23 +49,23 @@ class ResolvedReasoningTheme {
     }
 
     final titleStyle = resolveStyle(
-      theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-      colors.onSurfaceVariant,
+      text.bodyEmphasis,
+      colors.textSecondary,
       data.titleStyle,
       override?.titleStyle,
     );
 
     return ResolvedReasoningTheme._(
       titleStyle: titleStyle,
-      textStyle: resolveStyle(theme.textTheme.bodyMedium, colors.onSurfaceVariant, data.textStyle, override?.textStyle),
+      textStyle: resolveStyle(text.bodyDefault, colors.textSecondary, data.textStyle, override?.textStyle),
       footnoteStyle: resolveStyle(
-        theme.textTheme.bodySmall,
-        colors.outline,
+        text.captionDefault,
+        colors.textTertiary,
         data.footnoteStyle,
         override?.footnoteStyle,
       ),
-      shimmerColor: override?.shimmerColor ?? data.shimmerColor ?? colors.primary,
-      ruleColor: override?.ruleColor ?? data.ruleColor ?? colors.outlineVariant,
+      shimmerColor: override?.shimmerColor ?? data.shimmerColor ?? colors.accentPrimary,
+      ruleColor: override?.ruleColor ?? data.ruleColor ?? colors.borderDefault,
       iconColor: override?.iconColor ?? data.iconColor ?? titleStyle.color!,
       maxExpandedHeight: math.max<double>(
         0,

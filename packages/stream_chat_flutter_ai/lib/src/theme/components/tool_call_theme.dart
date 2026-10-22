@@ -7,13 +7,16 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
 /// Overrides for how [AIToolCallView] is drawn: the title and detail text, the
 /// status icon's colors and its size.
 ///
-/// Every field is nullable, and `null` means "use the default". Most defaults
-/// derive from the ambient [ThemeData]; [successColor]'s is a fixed green per
-/// brightness. Either way one instance covers light and dark mode.
+/// Every field is nullable, and `null` means "use the default", which derives
+/// from the Stream theme ([StreamTheme], which falls back to Stream's defaults for
+/// the app's brightness when the app sets none) — so one instance covers light and dark
+/// mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -41,25 +44,26 @@ class ToolCallThemeData with Diagnosticable {
   }) : assert(iconSize == null || iconSize >= 0, 'iconSize must not be negative');
 
   /// The title's style — "Checking the weather" — merged over
-  /// [TextTheme.bodyMedium] in [ColorScheme.onSurface].
+  /// the Stream theme's `bodyDefault` in `textPrimary`.
   final TextStyle? titleStyle;
 
   /// The style of the detail line under the title (the summary, or a status
   /// such as "Waiting for approval") and of the duration, merged over
-  /// [TextTheme.bodySmall] in [ColorScheme.onSurfaceVariant].
+  /// the Stream theme's `captionDefault` in `textSecondary`.
   final TextStyle? detailStyle;
 
   /// The spinner of a running call, and the band of light sweeping across the
   /// icon of a call waiting for approval or for a device — the same role as
   /// [ReasoningThemeData.shimmerColor]. With reduced motion on, the waiting
-  /// icon is drawn in it outright. Defaults to [ColorScheme.primary].
+  /// icon is drawn in it outright. Defaults to the Stream theme's
+  /// `accentPrimary`.
   final Color? accentColor;
 
-  /// The check of a completed call. Defaults to a green that reads on the
-  /// ambient [ThemeData.brightness]'s surfaces.
+  /// The check of a completed call. Defaults to the Stream theme's
+  /// `accentSuccess`.
   final Color? successColor;
 
-  /// The icon of a failed call. Defaults to [ColorScheme.error].
+  /// The icon of a failed call. Defaults to the Stream theme's `accentError`.
   final Color? failureColor;
 
   /// The neutral icons: the cross of a cancelled or declined call, and a

@@ -10,6 +10,7 @@ export 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownS
 // react to a dictation failure would otherwise have to depend on
 // `speech_to_text` directly just to name the parameter's type.
 export 'package:speech_to_text/speech_recognition_error.dart' show SpeechRecognitionError;
+export 'package:stream_core_flutter/chat.dart';
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';
@@ -21,11 +22,11 @@ export 'src/code_block_view.dart';
 export 'src/components/ai_component_factory.dart';
 export 'src/composer/chat_composer.dart';
 export 'src/composer/chat_composer_controller.dart';
-export 'src/composer/chat_composer_factory.dart';
 export 'src/composer/chat_composer_input.dart';
 export 'src/composer/chat_composer_props.dart';
 export 'src/composer/chat_option.dart';
 export 'src/composer/composer_action_button.dart';
+export 'src/composer/composer_attachment_button.dart';
 export 'src/composer/composer_attachment_sheet.dart';
 export 'src/composer/speech_to_text_button.dart';
 export 'src/composer/speech_to_text_controller.dart';
@@ -64,7 +65,6 @@ export 'src/theme/components/suggestions_theme.dart';
 export 'src/theme/components/tool_approval_theme.dart';
 export 'src/theme/components/tool_call_theme.dart';
 export 'src/theme/components/typing_indicator_theme.dart';
-
 export 'src/tools/ai_client_identity.dart';
 export 'src/tools/ai_client_tool_result.dart';
 export 'src/tools/ai_client_tool_runner.dart';

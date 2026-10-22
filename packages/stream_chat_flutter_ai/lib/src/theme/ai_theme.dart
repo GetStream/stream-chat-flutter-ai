@@ -9,9 +9,11 @@ import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/chat.dart';
 
-/// The package's overrides on the ambient Material theme, registered as a
-/// [ThemeExtension].
+/// The package's overrides on top of the Stream theme ([StreamTheme]),
+/// registered as a [ThemeExtension] on the app's [ThemeData].
 ///
 /// ```dart
 /// MaterialApp(
@@ -32,7 +34,8 @@ import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_the
 /// re-list them.
 ///
 /// Every component theme defaults to an all-null instance, which derives each
-/// field from the ambient [ThemeData] (or, for [codeBlockTheme], from the
+/// field from the Stream theme, which falls back to Stream's defaults for the
+/// app's brightness when the app sets none (or, for [codeBlockTheme], from the
 /// package's fixed dark code frame) — registering no extension at all gets the
 /// appearance the package always had.
 ///
@@ -79,7 +82,7 @@ class AITheme extends ThemeExtension<AITheme> {
        typingIndicatorTheme = typingIndicatorTheme ?? const TypingIndicatorThemeData();
 
   /// How charts are drawn. Defaults to `const ChartThemeData()`, which derives
-  /// every field from the ambient [ThemeData].
+  /// every field from the Stream theme.
   final ChartThemeData chartTheme;
 
   /// How code blocks are framed. Defaults to `const CodeBlockThemeData()`,
@@ -87,41 +90,41 @@ class AITheme extends ThemeExtension<AITheme> {
   final CodeBlockThemeData codeBlockTheme;
 
   /// How the composer and its attachment sheet are drawn. Defaults to
-  /// `const ComposerThemeData()`, which derives every field from the ambient
-  /// [ThemeData].
+  /// `const ComposerThemeData()`, which derives every field from the Stream
+  /// theme.
   final ComposerThemeData composerTheme;
 
   /// How the conversation and its messages are drawn. Defaults to
   /// `const ConversationThemeData()`, which derives every field from the
-  /// ambient [ThemeData].
+  /// Stream theme.
   final ConversationThemeData conversationTheme;
 
   /// How the reasoning panel is drawn. Defaults to `const ReasoningThemeData()`,
-  /// which derives every field from the ambient [ThemeData].
+  /// which derives every field from the Stream theme.
   final ReasoningThemeData reasoningTheme;
 
   /// How the buttons under a reply are drawn. Defaults to
   /// `const ReplyActionsThemeData()`, which derives every field from the
-  /// ambient [ThemeData].
+  /// Stream theme.
   final ReplyActionsThemeData replyActionsTheme;
 
   /// How suggestion chips are drawn. Defaults to
-  /// `const SuggestionsThemeData()`, which derives every field from the ambient
-  /// [ThemeData].
+  /// `const SuggestionsThemeData()`, which derives every field from the Stream
+  /// theme.
   final SuggestionsThemeData suggestionsTheme;
 
   /// How tool-approval cards are drawn. Defaults to
   /// `const ToolApprovalThemeData()`, which derives every field from the
-  /// ambient [ThemeData].
+  /// Stream theme.
   final ToolApprovalThemeData toolApprovalTheme;
 
   /// How tool-call rows are drawn. Defaults to `const ToolCallThemeData()`,
-  /// which derives its colors and text styles from the ambient [ThemeData].
+  /// which derives its colors and text styles from the Stream theme.
   final ToolCallThemeData toolCallTheme;
 
   /// How the typing indicator is drawn. Defaults to
   /// `const TypingIndicatorThemeData()`, which derives every field from the
-  /// ambient [ThemeData].
+  /// Stream theme.
   final TypingIndicatorThemeData typingIndicatorTheme;
 
   /// The [AITheme] on the ambient [ThemeData], or a default one.

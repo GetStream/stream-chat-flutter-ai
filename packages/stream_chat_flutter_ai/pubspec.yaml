@@ -18,8 +18,8 @@ issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
 #   2. Add it to the root pubspec.yaml for future updates.
 
 environment:
-  sdk: ^3.11.0
-  flutter: ">=3.41.0"
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 
 # This package is a member of the pub workspace defined in the root pubspec.yaml.
 resolution: workspace
@@ -43,6 +43,7 @@ dependencies:
   markdown: ^7.3.1
   photo_manager: ^3.9.0
   speech_to_text: ^7.0.0
+  stream_core_flutter: ^0.5.3
 
 dev_dependencies:
   alchemist: ^0.14.0
