@@ -242,29 +242,89 @@ void main() {
         expect(tester.widget<CodeBlockView>(find.byType(CodeBlockView)).highlighter, same(_redWords));
       });
 
-      testWidgets('code colors reach the fence and survive a change', (tester) async {
+      testWidgets('the code block theme reaches the fence and survives a change', (tester) async {
         debugClearFenceCaches();
 
         const data = '```dart\nvar x = 1;\n```';
 
         await tester.pumpWidget(
-          _wrap(const AIMarkdownBody(data: data, codeBackgroundColor: Color(0xFF222222))),
+          _wrap(
+            const AIMarkdownBody(
+              data: data,
+              codeBlockTheme: CodeBlockThemeData(backgroundColor: Color(0xFF222222)),
+            ),
+          ),
         );
         expect(
-          tester.widget<CodeBlockView>(find.byType(CodeBlockView)).backgroundColor,
+          tester.widget<CodeBlockView>(find.byType(CodeBlockView)).theme?.backgroundColor,
           const Color(0xFF222222),
         );
 
         // `MarkdownBody` only re-parses on a `data`/`styleSheet` change, so a
-        // new color takes effect only because the body bumps its config
+        // new theme takes effect only because the body bumps its config
         // generation and re-keys the widget.
         await tester.pumpWidget(
-          _wrap(const AIMarkdownBody(data: data, codeBackgroundColor: Color(0xFF444444))),
+          _wrap(
+            const AIMarkdownBody(
+              data: data,
+              codeBlockTheme: CodeBlockThemeData(backgroundColor: Color(0xFF444444)),
+            ),
+          ),
         );
         expect(
-          tester.widget<CodeBlockView>(find.byType(CodeBlockView)).backgroundColor,
+          tester.widget<CodeBlockView>(find.byType(CodeBlockView)).theme?.backgroundColor,
           const Color(0xFF444444),
         );
+      });
+
+      testWidgets('an equal but new code block theme keeps the fence and its highlight', (tester) async {
+        debugClearFenceCaches();
+        var calls = 0;
+        TextSpan? count(CodeHighlightRequest request) {
+          calls++;
+          return null;
+        }
+
+        // Built at runtime, so each pump gets a fresh, non-identical instance.
+        CodeBlockThemeData theme(int argb) => CodeBlockThemeData(backgroundColor: Color(argb));
+        Widget app(CodeBlockThemeData data) => _wrap(
+          AIMarkdownBody(data: '```dart\nvar x = 1;\n```', codeBlockTheme: data, codeHighlighter: count),
+        );
+
+        final first = theme(0xFF222222);
+        final second = theme(0xFF222222);
+        expect(identical(first, second), isFalse);
+
+        await tester.pumpWidget(app(first));
+        final state = tester.state(find.byType(CodeBlockView));
+        await tester.pumpWidget(app(second));
+
+        expect(tester.state(find.byType(CodeBlockView)), same(state));
+        expect(calls, 1);
+      });
+
+      testWidgets('an inherited code block theme reaches a cached fence', (tester) async {
+        // The fence cache keys on the widget-level theme only, so an ambient
+        // one has to be read by the cached CodeBlockView itself.
+        debugClearFenceCaches();
+
+        const data = '```dart\nvar x = 1;\n```';
+        Widget app(Color background) => _wrap(
+          CodeBlockTheme(
+            data: CodeBlockThemeData(backgroundColor: background),
+            child: const AIMarkdownBody(data: data),
+          ),
+        );
+        Color? fill() {
+          final container = find.descendant(of: find.byType(CodeBlockView), matching: find.byType(Container));
+          return (tester.widget<Container>(container.first).decoration! as BoxDecoration).color;
+        }
+
+        await tester.pumpWidget(app(const Color(0xFF222222)));
+        expect(fill(), const Color(0xFF222222));
+
+        await tester.pumpWidget(app(const Color(0xFFEEEEEE)));
+        expect(fill(), const Color(0xFFEEEEEE));
       });
     });
 
@@ -566,9 +626,9 @@ Widget _wrap(Widget child) {
 
 /// Colors word runs red, preserving the text — enough to prove the highlighter
 /// reached the fence.
-TextSpan _redWords(String code, String language, TextStyle baseStyle) {
+TextSpan _redWords(CodeHighlightRequest request) {
   final children = <TextSpan>[];
-  for (final match in RegExp(r'\w+|\W+').allMatches(code)) {
+  for (final match in RegExp(r'\w+|\W+').allMatches(request.code)) {
     final text = match[0]!;
     final isWord = RegExp(r'^\w').hasMatch(text);
     children.add(
@@ -578,7 +638,7 @@ TextSpan _redWords(String code, String language, TextStyle baseStyle) {
       ),
     );
   }
-  return TextSpan(style: baseStyle, children: children);
+  return TextSpan(style: request.baseStyle, children: children);
 }
 
 /// Overrides only the copy tooltip, for the cached-fence test.

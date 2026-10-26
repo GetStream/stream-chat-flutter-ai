@@ -1,6 +1,21 @@
 ## Upcoming
 
+💥 Breaking
+
+- `CodeHighlighter` now takes a single `CodeHighlightRequest` instead of `(code, language, baseStyle)`.
+- `CodeBlockView.backgroundColor` and `CodeBlockView.foregroundColor` are replaced by `CodeBlockView.theme`.
+- `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` and
+  `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
+
 ✅ Added
+
+- `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
+  base code style. Its `brightness` pins the block light or dark, which picks the default colors and
+  tells the highlighter which palette to use.
+- `CodeBlockTheme` — narrows a `CodeBlockThemeData` to a subtree; `AITheme.codeBlockTheme` sets it
+  app-wide.
+- `CodeHighlightRequest` — what a `CodeHighlighter` is asked to highlight: the code, its language,
+  the block's resolved theme, and the `baseStyle` and `brightness` derived from it.
 
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter

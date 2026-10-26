@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/markdown/math_syntax.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
 
 /// Callback fired when the user taps a hyperlink in the rendered markdown.
@@ -59,7 +60,10 @@ final _specCache = LruCache<String, USpec?>(_kFenceCacheCapacity);
 /// keys a new entry on every tick — see that class for why insertion-order
 /// eviction turns those snapshots into a way of evicting the finished fences
 /// above them.
-final _fenceWidgetCache = LruCache<String, Widget>(_kFenceCacheCapacity);
+final _fenceWidgetCache = LruCache<_FenceKey, Widget>(_kFenceCacheCapacity);
+
+/// What a cached fence widget was built from; see [_buildFenceCached].
+typedef _FenceKey = ({bool isChart, CodeBlockThemeData? codeBlockTheme, String? language, String source});
 
 /// Clears the fence caches. Exposed for tests.
 @visibleForTesting
@@ -78,21 +82,19 @@ Widget _buildFenceCached(
   String source,
   Set<String> chartLanguages,
   CodeHighlighter? highlighter,
-  Color codeBackgroundColor,
-  Color codeForegroundColor,
+  CodeBlockThemeData? codeBlockTheme,
 ) {
   final isChartFence = language != null && chartLanguages.contains(language.toLowerCase());
-  // The chart flag and both colors are part of the key: two bodies configured
-  // differently must not share one cached widget for the same fence.
+  // The chart flag and the widget-level theme are part of the key: two bodies
+  // configured differently must not share one cached widget for the same
+  // fence. An inherited [CodeBlockTheme] or [AITheme] needn't be — the cached
+  // widget reads those itself, wherever it is mounted.
   //
   // The highlighter deliberately is *not*. A host's inline closure differs on
   // every build, so keying on it would never hit and would evict continuously.
   // Swapping highlighters then leaves built fences alone until their source
   // next changes — the trade `_MathElementBuilder` documents.
-  final key =
-      '${isChartFence ? 'c' : 'x'}\n'
-      '${codeBackgroundColor.toARGB32()}\n${codeForegroundColor.toARGB32()}\n'
-      '${language ?? ''}\n$source';
+  final key = (isChart: isChartFence, codeBlockTheme: codeBlockTheme, language: language, source: source);
   final cached = _fenceWidgetCache.get(key);
   if (cached != null) return cached;
 
@@ -103,8 +105,7 @@ Widget _buildFenceCached(
           code: source,
           language: (language == null || language.isEmpty) ? null : language,
           highlighter: highlighter,
-          backgroundColor: codeBackgroundColor,
-          foregroundColor: codeForegroundColor,
+          theme: codeBlockTheme,
         );
 
   return _fenceWidgetCache.set(key, RepaintBoundary(child: child));
@@ -115,7 +116,7 @@ Widget _buildFenceCached(
 /// Renders the whole message with a single [MarkdownBody], overriding two
 /// elements:
 ///
-/// - **Code fences** (`pre`) become a [CodeBlockView] — dark box, copy button,
+/// - **Code fences** (`pre`) become a [CodeBlockView] — themed frame, copy button,
 ///   language label, and syntax highlighting when [codeHighlighter] is given.
 /// - **Code fences whose language suggests chart data** become a [ChartView]
 ///   when the content parses as a [USpec]; otherwise they fall back to
@@ -143,8 +144,7 @@ class AIMarkdownBody extends StatefulWidget {
     this.useDollarDelimitersForMath = false,
     this.chartLanguages = kDefaultChartLanguages,
     this.codeHighlighter,
-    this.codeBackgroundColor = kDefaultCodeBackgroundColor,
-    this.codeForegroundColor = kDefaultCodeForegroundColor,
+    this.codeBlockTheme,
   });
 
   /// The markdown string to render.
@@ -215,11 +215,9 @@ class AIMarkdownBody extends StatefulWidget {
   /// [CodeBlockView.highlighter], and `example/lib/code_highlighter.dart`.
   final CodeHighlighter? codeHighlighter;
 
-  /// Fills code fences. See [CodeBlockView.backgroundColor].
-  final Color codeBackgroundColor;
-
-  /// Colors the text in code fences. See [CodeBlockView.foregroundColor].
-  final Color codeForegroundColor;
+  /// Overrides for how code fences are framed, layered over the nearest
+  /// [CodeBlockTheme] and `AITheme.codeBlockTheme`. See [CodeBlockView.theme].
+  final CodeBlockThemeData? codeBlockTheme;
 
   @override
   State<AIMarkdownBody> createState() => _AIMarkdownBodyState();
@@ -249,11 +247,11 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
   void didUpdateWidget(covariant AIMarkdownBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     // The syntaxes and builders are independent of `data`, so streaming text
-    // doesn't churn them. Only the delimiter choice feeds into them.
+    // doesn't churn them. Only the delimiter choice, the chart languages and
+    // the code block theme feed into them.
     if (widget.useDollarDelimitersForMath != oldWidget.useDollarDelimitersForMath ||
         !setEquals(widget.chartLanguages, oldWidget.chartLanguages) ||
-        widget.codeBackgroundColor != oldWidget.codeBackgroundColor ||
-        widget.codeForegroundColor != oldWidget.codeForegroundColor) {
+        widget.codeBlockTheme != oldWidget.codeBlockTheme) {
       _configGeneration++;
       _rebuildParserConfig();
     }
@@ -264,8 +262,7 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
       'pre': _CodeFenceBuilder(
         widget.chartLanguages,
         () => widget.codeHighlighter,
-        widget.codeBackgroundColor,
-        widget.codeForegroundColor,
+        widget.codeBlockTheme,
       ),
       kMathTag: _MathElementBuilder(() => widget.mathBuilder),
     };
@@ -311,7 +308,7 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
 /// Renders a fenced or indented code block as a [CodeBlockView], or as a
 /// [ChartView] when its language and content say it is chart data.
 class _CodeFenceBuilder extends MarkdownElementBuilder {
-  _CodeFenceBuilder(this._chartLanguages, this._highlighter, this._backgroundColor, this._foregroundColor);
+  _CodeFenceBuilder(this._chartLanguages, this._highlighter, this._codeBlockTheme);
 
   final Set<String> _chartLanguages;
 
@@ -320,8 +317,7 @@ class _CodeFenceBuilder extends MarkdownElementBuilder {
   /// rebuilding the builder map once per typewriter tick would be pure waste.
   final CodeHighlighter? Function() _highlighter;
 
-  final Color _backgroundColor;
-  final Color _foregroundColor;
+  final CodeBlockThemeData? _codeBlockTheme;
 
   // Deliberately NOT `isBlockElement() => true`. `pre` is already in
   // `flutter_markdown_plus`' block-tag list, so the block layout path is taken
@@ -348,7 +344,7 @@ class _CodeFenceBuilder extends MarkdownElementBuilder {
     // source. The parser appends a trailing newline to the code element.
     final source = element.textContent.trimRight();
 
-    return _buildFenceCached(language, source, _chartLanguages, _highlighter(), _backgroundColor, _foregroundColor);
+    return _buildFenceCached(language, source, _chartLanguages, _highlighter(), _codeBlockTheme);
   }
 }
 
