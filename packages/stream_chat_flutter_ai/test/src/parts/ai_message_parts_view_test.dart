@@ -70,6 +70,39 @@ void main() {
       expect(find.text('0.8s'), findsOneWidget);
     });
 
+    testWidgets('a streamed tool call announces its finish, and one loaded already finished does not', (tester) async {
+      final handle = tester.ensureSemantics();
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      List<AIMessagePart> parts(String status) => AIMessagePart.parseAll([
+        (type: 'ai_tool_call', payload: const {'id': 'old', 'name': 'look_up', 'status': 'completed'}),
+        (type: 'ai_tool_call', payload: {'id': 'new', 'name': 'get_weather', 'status': status}),
+      ]);
+
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts('running'))));
+      expect(tester.getSemantics(find.bySemanticsLabel('look up, Completed')), isSemantics(isLiveRegion: false));
+      expect(tester.getSemantics(find.bySemanticsLabel('get weather, Running')), isSemantics(isLiveRegion: true));
+
+      // A reasoning step arriving before the call doesn't cost it its state.
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: [
+              ...AIMessagePart.parseAll([
+                (type: 'ai_reasoning', payload: const {'id': 'r1', 'status': 'completed'}),
+              ]),
+              ...parts('completed'),
+            ],
+          ),
+        ),
+      );
+      expect(tester.getSemantics(find.bySemanticsLabel('get weather, Completed')), isSemantics(isLiveRegion: true));
+      expect(tester.getSemantics(find.bySemanticsLabel('look up, Completed')), isSemantics(isLiveRegion: false));
+      handle.dispose();
+    });
+
     testWidgets('a toolCallBuilder shows some tools its own way and leaves the rest to the default', (tester) async {
       final parts = AIMessagePart.parseAll([
         (type: 'ai_tool_call', payload: const {'id': 'call_1', 'name': 'get_weather', 'status': 'completed'}),

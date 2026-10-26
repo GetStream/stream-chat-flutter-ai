@@ -51,7 +51,22 @@
   translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
   `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
   `DefaultAITranslations.reasoningDuration` spells the durations.
-- `AIToolCallView` — a tool-call row with status icon, summary and duration, themed via `ToolCallThemeData`; `AIMessagePartsView.toolCallBuilder` overrides it per tool, and `AIMessagePartsView.hidden` leaves a step out.
+- `AIToolCallView` — a one-line row for a tool-call step: a status icon, the title, a detail line
+  (the summary, or the status in words) and the duration once the call has finished. Screen readers
+  hear it as one node, announced as a live call finishes or starts waiting. `AIMessagePartsView`
+  shows tool calls with it.
+- `ToolCallThemeData` and `ToolCallTheme`, and `AITheme.toolCallTheme`, for styling tool-call rows.
+- `AIMessagePartsView.toolCallBuilder` (an `AIToolCallWidgetBuilder`) — builds some tools your own
+  way and leaves the rest to `AIToolCallView`.
+- `AIMessagePartsView.hidden` — returned from `partBuilder` or `toolCallBuilder`, leaves a step out
+  of the list, spacing and all.
+- `AIToolCallPart.summaryText` — the call's summary, or `null` when it is absent or blank.
+  `AIToolCallPart.displayName` trims the title, and treats a blank one as missing, falling back to
+  the tool's name.
+- `AITranslations.toolCallFallbackTitle`, `toolCallRunning`, `toolCallCompleted`,
+  `toolCallAwaitingApproval`, `toolCallAwaitingClient`, `toolCallFailed`, `toolCallCancelled`,
+  `toolCallDeclined`, `toolCallDuration` and `toolCallDurationBelowTenth` — the tool-call row's
+  strings.
 
 🔄 Changed
 
