@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';
 import 'package:stream_chat_flutter_ai/src/util/file_size.dart';
@@ -189,6 +191,19 @@ void main() {
       expect(AIMessageAttachment.file(Uri.parse('https://x.io/a/report.pdf')).displayName, 'report.pdf');
       expect(AIMessageAttachment.file(Uri.parse('https://x.io/a/report.pdf'), name: 'Q3').displayName, 'Q3');
       expect(const AIMessageAttachment(kind: AIMessageAttachmentKind.file).displayName, isNull);
+    });
+
+    test('compares the nested data of a kind of your own by value', () {
+      const raw = '{"type": "athena_image", "artifact_id": "a1", "revision": 2, "meta": {"tags": ["x", "y"]}}';
+      AIMessageAttachment decode() {
+        final data = jsonDecode(raw) as Map<String, Object?>;
+        return AIMessageAttachment(kind: AIMessageAttachmentKind(data['type']! as String), extraData: data);
+      }
+
+      expect(decode(), decode());
+      expect(decode().hashCode, decode().hashCode);
+      final changed = jsonDecode(raw.replaceFirst('"y"', '"z"')) as Map<String, Object?>;
+      expect(decode(), isNot(AIMessageAttachment(kind: decode().kind, extraData: changed)));
     });
 
     test('labels its type from its name, URL or media type', () {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,6 +97,13 @@ Future<void> _pump(
 }
 
 Finder _text(String text) => find.textContaining(text, findRichText: true);
+
+/// Pumps [frames] frames of [step], for views that never settle.
+Future<void> _frames(WidgetTester tester, Duration step, int frames) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(step);
+  }
+}
 
 void main() {
   group('AIConversationView', () {
@@ -283,6 +292,54 @@ void main() {
         _reply('r2', text: 'AB', generating: true),
       ], builders: counting);
       expect(builds - first, 1, reason: 'only the streaming reply');
+    });
+
+    testWidgets("a reply's first step with only a summary opens to that summary", (tester) async {
+      final reply = _Message(
+        'r1',
+        AIMessageRole.assistant,
+        text: 'The answer',
+        parts: AIMessagePart.parseAll([
+          (type: 'ai_reasoning', payload: const {'id': 'step1', 'status': 'completed', 'summary': 'Compared plans'}),
+        ]),
+      );
+      // Seen thinking, so the step takes over the thinking's count.
+      await _pump(tester, [_user('u1')], isThinking: true, settle: false);
+      await _frames(tester, const Duration(milliseconds: 100), 5);
+      await _pump(tester, [_user('u1'), reply]);
+
+      await tester.tap(_text('Thought for'));
+      await tester.pumpAndSettle();
+      expect(_text('Compared plans'), findsOneWidget, reason: 'as StreamingReasoningView.part shows it');
+    });
+
+    testWidgets('builds a reply again only when its attachments change, not when decoded again', (tester) async {
+      var builds = 0;
+      final counting = AIComponentBuilders(
+        assistantMessage: (context, props) {
+          builds++;
+          return AIAssistantMessageView(text: props.text, attachments: props.attachments);
+        },
+      );
+      List<AIMessage> conversation(String title) {
+        final raw = jsonDecode('{"type": "athena_image", "artifact_id": "a1", "meta": {"title": "$title"}}');
+        return [
+          _user('u1'),
+          _Message(
+            'r1',
+            AIMessageRole.assistant,
+            text: 'Here it is',
+            attachments: [AIMessageAttachment(kind: const AIMessageAttachmentKind('athena_image'), extraData: raw)],
+          ),
+        ];
+      }
+
+      await _pump(tester, conversation('Chart'), builders: counting);
+      final first = builds;
+      await _pump(tester, conversation('Chart'), builders: counting);
+      expect(builds, first, reason: 'an equal payload decoded again');
+      await _pump(tester, conversation('Table'), builders: counting);
+      expect(builds, first + 1);
     });
 
     group('goldens', () {

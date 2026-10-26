@@ -813,10 +813,72 @@ void main() {
         expect(style.fontSize, 12);
         expect(style.color, const Color(0xFF0000B1), reason: "the widget's style merges over the themed one");
       });
+
+      testWidgets('a foreground paint stands in for a style color', (tester) async {
+        final theme = ThemeData();
+        final paint = Paint()..color = const Color(0xFF00A000);
+        for (final (data, label) in [
+          (ReasoningThemeData(titleStyle: TextStyle(foreground: paint)), 'titleStyle'),
+          (ReasoningThemeData(textStyle: TextStyle(foreground: paint)), 'textStyle'),
+          (ReasoningThemeData(footnoteStyle: TextStyle(foreground: paint)), 'footnoteStyle'),
+        ]) {
+          for (final isThinking in [true, false]) {
+            await tester.pumpWidget(
+              _wrap(
+                StreamingReasoningView(
+                  text: 'Weighing',
+                  isThinking: isThinking,
+                  summary: 'Compared both plans',
+                  footnote: 'Model: test',
+                  expandedWhenDone: true,
+                  theme: data,
+                ),
+                theme: theme,
+              ),
+            );
+            await tester.pump(StreamingReasoningView.foldDuration);
+            expect(tester.takeException(), isNull, reason: '$label, isThinking: $isThinking');
+          }
+        }
+
+        await tester.pumpWidget(
+          _wrap(
+            StreamingReasoningView(
+              text: 'Weighing',
+              isThinking: false,
+              theme: ReasoningThemeData(titleStyle: TextStyle(foreground: paint)),
+            ),
+            theme: theme,
+          ),
+        );
+        expect(
+          tester.widget<Icon>(_chevron).color,
+          isSameColorAs(const Color(0xFF00A000)),
+          reason: "the icons take the title's paint color",
+        );
+
+        await tester.pumpWidget(
+          _wrap(
+            StreamingReasoningView(
+              text: 'Weighing',
+              isThinking: false,
+              expandedWhenDone: true,
+              theme: ReasoningThemeData(textStyle: TextStyle(foreground: paint)),
+            ),
+            theme: theme,
+          ),
+        );
+        await tester.pump(StreamingReasoningView.foldDuration);
+        final style = _builtParagraphs(tester).values.first.style!;
+        expect(style.foreground, same(paint), reason: 'the paint is kept');
+        expect(style.color, isNull, reason: 'no color is added beside the paint');
+      });
     });
 
     group('part', () {
-      testWidgets('reads status, duration and summary, and falls back to the preview', (tester) async {
+      testWidgets('reads status, duration and summary, and falls back to the preview, then the summary', (
+        tester,
+      ) async {
         const part = AIReasoningPart(
           id: 'r1',
           summary: 'Compared both plans',
@@ -832,9 +894,26 @@ void main() {
         expect(StreamingReasoningView.part(part, text: 'Full reasoning').text, 'Full reasoning');
         expect(
           StreamingReasoningView.part(const AIReasoningPart(id: 'r', summary: 'S')).text,
-          '',
-          reason: 'never the summary, which the header already shows',
+          'S',
+          reason: 'the summary, with no preview: the header shows it only while folded',
         );
+        expect(StreamingReasoningView.part(const AIReasoningPart(id: 'r')).text, '');
+      });
+
+      testWidgets('a step with only a summary opens to it', (tester) async {
+        _reduceMotion(tester);
+        await tester.pumpWidget(
+          _wrap(
+            StreamingReasoningView.part(
+              const AIReasoningPart(id: 'r', summary: 'Compared both plans', durationMs: 2400),
+            ),
+          ),
+        );
+        expect(_inView(find.byType(Scrollable)), findsNothing, reason: 'folded');
+
+        await tester.tap(_chevron);
+        await tester.pump();
+        expect(_builtParagraphs(tester).keys, ['Compared both plans'], reason: 'the panel shows the summary');
         expect(
           StreamingReasoningView.part(const AIReasoningPart(id: 'r', status: AIReasoningStatus.streaming)).isThinking,
           isTrue,

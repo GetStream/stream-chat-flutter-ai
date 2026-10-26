@@ -119,10 +119,10 @@ AITypingIndicatorView(
 ```
 
 Style it app-wide with `AITheme(typingIndicatorTheme: TypingIndicatorThemeData(...))` or for a
-subtree with `TypingIndicatorTheme`. The indicator is a screen-reader live region labelled with
-`text`, so keep it mounted and change `text` to have each new state announced. With reduced motion
-on, the dots are static, and `StreamingMessageView` shows each update in full instead of typing it
-out.
+subtree with `TypingIndicatorTheme`; by default the caption is `bodyMedium` in `onSurfaceVariant`
+and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
+it mounted and change `text` to have each new state announced. With reduced motion on, the dots
+are static, and `StreamingMessageView` shows each update in full instead of typing it out.
 
 ### `TypewriterController`
 
@@ -842,11 +842,18 @@ it on every streaming update is safe, in flight or not; `send` posts
 the caller and feeds the result to the model. Make that endpoint idempotent on
 `tool_call_id`: a retry can post the same result twice.
 
-A tool that throws, times out (`runTimeout`) or isn't registered is answered with a
-generic failure; the error itself only goes to `FlutterError.onError` and `onToolError`
-(override the wording with `failureMessage`). `send` is tried up to `maxAttempts` times
-with exponential backoff, then reported through `onDeliveryError`; the result is kept and
-sent again, without rerunning the tool, if a later `handle` still sees the call waiting.
+A tool that throws or times out (`runTimeout`) is answered with a generic failure, and
+one whose result can't be JSON-encoded with "The result couldn't be read"; the error
+itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
+`failureMessage`). `send` is tried up to `maxAttempts` times with exponential backoff,
+then reported through `onDeliveryError`; the result is kept and sent again, without
+rerunning the tool, if a later `handle` still sees the call waiting.
+
+A call for a tool the runner doesn't have is left alone, as on iOS, so several runners
+can share one `AIClientIdentity`, each with its own tools. The catch: if no runner has
+the tool, nothing answers the call and the agent keeps waiting. A runner that holds
+every tool of its client can pass `failUnknownTools: true` to answer such a call, once,
+with a failure instead.
 
 Keep one runner per conversation: a fresh runner doesn't know what an old one ran.
 `close()` stops it taking on new calls, but calls already running still finish and send
@@ -864,6 +871,7 @@ with `AIConversationTurn.fitToBudget`.
 
 ```dart
 if (await localModel.isAvailable) {
+  if (!mounted) return;
   // Create the stream once, when the question is sent — never in `build`.
   setState(() {
     _answers = localModel.reply(
@@ -922,6 +930,41 @@ AIComponentFactory(
     ),
   ),
   child: conversation,
+)
+```
+
+Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
+any other kind as a file card. A kind of your own, such as an artifact or a file in an agent's
+sandbox, keeps its raw fields in `extraData`; render it yourself by setting
+`AIComponentBuilders.messageAttachment`, and return the default for every other kind. For example,
+for a Vision-Agents artifact `{type: "athena_image", artifact_id, revision, title, alt}`:
+
+```dart
+// In your AIMessage:
+List<AIMessageAttachment> get attachments => [
+  for (final raw in message.attachments)
+    AIMessageAttachment(kind: AIMessageAttachmentKind(raw['type']! as String), extraData: raw),
+];
+
+// In your AIComponentBuilders:
+messageAttachment: (context, props) => switch (props.attachment.kind.value) {
+  'athena_image' => ArtifactImage(
+    id: props.attachment.extraData['artifact_id']! as String,
+    revision: props.attachment.extraData['revision'] as int?,
+    semanticLabel: props.attachment.extraData['alt'] as String?,
+  ),
+  _ => AIMessageAttachmentView(attachment: props.attachment, onTap: props.onTap),
+},
+```
+
+When a reply fails, stop passing `isThinking` (the "Thinking…" count would otherwise run on) and
+show what went wrong in the `footer`, which sits under the latest turn, as iOS and Android do:
+
+```dart
+AIConversationView(
+  messages: messages,
+  isThinking: waitingForReply,
+  footer: error == null ? null : RetryButton(error: error, onPressed: retry),
 )
 ```
 

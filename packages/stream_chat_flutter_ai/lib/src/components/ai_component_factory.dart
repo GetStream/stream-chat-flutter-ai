@@ -149,6 +149,10 @@ class AIComponentBuilders with Diagnosticable {
   final AIComponentBuilder<AIReplyActionsProps>? replyActions;
 
   /// One of a message's attachments. Defaults to [AIMessageAttachmentView].
+  ///
+  /// Kinds of your own, such as artifacts or files in an agent's sandbox, reach
+  /// it with their raw fields in [AIMessageAttachment.extraData]: show those
+  /// your own way, and return an [AIMessageAttachmentView] for the rest.
   final AIComponentBuilder<AIMessageAttachmentProps>? messageAttachment;
 
   /// The composer's slots, used by a `ChatComposer` given no factory of its

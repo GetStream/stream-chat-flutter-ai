@@ -113,7 +113,8 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
     if (AIComponentFactory.of(context).reasoning case final builder?) return builder(context, props);
     if (duration == null) return StreamingReasoningView.part(step, text: props.text);
     return StreamingReasoningView(
-      text: props.text ?? step.preview ?? '',
+      // As `StreamingReasoningView.part` shows it.
+      text: props.text ?? step.preview ?? step.summary ?? '',
       isThinking: step.isStreaming,
       duration: duration,
       summary: step.summary,

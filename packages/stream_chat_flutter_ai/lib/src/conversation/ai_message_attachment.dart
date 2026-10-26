@@ -1,5 +1,8 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 
@@ -42,6 +45,14 @@ class AIMessageAttachmentKind {
 ///     else
 ///       AIMessageAttachment.file(Uri.parse(a.assetUrl!), name: a.title, size: a.fileSize),
 /// ];
+/// ```
+///
+/// An attachment of a kind of your own carries its raw fields in [extraData],
+/// such as an artifact's `{type: "athena_image", artifact_id, revision, title,
+/// alt}`, for [AIComponentBuilders.messageAttachment] to show:
+///
+/// ```dart
+/// AIMessageAttachment(kind: AIMessageAttachmentKind(raw['type']! as String), extraData: raw)
 /// ```
 @immutable
 class AIMessageAttachment {
@@ -121,8 +132,12 @@ class AIMessageAttachment {
           other.name == name &&
           other.size == size &&
           other.mimeType == mimeType &&
-          mapEquals(other.extraData, extraData);
+          _deep.equals(other.extraData, extraData);
 
   @override
-  int get hashCode => Object.hash(kind, url, image, name, size, mimeType, extraData.length);
+  int get hashCode => Object.hash(kind, url, image, name, size, mimeType, _deep.hash(extraData));
+
+  // Compares nested JSON, such as an artifact's, by value: a payload decoded
+  // again is equal, so its row isn't built again.
+  static const _deep = DeepCollectionEquality();
 }
