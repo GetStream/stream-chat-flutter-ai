@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_tool_result.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_tool_invocation.dart';
@@ -16,7 +18,8 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_tool_registry.dart';
 typedef AIClientToolResultSender = Future<void> Function(AIToolCallPart call, AIClientToolResult result);
 
 /// Called when a client tool fails while an [AIClientToolRunner] runs [call]:
-/// it threw, timed out, or isn't registered.
+/// it threw, timed out, or, with [AIClientToolRunner.failUnknownTools], isn't
+/// registered.
 typedef AIClientToolCallErrorCallback = FutureOr<void> Function(AIToolCallPart call, Object error, StackTrace stack);
 
 /// Called when an [AIClientToolRunner] gave up sending [result] for [call].
@@ -77,6 +80,12 @@ abstract class AIResultClientTool implements AIClientTool {
 /// A retried `send` can post the same result twice, so make the backend
 /// endpoint idempotent on `tool_call_id`. Keep one runner per conversation: a
 /// new one doesn't know what an old one ran. See the README for the protocol.
+///
+/// A call for a tool this runner doesn't have is left alone, as on iOS, so
+/// several runners can share one [AIClientIdentity], each with its own tools.
+/// The flip side: when no runner has the tool, nothing answers the call and
+/// the agent keeps waiting. A runner that holds every tool of its client can
+/// set [failUnknownTools] to answer such a call with a failure instead.
 final class AIClientToolRunner {
   /// Creates an [AIClientToolRunner] for [identity], offering [tools].
   ///
@@ -85,6 +94,7 @@ final class AIClientToolRunner {
     required this.identity,
     required List<AIClientTool> tools,
     required AIClientToolResultSender send,
+    this.failUnknownTools = false,
     this.maxAttempts = 3,
     this.retryDelay = const Duration(seconds: 1),
     this.runTimeout,
@@ -96,6 +106,13 @@ final class AIClientToolRunner {
        assert(retryDelay >= Duration.zero, 'retryDelay must not be negative'),
        _send = send {
     tools.forEach(_registry.register);
+    if (identity.clientId == null) {
+      reportPartIssue(
+        () =>
+            'AIClientToolRunner was given an AIClientIdentity without a clientId, so '
+            'AIClientIdentity.canRun matches no call and the runner never runs a tool.',
+      );
+    }
   }
 
   /// The longest wait between two attempts, however many there are.
@@ -104,6 +121,11 @@ final class AIClientToolRunner {
   /// Who is signed in on this device; only calls [AIClientIdentity.canRun]
   /// accepts are run.
   final AIClientIdentity identity;
+
+  /// Whether a call for a tool this runner doesn't have is answered, once, with
+  /// a failure and reported, rather than left for another runner. Defaults to
+  /// `false`; set it only on a runner that holds every tool of its client.
+  final bool failUnknownTools;
 
   /// How many times a result is offered to `send` before the runner gives up
   /// on it, until a later [handle] sees the call still waiting.
@@ -123,7 +145,8 @@ final class AIClientToolRunner {
   final Duration? sendTimeout;
 
   /// What the agent is told when a tool fails. Defaults to a generic message
-  /// naming the tool; the error itself only goes to [onToolError] and
+  /// naming the tool, or "The result couldn't be read" when the tool's result
+  /// can't be JSON-encoded; the error itself only goes to [onToolError] and
   /// [FlutterError.onError].
   final AIClientToolFailureMessage? failureMessage;
 
@@ -133,7 +156,7 @@ final class AIClientToolRunner {
   /// Called when the runner gave up sending a result, once until it is sent.
   /// [FlutterError.onError] hears about it too. The result is kept: call
   /// [retryUndelivered], or [handle] again, such as once the device is back
-  /// online, to send it again.
+  /// online, to send it again; calling it from here works too.
   final AIClientToolDeliveryErrorCallback? onDeliveryError;
 
   final AIClientToolResultSender _send;
@@ -194,6 +217,9 @@ final class AIClientToolRunner {
         _reportedUndelivered.remove(id);
         continue;
       }
+      // The tools are fixed, so such a call never runs here; another runner
+      // may have it.
+      if (!failUnknownTools && _registry.toolNamed(call.name) == null) continue;
 
       final Future<void> work;
       if (_undelivered.remove(id) case (_, final result)) {
@@ -203,8 +229,10 @@ final class AIClientToolRunner {
       } else {
         continue;
       }
-      final tracked = work.whenComplete(() {
-        _inFlight.remove(id);
+      late final Future<void> tracked;
+      tracked = work.whenComplete(() {
+        // Unless the call already left, and a retry put it back.
+        if (identical(_inFlight[id], tracked)) _inFlight.remove(id);
       });
       _inFlight[id] = tracked;
       started.add(tracked);
@@ -291,7 +319,11 @@ final class AIClientToolRunner {
   }
 
   String _failureMessageFor(AIToolCallPart call, Object error) {
-    final fallback = 'The "${call.name}" tool failed on this device';
+    // A result whose output JSON can't encode: `AIClientToolResult.completed`
+    // threw. Worded as iOS words it.
+    final fallback = error is JsonUnsupportedObjectError
+        ? "The result couldn't be read"
+        : 'The "${call.name}" tool failed on this device';
     final message = failureMessage;
     if (message == null) return fallback;
     try {
@@ -314,6 +346,9 @@ final class AIClientToolRunner {
       } catch (error, stack) {
         if (attempt >= maxAttempts) {
           _undelivered[call.id] = (call, result);
+          // Done with the call before the host hears of it, so a
+          // [retryUndelivered] from [onDeliveryError] isn't skipped as in flight.
+          _inFlight.remove(call.id);
           if (_reportedUndelivered.add(call.id)) {
             _reportSafely(
               _details(error, stack, call, 'while sending a client tool result; gave up after $attempt attempts'),

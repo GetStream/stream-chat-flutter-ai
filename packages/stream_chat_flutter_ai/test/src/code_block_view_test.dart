@@ -374,6 +374,20 @@ void main() {
         expect(reported, hasLength(1));
       });
 
+      testWidgets('reports a failing inline closure once, though each rebuild passes a new one', (tester) async {
+        // The usual streaming host builds its highlighter inline, so every
+        // tick hands over a closure that isn't identical to the last.
+        final reported = await _collectingErrors(() async {
+          for (var i = 1; i <= 5; i++) {
+            await tester.pumpWidget(
+              wrap(CodeBlockView(code: 'var x = $i;', language: 'dart', highlighter: (_) => throw StateError('boom'))),
+            );
+          }
+        });
+
+        expect(reported, hasLength(1));
+      });
+
       testWidgets('reports again after a theme change or a new highlighter', (tester) async {
         // A palette-specific failure on the new frame, or a different
         // highlighter's failure, must not be swallowed by the first report.
@@ -795,6 +809,45 @@ void main() {
           );
         });
 
+        testWidgets('a foreground paint on the code style drives the chrome', (tester) async {
+          const paintColor = Color(0xFF00C853);
+          final paint = Paint()..color = paintColor;
+          await tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(codeTextStyle: TextStyle(foreground: paint)),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          final body = tester.widget<SelectableText>(find.byType(SelectableText)).style!;
+          expect(body.foreground, same(paint));
+          expect(body.fontFamily, 'monospace');
+          // Paint keeps its color at float32 precision, so compare loosely.
+          final chrome = paintColor.withValues(alpha: 0.6);
+          expect(tester.widget<Text>(find.text('dart')).style!.color, isSameColorAs(chrome));
+          expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, isSameColorAs(chrome));
+        });
+
+        testWidgets('a foreground paint on the label style is kept', (tester) async {
+          final paint = Paint()..color = const Color(0xFF00C853);
+          await tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(languageLabelStyle: TextStyle(foreground: paint)),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(tester.widget<Text>(find.text('dart')).style?.foreground, same(paint));
+        });
+
         testWidgets('the highlighter is told the default frame is dark', (tester) async {
           final highlighter = _RecordingHighlighter();
           await tester.pumpWidget(
@@ -1156,8 +1209,9 @@ TextSpan _brightnessAwareHighlighter(CodeHighlightRequest request) {
 /// can stay `const` across pumps.
 TextSpan? _boom(CodeHighlightRequest request) => throw StateError('boom');
 
-/// A second, distinct throwing highlighter.
-TextSpan? _boom2(CodeHighlightRequest request) => throw StateError('boom 2');
+/// A second throwing highlighter, of a different type from [_boom] (it never
+/// returns null), which the report dedupe keys on.
+TextSpan _boom2(CodeHighlightRequest request) => throw StateError('boom 2');
 
 /// Requests seen by [_recordGlobally], for a test that needs a `const` widget.
 final _globalRequests = <CodeHighlightRequest>[];
