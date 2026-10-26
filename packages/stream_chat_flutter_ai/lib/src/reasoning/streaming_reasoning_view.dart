@@ -438,9 +438,17 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
                 ExcludeSemantics(
                   excluding: !_open,
                   // Shrinks in place and clips, so what sits below glides up.
-                  child: SizeTransition(
-                    sizeFactor: _foldCurve,
-                    alignment: AlignmentDirectional.topStart,
+                  // What `SizeTransition(alignment: topStart)` builds, which
+                  // Flutter 3.41 — the oldest this package supports — lacks.
+                  child: AnimatedBuilder(
+                    animation: _foldCurve,
+                    builder: (context, child) => ClipRect(
+                      child: Align(
+                        alignment: AlignmentDirectional.topStart,
+                        heightFactor: math.max(_foldCurve.value, 0),
+                        child: child,
+                      ),
+                    ),
                     child: FadeTransition(
                       opacity: _foldCurve,
                       child: Padding(
