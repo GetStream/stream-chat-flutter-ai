@@ -79,13 +79,18 @@ import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
 ///   an `async*` generator, cancellation ends the generator at its next
 ///   `yield`, so release the model in a `finally`.
 /// - Fit the turns with [AIConversationTurn.fitToBudget] first, then check
-///   that the fitted turns end with a [AIConversationRole.user] turn.
+///   that the fitted turns end with a [AIConversationRole.user] turn. Reserve
+///   room for the answer when you do: pass `maxTokens` as the context size
+///   minus the longest answer you allow, as iOS's `AIOnDeviceModel` does, and
+///   pass the `instructions` so they count against the budget too.
 /// - Report failures as an [AILocalModelException] error event, never by
 ///   throwing synchronously from [reply], and close the stream after it:
 ///   [AILocalModelErrorReason.unavailable] when the model can't answer now,
 ///   [AILocalModelErrorReason.invalidConversation] when the fitted turns are
-///   empty or don't end with a user turn, and [AILocalModelErrorReason.failed]
-///   (with the platform error as `cause`) when generation fails.
+///   empty or don't end with a user turn,
+///   [AILocalModelErrorReason.contextExceeded] when the question alone doesn't
+///   fit the context, and [AILocalModelErrorReason.failed] (with the platform
+///   error as `cause`) when generation fails.
 abstract class AILocalModel {
   /// Lets subclasses be `const`.
   const AILocalModel();

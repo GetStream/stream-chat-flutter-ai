@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 const _identity = AIClientIdentity(userId: 'me', clientId: 'install-1');
@@ -99,6 +100,7 @@ AIClientToolRunner _runner({
   required List<AIClientTool> tools,
   required _Sender sender,
   AIClientIdentity identity = _identity,
+  bool failUnknownTools = false,
   int maxAttempts = 3,
   Duration retryDelay = Duration.zero,
   Duration? runTimeout,
@@ -110,6 +112,7 @@ AIClientToolRunner _runner({
   identity: identity,
   tools: tools,
   send: sender.call,
+  failUnknownTools: failUnknownTools,
   maxAttempts: maxAttempts,
   retryDelay: retryDelay,
   runTimeout: runTimeout,
@@ -188,6 +191,21 @@ void main() {
 
         expect(tool.calls, isEmpty);
         expect(sender.attempts, 0);
+      });
+
+      test('warns in debug when the identity has no install id', () {
+        final messages = <String>[];
+        debugPartIssueReporter = messages.add;
+        addTearDown(() => debugPartIssueReporter = null);
+
+        _runner(
+          tools: [_ResultTool()],
+          sender: _Sender(),
+          identity: const AIClientIdentity(userId: 'me'),
+        );
+        _runner(tools: [_ResultTool()], sender: _Sender());
+
+        expect(messages.single, contains('without a clientId'));
       });
 
       test('runs a call waiting for this device and sends its result', () async {
@@ -271,12 +289,49 @@ void main() {
     });
 
     group('unknown tool', () {
-      test('is answered with a failure once, and reported', () async {
+      test('is left alone by default, without a report', () async {
         final sender = _Sender();
         final toolErrors = <Object>[];
         final runner = _runner(
           tools: [_ResultTool()],
           sender: sender,
+          onToolError: (call, error, stack) => toolErrors.add(error),
+        );
+
+        final reported = await _collectingErrors(() => runner.handleCalls([_waitingCall(name: 'not_here')]));
+
+        expect(sender.attempts, 0);
+        expect(toolErrors, isEmpty);
+        expect(reported, isEmpty);
+        expect(runner.hasPendingWork, isFalse);
+        expect(runner.hasUndelivered, isFalse);
+      });
+
+      test('is left for another runner sharing the identity', () async {
+        final location = _ResultTool();
+        final screen = _SideEffectTool();
+        final locationSender = _Sender();
+        final screenSender = _Sender();
+        final locationRunner = _runner(tools: [location], sender: locationSender);
+        final screenRunner = _runner(tools: [screen], sender: screenSender);
+        final calls = [_waitingCall(id: 'a'), _waitingCall(id: 'b', name: 'open_screen')];
+
+        await Future.wait([locationRunner.handleCalls(calls), screenRunner.handleCalls(calls)]);
+
+        expect(location.calls.single.id, 'a');
+        expect(screen.ran, 1);
+        expect(locationSender.sent.single.$1.id, 'a');
+        expect(screenSender.sent.single.$1.id, 'b');
+        expect(screenSender.sent.single.$2, AIClientToolResult.completed(null));
+      });
+
+      test('with failUnknownTools, is answered with a failure once, and reported', () async {
+        final sender = _Sender();
+        final toolErrors = <Object>[];
+        final runner = _runner(
+          tools: [_ResultTool()],
+          sender: sender,
+          failUnknownTools: true,
           onToolError: (call, error, stack) => toolErrors.add(error),
         );
         final call = _waitingCall(name: 'not_here');
@@ -351,8 +406,28 @@ void main() {
           () => _runner(tools: [tool], sender: sender).handleCalls([_waitingCall()]),
         );
 
-        expect(sender.sent.single.$2, _genericFailure);
+        expect(sender.sent.single.$2, const AIClientToolResult.failed("The result couldn't be read"));
         expect(reported.single.exception, isA<JsonUnsupportedObjectError>());
+      });
+
+      test('failureMessage words an unencodable result too', () async {
+        final tool = _ResultTool(body: (_) async => AIClientToolResult.completed(Object()));
+        final sender = _Sender();
+        Object? seen;
+
+        await _collectingErrors(
+          () => _runner(
+            tools: [tool],
+            sender: sender,
+            failureMessage: (call, error) {
+              seen = error;
+              return 'Kon het resultaat niet lezen';
+            },
+          ).handleCalls([_waitingCall()]),
+        );
+
+        expect(sender.sent.single.$2, const AIClientToolResult.failed('Kon het resultaat niet lezen'));
+        expect(seen, isA<JsonUnsupportedObjectError>());
       });
 
       test('a result tool returning a failure is sent as is, without a report', () async {
@@ -555,6 +630,41 @@ void main() {
         expect(reported, hasLength(2));
       });
 
+      for (final (description, retry) in <(String, Future<void> Function(AIClientToolRunner))>[
+        ('right away', (runner) => runner.retryUndelivered()),
+        (
+          'after an await',
+          (runner) async {
+            await Future<void>.value();
+            await runner.retryUndelivered();
+          },
+        ),
+      ]) {
+        test('onDeliveryError can send the result again $description', () async {
+          final tool = _ResultTool();
+          final sender = _Sender(failures: 1);
+          late final AIClientToolRunner runner;
+          Future<void>? retried;
+          runner = _runner(
+            tools: [tool],
+            sender: sender,
+            maxAttempts: 1,
+            onDeliveryError: (call, result, error, stack) => retried = retry(runner),
+          );
+
+          await _collectingErrors(() async {
+            await runner.handleCalls([_waitingCall()]);
+            await retried;
+            await runner.whenIdle();
+          });
+
+          expect(sender.sent.single.$2, _defaultResult);
+          expect(tool.calls, hasLength(1));
+          expect(runner.hasUndelivered, isFalse);
+          expect(runner.hasPendingWork, isFalse);
+        });
+      }
+
       testWidgets('maxAttempts 1 sends once, without waiting', (tester) async {
         final sender = _Sender(failures: 10);
         final runner = _runner(
@@ -631,6 +741,7 @@ void main() {
           () => _runner(
             tools: [_ResultTool()],
             sender: sender,
+            failUnknownTools: true,
             failureMessage: (call, error) => 'Not on this phone',
           ).handleCalls([_waitingCall(name: 'unknown_tool')]),
         );
