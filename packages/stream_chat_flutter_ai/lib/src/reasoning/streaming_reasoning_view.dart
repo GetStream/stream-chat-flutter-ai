@@ -74,7 +74,8 @@ class StreamingReasoningView extends StatefulWidget {
   });
 
   /// Shows a reasoning step: its full [text] when the app has it, otherwise
-  /// the step's [AIReasoningPart.preview].
+  /// the step's [AIReasoningPart.preview], and failing that its
+  /// [AIReasoningPart.summary] — which the header shows only while folded.
   ///
   /// [AIReasoningPart.isStreaming], [AIReasoningPart.duration] and
   /// [AIReasoningPart.summary] fill [isThinking], [duration] and [summary].
@@ -90,7 +91,7 @@ class StreamingReasoningView extends StatefulWidget {
     MarkdownTapLinkCallback? onTapLink,
   }) : this(
          key: key,
-         text: text ?? part.preview ?? '',
+         text: text ?? part.preview ?? part.summary ?? '',
          isThinking: part.isStreaming,
          duration: part.duration,
          summary: part.summary,
@@ -438,9 +439,17 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
                 ExcludeSemantics(
                   excluding: !_open,
                   // Shrinks in place and clips, so what sits below glides up.
-                  child: SizeTransition(
-                    sizeFactor: _foldCurve,
-                    alignment: AlignmentDirectional.topStart,
+                  // What `SizeTransition(alignment: topStart)` builds, which
+                  // Flutter 3.41 — the oldest this package supports — lacks.
+                  child: AnimatedBuilder(
+                    animation: _foldCurve,
+                    builder: (context, child) => ClipRect(
+                      child: Align(
+                        alignment: AlignmentDirectional.topStart,
+                        heightFactor: math.max(_foldCurve.value, 0),
+                        child: child,
+                      ),
+                    ),
                     child: FadeTransition(
                       opacity: _foldCurve,
                       child: Padding(
@@ -510,7 +519,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleStyle = theme.titleStyle.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
     final iconSize = (theme.titleStyle.fontSize ?? 14) * 1.2;
-    final summaryColor = theme.textStyle.color!;
+    final summaryColor = theme.textStyle.color;
     final rtl = Directionality.of(context) == TextDirection.rtl;
 
     // One text, so a long title and the summary share the line: the summary
@@ -522,8 +531,9 @@ class _Header extends StatelessWidget {
           if (summary case final summary?)
             TextSpan(
               text: '  $summary',
+              // A `foreground` paint is drawn as it is.
               style: theme.textStyle.copyWith(
-                color: summaryColor.withValues(alpha: summaryColor.a * 0.8),
+                color: summaryColor?.withValues(alpha: summaryColor.a * 0.8),
                 fontFeatures: const [],
               ),
             ),
@@ -537,7 +547,8 @@ class _Header extends StatelessWidget {
     if (activity case final activity?) {
       titleText = Shimmer(
         animation: activity,
-        base: titleStyle.color!,
+        // The resolved style carries a color or a `foreground` paint.
+        base: titleStyle.color ?? titleStyle.foreground?.color ?? theme.iconColor,
         highlight: theme.shimmerColor,
         child: titleText,
       );
