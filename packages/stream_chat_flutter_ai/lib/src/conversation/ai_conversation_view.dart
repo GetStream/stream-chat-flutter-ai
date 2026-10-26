@@ -657,6 +657,7 @@ class _ScrollToLatestButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ConversationTheme.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final shadow = Theme.of(context).shadowColor;
     // A 40 dp circle with a light shadow. Taps just around it reach it too, in
     // a 48 dp target.
     return GestureDetector(
@@ -666,9 +667,15 @@ class _ScrollToLatestButton extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(4),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Color(0x24000000), offset: Offset(0, 2), blurRadius: 6)],
+            boxShadow: [
+              BoxShadow(
+                color: shadow.withValues(alpha: shadow.a * 0.14),
+                offset: const Offset(0, 2),
+                blurRadius: 6,
+              ),
+            ],
           ),
           child: Material(
             color: theme.scrollButtonBackgroundColor ?? scheme.surface,

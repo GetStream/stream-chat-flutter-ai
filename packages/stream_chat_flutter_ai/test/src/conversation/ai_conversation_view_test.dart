@@ -61,6 +61,7 @@ Future<void> _pump(
   AIComponentBuilders builders = _withActions,
   Widget? footer,
   Widget? empty,
+  ThemeData? theme,
   bool settle = true,
 }) async {
   tester.view.physicalSize = const Size(400, 600);
@@ -70,6 +71,7 @@ Future<void> _pump(
     AIComponentFactory(
       builders: builders,
       child: MaterialApp(
+        theme: theme,
         home: MediaQuery(
           // No typewriter, so a reply is on screen at once.
           data: const MediaQueryData(size: Size(400, 600), disableAnimations: true),
@@ -413,6 +415,17 @@ void main() {
           tester.widget<IgnorePointer>(find.ancestor(of: button, matching: find.byType(IgnorePointer)).first).ignoring,
           isTrue,
         );
+      });
+
+      testWidgets("casts the scroll-to-latest button's shadow in the theme's shadow color", (tester) async {
+        await _pump(tester, _history(6), theme: ThemeData(shadowColor: const Color(0xFF112233)));
+        final box = tester.widget<DecoratedBox>(
+          find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(DecoratedBox)).at(0),
+        );
+        final shadow = (box.decoration as BoxDecoration).boxShadow!.single;
+        expect(shadow.color, const Color(0xFF112233).withValues(alpha: 0.14));
+        expect(shadow.offset, const Offset(0, 2));
+        expect(shadow.blurRadius, 6);
       });
 
       testWidgets('shows the scroll-to-latest button once the end is more than 24 out of view', (tester) async {
