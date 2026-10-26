@@ -112,7 +112,19 @@
 - `AILocalModelException` and `AILocalModelErrorReason` (`unavailable`, `invalidConversation`, `contextExceeded`, `failed`) — the error an `AILocalModel.reply` stream emits when the model can't answer.
 - `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) replace the code blocks, charts, agent steps, approval card and composer slots the package builds.
 - `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each `AIComponentBuilders` slot gets.
-- `AIReplyActionsView` — copy, share, regenerate and rate buttons under a finished reply, themed via `ReplyActionsThemeData`.
+- `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
+  "Copied!" for a moment, then share, regenerate and 👍 / 👎 when the app handles them. Tapping the
+  current rating takes it back, and the selected rating is reported to screen readers.
+- `AIReplyActions` — what `AIReplyActionsView` offers besides copying: the `rating`, and the
+  `onShare`, `onRegenerate` and `onRate` callbacks. Each button shows only when its callback is set.
+- `AIMessageRating` — how the person rated a reply, `positive` or `negative`.
+- `AIReplyShareCallback` — shares a reply's text, given the share button's rectangle to anchor a
+  share sheet to. The package has no share dependency, so pass `onShare` (with `share_plus`, say) to
+  show the share button.
+- `ReplyActionsThemeData` and `ReplyActionsTheme`, and `AITheme.replyActionsTheme`, for the buttons'
+  icon color, selected icon color and icon size.
+- `AITranslations.copyReply`, `replyCopied`, `shareReply`, `regenerateReply`, `rateReplyPositive`
+  and `rateReplyNegative` — the buttons' tooltips and labels.
 
 🔄 Changed
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reply_actions_theme.dart';
@@ -69,11 +70,23 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
   Timer? _resetTimer;
 
   Future<void> _copy() async {
-    await Clipboard.setData(ClipboardData(text: widget.text));
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.text));
+    } on Object {
+      // Such as on the web without clipboard permission: nothing was copied,
+      // so there is nothing to confirm.
+      return;
+    }
     if (!mounted) return;
     setState(() => _copied = true);
+    final translations = AITranslations.of(context);
+    unawaited(
+      SemanticsService.sendAnnouncement(View.of(context), translations.replyCopied, Directionality.of(context)),
+    );
     _resetTimer?.cancel();
-    _resetTimer = Timer(const Duration(seconds: 2), () => setState(() => _copied = false));
+    _resetTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _copied = false);
+    });
   }
 
   @override
@@ -89,6 +102,11 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
     final color = theme.iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant;
     final selectedColor = theme.selectedIconColor ?? color;
     final size = theme.iconSize ?? 18;
+    // A 32 dp button, padded to a 48 dp tap target where the theme asks for
+    // one. Material 2 ignores `tapTargetSize`, so there the button is as
+    // big as its target.
+    final padded = Theme.of(context).materialTapTargetSize == MaterialTapTargetSize.padded;
+    final extent = padded && !Theme.of(context).useMaterial3 ? kMinInteractiveDimension : 32.0;
     final actions = widget.actions;
 
     Widget button(IconData icon, String label, VoidCallback onPressed, {bool? selected}) {
@@ -101,9 +119,8 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
         icon: selected == null ? glyph : Semantics(selected: selected, child: glyph),
         tooltip: label,
         // Set on the button rather than in `style`, which Material 2 ignores.
-        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+        constraints: BoxConstraints.tightFor(width: extent, height: extent),
         padding: EdgeInsets.zero,
-        style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
       );
     }
 
