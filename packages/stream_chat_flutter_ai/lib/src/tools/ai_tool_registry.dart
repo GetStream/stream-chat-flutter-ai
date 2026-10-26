@@ -108,6 +108,11 @@ abstract interface class AIClientTool {
 /// });
 /// ```
 ///
+/// This is the event path: fire-and-forget, with nothing returned to the
+/// model. For an agent that writes its calls as `ai_tool_call` steps and waits
+/// for the device's result (`status: awaiting_client`), use an
+/// `AIClientToolRunner` instead — it takes the same tools.
+///
 /// Not a [ChangeNotifier] and not a singleton: nothing renders from a registry,
 /// and because the agent registers tools per channel, one registry per channel
 /// is a reasonable shape that a singleton would fight.
@@ -150,6 +155,9 @@ final class AIToolRegistry {
     assert(definition.name != '', 'a tool must not register under an empty name');
     _toolsByName[definition.name] = (definition: definition, tool: tool);
   }
+
+  /// The tool registered under [name], or `null` when there is none.
+  AIClientTool? toolNamed(String name) => _toolsByName[name]?.tool;
 
   /// Removes the tool registered under [name].
   ///

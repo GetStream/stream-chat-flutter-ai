@@ -82,6 +82,21 @@
   person.
 - `AITranslations.toolApprovalTitle`, `toolApprovalAllow`, `toolApprovalDecline`,
   `toolApprovalSending`, `toolApprovalSent` and `toolApprovalNotSent` — the approval card's strings.
+- `AIClientToolResult` — what a device reports for a client tool call: `AIClientToolResult.completed`
+  (an `AIClientToolCompleted`, which throws when its output isn't JSON-encodable) or
+  `AIClientToolResult.failed` (an `AIClientToolFailed`). `toJson` gives the backend's
+  `{tool_call_id, client_id, output | failure, summary}` shape.
+- `AIResultClientTool` — a client tool whose `run` returns an `AIClientToolResult`. It still
+  dispatches through `AIToolRegistry`, where the result is dropped.
+- `AIClientToolRunner` — runs the `awaiting_client` calls aimed at this device, each once, and sends
+  each result back through `send` (an `AIClientToolResultSender`). A call for a tool it doesn't have
+  is left for another runner unless `failUnknownTools` is set. Options: `maxAttempts`, `retryDelay`
+  (capped at `AIClientToolRunner.maxRetryDelay`), `runTimeout`, `sendTimeout`, `failureMessage` (an
+  `AIClientToolFailureMessage`), `onToolError` (an `AIClientToolCallErrorCallback`) and
+  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`).
+  Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
+  `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
+- `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
 
 🔄 Changed
 
