@@ -50,7 +50,8 @@ class ResolvedToolCallTheme {
     TextStyle resolveStyle(TextStyle? base, Color color, TextStyle? themed, TextStyle? local) {
       var style = mergeTextStyle(mergeTextStyle((base ?? const TextStyle()).copyWith(color: color), themed), local);
       // An `inherit: false` override replaces the base outright, color and all.
-      if (style.color == null) style = style.copyWith(color: color);
+      // A `foreground` paint stands in for a color, so that one is left alone.
+      if (style.color == null && style.foreground == null) style = style.copyWith(color: color);
       return style;
     }
 
@@ -69,15 +70,22 @@ class ResolvedToolCallTheme {
           data.successColor ??
           (theme.brightness == Brightness.dark ? _kSuccessOnDark : _kSuccessOnLight),
       failureColor: override?.failureColor ?? data.failureColor ?? colors.error,
-      iconColor: override?.iconColor ?? data.iconColor ?? detailStyle.color!,
+      iconColor:
+          override?.iconColor ??
+          data.iconColor ??
+          detailStyle.color ??
+          detailStyle.foreground?.color ??
+          colors.onSurfaceVariant,
       iconSize: math.max<double>(0, override?.iconSize ?? data.iconSize ?? _kDefaultIconSize),
     );
   }
 
-  /// See [ToolCallThemeData.titleStyle]. Always carries a color.
+  /// See [ToolCallThemeData.titleStyle]. Always carries a color or a
+  /// `foreground` paint.
   final TextStyle titleStyle;
 
-  /// See [ToolCallThemeData.detailStyle]. Always carries a color.
+  /// See [ToolCallThemeData.detailStyle]. Always carries a color or a
+  /// `foreground` paint.
   final TextStyle detailStyle;
 
   /// See [ToolCallThemeData.accentColor].
