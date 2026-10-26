@@ -141,6 +141,29 @@ void main() {
       });
     });
 
+    group('tool approval theme', () {
+      const toolApproval = ToolApprovalThemeData(accentColor: Color(0xFF0A0A0A));
+      const toolApproval2 = ToolApprovalThemeData(accentColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().toolApprovalTheme, const ToolApprovalThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(toolApprovalTheme: toolApproval);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(toolApprovalTheme: toolApproval));
+        expect(theme.copyWith(toolApprovalTheme: toolApproval2).toolApprovalTheme, toolApproval2);
+        expect(theme.copyWith().toolApprovalTheme, toolApproval);
+        expect(
+          theme.lerp(const AITheme(toolApprovalTheme: toolApproval2), 0.5).toolApprovalTheme,
+          ToolApprovalThemeData.lerp(toolApproval, toolApproval2, 0.5),
+        );
+      });
+    });
+
     group('tool call theme', () {
       const toolCall = ToolCallThemeData(accentColor: Color(0xFF0A0A0A));
       const toolCall2 = ToolCallThemeData(accentColor: Color(0xFFFAFAFA));

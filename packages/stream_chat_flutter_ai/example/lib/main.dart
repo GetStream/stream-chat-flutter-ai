@@ -117,6 +117,26 @@ const _cannedToolCalls = [
   ),
 ];
 
+/// Who the example's user is, and which install this is. A real app takes the
+/// user id from its chat client and keeps an install id of its own.
+const _identity = AIClientIdentity(userId: 'me', clientId: 'example-install');
+
+/// The canned tool call that asks first: run after the others, it waits for
+/// the user to allow it, through [AIToolApprovalView]. No button titles, so
+/// they come from the translations.
+const _emailCall = AIToolCallPart(
+  id: 'call_email',
+  name: 'send_email',
+  displayTitle: 'Emailing the summary',
+  status: AIToolCallStatus.awaitingApproval,
+  targetUserId: 'me',
+  approval: AIToolApproval(
+    title: 'Send the summary by email?',
+    reason: 'so you have it in your inbox',
+    message: 'It goes to your own address only.',
+  ),
+);
+
 /// The canned reasoning streamed before the reply, the way a reasoning model
 /// "thinks out loud" before it answers.
 const _cannedReasoning = '''
@@ -278,11 +298,21 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// Non-null while chunks of the reasoning are still being delivered.
   Timer? _reasoningTimer;
 
-  /// Non-null while a canned tool call is running.
+  /// Non-null while a canned tool call is running, or while the fake backend
+  /// is about to update the call waiting for approval.
   Timer? _toolTimer;
 
   /// Non-null while chunks of the reply are still being delivered.
   Timer? _streamTimer;
+
+  /// Whether the fake backend has already failed to take an answer to the
+  /// current question — it fails the first one, to show the retry.
+  bool _answerFailedOnce = false;
+
+  /// Answers tool calls' questions for [_identity], through a fake backend
+  /// that is slow and, the first time, fails. Kept for the screen's lifetime:
+  /// it remembers where each answer is.
+  late final _approver = AIToolApprover(identity: _identity, decide: _sendAnswer);
 
   /// Whether the fake backend has finished sending chunks for the current reply.
   ///
@@ -321,6 +351,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _reasoningTimer?.cancel();
     _toolTimer?.cancel();
     _streamTimer?.cancel();
+    _approver.dispose();
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -369,11 +400,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   /// Runs the canned tool call at [index] — a row that spins, then completes
-  /// with its summary and duration — and the next one after it, then streams
-  /// the reply.
+  /// with its summary and duration — and the next one after it, then asks to
+  /// email the summary.
   void _runTool(int index) {
     if (!mounted) return;
-    if (index == _cannedToolCalls.length) return _streamReply();
+    if (index == _cannedToolCalls.length) return _askToEmail();
 
     final (:call, :takes, :summary) = _cannedToolCalls[index];
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
@@ -390,6 +421,69 @@ class _AssistantScreenState extends State<AssistantScreen> {
         () => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls]..[index] = done),
       );
       _runTool(index + 1);
+    });
+  }
+
+  /// Adds the call that waits for the user's approval. [_sendAnswer] carries
+  /// on from there.
+  void _askToEmail() {
+    _answerFailedOnce = false;
+    setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, _emailCall]));
+    _scrollToEnd();
+  }
+
+  /// Replaces the last message's tool call with [id] by [update]'s result.
+  void _updateToolCall(String id, AIToolCallPart Function(AIToolCallPart call) update) {
+    setState(
+      () => _messages.last = _messages.last.copyWith(
+        toolCalls: [
+          for (final call in _messages.last.toolCalls)
+            if (call.id == id) update(call) else call,
+        ],
+      ),
+    );
+  }
+
+  /// Stands in for sending the user's answer to the agent's backend: slow,
+  /// and failing the first time so the card shows its retry. Once it "arrives",
+  /// the backend updates the call's step a moment later — which is what takes
+  /// the question away — and then runs the tool or skips it.
+  Future<void> _sendAnswer(AIToolCallPart call, AIToolApprovalDecision decision) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!_answerFailedOnce) {
+      _answerFailedOnce = true;
+      throw Exception('The fake backend dropped the answer');
+    }
+
+    if (!mounted) return;
+    final allowed = decision == AIToolApprovalDecision.allowed;
+    _toolTimer?.cancel();
+    _toolTimer = Timer(const Duration(milliseconds: 500), () {
+      // Stopped meanwhile: the call is no longer waiting.
+      final current = _messages.lastOrNull?.toolCalls.where((c) => c.id == call.id).firstOrNull;
+      if (!mounted || current?.status != AIToolCallStatus.awaitingApproval) return;
+      _updateToolCall(
+        call.id,
+        (call) => call.copyWith(
+          status: allowed ? AIToolCallStatus.running : AIToolCallStatus.cancelled,
+          approval: call.approval?.copyWith(decision: decision),
+        ),
+      );
+      if (!allowed) return _streamReply();
+
+      const takes = Duration(milliseconds: 1100);
+      _toolTimer = Timer(takes, () {
+        if (!mounted) return;
+        _updateToolCall(
+          call.id,
+          (call) => call.copyWith(
+            status: AIToolCallStatus.completed,
+            summary: 'Sent to your inbox',
+            durationMs: takes.inMilliseconds,
+          ),
+        );
+        _streamReply();
+      });
     });
   }
 
@@ -503,7 +597,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
                                 footnote: 'Reasoning is generated by the model and may be incomplete.',
                               ),
                             if (message.toolCalls.isNotEmpty)
-                              AIMessagePartsView(parts: [...message.toolCalls.map(AIMessagePart.fromToolCall)]),
+                              AIMessagePartsView(
+                                parts: [...message.toolCalls.map(AIMessagePart.fromToolCall)],
+                                approver: _approver,
+                              ),
                             if (message.text.isNotEmpty) reply,
                           ],
                         );
@@ -739,4 +836,23 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get toolCallDurationBelowTenth => '<0,1s';
+
+  @override
+  String toolApprovalTitle(String? toolName) =>
+      toolName == null ? 'Dit hulpmiddel laten uitvoeren?' : '“$toolName” toestaan?';
+
+  @override
+  String get toolApprovalAllow => 'Toestaan';
+
+  @override
+  String get toolApprovalDecline => 'Niet toestaan';
+
+  @override
+  String get toolApprovalSending => 'Je antwoord wordt verstuurd…';
+
+  @override
+  String get toolApprovalSent => 'Verstuurd';
+
+  @override
+  String get toolApprovalNotSent => 'Je antwoord kon niet worden verstuurd. Probeer het opnieuw.';
 }

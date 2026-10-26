@@ -9,6 +9,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 // Here for the [AIUnsupportedPartView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
+// Here for the [AIToolApprovalCard] doc link below only.
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
 // Here for the [AIToolCallView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 // Here for the [StreamingReasoningView] doc link below only.
@@ -195,6 +197,30 @@ abstract class AITranslations {
   /// otherwise round to `0.0s`: `<0.1s`.
   String get toolCallDurationBelowTenth;
 
+  /// The question of a tool call that awaits approval without one of its own,
+  /// such as "Allow “send email”?". [toolName] is the call's tool name with
+  /// underscores as spaces, or `null` when the agent sent none. See
+  /// [AIToolApprovalCard].
+  String toolApprovalTitle(String? toolName);
+
+  /// The label of the button that allows a tool call, when the agent named
+  /// none.
+  String get toolApprovalAllow;
+
+  /// The label of the button that declines a tool call, when the agent named
+  /// none.
+  String get toolApprovalDecline;
+
+  /// Read out by screen readers while an answer to a tool call is on its way.
+  String get toolApprovalSending;
+
+  /// Shown, with a check, once an answer to a tool call was sent and the call
+  /// hasn't moved on yet.
+  String get toolApprovalSent;
+
+  /// Shown under a tool call's question when the answer couldn't be sent.
+  String get toolApprovalNotSent;
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -326,6 +352,24 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get toolCallDurationBelowTenth => '<0.1s';
+
+  @override
+  String toolApprovalTitle(String? toolName) => toolName == null ? 'Allow this tool to run?' : 'Allow “$toolName”?';
+
+  @override
+  String get toolApprovalAllow => 'Allow';
+
+  @override
+  String get toolApprovalDecline => "Don't Allow";
+
+  @override
+  String get toolApprovalSending => 'Sending your answer…';
+
+  @override
+  String get toolApprovalSent => 'Sent';
+
+  @override
+  String get toolApprovalNotSent => "Your answer couldn't be sent. Try again.";
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
