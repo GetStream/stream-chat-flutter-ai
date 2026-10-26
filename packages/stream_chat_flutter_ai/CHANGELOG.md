@@ -181,9 +181,13 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
-- A tool call whose row `AIMessagePartsView.toolCallBuilder` hides with `AIMessagePartsView.hidden`
-  now still asks its approval question, as a row hidden by the `AIComponentFactory` already did.
-  Before, the question never showed and the call waited until the backend timed it out.
+- A tool call whose row `AIMessagePartsView.toolCallBuilder` or `partBuilder` hides with
+  `AIMessagePartsView.hidden` now still asks its approval question, as a row hidden by the
+  `AIComponentFactory` already did. Before, the question never showed and the call waited until the
+  backend timed it out.
+- An `AIToolApprover` now forgets an answer given for a call that `AIMessagePartsView`'s builders
+  draw their own way once the call stops waiting, instead of keeping it and failing it at its
+  `sentTimeout`.
 
 ## 0.1.0
 

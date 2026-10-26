@@ -522,6 +522,70 @@ void main() {
       await tester.pump();
       expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
     });
+
+    testWidgets('a call partBuilder hides still asks its question, without its row', (tester) async {
+      Widget view({String status = 'awaiting_approval'}) => _wrap(
+        SizedBox(
+          width: 360,
+          child: AIMessagePartsView(
+            parts: parts(status: status),
+            approver: approver,
+            partBuilder: (context, part) => part.id == 'call_1' ? AIMessagePartsView.hidden : null,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(view());
+      expect(find.byType(AIToolCallView), findsOneWidget, reason: 'only the other call has a row');
+      expect(find.byType(AIToolApprovalCard), findsOneWidget);
+      await tester.tap(find.text('Allow'));
+      await tester.pump();
+      expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
+
+      // With nothing to ask, it is left out.
+      await tester.pumpWidget(view(status: 'completed'));
+      expect(find.byType(AIToolApprovalCard), findsNothing);
+      expect(find.byType(AIToolCallView), findsOneWidget);
+    });
+
+    testWidgets('a call a builder draws its own way lets the approver forget the answer once it stops waiting', (
+      tester,
+    ) async {
+      final timing = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
+        decide: (call, decision) async {},
+        sentTimeout: const Duration(seconds: 5),
+      );
+      addTearDown(timing.dispose);
+      // The host's own widget asks while the call waits, then shows a summary.
+      Widget view(List<AIMessagePart> parts) => _wrap(
+        SizedBox(
+          width: 360,
+          child: AIMessagePartsView(
+            parts: parts,
+            approver: timing,
+            toolCallBuilder: (context, call) => call.name != 'send_email'
+                ? null
+                : timing.identity.canApprove(call)
+                ? AIToolApprovalView(call: call, approver: timing)
+                : const Text('email sent'),
+          ),
+        ),
+      );
+
+      final waiting = parts();
+      await tester.pumpWidget(view(waiting));
+      timing.answer(waiting.first.toolCall!, AIToolApprovalDecision.allowed);
+      await tester.pump();
+      expect(timing.stateOf(waiting.first.toolCall!), isA<AIToolApprovalSent>());
+
+      var notified = 0;
+      timing.addListener(() => notified++);
+      await tester.pumpWidget(view(parts(status: 'running', decision: 'allowed')));
+      await tester.pump(const Duration(seconds: 6));
+      expect(notified, 0, reason: 'the sent timeout was cancelled, so nothing turns failed');
+      expect(timing.stateOf(waiting.first.toolCall!), const AIToolApprovalIdle(), reason: 'the answer was forgotten');
+    });
   });
 
   group('AIUnsupportedPartView', () {
