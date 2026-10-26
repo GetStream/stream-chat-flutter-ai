@@ -364,6 +364,32 @@ void main() {
       expect(gap, 20);
     });
 
+    testWidgets('spaces parts 10 apart by default', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: _parts.take(2).toList(),
+            partBuilder: (context, part) => SizedBox(height: 10, child: Text(part.id)),
+          ),
+        ),
+      );
+
+      final gap = tester.getTopLeft(find.text('call_1')).dy - tester.getBottomLeft(find.text('r1')).dy;
+      expect(gap, 10);
+    });
+
+    testWidgets('fills a bounded width and shrink-wraps an unbounded one', (tester) async {
+      Widget parts() => AIMessagePartsView(
+        parts: _parts.take(1).toList(),
+        partBuilder: (context, part) => const SizedBox(width: 40, height: 10),
+      );
+      await tester.pumpWidget(_wrap(SizedBox(width: 300, child: parts())));
+      expect(tester.getSize(find.byType(AIMessagePartsView)), const Size(300, 10));
+
+      await tester.pumpWidget(_wrap(Row(mainAxisSize: MainAxisSize.min, children: [parts()])));
+      expect(tester.getSize(find.byType(AIMessagePartsView)), const Size(40, 10));
+    });
+
     testWidgets('renders nothing for no parts', (tester) async {
       await tester.pumpWidget(_wrap(const AIMessagePartsView(parts: [])));
 
@@ -549,8 +575,39 @@ void main() {
       expect(text.style!.color, const Color(0xFFFF0000));
       final icon = tester.widget<Icon>(find.byType(Icon));
       expect(icon.color, const Color(0xFF00FF00));
-      // Scales with the text rather than staying a fixed size.
-      expect(icon.size, greaterThan(20));
+      // A tool call's icon size, whatever the text's.
+      expect(icon.size, 16);
+    });
+
+    testWidgets("reads like a tool call's row by default", (tester) async {
+      await tester.pumpWidget(_wrap(const AIUnsupportedPartView()));
+      final theme = Theme.of(tester.element(find.byType(AIUnsupportedPartView)));
+
+      final style = tester.widget<Text>(find.byType(Text)).style!;
+      expect(style.fontSize, theme.textTheme.bodyMedium!.fontSize, reason: "the tool call title's size");
+      expect(style.color, theme.colorScheme.onSurfaceVariant, reason: "the tool call detail's color");
+      expect(tester.widget<Icon>(find.byType(Icon)).size, 16);
+      expect(tester.getTopLeft(find.byType(Text)).dx - tester.getTopRight(find.byType(Icon)).dx, 8);
+    });
+
+    testWidgets('follows the tool call theme', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const ToolCallTheme(
+            data: ToolCallThemeData(
+              titleStyle: TextStyle(fontSize: 17),
+              detailStyle: TextStyle(color: Color(0xFF0000E1)),
+              iconSize: 20,
+            ),
+            child: AIUnsupportedPartView(),
+          ),
+        ),
+      );
+
+      final style = tester.widget<Text>(find.byType(Text)).style!;
+      expect(style.fontSize, 17);
+      expect(style.color, const Color(0xFF0000E1));
+      expect(tester.widget<Icon>(find.byType(Icon)).size, 20);
     });
 
     testWidgets('the icon takes the text color by default', (tester) async {

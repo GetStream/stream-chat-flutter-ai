@@ -8,7 +8,10 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
+import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 
 /// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
 /// [AIMessagePartsView]'s default for it, or [AIMessagePartsView.hidden] to
@@ -88,7 +91,7 @@ class AIMessagePartsView extends StatelessWidget {
     this.partBuilder,
     this.toolCallBuilder,
     this.approver,
-    this.spacing = 8,
+    this.spacing = 10,
   });
 
   /// The steps to show, in order.
@@ -137,11 +140,17 @@ class AIMessagePartsView extends StatelessWidget {
     }
     if (children.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      spacing: spacing,
-      children: children,
+    // Fills a bounded width, so the steps line up with the reply's text
+    // whatever their own widths; shrink-wraps an unbounded one.
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      heightFactor: 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        spacing: spacing,
+        children: children,
+      ),
     );
   }
 
@@ -216,12 +225,15 @@ class _HiddenPart extends StatelessWidget {
 /// it doesn't know, a format newer than it reads, or a payload it couldn't
 /// decode. It says that something happened without guessing what.
 ///
-/// The text is [AITranslations.unsupportedMessagePart].
+/// The text is [AITranslations.unsupportedMessagePart]. It reads like a tool
+/// call's row: its font, its icon size, and the color of its detail line.
 class AIUnsupportedPartView extends StatelessWidget {
   /// Creates an [AIUnsupportedPartView].
   const AIUnsupportedPartView({super.key, this.textStyle, this.iconColor});
 
-  /// The style of the text, merged over `bodySmall` in `onSurfaceVariant`.
+  /// The style of the text, merged over a tool call's title style
+  /// ([ToolCallThemeData.titleStyle]) in the color of its detail line
+  /// ([ToolCallThemeData.detailStyle]).
   final TextStyle? textStyle;
 
   /// The color of the sparkles icon; defaults to the text's color.
@@ -229,15 +241,22 @@ class AIUnsupportedPartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.onSurfaceVariant).merge(textStyle);
-    final iconSize = (style.fontSize ?? 12) * 1.25;
+    final toolCall = ResolvedToolCallTheme.resolve(context);
+    final step = toolCall.titleStyle;
+    final detail = toolCall.detailStyle;
+    final detailColor = detail.color ?? detail.foreground?.color;
+    // A title painted with a `foreground` keeps its paint.
+    final style = (step.foreground == null ? step.copyWith(color: detailColor) : step).merge(textStyle);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      spacing: 8,
       children: [
-        Icon(Icons.auto_awesome_outlined, size: iconSize, color: iconColor ?? style.color),
-        const SizedBox(width: 6),
+        Icon(
+          Icons.auto_awesome_outlined,
+          size: toolCall.iconSize,
+          color: iconColor ?? style.color ?? style.foreground?.color,
+        ),
         Flexible(child: Text(AITranslations.of(context).unsupportedMessagePart, style: style)),
       ],
     );
