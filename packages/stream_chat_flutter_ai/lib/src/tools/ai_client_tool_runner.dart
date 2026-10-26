@@ -270,6 +270,20 @@ final class AIClientToolRunner {
       );
     }
 
+    // A plain tool reads `{}` as "the model passed nothing", so it isn't run
+    // when the call's arguments never arrived, such as when the backend left
+    // out arguments too large to copy onto the step. A tool declaring no
+    // arguments has nothing to miss.
+    if (tool is! AIResultClientTool && call.arguments == null && !_takesNoArguments(tool)) {
+      final error = StateError(
+        'The "${call.name}" call arrived without its arguments, so the client tool was not run.',
+      );
+      _reportToolError(call, error, StackTrace.current, 'while running the "${call.name}" client tool');
+      return AIClientToolResult.failed(
+        failureMessage == null ? "This call's arguments didn't reach the device" : _failureMessageFor(call, error),
+      );
+    }
+
     try {
       final work = tool is AIResultClientTool ? tool.run(call) : _runActions(tool, call);
       if (runTimeout == null) return await work;
@@ -294,11 +308,18 @@ final class AIClientToolRunner {
     }
   }
 
+  /// Whether [tool]'s schema declares no arguments, so `{}` is all it can get.
+  static bool _takesNoArguments(AIClientTool tool) {
+    final properties = tool.definition.parameters['properties'];
+    return properties == null || (properties is Map && properties.isEmpty);
+  }
+
   /// Runs a plain tool's actions, all of them, then throws the first failure.
   Future<AIClientToolResult> _runActions(AIClientTool tool, AIToolCallPart call) async {
     final actions = tool.handleInvocation(
       AIToolInvocation(
         tool: AIInvokedTool(name: call.name),
+        // Only `null` for a tool that takes no arguments.
         args: call.arguments ?? const {},
       ),
     );

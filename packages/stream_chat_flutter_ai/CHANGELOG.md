@@ -181,6 +181,10 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
+- `AIClientToolRunner` no longer runs a plain `AIClientTool` with `{}` when a call that declares
+  arguments arrives without them, such as when the backend left out arguments too large to copy
+  onto the step. The call fails with "This call's arguments didn't reach the device" and is reported
+  like other tool failures. A tool that declares no arguments still runs.
 
 ## 0.1.0
 
