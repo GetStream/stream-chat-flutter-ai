@@ -33,6 +33,7 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 ///   isThinking: isWaitingForReply,
 ///   approver: approver,
 ///   loadOlderMessages: hasMore ? loadOlder : null,
+///   footer: error == null ? null : RetryButton(error: error, onPressed: retry),
 ///   emptyContent: const Text('How can I help?'),
 /// )
 /// ```
@@ -90,6 +91,11 @@ class AIConversationView extends StatefulWidget {
 
   /// A widget under the latest turn's messages, such as what the agent is
   /// doing, or an error with a way to retry.
+  ///
+  /// When a reply fails, end the thinking too: stop passing [isThinking], and
+  /// don't leave a reply that shows nothing marked as still generating.
+  /// Otherwise the latest turn keeps counting "Thinking…", and the person
+  /// can't tell a failure from a slow model.
   final Widget? footer;
 
   /// What the list shows while there are no messages, centered in it.

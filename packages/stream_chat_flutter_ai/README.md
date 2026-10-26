@@ -933,6 +933,41 @@ AIComponentFactory(
 )
 ```
 
+Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
+any other kind as a file card. A kind of your own, such as an artifact or a file in an agent's
+sandbox, keeps its raw fields in `extraData`; render it yourself by setting
+`AIComponentBuilders.messageAttachment`, and return the default for every other kind. For example,
+for a Vision-Agents artifact `{type: "athena_image", artifact_id, revision, title, alt}`:
+
+```dart
+// In your AIMessage:
+List<AIMessageAttachment> get attachments => [
+  for (final raw in message.attachments)
+    AIMessageAttachment(kind: AIMessageAttachmentKind(raw['type']! as String), extraData: raw),
+];
+
+// In your AIComponentBuilders:
+messageAttachment: (context, props) => switch (props.attachment.kind.value) {
+  'athena_image' => ArtifactImage(
+    id: props.attachment.extraData['artifact_id']! as String,
+    revision: props.attachment.extraData['revision'] as int?,
+    semanticLabel: props.attachment.extraData['alt'] as String?,
+  ),
+  _ => AIMessageAttachmentView(attachment: props.attachment, onTap: props.onTap),
+},
+```
+
+When a reply fails, stop passing `isThinking` (the "Thinking…" count would otherwise run on) and
+show what went wrong in the `footer`, which sits under the latest turn, as iOS and Android do:
+
+```dart
+AIConversationView(
+  messages: messages,
+  isThinking: waitingForReply,
+  footer: error == null ? null : RetryButton(error: error, onPressed: retry),
+)
+```
+
 ### Replacing components: `AIComponentFactory`
 
 `AIComponentFactory` replaces the components the package creates inside its own widgets, the same

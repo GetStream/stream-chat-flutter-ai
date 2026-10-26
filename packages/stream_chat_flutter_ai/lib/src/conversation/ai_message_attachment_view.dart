@@ -7,6 +7,11 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// One of a message's attachments: an image as a thumbnail, and any other kind
 /// as a file card with its name, type and size.
 ///
+/// To show a kind of your own, such as an artifact or a file in an agent's
+/// sandbox, set [AIComponentBuilders.messageAttachment], read its raw fields
+/// from [AIMessageAttachment.extraData], and return this view for the kinds you
+/// don't handle.
+///
 /// Opening it is the app's: pass [onTap], such as to launch its URL.
 class AIMessageAttachmentView extends StatelessWidget {
   /// Creates an [AIMessageAttachmentView].

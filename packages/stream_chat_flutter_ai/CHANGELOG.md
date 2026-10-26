@@ -125,7 +125,30 @@
   icon color, selected icon color and icon size.
 - `AITranslations.copyReply`, `replyCopied`, `shareReply`, `regenerateReply`, `rateReplyPositive`
   and `rateReplyNegative` — the buttons' tooltips and labels.
-- `AIConversationView` — an AI conversation laid out in turns, with `AIMessage`, `AIPendingMessage`, `AIUserMessageView`, `AIAssistantMessageView`, `AIMessageAttachmentView` and `AIThinkingView`, themed via `ConversationThemeData`.
+- `AIConversationView` — an AI conversation laid out in turns. A question the person sends scrolls
+  to the top and its reply types out below it without the list moving; a conversation opens at its
+  end, `loadOlderMessages` loads older messages at its start without moving what is on screen, and a
+  button scrolls back to the latest. `isThinking` shows the agent thinking, and the reply's first
+  reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
+  with a way to retry.
+- `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
+  `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
+- `AIPendingMessage` — a message the person sent, shown at once until its copy arrives.
+- `AIMessageAttachment` — an image or file a message carries, or a kind of your own with its raw
+  fields in `extraData`, which compares by value. `AIMessageAttachmentKind` is an open set.
+- `AIUserMessageView`, `AIAssistantMessageView` and `AIThinkingView` — a conversation's rows and its
+  "Thinking… 4s".
+- `AIMessageAttachmentView` — an image as a thumbnail and anything else as a file card;
+  `AIComponentBuilders.messageAttachment` shows kinds of your own.
+- `AIComponentBuilders.userMessage`, `assistantMessage`, `replyActions` (empty by default) and
+  `messageAttachment`, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
+  and `AIMessageAttachmentProps`.
+- `AIReasoningProps.text` and `duration` — a step's full reasoning, and the duration the
+  conversation measured for its first step.
+- `ConversationThemeData` and `ConversationTheme`, and `AITheme.conversationTheme`, for the bubbles,
+  attachments and scroll-to-latest button.
+- `AITranslations.copyMessage`, `editMessage`, `scrollToLatest`, `attachmentImage`,
+  `attachmentFile`, `attachmentDetails` and `fileSize` — the conversation's strings.
 
 🔄 Changed
 
