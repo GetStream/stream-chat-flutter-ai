@@ -72,9 +72,10 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 ///
 /// Pass an [approver] to ask the person on this device about the tool calls
 /// waiting for their approval: such a call's row gets an [AIToolApprovalView]
-/// under it, which goes away once the call stops waiting. A call a builder
-/// shows its own way gets no question; put an [AIToolApprovalView] in your
-/// own widget then.
+/// under it, which goes away once the call stops waiting. A call whose row
+/// [toolCallBuilder] or the [AIComponentFactory] hides still asks its
+/// question, without the row. A call a builder shows with its own widget gets
+/// no question; put an [AIToolApprovalView] in your own widget then.
 ///
 /// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
 /// list grows while a reply streams in. A part whose id an earlier part already
@@ -99,8 +100,9 @@ class AIMessagePartsView extends StatelessWidget {
   final AIMessagePartWidgetBuilder? partBuilder;
 
   /// Builds a tool call your own way; returning `null` falls back to an
-  /// [AIToolCallView] for that call. Only asked for the tool calls
-  /// [partBuilder] left to the default.
+  /// [AIToolCallView] for that call, and [hidden] leaves its row out while
+  /// still asking its question. Only asked for the tool calls [partBuilder]
+  /// left to the default.
   final AIToolCallWidgetBuilder? toolCallBuilder;
 
   /// Who answers tool calls' questions on this device. With one, a tool call
@@ -153,9 +155,10 @@ class AIMessagePartsView extends StatelessWidget {
   /// its [AIReasoningPart.summary]: the full text, when an app has it, goes
   /// through a [partBuilder] returning
   /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
-  /// goes to [toolCallBuilder] first (which may return [hidden]), then the
-  /// factory, and gets an [AIToolCallView] when both give `null` — with its
-  /// question under the factory's or default row when an [approver] is given.
+  /// goes to [toolCallBuilder] first, then the factory, and gets an
+  /// [AIToolCallView] when both give `null` — with its question under the
+  /// factory's or default row when an [approver] is given. A row either of
+  /// them hides still asks its question.
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     final builders = AIComponentFactory.of(context);
     if (!part.isSupported) {
@@ -167,13 +170,16 @@ class AIMessagePartsView extends StatelessWidget {
           StreamingReasoningView.part(reasoning);
     }
     if (part.toolCall case final call?) {
-      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, builders, call);
+      final custom = toolCallBuilder?.call(context, call);
+      // A widget of the host's own asks its question itself.
+      if (custom != null && !identical(custom, hidden)) return custom;
+      final row = custom ?? builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
+      return _toolCallView(call, row);
     }
     return null;
   }
 
-  Widget _toolCallView(BuildContext context, AIComponentBuilders builders, AIToolCallPart call) {
-    final row = builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
+  Widget _toolCallView(AIToolCallPart call, Widget row) {
     final showRow = !identical(row, hidden);
     final approver = this.approver;
     final asks = approver != null && approver.identity.canApprove(call);

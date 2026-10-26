@@ -472,7 +472,7 @@ void main() {
       expect(tester.state(find.byType(AIToolCallView).first), same(row));
     });
 
-    testWidgets('a builder showing the call its own way gets no question', (tester) async {
+    testWidgets('a builder showing the call its own way gets no question; one hiding it does', (tester) async {
       await tester.pumpWidget(
         _wrap(
           SizedBox(
@@ -515,8 +515,12 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(AIToolCallView), findsOneWidget, reason: 'the hidden call is left out');
-      expect(find.byType(AIToolApprovalCard), findsNothing);
+      expect(find.byType(AIToolCallView), findsOneWidget, reason: 'the hidden call has no row');
+      expect(find.byType(AIToolApprovalCard), findsOneWidget, reason: 'but still asks its question');
+
+      await tester.tap(find.text('Allow'));
+      await tester.pump();
+      expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
     });
   });
 

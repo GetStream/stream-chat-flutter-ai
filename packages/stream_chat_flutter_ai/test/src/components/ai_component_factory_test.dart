@@ -417,18 +417,23 @@ void main() {
       expect(find.byType(Column), findsNothing);
     });
 
-    testWidgets('a call toolCallBuilder hides gets no question', (tester) async {
+    testWidgets('a call toolCallBuilder hides still asks its question, like a hidden factory row', (tester) async {
       final approver = _approver();
       addTearDown(approver.dispose);
-      await tester.pumpWidget(
-        _wrap(
-          AIMessagePartsView(
-            parts: [AIMessagePart.fromToolCall(_awaiting)],
-            approver: approver,
-            toolCallBuilder: (context, call) => AIMessagePartsView.hidden,
-          ),
+      Widget build(AIToolCallPart call) => _wrap(
+        AIMessagePartsView(
+          parts: [AIMessagePart.fromToolCall(call)],
+          approver: approver,
+          toolCallBuilder: (context, call) => AIMessagePartsView.hidden,
         ),
       );
+
+      await tester.pumpWidget(build(_awaiting));
+      expect(find.byType(AIToolCallView), findsNothing);
+      expect(find.byType(AIToolApprovalCard), findsOneWidget);
+
+      // With nothing to ask, it is left out.
+      await tester.pumpWidget(build(_awaiting.copyWith(status: AIToolCallStatus.completed)));
       expect(find.byType(AIToolApprovalCard), findsNothing);
       expect(find.byType(Column), findsNothing);
     });
