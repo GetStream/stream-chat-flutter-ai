@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:alchemist/alchemist.dart';
@@ -340,6 +341,101 @@ void main() {
       expect(builds, first, reason: 'an equal payload decoded again');
       await _pump(tester, conversation('Table'), builders: counting);
       expect(builds, first + 1);
+    });
+
+    group('layout', () {
+      Rect turnOf(WidgetTester tester, String text) =>
+          tester.getRect(find.ancestor(of: find.text(text), matching: find.byType(ConstrainedBox)).first);
+
+      testWidgets('leaves 8 between turns', (tester) async {
+        await _pump(tester, [_user('u1', 'Q1'), _reply('r1'), _user('u2', 'Q2'), _reply('r2')]);
+        await tester.drag(find.byType(Scrollable), const Offset(0, 200));
+        await tester.pumpAndSettle();
+        expect(turnOf(tester, 'Q2').top - turnOf(tester, 'Q1').bottom, 8);
+      });
+
+      testWidgets("sets the person's bubble 40 in, padded 16 by 12, 8 under its attachments", (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                child: AIUserMessageView(
+                  text: List.filled(20, 'A long question').join(' '),
+                  attachments: [AIMessageAttachment.file(Uri.parse('https://x.io/receipt.pdf'))],
+                ),
+              ),
+            ),
+          ),
+        );
+        final bubble = find.ancestor(of: find.textContaining('A long question'), matching: find.byType(DecoratedBox));
+        final rect = tester.getRect(bubble.first);
+        final text = tester.getRect(find.textContaining('A long question'));
+        expect(rect.left, 40);
+        expect(text.left - rect.left, 16);
+        expect(text.top - rect.top, 12);
+        expect(rect.bottom - text.bottom, 12);
+        final decoration = tester.widget<DecoratedBox>(bubble.first).decoration as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(20));
+        expect(rect.top - tester.getRect(find.byType(AIMessageAttachmentView)).bottom, 8);
+      });
+
+      testWidgets('leaves 8 between an answer and its actions', (tester) async {
+        await _pump(tester, [_user('u1'), _reply('r1')]);
+        final answer = tester.getRect(find.byType(AIAssistantMessageView));
+        expect(tester.getTopLeft(find.text('actions for r1 (latest)')).dy - answer.bottom, 8);
+      });
+
+      testWidgets('shows a 20 dp spinner while older messages load', (tester) async {
+        await _pump(tester, _history(1), loadOlder: () => Completer<void>().future, settle: false);
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await _frames(tester, const Duration(milliseconds: 16), 5);
+        expect(tester.getSize(find.byType(CircularProgressIndicator)), const Size.square(20));
+        expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).strokeWidth, 2);
+      });
+
+      testWidgets('gives the scroll-to-latest button a 40 dp circle in a 48 dp tap target', (tester) async {
+        await _pump(tester, _history(6));
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await tester.pumpAndSettle();
+        final button = find.byTooltip('Scroll to latest');
+        final circle = find.ancestor(
+          of: button,
+          matching: find.byWidgetPredicate((w) => w is Material && w.shape is CircleBorder),
+        );
+        expect(tester.getSize(circle), const Size.square(40));
+
+        // Just outside the circle, inside the target.
+        await tester.tapAt(tester.getCenter(button) + const Offset(23, 0));
+        await tester.pumpAndSettle();
+        expect(find.text('Question 5'), findsOneWidget);
+        expect(
+          tester.widget<IgnorePointer>(find.ancestor(of: button, matching: find.byType(IgnorePointer)).first).ignoring,
+          isTrue,
+        );
+      });
+
+      testWidgets('shows the scroll-to-latest button once the end is more than 24 out of view', (tester) async {
+        await _pump(tester, _history(6));
+        final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+        final button = find.byTooltip('Scroll to latest');
+        double scale() =>
+            tester.widget<AnimatedScale>(find.ancestor(of: button, matching: find.byType(AnimatedScale))).scale;
+        expect(scale(), 0.8);
+
+        position.jumpTo(position.maxScrollExtent - 24);
+        await tester.pumpAndSettle();
+        expect(scale(), 0.8);
+
+        position.jumpTo(position.maxScrollExtent - 25);
+        await tester.pumpAndSettle();
+        expect(scale(), 1);
+        expect(
+          tester.widget<AnimatedScale>(find.ancestor(of: button, matching: find.byType(AnimatedScale))).duration,
+          Duration.zero,
+          reason: 'reduced motion shows it at once',
+        );
+      });
     });
 
     group('goldens', () {

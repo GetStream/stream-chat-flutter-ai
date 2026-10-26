@@ -139,7 +139,7 @@ class _AIConversationViewState extends State<AIConversationView> {
   void _updateEndInView() {
     if (!_controller.hasClients) return;
     final position = _controller.position;
-    final inView = position.maxScrollExtent - position.pixels <= 32;
+    final inView = position.maxScrollExtent - position.pixels <= 24;
     if (inView != _endInView) setState(() => _endInView = inView);
   }
 
@@ -333,7 +333,13 @@ class _AIConversationViewState extends State<AIConversationView> {
                   child: AnimatedOpacity(
                     opacity: _endInView ? 0 : 1,
                     duration: _reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
-                    child: _ScrollToLatestButton(onPressed: _scrollToLatest),
+                    curve: Curves.easeInOut,
+                    child: AnimatedScale(
+                      scale: _endInView ? 0.8 : 1,
+                      duration: _reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: _ScrollToLatestButton(onPressed: _scrollToLatest),
+                    ),
                   ),
                 ),
               ),
@@ -375,20 +381,30 @@ class _TurnView extends StatelessWidget {
     return ThinkingTurnScope(
       clock: clock,
       turn: turn.id,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: isLatest ? minHeight : 0),
-        child: Padding(
-          padding: padding.copyWith(top: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            spacing: 16,
-            children: [
-              for (final entry in turn.entries)
-                _EntryView(key: ValueKey(entry.id), entry: entry, approver: approver, onAttachmentTap: onAttachmentTap),
-              if (isLatest && isThinking) const Align(alignment: Alignment.centerLeft, child: AIThinkingView()),
-              if (isLatest && footer != null) footer,
-            ],
+      // 8 between turns. It goes under a turn rather than above it, so the
+      // first one keeps its place whether or not older messages can load.
+      child: Padding(
+        padding: EdgeInsets.only(bottom: isLatest ? 0 : 8),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: isLatest ? minHeight : 0),
+          child: Padding(
+            padding: padding.copyWith(top: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              spacing: 16,
+              children: [
+                for (final entry in turn.entries)
+                  _EntryView(
+                    key: ValueKey(entry.id),
+                    entry: entry,
+                    approver: approver,
+                    onAttachmentTap: onAttachmentTap,
+                  ),
+                if (isLatest && isThinking) const Align(alignment: Alignment.centerLeft, child: AIThinkingView()),
+                if (isLatest && footer != null) footer,
+              ],
+            ),
           ),
         ),
       ),
@@ -515,7 +531,7 @@ class _EntryViewState extends State<_EntryView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      spacing: 4,
+      spacing: 8,
       children: [
         builders.assistantMessage?.call(context, assistant) ??
             AIAssistantMessageView(
@@ -619,12 +635,13 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
 
   @override
   Widget build(BuildContext context) {
+    // 8 under it, as between turns.
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Center(
         child: SizedBox.square(
-          dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5, color: widget.color),
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: widget.color),
         ),
       ),
     );
@@ -640,14 +657,35 @@ class _ScrollToLatestButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ConversationTheme.of(context);
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: theme.scrollButtonBackgroundColor ?? scheme.surface,
-      shape: CircleBorder(side: BorderSide(color: theme.scrollButtonBorderColor ?? scheme.outlineVariant)),
-      elevation: 2,
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: AITranslations.of(context).scrollToLatest,
-        icon: Icon(Icons.arrow_downward, size: 20, color: theme.scrollButtonIconColor ?? scheme.onSurface),
+    // A 40 dp circle with a light shadow. Taps just around it reach it too, in
+    // a 48 dp target.
+    return GestureDetector(
+      onTap: onPressed,
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: Color(0x24000000), offset: Offset(0, 2), blurRadius: 6)],
+          ),
+          child: Material(
+            color: theme.scrollButtonBackgroundColor ?? scheme.surface,
+            shape: CircleBorder(side: BorderSide(color: theme.scrollButtonBorderColor ?? scheme.outlineVariant)),
+            child: IconButton(
+              onPressed: onPressed,
+              tooltip: AITranslations.of(context).scrollToLatest,
+              icon: Icon(Icons.arrow_downward, size: 20, color: theme.scrollButtonIconColor ?? scheme.onSurface),
+              // Set on the button rather than in `style`, which Material 2
+              // ignores.
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
+              splashRadius: 20,
+              style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            ),
+          ),
+        ),
       ),
     );
   }

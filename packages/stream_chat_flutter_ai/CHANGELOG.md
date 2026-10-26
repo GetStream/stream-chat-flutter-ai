@@ -169,6 +169,11 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
+- `AIConversationView`, `AIUserMessageView` and `AIReplyActionsView` take the iOS SDK's sizes: 8
+  between turns; a 40 dp scroll-to-latest circle with a light shadow and a 48 dp tap target, which
+  fades and scales in once the end is more than 24 dp out of view; a 20 dp older-messages spinner;
+  a user bubble 40 dp from the leading edge with 16×12 padding; and 40 dp reply actions, 8 apart and
+  8 below the answer.
 
 🐞 Fixed
 
