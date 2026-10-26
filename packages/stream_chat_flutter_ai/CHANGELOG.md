@@ -97,7 +97,15 @@
   Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
   `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
 - `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
-- Charts show a series legend (`ChartThemeData.showLegend` / `legendPosition`), and pie slices are labelled with their percentage.
+- `ChartView` draws a legend for a pie and for a chart with two or more series, themed via the new
+  `ChartThemeData.showLegend`, `legendPosition` (a `ChartLegendPosition`) and `legendTextStyle`. A
+  long legend is cut off with a "+N more" entry.
+- `ChartThemeData.showPiePercentages` and `piePercentageThreshold` — pie slices show their share of
+  the whole, from 8% up by default.
+- `ChartSemantics.sliceLabels` — the names of the slices a pie draws.
+- `ChartView.legendKey` — the key of a chart's legend, for finding it in widget tests.
+- `AITranslations.unnamedChartSlice` and `chartLegendMore` — the legend's names for an unnamed slice
+  and for the entries left out.
 
 🔄 Changed
 
@@ -105,12 +113,21 @@
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
+- Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
+- A pie's screen-reader summary lists its slice names.
+- `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 
 🐞 Fixed
 
 - `AITypingIndicatorView`'s dots were black by default, which made them invisible in dark mode.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
+- A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
+  slices out.
+- A pie with mixed-sign values no longer shows percentages such as "250%"; only positive slices are
+  drawn and counted.
+- A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
+  line breaks at the gap and a bar chart leaves the bar out.
 
 ## 0.1.0
 
