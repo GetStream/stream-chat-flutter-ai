@@ -246,6 +246,9 @@ class _CodeBlockViewState extends State<CodeBlockView> {
       case _ThemeChange.none:
         break;
       case _ThemeChange.colorsOnly:
+        // Spans carrying the old base style keep its color until the settle
+        // pass, which each animation frame re-arms — so plain tokens hold the
+        // old color for the whole animation and catch up 120 ms after it ends.
         _scheduleSettlePass();
       case _ThemeChange.structural:
         _highlight();
