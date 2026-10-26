@@ -149,6 +149,15 @@
   attachments and scroll-to-latest button.
 - `AITranslations.copyMessage`, `editMessage`, `scrollToLatest`, `attachmentImage`,
   `attachmentFile`, `attachmentDetails` and `fileSize` — the conversation's strings.
+- `AIVoiceGlowView` and `AIVoiceWaveView` — a globe of drifting color and a waveform line that show
+  what a voice agent is doing, drawn with fragment shaders. They ease from one state into the next,
+  ripple where they are tapped and barely move with reduced motion on.
+- `AIVoiceAgentState` — what the agent is doing: `idle`, `connecting`, `listening`, `thinking` or
+  `speaking`.
+- `colors` (one to five, `ColorScheme.primary` by default), `expressivity` (0 to 2) and
+  `audioLevel` (0 to 1, a live voice level such as a call participant's) on both views.
+- `AITranslations.voiceAgent`, `voiceIdle`, `voiceConnecting`, `voiceListening`, `voiceThinking`
+  and `voiceSpeaking` — what screen readers hear: the view, and the state as its value.
 
 🔄 Changed
 

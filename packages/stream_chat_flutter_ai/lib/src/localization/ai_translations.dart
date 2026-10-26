@@ -272,6 +272,24 @@ abstract class AITranslations {
   /// [bytes] as a file size, such as "2.4 MB".
   String fileSize(int bytes);
 
+  /// What a voice visualization is, read out by screen readers.
+  String get voiceAgent;
+
+  /// A voice agent waiting to be spoken to.
+  String get voiceIdle;
+
+  /// A voice agent that is not ready yet.
+  String get voiceConnecting;
+
+  /// A voice agent hearing somebody.
+  String get voiceListening;
+
+  /// A voice agent working on an answer.
+  String get voiceThinking;
+
+  /// A voice agent talking.
+  String get voiceSpeaking;
+
   /// The screen-reader summary of a chart.
   ///
   /// [ChartView] paints to a canvas, so this is the only thing a reader has to
@@ -466,6 +484,24 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String fileSize(int bytes) => formatFileSize(bytes);
+
+  @override
+  String get voiceAgent => 'Voice agent';
+
+  @override
+  String get voiceIdle => 'Ready';
+
+  @override
+  String get voiceConnecting => 'Connecting';
+
+  @override
+  String get voiceListening => 'Listening';
+
+  @override
+  String get voiceThinking => 'Thinking';
+
+  @override
+  String get voiceSpeaking => 'Speaking';
 
   @override
   String chartSemanticsLabel(ChartSemantics chart) {
