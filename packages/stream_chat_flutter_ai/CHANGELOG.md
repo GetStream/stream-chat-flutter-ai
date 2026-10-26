@@ -4,10 +4,10 @@
 
 - `CodeHighlighter` now takes a single `CodeHighlightRequest` instead of `(code, language, baseStyle)`.
 - `CodeBlockView.backgroundColor` and `CodeBlockView.foregroundColor` are replaced by `CodeBlockView.theme`.
-- `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` and
-  `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
+- `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
+- `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `AITypingIndicatorView.dotCount` and `dotSize` are now nullable; unset, they come from the theme.
-- `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable, and the dots default to the themed caption color instead of black.
+- `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable; unset, they come from the theme.
 - `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of inheriting `DefaultTextStyle`.
 - `ChatComposer.factory` is nullable; `null` uses `AIComponentBuilders.composer`, then the default.
 
@@ -20,7 +20,6 @@
   app-wide.
 - `CodeHighlightRequest` — what a `CodeHighlighter` is asked to highlight: the code, its language,
   the block's resolved theme, and the `baseStyle` and `brightness` derived from it.
-
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
@@ -98,19 +97,24 @@
   Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
   `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
 - `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
-- `ChartView` draws a legend for a pie and for a chart with two or more series, themed via the new
-  `ChartThemeData.showLegend`, `legendPosition` (a `ChartLegendPosition`) and `legendTextStyle`. A
-  long legend is cut off with a "+N more" entry.
+- `ChartView` draws a legend for a pie, and for a line, area, bar, scatter or bubble chart with two
+  or more series (a histogram or heatmap gets none), themed via the new `ChartThemeData.showLegend`,
+  `legendPosition` (a `ChartLegendPosition`) and `legendTextStyle`. A long legend is cut off with a
+  "+N more" entry.
 - `ChartThemeData.showPiePercentages` and `piePercentageThreshold` — pie slices show their share of
   the whole, from 8% up by default.
 - `ChartSemantics.sliceLabels` — the names of the slices a pie draws.
+- `ChartSemantics.fromSpec`'s `unnamedSlice:` — names a pie slice the chart data didn't name, given
+  its position.
 - `ChartView.legendKey` — the key of a chart's legend, for finding it in widget tests.
 - `AITranslations.unnamedChartSlice` and `chartLegendMore` — the legend's names for an unnamed slice
   and for the entries left out.
 - `AILocalModel` — an interface over an on-device model that streams a fallback reply when the person is offline or the agent hit its usage limit. Each event is the whole answer so far, which is what `StreamingMessageView.text` takes, and cancelling the subscription stops the model.
 - `AIConversationTurn` and `AIConversationRole` — one turn of the conversation handed to an `AILocalModel`. `AIConversationTurn.fitToBudget` trims the history to a small context, keeping the newest unbroken run of turns and always the question; `estimateTokens` and `tokensPerTurn` set what a turn costs.
 - `AILocalModelException` and `AILocalModelErrorReason` (`unavailable`, `invalidConversation`, `contextExceeded`, `failed`) — the error an `AILocalModel.reply` stream emits when the model can't answer.
-- `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) replace the code blocks, charts, agent steps, approval card and composer slots the package builds.
+- `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) — one place to swap
+  the components the package builds inside its own widgets for your own: code blocks, charts, agent
+  steps, the approval card, a conversation's messages and the composer's slots.
 - `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each `AIComponentBuilders` slot gets.
 - `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
   "Copied!" for a moment, then share, regenerate and 👍 / 👎 when the app handles them. Tapping the
@@ -165,14 +169,21 @@
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
+- Charts show a legend by default: `ChartThemeData.showLegend` defaults to `true`, so a pie and a
+  chart with two or more series now draw one. Set `showLegend: false` to keep the previous look.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
-- The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
+- A chart's screen-reader summary names at most eight series or slices, then says "and N more".
+- The README documents the new components — agent steps, reasoning, tool calls, approvals, the
+  client tool runner, `AILocalModel`, chart legends, `AIComponentFactory`, `AIReplyActionsView`,
+  `AIConversationView` and the voice views — and its `SpeechToTextButton` snippet now uses
+  `SpeechToTextConfig`.
 
 🐞 Fixed
 
-- `AITypingIndicatorView`'s dots were black by default, which made them invisible in dark mode.
+- `AITypingIndicatorView`'s and `AnimatedDots`' dots were black by default, which made them invisible
+  in dark mode. They now default to the themed caption color.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
 - A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
