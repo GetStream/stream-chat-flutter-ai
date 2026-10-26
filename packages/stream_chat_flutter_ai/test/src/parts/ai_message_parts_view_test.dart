@@ -19,7 +19,7 @@ final _parts = AIMessagePart.parseAll([
 
 void main() {
   group('AIMessagePartsView', () {
-    testWidgets('shows reasoning as a reasoning view, and the placeholder only for parts it cannot read', (
+    testWidgets('shows reasoning and tool calls in their views, and the placeholder only for parts it cannot read', (
       tester,
     ) async {
       final parts = [
@@ -30,25 +30,208 @@ void main() {
       ];
       await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
 
-      // The readable reasoning gets its view. The citation (unknown kind) and
-      // the v2 reasoning (newer format) get the placeholder. The tool call has
-      // no default view yet, so it shows nothing.
+      // The readable reasoning and tool call get their views. The citation
+      // (unknown kind) and the v2 reasoning (newer format) get the placeholder.
       expect(find.byType(StreamingReasoningView), findsOneWidget);
       expect(find.text('Thought process'), findsOneWidget);
+      expect(find.byType(AIToolCallView), findsOneWidget);
+      expect(find.text('get weather'), findsOneWidget);
       expect(find.byType(AIUnsupportedPartView), findsNWidgets(2));
       expect(find.text("A step this app version can't show"), findsNWidgets(2));
       final column = tester.widget<Column>(find.byType(Column).first);
       expect(column.children.map((child) => child.key), const [
         ValueKey<Object>('r1'),
+        ValueKey<Object>('call_1'),
         ValueKey<Object>('c1'),
         ValueKey<Object>('r2'),
       ]);
     });
 
-    testWidgets('renders nothing when no part has a view', (tester) async {
-      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: _parts.sublist(1, 2))));
+    testWidgets('a tool call shows its title, status and summary', (tester) async {
+      final parts = AIMessagePart.parseAll([
+        (
+          type: 'ai_tool_call',
+          payload: const {
+            'id': 'call_1',
+            'name': 'get_weather',
+            'display_title': 'Checking the weather',
+            'status': 'completed',
+            'summary': 'Sunny, 21°C',
+            'duration_ms': 800,
+          },
+        ),
+      ]);
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts)));
 
+      final view = tester.widget<AIToolCallView>(find.byType(AIToolCallView));
+      expect(view.call, parts.single.toolCall);
+      expect(find.text('Checking the weather'), findsOneWidget);
+      expect(find.text('Sunny, 21°C'), findsOneWidget);
+      expect(find.text('0.8s'), findsOneWidget);
+    });
+
+    testWidgets('a streamed tool call announces its finish, and one loaded already finished does not', (tester) async {
+      final handle = tester.ensureSemantics();
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      List<AIMessagePart> parts(String status) => AIMessagePart.parseAll([
+        (type: 'ai_tool_call', payload: const {'id': 'old', 'name': 'look_up', 'status': 'completed'}),
+        (type: 'ai_tool_call', payload: {'id': 'new', 'name': 'get_weather', 'status': status}),
+      ]);
+
+      await tester.pumpWidget(_wrap(AIMessagePartsView(parts: parts('running'))));
+      expect(tester.getSemantics(find.bySemanticsLabel('look up, Completed')), isSemantics(isLiveRegion: false));
+      expect(tester.getSemantics(find.bySemanticsLabel('get weather, Running')), isSemantics(isLiveRegion: true));
+
+      // A reasoning step arriving before the call doesn't cost it its state.
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: [
+              ...AIMessagePart.parseAll([
+                (type: 'ai_reasoning', payload: const {'id': 'r1', 'status': 'completed'}),
+              ]),
+              ...parts('completed'),
+            ],
+          ),
+        ),
+      );
+      expect(tester.getSemantics(find.bySemanticsLabel('get weather, Completed')), isSemantics(isLiveRegion: true));
+      expect(tester.getSemantics(find.bySemanticsLabel('look up, Completed')), isSemantics(isLiveRegion: false));
+      handle.dispose();
+    });
+
+    testWidgets('a toolCallBuilder shows some tools its own way and leaves the rest to the default', (tester) async {
+      final parts = AIMessagePart.parseAll([
+        (type: 'ai_tool_call', payload: const {'id': 'call_1', 'name': 'get_weather', 'status': 'completed'}),
+        (type: 'ai_tool_call', payload: const {'id': 'call_2', 'name': 'search_web', 'status': 'completed'}),
+        (type: 'ai_reasoning', payload: const {'id': 'r1', 'status': 'completed'}),
+      ]);
+      final asked = <String>[];
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: parts,
+            toolCallBuilder: (context, call) {
+              asked.add(call.id);
+              return call.name == 'get_weather' ? const Text('weather card') : null;
+            },
+          ),
+        ),
+      );
+
+      expect(asked, ['call_1', 'call_2'], reason: 'only asked for tool calls');
+      expect(find.text('weather card'), findsOneWidget);
+      expect(find.byType(AIToolCallView), findsOneWidget);
+      expect(find.text('search web'), findsOneWidget);
+      expect(find.byType(StreamingReasoningView), findsOneWidget);
+      final column = tester.widget<Column>(find.byType(Column).first);
+      expect(column.children.map((child) => child.key), const [
+        ValueKey<Object>('call_1'),
+        ValueKey<Object>('call_2'),
+        ValueKey<Object>('r1'),
+      ]);
+    });
+
+    testWidgets('a partBuilder returning null hands tool calls to the toolCallBuilder', (tester) async {
+      final asked = <String>[];
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: _parts,
+            partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const Text('citation') : null,
+            toolCallBuilder: (context, call) {
+              asked.add(call.id);
+              return const Text('call');
+            },
+          ),
+        ),
+      );
+
+      expect(asked, ['call_1']);
+      expect(find.text('call'), findsOneWidget);
+      expect(find.text('citation'), findsOneWidget);
+    });
+
+    testWidgets('hidden leaves a part out, with no spacing for it', (tester) async {
+      Widget build({required bool hide}) => _wrap(
+        AIMessagePartsView(
+          parts: _parts,
+          spacing: 20,
+          partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const SizedBox(height: 10) : null,
+          toolCallBuilder: (context, call) => hide ? AIMessagePartsView.hidden : const SizedBox(height: 10),
+        ),
+      );
+
+      await tester.pumpWidget(build(hide: false));
+      final shown = tester.getSize(find.byType(AIMessagePartsView)).height;
+      await tester.pumpWidget(build(hide: true));
+      final hidden = tester.getSize(find.byType(AIMessagePartsView)).height;
+      expect(shown - hidden, 30, reason: 'the 10pt part and one 20pt gap are gone');
+
+      final column = tester.widget<Column>(find.byType(Column).first);
+      expect(column.children.map((child) => child.key), const [ValueKey<Object>('r1'), ValueKey<Object>('c1')]);
+    });
+
+    testWidgets('hiding the first of two parts with one id keeps the second its state', (tester) async {
+      final twins = AIMessagePart.parseAll([
+        (type: 'ai_tool_call', payload: const {'id': 'same', 'name': 'first'}),
+        (type: 'ai_tool_call', payload: const {'id': 'same', 'name': 'second'}),
+      ]);
+      Widget build({required bool hideFirst}) => _wrap(
+        AIMessagePartsView(
+          parts: twins,
+          toolCallBuilder: (context, call) =>
+              hideFirst && call.name == 'first' ? AIMessagePartsView.hidden : _Counter(key: ValueKey(call.name)),
+        ),
+      );
+
+      await tester.pumpWidget(build(hideFirst: false));
+      final second = tester.state(find.byKey(const ValueKey('second')));
+      await tester.pumpWidget(build(hideFirst: true));
+      expect(tester.state(find.byKey(const ValueKey('second'))), same(second));
+    });
+
+    testWidgets('hidden from a partBuilder hides any part', (tester) async {
+      await tester.pumpWidget(
+        _wrap(AIMessagePartsView(parts: _parts, partBuilder: (context, part) => AIMessagePartsView.hidden)),
+      );
       expect(find.byType(Column), findsNothing);
+    });
+
+    testWidgets('a partBuilder is asked before the toolCallBuilder', (tester) async {
+      final asked = <String>[];
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: _parts,
+            partBuilder: (context, part) => part.kind == AIMessagePartKind.toolCall ? const Text('part') : null,
+            toolCallBuilder: (context, call) {
+              asked.add(call.id);
+              return const Text('call');
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('part'), findsOneWidget);
+      expect(find.text('call'), findsNothing);
+      expect(asked, isEmpty);
+    });
+
+    testWidgets('a tool call in a newer format stays a placeholder, unseen by the toolCallBuilder', (tester) async {
+      final parts = AIMessagePart.parseAll([
+        (type: 'ai_tool_call', payload: const {'id': 'call_1', 'v': 99}),
+      ]);
+      await tester.pumpWidget(
+        _wrap(AIMessagePartsView(parts: parts, toolCallBuilder: (context, call) => const Text('call'))),
+      );
+
+      expect(find.byType(AIToolCallView), findsNothing);
+      expect(find.text('call'), findsNothing);
+      expect(find.byType(AIUnsupportedPartView), findsOneWidget);
     });
 
     testWidgets('a reasoning part shows its status, duration, summary and preview', (tester) async {
@@ -255,4 +438,16 @@ class _DutchTranslations extends DefaultAITranslations {
 
   @override
   String get unsupportedMessagePart => 'Onbekende stap';
+}
+
+class _Counter extends StatefulWidget {
+  const _Counter({super.key});
+
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  @override
+  Widget build(BuildContext context) => const SizedBox(height: 10);
 }

@@ -36,6 +36,7 @@ export 'src/parts/ai_message_parts_view.dart';
 export 'src/parts/ai_reasoning_part.dart';
 export 'src/parts/ai_tool_approval.dart';
 export 'src/parts/ai_tool_call_part.dart';
+export 'src/parts/ai_tool_call_view.dart';
 export 'src/reasoning/streaming_reasoning_view.dart';
 export 'src/streaming_message_view.dart';
 export 'src/theme/ai_theme.dart';
@@ -44,6 +45,7 @@ export 'src/theme/components/code_block_theme.dart';
 export 'src/theme/components/composer_theme.dart';
 export 'src/theme/components/reasoning_theme.dart';
 export 'src/theme/components/suggestions_theme.dart';
+export 'src/theme/components/tool_call_theme.dart';
 export 'src/theme/components/typing_indicator_theme.dart';
 
 export 'src/tools/ai_tool_definition.dart';
