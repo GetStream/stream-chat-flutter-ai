@@ -42,7 +42,8 @@ class ResolvedReasoningTheme {
     TextStyle resolveStyle(TextStyle? base, Color color, TextStyle? themed, TextStyle? local) {
       var style = mergeTextStyle(mergeTextStyle((base ?? const TextStyle()).copyWith(color: color), themed), local);
       // An `inherit: false` override replaces the base outright, color and all.
-      if (style.color == null) style = style.copyWith(color: color);
+      // A `foreground` paint stands in for a color, so that one is left alone.
+      if (style.color == null && style.foreground == null) style = style.copyWith(color: color);
       return style;
     }
 
@@ -64,7 +65,12 @@ class ResolvedReasoningTheme {
       ),
       shimmerColor: override?.shimmerColor ?? data.shimmerColor ?? colors.primary,
       ruleColor: override?.ruleColor ?? data.ruleColor ?? colors.outlineVariant,
-      iconColor: override?.iconColor ?? data.iconColor ?? titleStyle.color!,
+      iconColor:
+          override?.iconColor ??
+          data.iconColor ??
+          titleStyle.color ??
+          titleStyle.foreground?.color ??
+          colors.onSurfaceVariant,
       maxExpandedHeight: math.max<double>(
         0,
         override?.maxExpandedHeight ?? data.maxExpandedHeight ?? _kDefaultMaxExpandedHeight,
@@ -72,13 +78,16 @@ class ResolvedReasoningTheme {
     );
   }
 
-  /// See [ReasoningThemeData.titleStyle]. Always carries a color.
+  /// See [ReasoningThemeData.titleStyle]. Always carries a color or a
+  /// `foreground` paint.
   final TextStyle titleStyle;
 
-  /// See [ReasoningThemeData.textStyle]. Always carries a color.
+  /// See [ReasoningThemeData.textStyle]. Always carries a color or a
+  /// `foreground` paint.
   final TextStyle textStyle;
 
-  /// See [ReasoningThemeData.footnoteStyle]. Always carries a color.
+  /// See [ReasoningThemeData.footnoteStyle]. Always carries a color or a
+  /// `foreground` paint.
   final TextStyle footnoteStyle;
 
   /// See [ReasoningThemeData.shimmerColor].

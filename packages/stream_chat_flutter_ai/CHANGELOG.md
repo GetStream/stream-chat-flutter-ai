@@ -44,7 +44,13 @@
   builds parts your own way.
 - `AIUnsupportedPartView` — the placeholder for a step this app version can't show.
 - `AITranslations.unsupportedMessagePart` — that placeholder's text.
-- `StreamingReasoningView` — a collapsible "Thinking… / Thought for Ns" reasoning panel, themed via `ReasoningThemeData`.
+- `StreamingReasoningView` — a collapsible "Thinking… 7s / Thought for 12s" panel for the model's
+  reasoning, revealing it smoothly as it streams in. `StreamingReasoningView.part` builds one from
+  an `AIReasoningPart`, and `AIMessagePartsView` shows reasoning steps with it. Themed through
+  `ReasoningThemeData` (`AITheme.reasoningTheme`), narrowed to a subtree with `ReasoningTheme`, and
+  translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
+  `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
+  `DefaultAITranslations.reasoningDuration` spells the durations.
 
 🔄 Changed
 
