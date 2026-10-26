@@ -47,7 +47,7 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 StreamingMessageView(
   text: markdownText, // updated in real time as chunks arrive
-  typingSpeed: const Duration(milliseconds: 10),
+  expectMoreText: isGenerating, // typed out while true, shown at once otherwise
 );
 ```
 

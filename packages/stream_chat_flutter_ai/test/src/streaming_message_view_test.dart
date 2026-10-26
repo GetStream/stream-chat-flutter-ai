@@ -30,33 +30,22 @@ void main() {
         const testText = 'Hello, world!';
         const typingSpeed = Duration(milliseconds: 20);
 
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: StreamingMessageView(
-                text: testText,
-                typingSpeed: typingSpeed,
-              ),
-            ),
+        Widget build(String text) => MaterialApp(
+          home: Scaffold(
+            body: StreamingMessageView(text: text, typingSpeed: typingSpeed, expectMoreText: true),
           ),
         );
 
+        await tester.pumpWidget(build(testText));
+        await tester.pump(typingSpeed * testText.length);
         expect(find.text(testText), findsOneWidget);
 
         const updatedText = 'Hello, world! How are you?';
-        await tester.pumpWidget(
-          const MaterialApp(
-            home: Scaffold(
-              body: StreamingMessageView(
-                text: updatedText,
-                typingSpeed: typingSpeed,
-              ),
-            ),
-          ),
-        );
+        await tester.pumpWidget(build(updatedText));
+        await tester.pump(typingSpeed * 4);
+        expect(find.text('Hello, world! How'), findsOneWidget);
 
         await tester.pump(typingSpeed * updatedText.length);
-
         expect(find.text(updatedText), findsOneWidget);
       },
     );
@@ -79,6 +68,101 @@ void main() {
         expect(find.text('Bye.'), findsOneWidget);
       },
     );
+
+    testWidgets('types the first text of a generating reply from its first character', (tester) async {
+      // A view created by the first chunk of a reply used to show that chunk
+      // at once and type only what followed it.
+      const typingSpeed = Duration(milliseconds: 10);
+      final states = <TypewriterState>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamingMessageView(
+              text: 'Hello, world!',
+              typingSpeed: typingSpeed,
+              expectMoreText: true,
+              onTypewriterStateChanged: states.add,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Hello, world!'), findsNothing);
+      await tester.pump(typingSpeed * 5);
+      expect(find.text('Hello'), findsOneWidget);
+      expect(states.toSet(), {TypewriterState.typing});
+
+      await tester.pump(typingSpeed * 10);
+      expect(find.text('Hello, world!'), findsOneWidget);
+      expect(states.last, TypewriterState.idle);
+    });
+
+    testWidgets('types 5 ms per character by default, as on iOS', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: StreamingMessageView(text: 'abcdefghij', expectMoreText: true)),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 25));
+      expect(find.text('abcde'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 25));
+      expect(find.text('abcdefghij'), findsOneWidget);
+    });
+
+    group('expectMoreText', () {
+      const typingSpeed = Duration(milliseconds: 10);
+
+      Widget build(String text, {required bool expectMoreText, List<TypewriterState>? states}) => MaterialApp(
+        home: Scaffold(
+          body: StreamingMessageView(
+            text: text,
+            typingSpeed: typingSpeed,
+            expectMoreText: expectMoreText,
+            onTypewriterStateChanged: states?.add,
+          ),
+        ),
+      );
+
+      testWidgets('shows a change at once when not generating', (tester) async {
+        final states = <TypewriterState>[];
+        await tester.pumpWidget(build('Hello', expectMoreText: false, states: states));
+        await tester.pumpWidget(build('Hello, world!', expectMoreText: false, states: states));
+
+        expect(find.text('Hello, world!'), findsOneWidget);
+        await tester.pump();
+        expect(states, isNot(contains(TypewriterState.typing)));
+      });
+
+      testWidgets('types the text that arrives with the end of generation', (tester) async {
+        await tester.pumpWidget(build('', expectMoreText: true));
+        await tester.pumpWidget(build('Hello, world!', expectMoreText: false));
+
+        await tester.pump(typingSpeed * 5);
+        expect(find.text('Hello'), findsOneWidget);
+
+        await tester.pump(typingSpeed * 10);
+        expect(find.text('Hello, world!'), findsOneWidget);
+      });
+
+      testWidgets('keeps typing what is left after generation ends', (tester) async {
+        await tester.pumpWidget(build('Hello, world!', expectMoreText: true));
+        await tester.pump(typingSpeed * 5);
+        await tester.pumpWidget(build('Hello, world!', expectMoreText: false));
+
+        expect(find.text('Hello'), findsOneWidget);
+        await tester.pump(typingSpeed * 10);
+        expect(find.text('Hello, world!'), findsOneWidget);
+      });
+
+      testWidgets('shows a change after generation ended at once', (tester) async {
+        await tester.pumpWidget(build('Hello', expectMoreText: true));
+        await tester.pumpWidget(build('Hello', expectMoreText: false));
+        await tester.pump(typingSpeed * 10);
+
+        await tester.pumpWidget(build('Hello, edited.', expectMoreText: false));
+        expect(find.text('Hello, edited.'), findsOneWidget);
+      });
+    });
 
     testWidgets(
       'reports the initial typewriter state to onTypewriterStateChanged',
@@ -286,11 +370,12 @@ void main() {
 
         Widget build(String text) => MaterialApp(
           home: Scaffold(
-            body: StreamingMessageView(text: text, typingSpeed: typingSpeed),
+            body: StreamingMessageView(text: text, typingSpeed: typingSpeed, expectMoreText: true),
           ),
         );
 
         await tester.pumpWidget(build('Here you go:'));
+        await tester.pump(typingSpeed * 12);
         await tester.pumpWidget(build(full));
 
         // Enough ticks to clear the opening fence and reveal part of the body,
@@ -380,6 +465,7 @@ void main() {
           body: StreamingMessageView(
             text: text,
             typingSpeed: const Duration(milliseconds: 20),
+            expectMoreText: true,
             onTypewriterStateChanged: states.add,
           ),
         ),
@@ -403,6 +489,18 @@ void main() {
         expect(states, isNot(contains(TypewriterState.typing)));
 
         // Nothing left running: no typewriter timer.
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets("shows a generating reply's first text at once", (tester) async {
+        reduceMotion(tester);
+        final states = <TypewriterState>[];
+
+        await tester.pumpWidget(view('Hello, world!', states));
+
+        expect(find.text('Hello, world!'), findsOneWidget);
+        await tester.pump();
+        expect(states, [TypewriterState.idle]);
         await tester.pumpAndSettle();
       });
 
@@ -519,6 +617,7 @@ class _HostState extends State<_Host> {
   @override
   Widget build(BuildContext context) => StreamingMessageView(
     text: widget.text,
+    expectMoreText: true,
     onTypewriterStateChanged: (state) => setState(() => states.add(state)),
   );
 }

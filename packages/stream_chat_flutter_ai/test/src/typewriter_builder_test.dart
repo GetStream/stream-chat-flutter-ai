@@ -56,7 +56,7 @@ void main() {
       expect(controller.value.text, 'Bye');
     });
 
-    testWidgets('replays from the start when the new text is not a continuation', (tester) async {
+    testWidgets('replays from the start when the new text shares nothing with it', (tester) async {
       final controller = TypewriterController(text: 'Hello');
       addTearDown(controller.dispose);
 
@@ -66,6 +66,49 @@ void main() {
 
       await _typeOut(tester);
       expect(controller.value.text, 'Goodbye');
+    });
+
+    testWidgets('types only what follows the shared start of a replacement', (tester) async {
+      final controller = TypewriterController(text: 'Hello, world!');
+      addTearDown(controller.dispose);
+
+      final revealed = <String>[];
+      controller
+        ..addListener(() => revealed.add(controller.value.text))
+        ..updateText('Hello, there!');
+
+      // Cut back to the part both share, not to the start.
+      expect(controller.value.text, 'Hello, ');
+      expect(controller.value.state, TypewriterState.typing);
+
+      await _typeOut(tester);
+      expect(revealed, isNot(contains('Hello')));
+      expect(revealed, containsAllInOrder(['Hello, ', 'Hello, t', 'Hello, there!']));
+    });
+
+    testWidgets('a replacement mid-reveal keeps typing from the shared start', (tester) async {
+      final controller = TypewriterController(typingSpeed: const Duration(milliseconds: 10))
+        ..updateText('Hello, world!');
+      addTearDown(controller.dispose);
+
+      // 'Hello, wo' on screen.
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(controller.value.text, 'Hello, wo');
+
+      controller.updateText('Hello, there!');
+      expect(controller.value.text, 'Hello, ');
+      expect(controller.value.state, TypewriterState.typing);
+
+      await _typeOut(tester);
+      expect(controller.value.text, 'Hello, there!');
+      expect(controller.value.state, TypewriterState.idle);
+    });
+
+    test('types 5 ms per character by default, as on iOS', () {
+      final controller = TypewriterController();
+      addTearDown(controller.dispose);
+
+      expect(controller.typingSpeed, const Duration(milliseconds: 5));
     });
 
     testWidgets('pauseTyping keeps the revealed text and startTyping resumes it', (tester) async {

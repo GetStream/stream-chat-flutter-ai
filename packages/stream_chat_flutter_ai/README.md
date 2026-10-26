@@ -75,7 +75,9 @@ dependencies:
 ### `StreamingMessageView`
 
 Renders markdown text with a character-by-character typewriter animation — ideal for
-displaying streaming AI responses as they arrive. Markdown is fully parsed: code fences
+displaying streaming AI responses as they arrive. Text is typed out while `expectMoreText` is
+`true` (the reply is still being generated); otherwise it is shown in full at once, as for a
+reply loaded from history. Markdown is fully parsed: code fences
 get a `CodeBlockView` (with copy button, and syntax highlighting when you supply a
 `codeHighlighter`), and JSON/chart fences are rendered as interactive charts via
 `ChartView`. A code fence is styled from its opening line onwards, so a block still
@@ -84,7 +86,8 @@ being streamed doesn't show raw ` ``` ` markers while it arrives.
 ```dart
 StreamingMessageView(
   text: markdownText,          // updated in real time as chunks arrive
-  typingSpeed: Duration(milliseconds: 10),
+  expectMoreText: isGenerating, // true while the backend may still send text
+  typingSpeed: Duration(milliseconds: 5),
   onTypewriterStateChanged: (state) {
     // TypewriterState.typing | idle | paused | stopped
   },
@@ -93,7 +96,7 @@ StreamingMessageView(
 
 The typewriter usually falls behind the backend, so the reply is still being revealed after
 generation ends. To know when it is completely on screen — to swap a stop button back to send,
-say — pass `expectMoreText` and listen to `onFinished`:
+say — listen to `onFinished`:
 
 ```dart
 StreamingMessageView(
@@ -885,7 +888,10 @@ StreamBuilder<String>(
   stream: _answers,
   builder: (context, snapshot) => snapshot.hasError
       ? const Text('The on-device model could not answer.')
-      : StreamingMessageView(text: snapshot.data ?? ''),
+      : StreamingMessageView(
+          text: snapshot.data ?? '',
+          expectMoreText: snapshot.connectionState != ConnectionState.done,
+        ),
 );
 ```
 
