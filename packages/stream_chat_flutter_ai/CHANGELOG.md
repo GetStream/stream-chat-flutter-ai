@@ -119,6 +119,7 @@
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
+- The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
 
 🐞 Fixed
 

@@ -119,10 +119,10 @@ AITypingIndicatorView(
 ```
 
 Style it app-wide with `AITheme(typingIndicatorTheme: TypingIndicatorThemeData(...))` or for a
-subtree with `TypingIndicatorTheme`. The indicator is a screen-reader live region labelled with
-`text`, so keep it mounted and change `text` to have each new state announced. With reduced motion
-on, the dots are static, and `StreamingMessageView` shows each update in full instead of typing it
-out.
+subtree with `TypingIndicatorTheme`; by default the caption is `bodyMedium` in `onSurfaceVariant`
+and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
+it mounted and change `text` to have each new state announced. With reduced motion on, the dots
+are static, and `StreamingMessageView` shows each update in full instead of typing it out.
 
 ### `TypewriterController`
 
@@ -871,6 +871,7 @@ with `AIConversationTurn.fitToBudget`.
 
 ```dart
 if (await localModel.isAvailable) {
+  if (!mounted) return;
   // Create the stream once, when the question is sent — never in `build`.
   setState(() {
     _answers = localModel.reply(
