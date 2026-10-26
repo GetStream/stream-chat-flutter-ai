@@ -374,6 +374,20 @@ void main() {
         expect(reported, hasLength(1));
       });
 
+      testWidgets('reports a failing inline closure once, though each rebuild passes a new one', (tester) async {
+        // The usual streaming host builds its highlighter inline, so every
+        // tick hands over a closure that isn't identical to the last.
+        final reported = await _collectingErrors(() async {
+          for (var i = 1; i <= 5; i++) {
+            await tester.pumpWidget(
+              wrap(CodeBlockView(code: 'var x = $i;', language: 'dart', highlighter: (_) => throw StateError('boom'))),
+            );
+          }
+        });
+
+        expect(reported, hasLength(1));
+      });
+
       testWidgets('reports again after a theme change or a new highlighter', (tester) async {
         // A palette-specific failure on the new frame, or a different
         // highlighter's failure, must not be swallowed by the first report.
@@ -1195,8 +1209,9 @@ TextSpan _brightnessAwareHighlighter(CodeHighlightRequest request) {
 /// can stay `const` across pumps.
 TextSpan? _boom(CodeHighlightRequest request) => throw StateError('boom');
 
-/// A second, distinct throwing highlighter.
-TextSpan? _boom2(CodeHighlightRequest request) => throw StateError('boom 2');
+/// A second throwing highlighter, of a different type from [_boom] (it never
+/// returns null), which the report dedupe keys on.
+TextSpan _boom2(CodeHighlightRequest request) => throw StateError('boom 2');
 
 /// Requests seen by [_recordGlobally], for a test that needs a `const` widget.
 final _globalRequests = <CodeHighlightRequest>[];
