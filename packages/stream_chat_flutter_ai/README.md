@@ -891,6 +891,29 @@ StreamBuilder<String>(
 
 The reply exists only on the device; send it to your backend yourself if it should be kept.
 
+### Replacing components: `AIComponentFactory`
+
+`AIComponentFactory` replaces the components the package creates inside its own widgets, the same
+way `StreamComponentFactory` does in Stream's other Flutter SDKs: the code blocks and charts in
+markdown, the reasoning, tool call and unsupported-step views, the tool approval card, and (through
+`composer`) the `ChatComposerFactory` a `ChatComposer` uses when it is given none. Each builder in
+`AIComponentBuilders` is nullable; leave one out and its component keeps its default. A part
+builder may return `AIMessagePartsView.hidden` to leave the step out.
+
+```dart
+Widget codeBlock(BuildContext context, AICodeBlockProps props) =>
+    MyCodeBlock(code: props.code, language: props.language);
+
+AIComponentFactory(
+  builders: const AIComponentBuilders(codeBlock: codeBlock),
+  child: MaterialApp(home: ...),
+);
+```
+
+Per-widget builders (`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.builder`,
+`ChatComposer.factory`) still win where given. Keep the builders stable, ideally `const` with
+top-level functions: a new instance rebuilds every widget that reads it.
+
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
@@ -1135,9 +1158,10 @@ final parts = AIMessagePart.parseAll([
 ```
 
 Use `rawType` (`type` can be rewritten, such as into a link preview), and spread `extraData` last
-so the agent's step `id` wins over `Attachment.id`; keep `Attachment.id` too, since a message read
-back from the offline database carries the step's `id` there. Pass the same `parts` to
-`AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
+so the agent's step `id` wins over `Attachment.id`: from the network the `id` is in `extraData`,
+while the offline database stores it as `Attachment.id`. Your backend must set `id` on every step;
+otherwise each update gets a new random `Attachment.id`, and the step starts over. Pass the same
+`parts` to `AIMessagePartsView` and, on every message update, to `AIClientToolRunner.handle`.
 
 Route client-tool invocations to your `AIToolRegistry`:
 
