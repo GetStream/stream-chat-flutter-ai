@@ -181,6 +181,9 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
+- `AIConversationView` no longer calls `loadOlderMessages` over and over while its spinner stays in
+  view after a load that failed or brought nothing. It loads again when the first turn changes or
+  the spinner comes back into view.
 
 ## 0.1.0
 

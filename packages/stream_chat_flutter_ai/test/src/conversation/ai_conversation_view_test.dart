@@ -239,15 +239,65 @@ void main() {
       expect(ignoring, isFalse, reason: 'the person scrolled away and stays there');
     });
 
-    testWidgets('loads again while the spinner stays in view', (tester) async {
+    testWidgets(
+      'loads again when the first turn changes while the spinner stays in view',
+      (tester) async {
+        var loads = 0;
+        Future<void> loadOlder() async => loads++;
+        await _pump(tester, [_user('u1', 'Short')], loadOlder: loadOlder, settle: false);
+        // Hold the list pulled past its start, so the spinner stays in view.
+        final gesture = await tester.startGesture(tester.getCenter(find.byType(Scrollable)));
+        for (var i = 0; i < 10; i++) {
+          await gesture.moveBy(const Offset(0, 60));
+          await tester.pump();
+        }
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(loads, 1);
+
+        // A load that brings nothing isn't repeated.
+        await tester.pump(const Duration(seconds: 2));
+        expect(loads, 1);
+
+        // A short page arrives above and the spinner is still in view: load the next.
+        await _pump(tester, [_user('u0', 'Shorter'), _user('u1', 'Short')], loadOlder: loadOlder, settle: false);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(loads, 2);
+        await gesture.up();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+
+    testWidgets('a failed load is retried only once the spinner comes back into view', (tester) async {
       var loads = 0;
-      await _pump(tester, const [], loadOlder: () async => loads++, settle: false);
-      await _pump(tester, [_user('u1', 'Short')], loadOlder: () async => loads++, settle: false);
-      await tester.drag(find.byType(Scrollable), const Offset(0, 300));
+      Future<void> loadOlder() async {
+        loads++;
+        throw StateError('offline');
+      }
+
+      await _pump(tester, _history(3), loadOlder: loadOlder, settle: false);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 3000));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, 1);
+      expect(tester.takeException(), isA<StateError>());
+
+      // Waiting or scrolling while the spinner stays in view doesn't retry.
+      await tester.pump(const Duration(seconds: 2));
+      await tester.drag(find.byType(Scrollable), const Offset(0, -10));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(loads, greaterThanOrEqualTo(2));
+      expect(loads, 1);
+
+      // Scrolling it out of view and back does.
+      await tester.drag(find.byType(Scrollable), const Offset(0, -600));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, 1);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 3000));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, 2);
+      expect(tester.takeException(), isA<StateError>());
     });
 
     testWidgets('reports a failed load', (tester) async {
