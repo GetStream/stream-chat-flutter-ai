@@ -286,7 +286,7 @@ class USpecParser {
         for (var i = 0; i < rawValues.length; i++) {
           final raw = rawValues[i];
           if (raw is num) {
-            points.add(UPoint(x: i.toString(), y: raw.toDouble()));
+            if (raw.isFinite) points.add(UPoint(x: i.toString(), y: raw.toDouble()));
             continue;
           }
           if (raw is! Map<String, dynamic>) continue;
@@ -318,7 +318,7 @@ class USpecParser {
   /// `(y, size)` pair, or `(null, null)` if it can't be decoded.
   static (double?, double?) _asPointValue(dynamic raw) {
     if (raw == null) return (null, null);
-    if (raw is num) return (raw.toDouble(), null);
+    if (raw is num) return (_asDouble(raw), null);
     if (raw is Map<String, dynamic>) {
       return (_asDouble(raw['y']), _asDouble(raw['r']));
     }
@@ -427,7 +427,7 @@ class USpecParser {
           final d = rawData[i];
           final x = categories != null && i < categories.length ? categories[i] : i.toString();
           if (d is num) {
-            points.add(UPoint(x: x, y: d.toDouble()));
+            if (d.isFinite) points.add(UPoint(x: x, y: d.toDouble()));
           } else if (d is List && d.length >= 2) {
             final xv = _asDouble(d[0]);
             final yv = _asDouble(d[1]);
@@ -490,7 +490,7 @@ class USpecParser {
         final d = rawData[i];
         final x = categories != null && i < categories.length ? categories[i] : i.toString();
         if (d is num) {
-          points.add(UPoint(x: x, y: d.toDouble()));
+          if (d.isFinite) points.add(UPoint(x: x, y: d.toDouble()));
         } else if (d is List && d.length >= 2) {
           final xv = _asDouble(d[0]);
           final yv = _asDouble(d[1]);
@@ -641,11 +641,19 @@ class USpecParser {
     _ => USpecKind.line,
   };
 
+  /// Decodes a number, or `null` for anything that isn't a finite one.
+  ///
+  /// Non-finite values are dropped here so no chart ever sees one: `"NaN"` and
+  /// `"Infinity"` parse to non-finite doubles, JSON's `1e400` decodes to
+  /// infinity, and any of them poisons a sum, a range or a percentage.
   static double? _asDouble(dynamic raw) {
-    if (raw is num) return raw.toDouble();
-    if (raw is bool) return raw ? 1 : 0;
-    if (raw is String) return double.tryParse(raw);
-    return null;
+    final value = switch (raw) {
+      num() => raw.toDouble(),
+      bool() => raw ? 1.0 : 0.0,
+      String() => double.tryParse(raw),
+      _ => null,
+    };
+    return value != null && value.isFinite ? value : null;
   }
 
   static String _numToString(double value) =>

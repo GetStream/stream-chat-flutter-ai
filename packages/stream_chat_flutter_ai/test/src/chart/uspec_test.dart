@@ -74,6 +74,25 @@ void main() {
         expect(spec?.series.first.points.first.y, 1.5);
       });
 
+      test('drops non-finite values rather than handing them to a chart', () {
+        // "NaN" and "Infinity" parse through double.tryParse, and 1e400 decodes
+        // to infinity — any one of them poisons a pie's total.
+        final spec = USpecParser.tryParse('''
+        {"kind": "pie", "series": [{"name": "S", "points": [
+          {"x": "A", "y": "NaN"},
+          {"x": "B", "y": "Infinity"},
+          {"x": "C", "y": "-Infinity"},
+          {"x": "D", "y": 1e400},
+          {"x": "E", "y": 3, "size": "NaN", "z": "Infinity"}
+        ]}]}
+        ''');
+
+        final point = spec!.series.single.points.single;
+        expect(point.x, 'E');
+        expect(point.size, isNull);
+        expect(point.z, isNull);
+      });
+
       test('defers to another adapter when no series yields points', () {
         // A `type` + `series` payload keying its values under something other
         // than `points` must fall through rather than being claimed here and
@@ -123,6 +142,14 @@ void main() {
         ''');
 
         expect(spec!.series.single.name, isEmpty);
+      });
+
+      test('drops a plain number that overflows to infinity', () {
+        final spec = USpecParser.tryParse('''
+        {"type": "bar", "data": {"datasets": [{"label": "Sales", "data": [10, 1e400, 18]}]}}
+        ''');
+
+        expect(spec!.series.single.points.map((p) => p.y), [10, 18]);
       });
 
       test('plots plain numbers with no labels at their position in the array', () {
@@ -337,6 +364,29 @@ void main() {
         expect(spec!.kind, USpecKind.bar);
         expect(spec.series.first.points.map((p) => p.x), ['A', 'B']);
       });
+    });
+
+    group('non-finite values', () {
+      // JSON's 1e400 decodes to infinity. Each format drops it, and the points
+      // after it keep their own categories.
+      final cases = {
+        'Chart.js with labels': '''
+          {"type": "line", "data": {"labels": ["a", "b", "c"], "datasets": [{"label": "S", "data": [1, 1e400, 3]}]}}
+        ''',
+        'ECharts': '''
+          {"xAxis": {"data": ["a", "b", "c"]}, "series": [{"name": "S", "type": "line", "data": [1, 1e400, 3]}]}
+        ''',
+        'Highcharts': '''
+          {"xAxis": {"categories": ["a", "b", "c"]}, "series": [{"name": "S", "type": "line", "data": [1, 1e400, 3]}]}
+        ''',
+      };
+      for (final MapEntry(key: format, value: json) in cases.entries) {
+        test('are dropped from $format, keeping later categories', () {
+          final points = USpecParser.tryParse(json)!.series.single.points;
+          expect(points.map((p) => p.y), [1, 3], reason: format);
+          expect(points.map((p) => p.x), ['a', 'c'], reason: format);
+        });
+      }
     });
 
     group('Vega-Lite schema', () {
