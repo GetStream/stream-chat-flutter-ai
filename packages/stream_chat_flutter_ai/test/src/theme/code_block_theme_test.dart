@@ -233,12 +233,12 @@ void main() {
       expect(resolved, const CodeBlockThemeData(copyIconColor: Color(0xFF222222)));
     });
 
-    testWidgets('merge puts its key on the returned widget', (tester) async {
+    testWidgets('merge puts its key on the scope it builds', (tester) async {
       const key = Key('scope');
       await tester.pumpWidget(
         CodeBlockTheme.merge(key: key, data: const CodeBlockThemeData(), child: const SizedBox()),
       );
-      expect(find.byKey(key), findsOneWidget);
+      expect(tester.widget(find.byKey(key)), isA<CodeBlockTheme>());
     });
 
     testWidgets('wrap carries the scope across a captured theme', (tester) async {

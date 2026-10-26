@@ -81,6 +81,11 @@ class AIToolApprover extends ChangeNotifier {
   /// answer turns [AIToolApprovalFailed] with a [TimeoutException], so the
   /// person sees something went wrong and can answer again. `null`, the
   /// default, waits for as long as it takes.
+  ///
+  /// A slow send is reported through [FlutterError.reportError] right away. A
+  /// call still waiting past the timeout is reported once [stateOf] next sees
+  /// it waiting — the backend may have moved it on while no
+  /// [AIToolApprovalView] showed it — and not at all if it no longer does.
   final Duration? sentTimeout;
 
   final _entries = <String, _Entry>{};
@@ -93,7 +98,14 @@ class AIToolApprover extends ChangeNotifier {
       _entries.remove(call.id)?.timer?.cancel();
       return const AIToolApprovalIdle();
     }
-    return _entries[call.id]?.state ?? const AIToolApprovalIdle();
+    final entry = _entries[call.id];
+    // A sent timeout is only a backend bug if the call still waits, which
+    // [call] now confirms. Reported after this read, as it runs from build.
+    if (entry?.unreportedTimeout case (final error, final stackTrace)) {
+      entry!.unreportedTimeout = null;
+      scheduleMicrotask(() => _report(error, stackTrace, call));
+    }
+    return entry?.state ?? const AIToolApprovalIdle();
   }
 
   /// Sends [decision] as the answer to [call] through [decide], unless an
@@ -128,11 +140,13 @@ class AIToolApprover extends ChangeNotifier {
             'tool call "${call.id}" still awaits approval after the answer was sent',
             timeout,
           );
+          // Not reported yet: the call may have moved on while no view showed
+          // it. The next [stateOf] that sees it waiting reports it.
           entry
             ..state = AIToolApprovalFailed(decision, error)
-            ..timer = null;
+            ..timer = null
+            ..unreportedTimeout = (error, StackTrace.current);
           notifyListeners();
-          _report(error, StackTrace.current, call);
         });
       }
       notifyListeners();
@@ -178,6 +192,7 @@ class _Entry {
 
   AIToolApprovalState state;
   Timer? timer;
+  (TimeoutException, StackTrace)? unreportedTimeout;
 }
 
 /// Where the person's answer to a tool call's question is: [AIToolApprovalIdle],

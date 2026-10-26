@@ -45,18 +45,22 @@ class ResolvedTypingIndicatorTheme {
     final base = (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(color: defaultColor);
     var textStyle = mergeTextStyle(mergeTextStyle(base, data.textStyle), override?.textStyle);
     // An `inherit: false` override replaces the base outright, color and all.
-    if (textStyle.color == null) textStyle = textStyle.copyWith(color: defaultColor);
+    // A `foreground` paint stands in for a color, so that one is left alone.
+    if (textStyle.color == null && textStyle.foreground == null) {
+      textStyle = textStyle.copyWith(color: defaultColor);
+    }
 
     return ResolvedTypingIndicatorTheme._(
       textStyle: textStyle,
-      dotColor: override?.dotColor ?? data.dotColor ?? textStyle.color!,
+      dotColor: override?.dotColor ?? data.dotColor ?? textStyle.color ?? textStyle.foreground?.color ?? defaultColor,
       dotSize: math.max<double>(0, override?.dotSize ?? data.dotSize ?? _kDefaultDotSize),
       dotCount: math.max(0, override?.dotCount ?? data.dotCount ?? _kDefaultDotCount),
       dotSpacing: math.max<double>(0, override?.dotSpacing ?? data.dotSpacing ?? _kDefaultDotSpacing),
     );
   }
 
-  /// See [TypingIndicatorThemeData.textStyle]. Always carries a color.
+  /// See [TypingIndicatorThemeData.textStyle]. Always carries a color or a
+  /// `foreground` paint.
   final TextStyle textStyle;
 
   /// See [TypingIndicatorThemeData.dotColor].

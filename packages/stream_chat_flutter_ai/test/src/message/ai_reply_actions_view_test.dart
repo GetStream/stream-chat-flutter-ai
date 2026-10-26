@@ -37,6 +37,23 @@ void main() {
       expect(_labels(tester), ['Copy', 'Share', 'Regenerate', 'Good response', 'Bad response']);
     });
 
+    for (final material3 in [true, false]) {
+      testWidgets('gives every button a 48 dp tap target (Material ${material3 ? 3 : 2})', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await tester.pumpWidget(
+          _wrap(
+            AIReplyActionsView(
+              text: 'Hi',
+              actions: AIReplyActions(onShare: (_, _) {}, onRegenerate: () {}, onRate: (_) {}),
+            ),
+            theme: ThemeData(useMaterial3: material3),
+          ),
+        );
+        await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+        semantics.dispose();
+      });
+    }
+
     testWidgets('copies the text and confirms it for a moment', (tester) async {
       final copied = <String>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -52,9 +69,28 @@ void main() {
       expect(copied, ['The answer']);
       expect(_labels(tester), ['Copied!']);
       expect(_iconOf(tester, 'Copied!'), Icons.check);
+      expect(tester.takeAnnouncements().map((a) => a.message), ['Copied!']);
 
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 1499));
+      expect(_labels(tester), ['Copied!']);
+      await tester.pump(const Duration(milliseconds: 1));
       expect(_labels(tester), ['Copy']);
+    });
+
+    testWidgets('confirms nothing when the clipboard refuses the text', (tester) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') throw PlatformException(code: 'denied');
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'The answer')));
+      await tester.tap(find.byType(IconButton));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(_labels(tester), ['Copy']);
+      expect(tester.takeAnnouncements(), isEmpty);
     });
 
     testWidgets('shares the text from where the button is', (tester) async {
@@ -76,7 +112,7 @@ void main() {
       await tester.tap(find.byTooltip('Share'));
 
       expect(shared, 'The answer');
-      expect(origin, tester.getRect(find.byTooltip('Share')));
+      expect(origin, tester.getRect(find.widgetWithIcon(IconButton, Icons.ios_share)));
     });
 
     testWidgets('regenerates', (tester) async {
@@ -138,7 +174,10 @@ void main() {
           expect(_iconOf(tester, 'Bad response'), Icons.thumb_down_outlined);
           expect(tester.getSemantics(find.byTooltip('Good response')).flagsCollection.isSelected, Tristate.isTrue);
           expect(tester.getSemantics(find.byTooltip('Bad response')).flagsCollection.isSelected, Tristate.isFalse);
-          expect(tester.getSize(find.byTooltip('Good response')), const Size(32, 32));
+          // Material 2 can't pad a button out to its tap target, so there the
+          // button fills it.
+          expect(tester.getSize(find.byTooltip('Good response')), Size.square(material3 ? 32 : 48));
+          expect(tester.getSize(find.widgetWithIcon(IconButton, Icons.thumb_up)), const Size.square(48));
           semantics.dispose();
         });
       }
@@ -149,7 +188,7 @@ void main() {
       await tester.tap(find.byType(IconButton));
       await tester.pump();
       await tester.pumpWidget(_wrap(const SizedBox()));
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 1500));
       expect(tester.takeException(), isNull);
     });
 
