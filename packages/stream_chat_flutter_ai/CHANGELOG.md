@@ -169,6 +169,9 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
+- The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
+  fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
+  and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
 
 🐞 Fixed
 
