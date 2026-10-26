@@ -70,11 +70,42 @@ class ExampleApp extends StatelessWidget {
 /// through [StreamingMessageView] so markdown, code fences and chart fences
 /// are all handled.
 class _Message {
-  const _Message({required this.text, required this.isUser});
+  const _Message({required this.text, required this.isUser, this.reasoning = '', this.isThinking = false});
 
   final String text;
   final bool isUser;
+
+  /// The model's reasoning so far, shown in a [StreamingReasoningView] above
+  /// the reply. Empty for user messages.
+  final String reasoning;
+
+  /// Whether the fake model is still thinking about this reply.
+  final bool isThinking;
+
+  _Message copyWith({String? text, String? reasoning, bool? isThinking}) => _Message(
+    text: text ?? this.text,
+    isUser: isUser,
+    reasoning: reasoning ?? this.reasoning,
+    isThinking: isThinking ?? this.isThinking,
+  );
 }
+
+/// The canned reasoning streamed before the reply, the way a reasoning model
+/// "thinks out loud" before it answers.
+const _cannedReasoning = '''
+The user wants to see what this package can render, so the reply should be a **tour** rather than an answer to a question.
+
+I'll start with plain markdown — bold, italics, `inline code` and a list — since every other renderer sits inside it.
+
+Then code blocks in two languages, to show highlighting follows the fence rather than being hardcoded. Dart first, then Python.
+
+Some LaTeX would be good too: one inline formula and one display block.
+
+Finally charts: a bar chart, a pie (the amber slice tests label contrast) and a heatmap with an unnamed series, which exercises `AITranslations.unnamedChartSeries`.
+''';
+
+/// A one-line summary shown beside "Thought for Ns" once the reasoning folds.
+const _reasoningSummary = 'Planned a tour of every renderer';
 
 /// The canned assistant reply, chosen to exercise every renderer the package
 /// ships: markdown text, a fenced code block ([CodeBlockView]) and a chart
@@ -212,9 +243,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
   final _scrollController = ScrollController();
   final _messages = <_Message>[];
 
-  /// Non-null while the fake assistant is "thinking", so the pending reply can
-  /// be cancelled when the user taps stop.
+  /// Non-null while a pause is pending — before the reasoning starts, or while
+  /// it folds before the reply — so it can be cancelled when the user taps
+  /// stop.
   Timer? _thinkingTimer;
+
+  /// Non-null while chunks of the reasoning are still being delivered.
+  Timer? _reasoningTimer;
 
   /// Non-null while chunks of the reply are still being delivered.
   Timer? _streamTimer;
@@ -253,6 +288,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   @override
   void dispose() {
     _thinkingTimer?.cancel();
+    _reasoningTimer?.cancel();
     _streamTimer?.cancel();
     _composerController.dispose();
     _scrollController.dispose();
@@ -273,9 +309,32 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _composerController.clear();
     _scrollToEnd();
 
-    // Stand in for a real request: pause on the typing indicator, then start
-    // streaming the reply in.
-    _thinkingTimer = Timer(const Duration(milliseconds: 900), _streamReply);
+    // Stand in for a real request: pause on the typing indicator, then let the
+    // model think out loud before it answers.
+    _thinkingTimer = Timer(const Duration(milliseconds: 600), _streamReasoning);
+  }
+
+  /// Streams the canned reasoning into a new assistant message for a few
+  /// seconds, then ends the thinking — which folds the reasoning panel — and
+  /// starts the answer once the fold is done, so the two don't move at once.
+  void _streamReasoning() {
+    if (!mounted) return;
+    setState(() => _messages.add(const _Message(text: '', isUser: false, isThinking: true)));
+
+    var delivered = 0;
+    _reasoningTimer = Timer.periodic(const Duration(milliseconds: 90), (timer) {
+      if (!mounted) return timer.cancel();
+
+      delivered = min(delivered + 12, _cannedReasoning.length);
+      setState(() => _messages.last = _messages.last.copyWith(reasoning: _cannedReasoning.substring(0, delivered)));
+      _scrollToEnd();
+
+      if (delivered == _cannedReasoning.length) {
+        timer.cancel();
+        setState(() => _messages.last = _messages.last.copyWith(isThinking: false));
+        _thinkingTimer = Timer(StreamingReasoningView.foldDuration, _streamReply);
+      }
+    });
   }
 
   /// Stands in for a streaming backend, appending the canned reply to the last
@@ -286,19 +345,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// chunks land in coarse steps.
   void _streamReply() {
     if (!mounted) return;
-    setState(() => _messages.add(const _Message(text: '', isUser: false)));
 
     var delivered = 0;
     _streamTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
       if (!mounted) return timer.cancel();
 
       delivered = min(delivered + _chunkSize, _cannedReply.length);
-      setState(() {
-        _messages[_messages.length - 1] = _Message(
-          text: _cannedReply.substring(0, delivered),
-          isUser: false,
-        );
-      });
+      setState(() => _messages.last = _messages.last.copyWith(text: _cannedReply.substring(0, delivered)));
       _scrollToEnd();
 
       if (delivered == _cannedReply.length) {
@@ -310,8 +363,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   void _stop() {
     _thinkingTimer?.cancel();
+    _reasoningTimer?.cancel();
     _streamTimer?.cancel();
     setState(() {
+      if (_messages.lastOrNull case final last? when last.isThinking) {
+        _messages.last = last.copyWith(isThinking: false);
+      }
       _streamComplete = true;
       _composerController.isGenerating = false;
     });
@@ -350,7 +407,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                         final message = _messages[index];
                         if (message.isUser) return _UserBubble(text: message.text);
                         final isLatest = index == _messages.length - 1;
-                        return StreamingMessageView(
+                        final reply = StreamingMessageView(
                           text: message.text,
                           // Only the latest reply can still be streaming, and
                           // only it drives the composer.
@@ -369,13 +426,29 @@ class _AssistantScreenState extends State<AssistantScreen> {
                           // color them live here. See `code_highlighter.dart`.
                           codeHighlighter: highlightCode,
                         );
+                        if (message.reasoning.isEmpty) return reply;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 12,
+                          children: [
+                            StreamingReasoningView(
+                              text: message.reasoning,
+                              isThinking: message.isThinking,
+                              summary: _reasoningSummary,
+                              footnote: 'Reasoning is generated by the model and may be incomplete.',
+                            ),
+                            if (message.text.isNotEmpty) reply,
+                          ],
+                        );
                       },
                     ),
             ),
             ListenableBuilder(
               listenable: _composerController,
               builder: (context, child) {
-                if (!_composerController.isGenerating) return const SizedBox.shrink();
+                // The reasoning panel says "Thinking…" itself while it streams.
+                final thinking = _messages.lastOrNull?.isThinking ?? false;
+                if (!_composerController.isGenerating || thinking) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   child: Align(
@@ -536,4 +609,29 @@ class DutchTranslations implements AITranslations {
     if (chart.isEmpty) return '$name, geen gegevens';
     return '$name, waarden ${chart.valueMin} tot ${chart.valueMax}';
   }
+
+  @override
+  String get reasoningThinking => 'Aan het nadenken…';
+
+  @override
+  String reasoningThinkingFor(Duration elapsed) => 'Aan het nadenken… ${_duration(elapsed)}';
+
+  @override
+  String get reasoningTitle => 'Denkproces';
+
+  @override
+  String reasoningThoughtFor(Duration duration) => '${_duration(duration)} nagedacht';
+
+  static String _duration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60);
+    if (minutes == 0) return '${seconds}s';
+    return seconds == 0 ? '${minutes}m' : '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String get reasoningShowHint => 'Toont de redenering van het model';
+
+  @override
+  String get reasoningHideHint => 'Verbergt de redenering van het model';
 }
