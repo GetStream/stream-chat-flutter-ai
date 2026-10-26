@@ -1,4 +1,5 @@
 import 'package:alchemist/alchemist.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/voice/voice_visualization_driver.dart';
@@ -24,6 +25,17 @@ void _run(VoiceVisualizationDriver driver, double seconds) {
     driver.advance(1 / 60);
   }
 }
+
+/// The driver behind the voice view [view].
+VoiceVisualizationDriver _driverOf(WidgetTester tester, Finder view) {
+  final paint = tester.widget<CustomPaint>(find.descendant(of: view, matching: find.byType(CustomPaint)));
+  // The painter is private; its driver is what the gestures move.
+  return (paint.painter! as dynamic).driver as VoiceVisualizationDriver;
+}
+
+Widget _centered(Widget view) => MaterialApp(
+  home: Center(child: SizedBox.square(dimension: 200, child: view)),
+);
 
 void main() {
   group('VoiceVisualizationDriver', () {
@@ -76,6 +88,43 @@ void main() {
     });
   });
 
+  group('voice inputs', () {
+    test('clamps expressivity, and reads one that is not finite as 1', () {
+      expect(voiceExpressivity(3), 2);
+      expect(voiceExpressivity(-1), 0);
+      expect(voiceExpressivity(0.5), 0.5);
+      expect(voiceExpressivity(double.nan), 1);
+      expect(voiceExpressivity(double.infinity), 1);
+    });
+
+    test('clamps the audio level, and drops one that is not finite', () {
+      expect(voiceAudioLevel(2), 1);
+      expect(voiceAudioLevel(-1), 0);
+      expect(voiceAudioLevel(0.4), 0.4);
+      expect(voiceAudioLevel(null), isNull);
+      expect(voiceAudioLevel(double.nan), isNull);
+      expect(voiceAudioLevel(double.negativeInfinity), isNull);
+    });
+  });
+
+  group('voiceShaderAssetKey', () {
+    const packaged = 'packages/stream_chat_flutter_ai/shaders/voice_glow.frag';
+    const local = 'shaders/voice_glow.frag';
+
+    test("reads an app's packaged shader, even beside one of its own", () {
+      expect(voiceShaderAssetKey('voice_glow', [packaged]), packaged);
+      expect(voiceShaderAssetKey('voice_glow', [packaged, local]), packaged);
+    });
+
+    test("reads the package's own tests' shader", () {
+      expect(voiceShaderAssetKey('voice_glow', [local]), local);
+    });
+
+    test('names the packaged shader when none is listed', () {
+      expect(voiceShaderAssetKey('voice_glow', const []), packaged);
+    });
+  });
+
   group('voiceHsv', () {
     test('reads hue as a fraction of a turn', () {
       final (h, s, v) = voiceHsv(const Color(0xFF0000FF));
@@ -117,6 +166,83 @@ void main() {
   });
 
   group('voice view layout and gestures', () {
+    testWidgets('a NaN audio level animates on its own rather than at full volume', (tester) async {
+      await tester.pumpWidget(
+        _centered(
+          const AIVoiceGlowView(state: AIVoiceAgentState.speaking, expressivity: double.nan, audioLevel: double.nan),
+        ),
+      );
+      final input = _driverOf(tester, find.byType(AIVoiceGlowView)).input;
+      expect(input.audioLevel, isNull);
+      expect(input.expressivity, 1);
+    });
+
+    testWidgets('bounces when a tap is released, not when it goes down', (tester) async {
+      await tester.pumpWidget(_centered(const AIVoiceGlowView(state: AIVoiceAgentState.idle)));
+      final driver = _driverOf(tester, find.byType(AIVoiceGlowView));
+      final gesture = await tester.startGesture(tester.getCenter(find.byType(AIVoiceGlowView)));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(driver.scale, 1);
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 84));
+      expect(driver.scale, lessThan(1));
+    });
+
+    testWidgets('a scroll that starts on it does not bounce it', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ListView(
+            children: const [
+              SizedBox.square(dimension: 200, child: AIVoiceGlowView(state: AIVoiceAgentState.idle)),
+              SizedBox(height: 2000),
+            ],
+          ),
+        ),
+      );
+      final driver = _driverOf(tester, find.byType(AIVoiceGlowView));
+      await tester.drag(find.byType(AIVoiceGlowView), const Offset(0, -150));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 84));
+      expect(driver.scale, 1);
+      expect(tester.getTopLeft(find.byType(AIVoiceGlowView)).dy, lessThan(0), reason: 'the list scrolled');
+    });
+
+    testWidgets('a secondary click does not bounce it', (tester) async {
+      await tester.pumpWidget(_centered(const AIVoiceGlowView(state: AIVoiceAgentState.idle)));
+      final driver = _driverOf(tester, find.byType(AIVoiceGlowView));
+      await tester.tap(find.byType(AIVoiceGlowView), buttons: kSecondaryButton, kind: PointerDeviceKind.mouse);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 84));
+      expect(driver.scale, 1);
+    });
+
+    testWidgets('a hovering mouse ripples it only over the shape', (tester) async {
+      await tester.pumpWidget(_centered(const AIVoiceWaveView(state: AIVoiceAgentState.idle)));
+      final view = find.byType(AIVoiceWaveView);
+      final driver = _driverOf(tester, view);
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(gesture.removePointer);
+      await gesture.addPointer(location: Offset.zero);
+      await gesture.moveTo(tester.getTopLeft(view) + const Offset(10, 10));
+      await tester.pump();
+      expect(driver.isHovering, isFalse, reason: 'a corner, away from the line');
+      await gesture.moveTo(tester.getCenter(view));
+      await tester.pump();
+      expect(driver.isHovering, isTrue);
+      await gesture.moveTo(tester.getCenter(view) + const Offset(0, 80));
+      await tester.pump();
+      expect(driver.isHovering, isFalse, reason: 'off the line again');
+    });
+
+    testWidgets('paints on a layer of its own', (tester) async {
+      await tester.pumpWidget(_centered(const AIVoiceGlowView(state: AIVoiceAgentState.idle)));
+      expect(
+        find.descendant(of: find.byType(AIVoiceGlowView), matching: find.byType(RepaintBoundary)),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a tap still reaches a parent', (tester) async {
       var taps = 0;
       await tester.pumpWidget(

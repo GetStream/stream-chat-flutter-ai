@@ -117,6 +117,28 @@ class VoiceInput {
   return (hsv.hue / 360 % 1, hsv.saturation, hsv.value);
 }
 
+/// [expressivity] clamped to 0 to 2, or 1 when it is not finite.
+@internal
+double voiceExpressivity(double expressivity) => expressivity.isFinite ? expressivity.clamp(0, 2).toDouble() : 1;
+
+/// [level] clamped to 0 to 1, or `null` when it is not finite, so a bad
+/// reading, such as a level of silence worked out as 0 / 0, animates speech on
+/// its own rather than at full volume.
+@internal
+double? voiceAudioLevel(double? level) => level != null && level.isFinite ? level.clamp(0, 1).toDouble() : null;
+
+/// The asset key of the voice [shader] among the app's [assets].
+///
+/// An app lists a package's assets under `packages/`; the package's own tests
+/// list them without it. When neither is listed it is the app's key, so the
+/// load fails naming the path an app reads.
+@internal
+String voiceShaderAssetKey(String shader, Iterable<String> assets) {
+  final packaged = 'packages/stream_chat_flutter_ai/shaders/$shader.frag';
+  final local = 'shaders/$shader.frag';
+  return !assets.contains(packaged) && assets.contains(local) ? local : packaged;
+}
+
 /// Eases the motion toward its [input] frame by frame, and hands the shader its
 /// uniforms.
 @internal
@@ -173,6 +195,10 @@ class VoiceVisualizationDriver {
 
   /// The motion's own clock.
   double get time => _time;
+
+  /// Whether a pointer hovers over the shape.
+  @visibleForTesting
+  bool get isHovering => _isHovering;
 
   /// How much a tap's bounce scales the shape right now.
   @visibleForTesting

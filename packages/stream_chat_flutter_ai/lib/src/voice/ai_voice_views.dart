@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/voice/ai_voice_agent_state.dart';
 import 'package:stream_chat_flutter_ai/src/voice/voice_visualization_driver.dart';
@@ -122,14 +124,12 @@ enum _VoiceStyle {
 
   Future<ui.FragmentProgram> load() async => _programs[this] ??= await _load();
 
-  // An app reads a package's assets under `packages/`; the package's own tests
-  // read them without it.
+  // The key comes from the asset manifest rather than from a failed load, so a
+  // shader that is there but fails, such as on an unsupported renderer,
+  // reports its own error.
   Future<ui.FragmentProgram> _load() async {
-    try {
-      return await ui.FragmentProgram.fromAsset('packages/stream_chat_flutter_ai/shaders/$shader.frag');
-    } on Exception {
-      return ui.FragmentProgram.fromAsset('shaders/$shader.frag');
-    }
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    return ui.FragmentProgram.fromAsset(voiceShaderAssetKey(shader, manifest.listAssets()));
   }
 }
 
@@ -158,6 +158,8 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
   VoiceVisualizationDriver? _driver;
   ui.FragmentShader? _shader;
   Duration _last = Duration.zero;
+  // The pointer that may become a tap, and where it went down.
+  (int, Offset)? _press;
 
   @override
   void initState() {
@@ -207,8 +209,8 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
     return VoiceInput(
       state: widget.state,
       colors: [for (final color in palette.take(kVoiceMaxColors)) voiceHsv(color)],
-      expressivity: widget.expressivity.clamp(0, 2).toDouble(),
-      audioLevel: widget.audioLevel?.clamp(0, 1).toDouble(),
+      expressivity: voiceExpressivity(widget.expressivity),
+      audioLevel: voiceAudioLevel(widget.audioLevel),
       reduceMotion: MediaQuery.maybeDisableAnimationsOf(context) ?? false,
     );
   }
@@ -257,24 +259,48 @@ class _VoiceVisualizationState extends State<_VoiceVisualization> with SingleTic
         builder: (context, constraints) {
           final size = _sizeIn(constraints);
           return MouseRegion(
-            onHover: (event) => driver.hover(_normalized(event.localPosition, size)),
+            onHover: (event) {
+              final point = _normalized(event.localPosition, size);
+              driver.hover(widget.style.contains(point) ? point : null);
+            },
             onExit: (_) => driver.hover(null),
             // A listener rather than a tap recognizer, so a tap on it still
-            // reaches a parent's, such as one that starts a call.
+            // reaches a parent's, such as one that starts a call. It taps on
+            // release, like a recognizer, so a drag or scroll that starts on
+            // the shape doesn't bounce it.
             child: Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: (event) {
-                final point = _normalized(event.localPosition, size);
-                if (widget.style.contains(point)) driver.tap(point);
+                if (event.buttons == kPrimaryButton) _press = (event.pointer, event.localPosition);
               },
-              child: CustomPaint(
-                size: size,
-                painter: _VoicePainter(
-                  shader: _shader,
-                  driver: driver,
-                  dark: dark,
-                  pixelRatio: pixelRatio,
-                  repaint: _frame,
+              onPointerMove: (event) {
+                if (_press case (
+                  final pointer,
+                  final down,
+                ) when pointer == event.pointer && (event.localPosition - down).distance > kTouchSlop) {
+                  _press = null;
+                }
+              },
+              onPointerUp: (event) {
+                if (_press case (final pointer, _) when pointer == event.pointer) {
+                  _press = null;
+                  final point = _normalized(event.localPosition, size);
+                  if (widget.style.contains(point)) driver.tap(point);
+                }
+              },
+              onPointerCancel: (_) => _press = null,
+              // Repainted every frame, so on a layer of its own rather than
+              // the screen around it.
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  size: size,
+                  painter: _VoicePainter(
+                    shader: _shader,
+                    driver: driver,
+                    dark: dark,
+                    pixelRatio: pixelRatio,
+                    repaint: _frame,
+                  ),
                 ),
               ),
             ),
