@@ -14,6 +14,11 @@ sealed class AIClientToolResult {
 
   /// A call that ran, with [output] as its result for the model. See
   /// [AIClientToolCompleted].
+  ///
+  /// Throws a [JsonUnsupportedObjectError] when [output] isn't
+  /// JSON-encodable. Thrown from a tool's `run`, an `AIClientToolRunner`
+  /// answers the call with the failure "The result couldn't be read", unless
+  /// its `failureMessage` words it.
   factory AIClientToolResult.completed(Object? output, {String? summary}) = AIClientToolCompleted;
 
   /// A call this device could not run. See [AIClientToolFailed].
