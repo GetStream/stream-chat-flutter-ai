@@ -795,6 +795,45 @@ void main() {
           );
         });
 
+        testWidgets('a foreground paint on the code style drives the chrome', (tester) async {
+          const paintColor = Color(0xFF00C853);
+          final paint = Paint()..color = paintColor;
+          await tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(codeTextStyle: TextStyle(foreground: paint)),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          final body = tester.widget<SelectableText>(find.byType(SelectableText)).style!;
+          expect(body.foreground, same(paint));
+          expect(body.fontFamily, 'monospace');
+          // Paint keeps its color at float32 precision, so compare loosely.
+          final chrome = paintColor.withValues(alpha: 0.6);
+          expect(tester.widget<Text>(find.text('dart')).style!.color, isSameColorAs(chrome));
+          expect(tester.widget<Icon>(find.byIcon(Icons.content_copy)).color, isSameColorAs(chrome));
+        });
+
+        testWidgets('a foreground paint on the label style is kept', (tester) async {
+          final paint = Paint()..color = const Color(0xFF00C853);
+          await tester.pumpWidget(
+            wrap(
+              CodeBlockView(
+                code: 'x',
+                language: 'dart',
+                theme: CodeBlockThemeData(languageLabelStyle: TextStyle(foreground: paint)),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(tester.widget<Text>(find.text('dart')).style?.foreground, same(paint));
+        });
+
         testWidgets('the highlighter is told the default frame is dark', (tester) async {
           final highlighter = _RecordingHighlighter();
           await tester.pumpWidget(
