@@ -49,11 +49,14 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 ///
 /// **Accessibility.** The row is a single node whose label reads the title,
 /// the status, the summary and the duration, such as "Checking the weather,
-/// Completed, Sunny, 21°C, 0.8s". It is a polite live region, so a screen
-/// reader announces the call finishing or starting to wait without the reader
-/// having to go back to it. The label only changes when the call's title,
-/// status, summary or duration does — each of those is announced — so a call
-/// that just sits there stays quiet. With reduced motion on
+/// Completed, Sunny, 21°C, 0.8s". Once the row has shown the call running or
+/// waiting, it is a polite live region, so a screen reader announces the call
+/// finishing or starting to wait without the reader having to go back to it.
+/// The label only changes when the call's title, status, summary or duration
+/// does — each of those is announced — so a call that just sits there stays
+/// quiet. A row built for a call that has already finished, such as one
+/// scrolled into view from history, is not a live region: screen readers
+/// announce a live region as it appears, and there is no news in it. With reduced motion on
 /// ([MediaQueryData.disableAnimations]) nothing shimmers and a running call
 /// shows a static icon instead of a spinner.
 /// {@endtemplate}
@@ -99,6 +102,9 @@ enum _ToolCallState {
 
   bool get isAwaiting => this == awaitingApproval || this == awaitingClient;
 
+  /// Whether the call may still change: running or waiting.
+  bool get isLive => this == running || isAwaiting;
+
   /// The status in words, for the detail line (when the call has no summary)
   /// and for screen readers. `null` where the row shows no detail by default.
   String? detail(AITranslations translations) => switch (this) {
@@ -129,9 +135,16 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
 
   bool _reduceMotion = false;
 
+  /// Whether this row has shown the call running or waiting, making it a live
+  /// region from then on. A screen reader announces a live region as it
+  /// appears, so a call that was already finished when its row was built never
+  /// becomes one.
+  bool _announces = false;
+
   @override
   void initState() {
     super.initState();
+    _announces = _ToolCallState.of(widget.call).isLive;
     _reportUnknownStatus();
   }
 
@@ -146,6 +159,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
   void didUpdateWidget(AIToolCallView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.call.status != widget.call.status) _reportUnknownStatus();
+    _announces = _announces || _ToolCallState.of(widget.call).isLive;
     _syncShimmer();
   }
 
@@ -193,7 +207,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     final gap = math.max<double>(6, theme.iconSize * 0.5);
     return Semantics(
       container: true,
-      liveRegion: true,
+      liveRegion: _announces,
       label: [title, state.label(translations), ?summary, ?durationText].join(', '),
       excludeSemantics: true,
       child: Column(
