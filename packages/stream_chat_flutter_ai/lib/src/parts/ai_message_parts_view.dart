@@ -130,8 +130,9 @@ class AIMessagePartsView extends StatelessWidget {
   /// The one place a part's default view is chosen, or `null` to show nothing.
   ///
   /// A part this package can't read gets the placeholder. Reasoning gets a
-  /// [StreamingReasoningView] showing its [AIReasoningPart.preview]: the full
-  /// text, when an app has it, goes through a [partBuilder] returning
+  /// [StreamingReasoningView] showing its [AIReasoningPart.preview], or else
+  /// its [AIReasoningPart.summary]: the full text, when an app has it, goes
+  /// through a [partBuilder] returning
   /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
   /// goes to [toolCallBuilder] first (which may return [hidden]), and gets an
   /// [AIToolCallView] when that returns `null`.

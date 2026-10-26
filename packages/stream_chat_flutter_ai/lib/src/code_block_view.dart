@@ -201,8 +201,8 @@ class _CodeBlockViewState extends State<CodeBlockView> {
 
   /// The inputs a failure was already reported for, so a still-streaming fence
   /// reports once rather than on every rebuild — but a failure under a new
-  /// highlighter or palette (after a theme change) is reported afresh.
-  ({String language, CodeHighlighter highlighter, Brightness brightness})? _failureReportedFor;
+  /// kind of highlighter or palette (after a theme change) is reported afresh.
+  ({String language, Type highlighterType, Brightness brightness})? _failureReportedFor;
 
   /// The frame this block draws, and what the highlighter is told about it.
   ///
@@ -246,6 +246,9 @@ class _CodeBlockViewState extends State<CodeBlockView> {
       case _ThemeChange.none:
         break;
       case _ThemeChange.colorsOnly:
+        // Spans carrying the old base style keep its color until the settle
+        // pass, which each animation frame re-arms — so plain tokens hold the
+        // old color for the whole animation and catch up 120 ms after it ends.
         _scheduleSettlePass();
       case _ThemeChange.structural:
         _highlight();
@@ -329,9 +332,11 @@ class _CodeBlockViewState extends State<CodeBlockView> {
   /// the block falls back to plain text.
   void _reportHighlightFailure(Object error, StackTrace? stack, String language, CodeHighlighter highlighter) {
     // A failing fence rebuilds every tick while streaming; report once per
-    // highlighter, language and palette rather than once per pass.
+    // highlighter type, language and palette rather than once per pass. By
+    // type, not identity: a host building its highlighter inline hands over a
+    // new closure on every rebuild.
     final brightness = _resolvedTheme.brightness;
-    final key = (language: language, highlighter: highlighter, brightness: brightness);
+    final key = (language: language, highlighterType: highlighter.runtimeType, brightness: brightness);
     if (_failureReportedFor == key) return;
     _failureReportedFor = key;
 
