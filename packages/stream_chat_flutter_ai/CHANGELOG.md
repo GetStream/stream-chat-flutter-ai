@@ -6,7 +6,9 @@
 - `CodeBlockView.backgroundColor` and `CodeBlockView.foregroundColor` are replaced by `CodeBlockView.theme`.
 - `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` and
   `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
-- `AITypingIndicatorView` is themed through `TypingIndicatorThemeData` (dot params now nullable, dots follow the text color instead of black), announces state changes to screen readers and honours reduced motion.
+- `AITypingIndicatorView.dotCount` and `dotSize` are now nullable; unset, they come from the theme.
+- `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable, and the dots default to the themed caption color instead of black.
+- `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of inheriting `DefaultTextStyle`.
 
 ✅ Added
 
@@ -22,6 +24,20 @@
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
   `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
+- `TypingIndicatorThemeData`, `TypingIndicatorTheme` and `AITheme.typingIndicatorTheme` — theme the
+  typing indicator's caption style and the dots' color, size, count and spacing.
+- `AITypingIndicatorView.dotSpacing`.
+- `AITypingIndicatorView` is a polite live region labelled with its `text`, so a screen reader
+  announces each new state; the dots are hidden from assistive technology.
+- Reduced motion (`MediaQueryData.disableAnimations`): `AITypingIndicatorView` and `AnimatedDots`
+  draw static dots, and `StreamingMessageView` shows each new text in full instead of typing it out,
+  finishing any reveal in progress.
+
+🐞 Fixed
+
+- `AITypingIndicatorView`'s dots were black by default, which made them invisible in dark mode.
+- `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
+  call `setState` from it. A state that changes mid-frame is reported after the frame.
 
 ## 0.1.0
 
