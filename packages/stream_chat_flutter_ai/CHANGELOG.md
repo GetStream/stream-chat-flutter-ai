@@ -32,6 +32,25 @@
 - Reduced motion (`MediaQueryData.disableAnimations`): `AITypingIndicatorView` and `AnimatedDots`
   draw static dots, and `StreamingMessageView` shows each new text in full instead of typing it out,
   finishing any reveal in progress.
+- `AIMessagePart` — one step an AI agent took while replying, decoded from an `ai_*` attachment.
+  `AIMessagePart.parseAll` turns a message's `AIMessagePartAttachment`s (`type` + payload) into
+  parts, skipping other attachments, and decoding is lenient. `AIMessagePartKind` is the step's
+  kind: an open set, so a kind this package doesn't know keeps its raw value.
+- `AIReasoningPart` — the typed view of an `ai_reasoning` step, with `AIReasoningStatus`.
+- `AIToolCallPart` — the typed view of an `ai_tool_call` step, with `AIToolCallStatus` and
+  `AIToolExecutor` (server or client).
+- `AIToolApproval` — what a tool call asks before it runs, with `AIToolApprovalDecision`.
+- `AIMessagePartsView` — shows a reply's steps in order, keyed by id. `AIMessagePartWidgetBuilder`
+  builds parts your own way.
+- `AIUnsupportedPartView` — the placeholder for a step this app version can't show.
+- `AITranslations.unsupportedMessagePart` — that placeholder's text.
+
+🔄 Changed
+
+- The recommended way to provide translations is now to implement `AITranslations` rather than
+  extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
+  of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
+  working.
 
 🐞 Fixed
 

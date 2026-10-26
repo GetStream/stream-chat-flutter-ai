@@ -467,9 +467,9 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-/// Extends [DefaultAITranslations] rather than implementing [AITranslations],
-/// so anything left out keeps rendering English.
-class DutchTranslations extends DefaultAITranslations {
+/// Implements [AITranslations] rather than extending [DefaultAITranslations],
+/// so a string added in a later version fails to compile until it's translated.
+class DutchTranslations implements AITranslations {
   const DutchTranslations();
 
   @override
@@ -513,4 +513,27 @@ class DutchTranslations extends DefaultAITranslations {
 
   @override
   String get codeCopied => 'Gekopieerd!';
+
+  @override
+  String get unsupportedMessagePart => 'Een stap die deze app-versie niet kan tonen';
+
+  @override
+  String get unnamedChartSeries => 'Reeks';
+
+  @override
+  String chartSemanticsLabel(ChartSemantics chart) {
+    final kind = switch (chart.kind) {
+      USpecKind.line => 'Lijndiagram',
+      USpecKind.area => 'Vlakdiagram',
+      USpecKind.bar => 'Staafdiagram',
+      USpecKind.pie => 'Cirkeldiagram',
+      USpecKind.scatter => 'Spreidingsdiagram',
+      USpecKind.bubble => 'Bellendiagram',
+      USpecKind.heatmap => 'Heatmap',
+      USpecKind.histogram => 'Histogram',
+    };
+    final name = [kind, ?chart.title].join(', ');
+    if (chart.isEmpty) return '$name, geen gegevens';
+    return '$name, waarden ${chart.valueMin} tot ${chart.valueMax}';
+  }
 }
