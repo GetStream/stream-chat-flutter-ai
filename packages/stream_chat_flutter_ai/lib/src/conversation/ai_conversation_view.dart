@@ -41,8 +41,13 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// The rows can be replaced through [AIComponentBuilders.userMessage] and
 /// [AIComponentBuilders.assistantMessage], and under each finished reply
 /// [AIComponentBuilders.replyActions] shows the person's actions, nothing until
-/// you set it. A row is only built again when what it shows changes, so a
-/// reply streaming in does not rebuild the rest of the conversation.
+/// you set it. A row is only built again when what its message says changes,
+/// or the builders do, so a reply streaming in does not rebuild the rest of the
+/// conversation. A builder that shows state of your own, such as a reply's
+/// rating, must therefore read it through a [Listenable] (a
+/// [ListenableBuilder] or [ValueListenableBuilder] in what it returns), and
+/// the builders should be created once rather than in `build`, since new ones
+/// rebuild every row.
 ///
 /// Place the composer below the list rather than over it, so the list knows how
 /// much of it is visible.

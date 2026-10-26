@@ -169,6 +169,10 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
+- The `AIConversationView`, `AIComponentBuilders.userMessage`, `assistantMessage` and `replyActions`
+  docs and the README say that the conversation caches its rows, so a builder must read state that
+  changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
+  The README's `replyActions` example now does that; before, its 👍 never filled.
 
 🐞 Fixed
 
