@@ -141,6 +141,29 @@ void main() {
       });
     });
 
+    group('conversation theme', () {
+      const conversation = ConversationThemeData(scrollButtonIconColor: Color(0xFF0A0A0A));
+      const conversation2 = ConversationThemeData(scrollButtonIconColor: Color(0xFFFAFAFA));
+
+      test('defaults to empty data', () {
+        expect(const AITheme().conversationTheme, const ConversationThemeData());
+      });
+
+      test('takes part in equality, hashCode, copyWith and lerp', () {
+        const theme = AITheme(conversationTheme: conversation);
+
+        expect(theme, isNot(const AITheme()));
+        expect(theme.hashCode, isNot(const AITheme().hashCode));
+        expect(theme, const AITheme(conversationTheme: conversation));
+        expect(theme.copyWith(conversationTheme: conversation2).conversationTheme, conversation2);
+        expect(theme.copyWith().conversationTheme, conversation);
+        expect(
+          theme.lerp(const AITheme(conversationTheme: conversation2), 0.5).conversationTheme,
+          ConversationThemeData.lerp(conversation, conversation2, 0.5),
+        );
+      });
+    });
+
     group('reply actions theme', () {
       const replyActions = ReplyActionsThemeData(iconColor: Color(0xFF0A0A0A));
       const replyActions2 = ReplyActionsThemeData(iconColor: Color(0xFFFAFAFA));
