@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownStyleSheet;
 import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/ai_typing_indicator_view.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/typewriter_builder.dart';
@@ -23,6 +26,18 @@ bool get _isDesktopDeviceOrWeb =>
 ///   close.
 /// - JSON / chart blocks rendered as interactive charts.
 /// - LaTeX, when a [mathBuilder] is supplied.
+///
+/// **Accessibility.** With reduced motion on
+/// ([MediaQueryData.disableAnimations]) there is no typewriter: each new [text]
+/// is shown in full at once, and [onTypewriterStateChanged] reports
+/// [TypewriterState.idle] for it. Turning reduced motion on mid-reveal
+/// finishes the reveal.
+///
+/// The view is deliberately *not* a live region. A streamed reply changes
+/// many times a second, and announcing every chunk would bury the user in
+/// half-sentences; a screen reader reads the finished message when the user
+/// moves to it. Pair it with an [AITypingIndicatorView], whose live region
+/// announces the AI's state while the reply is being produced.
 /// {@endtemplate}
 class StreamingMessageView extends StatefulWidget {
   /// {@macro streamingMessageView}
@@ -74,10 +89,15 @@ class StreamingMessageView extends StatefulWidget {
 
   /// A callback that is called whenever the typewriter state changes.
   ///
+  /// Never called during a build: a change that happens mid-frame (a new
+  /// [text] arriving, reduced motion switching on) is reported after the frame,
+  /// with only the latest state if several pile up, so the host may call
+  /// `setState` from it.
+  ///
   /// [TypewriterState.idle] only means the typewriter has caught up with the
   /// text received so far, which also happens mid-stream whenever it overtakes
-  /// the backend. To learn when a reply is completely on screen, use
-  /// [onFinished].
+  /// the backend, and after every chunk with reduced motion on. To learn when a
+  /// reply is completely on screen, use [onFinished].
   final ValueChanged<TypewriterState>? onTypewriterStateChanged;
 
   /// Whether more [text] for this message may still arrive, e.g. while the
@@ -101,9 +121,12 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
   late final TypewriterController _controller;
   var _wasFinished = false;
 
+  /// The state waiting for [_flushPendingState], when one is scheduled.
+  TypewriterState? _pendingState;
+
   void _onTypewriterValueChanged() {
     final value = _controller.value;
-    widget.onTypewriterStateChanged?.call(value.state);
+    _reportState(value.state);
     setState(() => _displayText = value.text);
     _scheduleFinishCheck();
   }
@@ -131,6 +154,38 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     });
   }
 
+  /// Reports [state] to the host now, or after the frame when called from
+  /// inside one.
+  ///
+  /// The controller notifies synchronously, and some of its calls happen in
+  /// [didUpdateWidget] / [didChangeDependencies] — mid-build. A host that calls
+  /// `setState` from the callback there would throw, so those reports wait for
+  /// the frame to end. While one is waiting every later report joins it, so
+  /// states are never delivered out of order.
+  void _reportState(TypewriterState state) {
+    final inFrame = switch (SchedulerBinding.instance.schedulerPhase) {
+      SchedulerPhase.persistentCallbacks || SchedulerPhase.midFrameMicrotasks => true,
+      _ => false,
+    };
+    if (!inFrame && _pendingState == null) {
+      widget.onTypewriterStateChanged?.call(state);
+      return;
+    }
+
+    final alreadyScheduled = _pendingState != null;
+    _pendingState = state;
+    if (alreadyScheduled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingState());
+    // A post-frame callback only runs on a frame; make sure there is one.
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  void _flushPendingState() {
+    final state = _pendingState;
+    _pendingState = null;
+    if (mounted && state != null) widget.onTypewriterStateChanged?.call(state);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -148,17 +203,33 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
     // hear `idle` (to flip a "generating" flag back off, say) would wait
     // forever. Deferred to post-frame so that host is free to rebuild in
     // response without doing so during this build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onTypewriterStateChanged?.call(_controller.value.state);
-    });
+    _pendingState = _controller.value.state;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingState());
     _scheduleFinishCheck();
+  }
+
+  bool get _reduceMotion => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reduced motion switched on mid-reveal: show what has arrived rather than
+    // carrying on animating it.
+    if (_reduceMotion && _controller.value.state == TypewriterState.typing) {
+      _controller.finishTyping();
+    }
   }
 
   @override
   void didUpdateWidget(covariant StreamingMessageView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.text != oldWidget.text) {
-      _controller.updateText(widget.text);
+      if (_reduceMotion) {
+        // Reveals the whole text at once and reports `idle`, with no timer.
+        _controller.text = widget.text;
+      } else {
+        _controller.updateText(widget.text);
+      }
     }
     _scheduleFinishCheck();
   }

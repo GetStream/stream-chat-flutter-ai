@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:stream_chat_flutter_ai/src/resolved_typing_indicator_theme.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
 
 /// {@template aiTypingIndicatorView}
 /// A widget that displays a typing indicator for the AI.
@@ -14,6 +18,19 @@ import 'package:flutter/material.dart';
 /// );
 /// ```
 ///
+/// Styling resolves per field: the constructor's parameters, then the nearest
+/// [TypingIndicatorTheme], then [AITheme.typingIndicatorTheme], then defaults
+/// derived from the ambient [ThemeData] (`bodyMedium` in `onSurfaceVariant`,
+/// with dots in the caption's color). The one exception is [textStyle], which
+/// is merged over the themed style rather than replacing it, so passing only a
+/// font size keeps the themed color.
+///
+/// **Accessibility.** The indicator is a polite live region labelled with
+/// [text], and the dots are hidden from assistive technology. Keep the widget
+/// mounted and change [text] as the state moves on ("Thinking" → "Checking
+/// sources"), and a screen reader announces each new state. With reduced
+/// motion on ([MediaQueryData.disableAnimations]) the dots are drawn static.
+///
 /// see also:
 /// - [AnimatedDots] which is used to display the animated dots.
 /// {@endtemplate}
@@ -24,49 +41,81 @@ class AITypingIndicatorView extends StatelessWidget {
     required this.text,
     this.textStyle,
     this.dotColor,
-    this.dotCount = 3,
-    this.dotSize = 8,
-  });
+    this.dotCount,
+    this.dotSize,
+    this.dotSpacing,
+  }) : assert(dotCount == null || dotCount >= 0, 'dotCount must not be negative'),
+       assert(dotSize == null || dotSize >= 0, 'dotSize must not be negative'),
+       assert(dotSpacing == null || dotSpacing >= 0, 'dotSpacing must not be negative');
 
   /// The text to display in the widget.
   ///
-  /// Typically this is the state of the AI such as "AI is thinking",
+  /// Typically this is the state of the AI such as "AI is thinking". It is
+  /// also the label a screen reader announces.
   final String text;
 
-  /// The style to use for the text.
+  /// The style to use for the text, merged over the themed one.
   ///
-  /// If not provided, the default text style is used.
+  /// See [TypingIndicatorThemeData.textStyle].
   final TextStyle? textStyle;
 
   /// The color of the animated dots displayed next to the text.
   ///
-  /// If not provided, the color of the [textStyle] is used if available or
-  /// [Colors.black] is used.
+  /// See [TypingIndicatorThemeData.dotColor]; defaults to the resolved text
+  /// color.
   final Color? dotColor;
 
   /// The number of animated dots to display next to the text.
   ///
-  /// Defaults to 3.
-  final int dotCount;
+  /// See [TypingIndicatorThemeData.dotCount]; defaults to 3.
+  final int? dotCount;
 
   /// The size of the animated dots displayed next to the text.
   ///
-  /// Defaults to 8.
-  final double dotSize;
+  /// See [TypingIndicatorThemeData.dotSize]; defaults to 8.
+  final double? dotSize;
+
+  /// The gap between two dots.
+  ///
+  /// See [TypingIndicatorThemeData.dotSpacing]; defaults to 4.
+  final double? dotSpacing;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(text, style: textStyle),
-        const SizedBox(width: 8),
-        AnimatedDots(
-          size: dotSize,
-          count: dotCount,
-          color: dotColor ?? textStyle?.color ?? Colors.black,
+    final theme = ResolvedTypingIndicatorTheme.resolve(
+      context,
+      override: TypingIndicatorThemeData(
+        textStyle: textStyle,
+        dotColor: dotColor,
+        dotSize: dotSize,
+        dotCount: dotCount,
+        dotSpacing: dotSpacing,
+      ),
+    );
+
+    // One live-region node carrying [text] as its label, with the caption and
+    // the dots beneath it excluded: the label is the whole message, and a
+    // change to it on a node that stays put is what makes a screen reader
+    // re-announce. `container` gives it a node of its own rather than letting
+    // it fold into a sibling's or parent's; a `MergeSemantics` ancestor still
+    // merges it, as it would any node.
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: text,
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(text, style: theme.textStyle),
+            // No gap after the caption when there are no dots to separate.
+            if (theme.dotCount > 0) ...[
+              const SizedBox(width: 8),
+              AnimatedDots._resolved(theme),
+            ],
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -77,52 +126,100 @@ class AITypingIndicatorView extends StatelessWidget {
 /// The dots are animated to scale up and down in size and fade in and out in
 /// opacity.
 ///
-/// The widget is typically used to indicate that someone is typing.
+/// The widget is typically used to indicate that someone is typing. Unset
+/// parameters come from [TypingIndicatorTheme] / [AITheme.typingIndicatorTheme]
+/// like [AITypingIndicatorView]'s do.
+///
+/// The dots are decorative and excluded from semantics. When the platform asks
+/// for reduced motion ([MediaQueryData.disableAnimations]) they are drawn
+/// static, at full size and opacity, with no animation running at all.
 /// {@endtemplate}
 class AnimatedDots extends StatelessWidget {
   /// {@macro animatedDots}
   const AnimatedDots({
     super.key,
-    this.count = 3,
-    this.size = 8,
-    this.spacing = 4,
-    this.color = Colors.black,
-  });
+    this.count,
+    this.size,
+    this.spacing,
+    this.color,
+  }) : _resolved = null,
+       assert(count == null || count >= 0, 'count must not be negative'),
+       assert(size == null || size >= 0, 'size must not be negative'),
+       assert(spacing == null || spacing >= 0, 'spacing must not be negative');
+
+  /// Dots drawn from a theme [AITypingIndicatorView] already resolved, so it
+  /// isn't resolved a second time.
+  const AnimatedDots._resolved(ResolvedTypingIndicatorTheme this._resolved)
+    : count = null,
+      size = null,
+      spacing = null,
+      color = null;
+
+  final ResolvedTypingIndicatorTheme? _resolved;
 
   /// The number of dots to display.
   ///
-  /// Defaults to 3.
-  final int count;
+  /// See [TypingIndicatorThemeData.dotCount]; defaults to 3.
+  final int? count;
 
   /// The size of each dot.
   ///
-  /// Defaults to 8.
-  final double size;
+  /// See [TypingIndicatorThemeData.dotSize]; defaults to 8.
+  final double? size;
 
   /// The spacing between each dot.
   ///
-  /// Defaults to 4.
-  final double spacing;
+  /// See [TypingIndicatorThemeData.dotSpacing]; defaults to 4.
+  final double? spacing;
 
   /// The color of the dots.
   ///
-  /// Defaults to [Colors.black].
+  /// See [TypingIndicatorThemeData.dotColor]; defaults to the themed text
+  /// color.
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme =
+        _resolved ??
+        ResolvedTypingIndicatorTheme.resolve(
+          context,
+          override: TypingIndicatorThemeData(dotColor: color, dotSize: size, dotCount: count, dotSpacing: spacing),
+        );
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+    return ExcludeSemantics(
+      child: Row(
+        spacing: theme.dotSpacing,
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(
+          theme.dotCount,
+          (index) => reduceMotion
+              ? _Dot(size: theme.dotSize, color: theme.dotColor)
+              : _AnimatedDot(
+                  key: ValueKey(index),
+                  index: index,
+                  size: theme.dotSize,
+                  color: theme.dotColor,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot({required this.size, required this.color});
+
+  final double size;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      spacing: spacing,
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        count,
-        (index) => _AnimatedDot(
-          key: ValueKey(index),
-          index: index,
-          size: size,
-          color: color,
-        ),
-      ),
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
@@ -131,8 +228,8 @@ class _AnimatedDot extends StatefulWidget {
   const _AnimatedDot({
     super.key,
     required this.index,
-    this.size = 8,
-    this.color = Colors.black,
+    required this.size,
+    required this.color,
   });
 
   final int index;
@@ -195,14 +292,7 @@ class _AnimatedDotState extends State<_AnimatedDot> with SingleTickerProviderSta
       scale: _scale,
       child: FadeTransition(
         opacity: _opacity,
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: widget.color,
-            shape: BoxShape.circle,
-          ),
-        ),
+        child: _Dot(size: widget.size, color: widget.color),
       ),
     );
   }
