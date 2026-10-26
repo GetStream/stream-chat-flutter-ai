@@ -67,7 +67,21 @@
   `toolCallAwaitingApproval`, `toolCallAwaitingClient`, `toolCallFailed`, `toolCallCancelled`,
   `toolCallDeclined`, `toolCallDuration` and `toolCallDurationBelowTenth` — the tool-call row's
   strings.
-- `AIToolApprovalView` / `AIToolApprovalCard` — human-in-the-loop tool approvals via an `AIToolApprover`, themed via `ToolApprovalThemeData`; `AIMessagePartsView.approver` asks under each waiting call.
+- `AIToolApprover` — sends a person's answers to tool calls' questions through an
+  `AIToolApprovalDecider` and tracks each call's `AIToolApprovalState` (`AIToolApprovalIdle`,
+  `AIToolApprovalSending`, `AIToolApprovalSent`, `AIToolApprovalFailed`). An optional `sentTimeout`
+  bounds sending the answer and then waiting for the backend to move the call on.
+- `AIClientIdentity` — the signed-in user and install id that a tool call's `target_user_id` and
+  `target_client_id` are matched against, through `canApprove` and `canRun`.
+- `AIToolApprovalView` and `AIToolApprovalCard` — ask the person a tool call waits for whether it
+  may run, with Allow / Don't Allow buttons. An `AIToolApprovalContentBuilder`, given an
+  `AIToolApprovalAnswer` callback, replaces the card.
+- `ToolApprovalThemeData` and `ToolApprovalTheme`, and `AITheme.toolApprovalTheme`, for styling the
+  approval card.
+- `AIMessagePartsView.approver` — shows an `AIToolApprovalView` under each tool call waiting for the
+  person.
+- `AITranslations.toolApprovalTitle`, `toolApprovalAllow`, `toolApprovalDecline`,
+  `toolApprovalSending`, `toolApprovalSent` and `toolApprovalNotSent` — the approval card's strings.
 
 🔄 Changed
 

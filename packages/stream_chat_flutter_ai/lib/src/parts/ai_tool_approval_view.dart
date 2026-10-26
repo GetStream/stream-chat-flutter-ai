@@ -120,7 +120,11 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
     if (widget.call.id != call.id) return reportDroppedAnswer(call, 'its AIToolApprovalView shows another call now');
     // A builder answering while building would make the approver notify mid
     // build; answer right after the frame instead, if it still applies then.
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+    final inFrame = switch (SchedulerBinding.instance.schedulerPhase) {
+      SchedulerPhase.persistentCallbacks || SchedulerPhase.midFrameMicrotasks => true,
+      _ => false,
+    };
+    if (inFrame) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _answer(call, decision));
       return;
     }
