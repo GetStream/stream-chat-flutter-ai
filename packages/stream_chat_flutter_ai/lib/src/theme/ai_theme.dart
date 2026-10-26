@@ -3,6 +3,7 @@ import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/reply_actions_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
@@ -41,6 +42,8 @@ import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_the
 ///  * [ComposerThemeData] and [ComposerTheme], for the composer and its
 ///    attachment sheet.
 ///  * [ReasoningThemeData] and [ReasoningTheme], for the reasoning panel.
+///  * [ReplyActionsThemeData] and [ReplyActionsTheme], for the buttons under a
+///    reply.
 ///  * [SuggestionsThemeData] and [SuggestionsTheme], for the suggestion chips.
 ///  * [ToolApprovalThemeData] and [ToolApprovalTheme], for tool-approval
 ///    cards.
@@ -55,6 +58,7 @@ class AITheme extends ThemeExtension<AITheme> {
     CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
     ReasoningThemeData? reasoningTheme,
+    ReplyActionsThemeData? replyActionsTheme,
     SuggestionsThemeData? suggestionsTheme,
     ToolApprovalThemeData? toolApprovalTheme,
     ToolCallThemeData? toolCallTheme,
@@ -63,6 +67,7 @@ class AITheme extends ThemeExtension<AITheme> {
        codeBlockTheme = codeBlockTheme ?? const CodeBlockThemeData(),
        composerTheme = composerTheme ?? const ComposerThemeData(),
        reasoningTheme = reasoningTheme ?? const ReasoningThemeData(),
+       replyActionsTheme = replyActionsTheme ?? const ReplyActionsThemeData(),
        suggestionsTheme = suggestionsTheme ?? const SuggestionsThemeData(),
        toolApprovalTheme = toolApprovalTheme ?? const ToolApprovalThemeData(),
        toolCallTheme = toolCallTheme ?? const ToolCallThemeData(),
@@ -84,6 +89,11 @@ class AITheme extends ThemeExtension<AITheme> {
   /// How the reasoning panel is drawn. Defaults to `const ReasoningThemeData()`,
   /// which derives every field from the ambient [ThemeData].
   final ReasoningThemeData reasoningTheme;
+
+  /// How the buttons under a reply are drawn. Defaults to
+  /// `const ReplyActionsThemeData()`, which derives every field from the
+  /// ambient [ThemeData].
+  final ReplyActionsThemeData replyActionsTheme;
 
   /// How suggestion chips are drawn. Defaults to
   /// `const SuggestionsThemeData()`, which derives every field from the ambient
@@ -116,6 +126,7 @@ class AITheme extends ThemeExtension<AITheme> {
     CodeBlockThemeData? codeBlockTheme,
     ComposerThemeData? composerTheme,
     ReasoningThemeData? reasoningTheme,
+    ReplyActionsThemeData? replyActionsTheme,
     SuggestionsThemeData? suggestionsTheme,
     ToolApprovalThemeData? toolApprovalTheme,
     ToolCallThemeData? toolCallTheme,
@@ -125,6 +136,7 @@ class AITheme extends ThemeExtension<AITheme> {
     codeBlockTheme: codeBlockTheme ?? this.codeBlockTheme,
     composerTheme: composerTheme ?? this.composerTheme,
     reasoningTheme: reasoningTheme ?? this.reasoningTheme,
+    replyActionsTheme: replyActionsTheme ?? this.replyActionsTheme,
     suggestionsTheme: suggestionsTheme ?? this.suggestionsTheme,
     toolApprovalTheme: toolApprovalTheme ?? this.toolApprovalTheme,
     toolCallTheme: toolCallTheme ?? this.toolCallTheme,
@@ -139,6 +151,7 @@ class AITheme extends ThemeExtension<AITheme> {
       codeBlockTheme: CodeBlockThemeData.lerp(codeBlockTheme, other.codeBlockTheme, t),
       composerTheme: ComposerThemeData.lerp(composerTheme, other.composerTheme, t),
       reasoningTheme: ReasoningThemeData.lerp(reasoningTheme, other.reasoningTheme, t),
+      replyActionsTheme: ReplyActionsThemeData.lerp(replyActionsTheme, other.replyActionsTheme, t),
       suggestionsTheme: SuggestionsThemeData.lerp(suggestionsTheme, other.suggestionsTheme, t),
       toolApprovalTheme: ToolApprovalThemeData.lerp(toolApprovalTheme, other.toolApprovalTheme, t),
       toolCallTheme: ToolCallThemeData.lerp(toolCallTheme, other.toolCallTheme, t),
@@ -157,6 +170,7 @@ class AITheme extends ThemeExtension<AITheme> {
         other.codeBlockTheme == codeBlockTheme &&
         other.composerTheme == composerTheme &&
         other.reasoningTheme == reasoningTheme &&
+        other.replyActionsTheme == replyActionsTheme &&
         other.suggestionsTheme == suggestionsTheme &&
         other.toolApprovalTheme == toolApprovalTheme &&
         other.toolCallTheme == toolCallTheme &&
@@ -169,6 +183,7 @@ class AITheme extends ThemeExtension<AITheme> {
     codeBlockTheme,
     composerTheme,
     reasoningTheme,
+    replyActionsTheme,
     suggestionsTheme,
     toolApprovalTheme,
     toolCallTheme,
