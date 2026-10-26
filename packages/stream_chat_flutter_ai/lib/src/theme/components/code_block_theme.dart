@@ -231,12 +231,11 @@ class CodeBlockTheme extends InheritedTheme {
   /// A scope layering [data] over the enclosing [CodeBlockTheme] rather than
   /// replacing it. Use it wherever a scope may already be above you.
   static Widget merge({Key? key, required CodeBlockThemeData data, required Widget child}) => Builder(
-    key: key,
     builder: (context) {
       // The enclosing scope, not [of]'s result, which would make `data` a full
       // snapshot of [AITheme] instead of the overrides it documents.
       final outer = context.dependOnInheritedWidgetOfExactType<CodeBlockTheme>()?.data;
-      return CodeBlockTheme(data: outer?.merge(data) ?? data, child: child);
+      return CodeBlockTheme(key: key, data: outer?.merge(data) ?? data, child: child);
     },
   );
 

@@ -145,10 +145,17 @@ class AIMessagePartsView extends StatelessWidget {
     );
   }
 
-  /// A part's default view from the [AIComponentFactory], [AIMessagePartsView.hidden]
-  /// to leave it out, or `null` to show nothing. Tool calls ask [toolCallBuilder] first, then the factory; the
-  /// [approver]'s question goes under the factory's row. Reasoning shows its
-  /// [AIReasoningPart.preview]; full text goes through a [partBuilder].
+  /// The one place a part's default view is chosen, [hidden] to leave it out,
+  /// or `null` to show nothing. Each kind asks the [AIComponentFactory] first.
+  ///
+  /// A part this package can't read gets the placeholder. Reasoning gets a
+  /// [StreamingReasoningView] showing its [AIReasoningPart.preview], or else
+  /// its [AIReasoningPart.summary]: the full text, when an app has it, goes
+  /// through a [partBuilder] returning
+  /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
+  /// goes to [toolCallBuilder] first (which may return [hidden]), then the
+  /// factory, and gets an [AIToolCallView] when both give `null` — with its
+  /// question under the factory's or default row when an [approver] is given.
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     final builders = AIComponentFactory.of(context);
     if (!part.isSupported) {
