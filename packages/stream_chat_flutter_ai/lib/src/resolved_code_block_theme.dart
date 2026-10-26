@@ -76,8 +76,9 @@ class ResolvedCodeBlockTheme {
     );
 
     // Scaled rather than replaced, so a translucent code color never gets
-    // chrome more opaque than itself.
-    final codeColor = codeTextStyle.color!;
+    // chrome more opaque than itself. A host's foreground paint stands in for
+    // the color, which Flutter then won't let the style carry.
+    final codeColor = codeTextStyle.color ?? codeTextStyle.foreground?.color ?? defaultCodeColor;
     final chromeColor = codeColor.withValues(alpha: codeColor.a * _kLabelOpacity);
     final languageLabelStyle = _withColor(
       mergeTextStyle(
@@ -105,6 +106,8 @@ class ResolvedCodeBlockTheme {
   }
 
   /// An `inherit: false` override replaces the base outright, color and all.
+  ///
+  /// A style with a foreground paint is left as it is: the paint is its color.
   static TextStyle _withColor(TextStyle style, Color color) =>
       style.color == null ? style.copyWith(color: color) : style;
 
@@ -114,7 +117,8 @@ class ResolvedCodeBlockTheme {
   /// See [CodeBlockThemeData.headerBackgroundColor].
   final Color headerBackgroundColor;
 
-  /// See [CodeBlockThemeData.languageLabelStyle]. Always carries a color.
+  /// See [CodeBlockThemeData.languageLabelStyle]. Always carries a color or a
+  /// foreground paint.
   final TextStyle languageLabelStyle;
 
   /// See [CodeBlockThemeData.copyIconColor].
@@ -123,7 +127,8 @@ class ResolvedCodeBlockTheme {
   /// See [CodeBlockThemeData.copiedIconColor].
   final Color copiedIconColor;
 
-  /// See [CodeBlockThemeData.codeTextStyle]. Always carries a color.
+  /// See [CodeBlockThemeData.codeTextStyle]. Always carries a color or a
+  /// foreground paint.
   final TextStyle codeTextStyle;
 
   /// See [CodeBlockThemeData.brightness]: the set one, or else
