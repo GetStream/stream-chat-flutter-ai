@@ -376,7 +376,7 @@ void main() {
             ),
           ),
         );
-        expect(_iconColor(tester), const Color(0xFF0000D2));
+        expect(_iconColor(tester), isSameColorAs(const Color(0xFF0000D2)));
       });
 
       testWidgets('swaps spinner and still icon both ways as reduced motion toggles', (tester) async {
@@ -421,7 +421,7 @@ void main() {
     });
 
     group('accessibility', () {
-      testWidgets('the row is one live-region node reading title, status, summary and duration', (tester) async {
+      testWidgets('the row is one node reading title, status, summary and duration', (tester) async {
         final handle = tester.ensureSemantics();
         _reduceMotion(tester);
         await tester.pumpWidget(
@@ -439,7 +439,7 @@ void main() {
 
         expect(
           tester.getSemantics(find.bySemanticsLabel('Checking the weather, Completed, Sunny, 21°C, 0.8s')),
-          isSemantics(isLiveRegion: true),
+          isSemantics(label: 'Checking the weather, Completed, Sunny, 21°C, 0.8s'),
         );
         expect(find.bySemanticsLabel('Sunny, 21°C'), findsNothing, reason: 'the texts are merged into the row');
         handle.dispose();
@@ -461,6 +461,77 @@ void main() {
         final updated = tester.getSemantics(find.bySemanticsLabel('get weather, Completed, Sunny, 0.8s'));
         expect(updated.id, node.id, reason: 'the same live region, so the change is announced');
         expect(updated, isSemantics(isLiveRegion: true));
+        handle.dispose();
+      });
+
+      testWidgets('a call already finished when its row is built is not a live region', (tester) async {
+        // A screen reader announces a live region as it appears: a row scrolled
+        // into view from history would be read out unasked.
+        final handle = tester.ensureSemantics();
+        _reduceMotion(tester);
+        final labels = {
+          _call(status: AIToolCallStatus.completed, durationMs: 800): 'get weather, Completed, 0.8s',
+          _call(status: AIToolCallStatus.failed): "get weather, Didn't complete",
+          _call(status: AIToolCallStatus.cancelled): 'get weather, Cancelled',
+          _call(status: AIToolCallStatus.awaitingApproval, approval: _declined): 'get weather, Declined',
+        };
+        for (final MapEntry(key: call, value: label) in labels.entries) {
+          // A new key, so each call gets a fresh row rather than an update.
+          await tester.pumpWidget(_wrap(AIToolCallView(key: ValueKey(label), call: call)));
+          expect(tester.getSemantics(find.bySemanticsLabel(label)), isSemantics(isLiveRegion: false), reason: label);
+        }
+        handle.dispose();
+      });
+
+      testWidgets('a running or waiting call is a live region, and stays one once finished', (tester) async {
+        final handle = tester.ensureSemantics();
+        _reduceMotion(tester);
+        final labels = {
+          AIToolCallStatus.running: 'get weather, Running',
+          AIToolCallStatus.awaitingApproval: 'get weather, Waiting for approval',
+          AIToolCallStatus.awaitingClient: 'get weather, Waiting for the device',
+          const AIToolCallStatus('queued'): 'get weather, Running',
+        };
+        for (final MapEntry(key: status, value: label) in labels.entries) {
+          final key = ValueKey(status);
+          await tester.pumpWidget(
+            _wrap(
+              AIToolCallView(
+                key: key,
+                call: _call(status: status),
+              ),
+            ),
+          );
+          expect(tester.getSemantics(find.bySemanticsLabel(label)), isSemantics(isLiveRegion: true), reason: label);
+
+          await tester.pumpWidget(
+            _wrap(
+              AIToolCallView(
+                key: key,
+                call: _call(status: AIToolCallStatus.failed),
+              ),
+            ),
+          );
+          expect(
+            tester.getSemantics(find.bySemanticsLabel("get weather, Didn't complete")),
+            isSemantics(isLiveRegion: true),
+            reason: '$label, then failed',
+          );
+        }
+        handle.dispose();
+      });
+
+      testWidgets('a finished call that starts running again becomes a live region', (tester) async {
+        final handle = tester.ensureSemantics();
+        _reduceMotion(tester);
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.failed))));
+        expect(
+          tester.getSemantics(find.bySemanticsLabel("get weather, Didn't complete")),
+          isSemantics(isLiveRegion: false),
+        );
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call())));
+        expect(tester.getSemantics(find.bySemanticsLabel('get weather, Running')), isSemantics(isLiveRegion: true));
         handle.dispose();
       });
 
@@ -576,6 +647,54 @@ void main() {
         );
         expect(tester.widget<Text>(find.text('get weather')).style!.color, theme.colorScheme.onSurface);
         expect(tester.widget<Text>(find.text("Didn't complete")).style!.color, theme.colorScheme.onSurfaceVariant);
+      });
+
+      testWidgets('foreground-painted styles keep their paint, with the neutral icon in its color', (tester) async {
+        _reduceMotion(tester);
+        final titlePaint = Paint()..color = const Color(0xFF0000D1);
+        final detailPaint = Paint()..color = const Color(0xFF0000D2);
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.cancelled, durationMs: 800),
+              theme: ToolCallThemeData(
+                titleStyle: TextStyle(foreground: titlePaint),
+                detailStyle: TextStyle(foreground: detailPaint),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        final title = tester.widget<Text>(find.text('get weather')).style!;
+        expect(title.foreground, same(titlePaint));
+        expect(title.color, isNull);
+        for (final text in ['Cancelled', '0.8s']) {
+          final style = tester.widget<Text>(find.text(text)).style!;
+          expect(style.foreground, same(detailPaint), reason: text);
+          expect(style.color, isNull, reason: text);
+        }
+        expect(_iconColor(tester), isSameColorAs(const Color(0xFF0000D2)));
+      });
+
+      testWidgets('a themed foreground-painted detail style does not throw', (tester) async {
+        final theme = ThemeData(
+          extensions: [
+            AITheme(
+              toolCallTheme: ToolCallThemeData(detailStyle: TextStyle(foreground: Paint())),
+            ),
+          ],
+        );
+        for (final status in [AIToolCallStatus.awaitingApproval, AIToolCallStatus.cancelled]) {
+          await tester.pumpWidget(
+            _wrap(
+              AIToolCallView(call: _call(status: status)),
+              theme: theme,
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(tester.takeException(), isNull, reason: status.value);
+        }
       });
 
       test('a negative icon size is rejected', () {

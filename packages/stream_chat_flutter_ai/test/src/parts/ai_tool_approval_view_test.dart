@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/dropped_answer_report.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -259,10 +260,15 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
       expect(approver.stateOf(call).isSent, isTrue);
       await tester.pump(const Duration(seconds: 1));
+      expect(tester.takeException(), isNull, reason: 'not before something sees the call still waiting');
       final state = approver.stateOf(call);
       expect(state, isA<AIToolApprovalFailed>());
       expect((state as AIToolApprovalFailed).error, isA<TimeoutException>());
+      await tester.pump();
       expect(tester.takeException(), isA<TimeoutException>(), reason: 'a timeout is reported, likely a backend bug');
+      approver.stateOf(call);
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: 'reported once');
       approver.dispose();
     });
 
@@ -706,6 +712,58 @@ void main() {
         expect(_enabled(tester, 'Allow'), isTrue);
       });
 
+      testWidgets('a sent timeout while no view shows the call is not reported if the call moved on', (tester) async {
+        final approver = backend.approver(sentTimeout: const Duration(seconds: 3));
+        await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
+        await tester.tap(find.text('Allow'));
+        await tester.pump();
+        backend.pending.single.complete();
+        await tester.pump();
+        expect(find.text('Sent'), findsOneWidget);
+
+        // The person leaves the chat; meanwhile the backend moves the call on.
+        await tester.pumpWidget(_wrap(const SizedBox()));
+        await tester.pump(const Duration(seconds: 3));
+        expect(tester.takeException(), isNull, reason: 'nothing says the call still waits');
+
+        await tester.pumpWidget(_wrap(AIToolApprovalView(call: _answered(), approver: approver)));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(_card, findsNothing);
+      });
+
+      testWidgets('a sent timeout while no view shows the call is reported once it shows still waiting', (
+        tester,
+      ) async {
+        final approver = backend.approver(sentTimeout: const Duration(seconds: 3));
+        await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
+        await tester.tap(find.text('Allow'));
+        await tester.pump();
+        backend.pending.single.complete();
+        await tester.pump();
+
+        await tester.pumpWidget(_wrap(const SizedBox()));
+        await tester.pump(const Duration(seconds: 3));
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
+        await tester.pump();
+        expect(tester.takeException(), isA<TimeoutException>(), reason: 'the backend never moved the call on');
+        expect(find.text(_notSent), findsOneWidget);
+        expect(_enabled(tester, 'Allow'), isTrue);
+
+        await tester.pumpWidget(
+          _wrap(
+            AIToolApprovalView(
+              call: _call(displayTitle: 'Again'),
+              approver: approver,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: 'reported once');
+      });
+
       testWidgets('a late failure for an earlier round changes nothing', (tester) async {
         await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
         await tester.tap(find.text('Allow'));
@@ -893,6 +951,35 @@ void main() {
         );
         expect(backend.answers, isEmpty);
         expect(printed.single, contains('disposed'));
+      });
+      testWidgets('an answer given mid-frame is sent once the frame ends', (tester) async {
+        late AIToolApprovalAnswer answer;
+        await tester.pumpWidget(
+          _wrap(
+            AIToolApprovalView(
+              call: _call(),
+              approver: approver,
+              builder: (context, approval, state, a) {
+                answer = a;
+                return const SizedBox();
+              },
+            ),
+          ),
+        );
+
+        SchedulerPhase? phase;
+        var sentRightAway = true;
+        SchedulerBinding.instance.scheduleFrameCallback((_) {
+          scheduleMicrotask(() {
+            phase = SchedulerBinding.instance.schedulerPhase;
+            answer(_allow);
+            sentRightAway = backend.answers.isNotEmpty;
+          });
+        });
+        await tester.pump();
+        expect(phase, SchedulerPhase.midFrameMicrotasks);
+        expect(sentRightAway, isFalse, reason: 'waits for the frame to end');
+        expect(backend.answers, [('call_1', _allow)]);
       });
     });
 

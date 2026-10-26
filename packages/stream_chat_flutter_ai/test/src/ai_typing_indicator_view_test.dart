@@ -164,6 +164,29 @@ void main() {
         expect(_dotColors(tester), everyElement(theme.colorScheme.onSurfaceVariant));
       });
 
+      testWidgets('a foreground-painted textStyle keeps its paint, with dots in its color', (tester) async {
+        final theme = ThemeData();
+        const paintColor = Color(0xFF9C27B0);
+        final paint = Paint()..color = paintColor;
+        await tester.pumpWidget(
+          _wrap(
+            AITypingIndicatorView(
+              text: 'Thinking',
+              textStyle: TextStyle(foreground: paint),
+            ),
+            theme: theme,
+          ),
+        );
+        await _settleStagger(tester);
+
+        expect(tester.takeException(), isNull);
+        final style = tester.widget<Text>(find.text('Thinking')).style!;
+        expect(style.foreground, same(paint));
+        expect(style.color, isNull);
+        // Paint keeps its color at float32 precision, so compare loosely.
+        expect(_dotColors(tester), everyElement(isSameColorAs(paintColor)));
+      });
+
       testWidgets('textStyle merges across all three levels', (tester) async {
         await tester.pumpWidget(
           _wrap(
