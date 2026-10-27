@@ -170,15 +170,14 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
-- `StreamingMessageView.expectMoreText` now means the reply is still being generated, as
-  `isGenerating` does on iOS: text is typed out only while it is `true` and in the update that turns
-  it `false`; after that, and for a view created while it is `false`, a new `text` shows in full at
-  once.
+- `StreamingMessageView.expectMoreText` now means the reply is still being generated: text is typed
+  out only while it is `true` and in the update that turns it `false`; after that, and for a view
+  created while it is `false`, a new `text` shows in full at once.
 - When `text` is replaced by something other than a continuation, `StreamingMessageView` and
   `TypewriterController.updateText` keep the part it shares with what is on screen and type only the
   rest, instead of starting over from the first character.
 - The default typing speed of `StreamingMessageView` and `TypewriterController` is 5 ms per
-  character instead of 10 ms, as on iOS.
+  character instead of 10 ms.
 
 🐞 Fixed
 

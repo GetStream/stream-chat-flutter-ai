@@ -104,7 +104,7 @@ void main() {
       expect(controller.value.state, TypewriterState.idle);
     });
 
-    test('types 5 ms per character by default, as on iOS', () {
+    test('types 5 ms per character by default', () {
       final controller = TypewriterController();
       addTearDown(controller.dispose);
 

@@ -97,7 +97,7 @@ void main() {
       expect(states.last, TypewriterState.idle);
     });
 
-    testWidgets('types 5 ms per character by default, as on iOS', (tester) async {
+    testWidgets('types 5 ms per character by default', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(body: StreamingMessageView(text: 'abcdefghij', expectMoreText: true)),
