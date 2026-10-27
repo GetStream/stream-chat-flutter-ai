@@ -675,6 +675,56 @@ once it has finished. Style it with `ToolCallThemeData` (see its API docs for th
 AIToolCallView(call: part.toolCall!);
 ```
 
+### This install: `AIClientIdentity.installId`
+
+An agent can aim a tool call at one install of your app, through its `target_client_id`, so a
+person signed in on two devices doesn't get the call twice. `AIClientIdentity.installId()` gives
+each install an id, `flutter-` followed by a UUID, created on first use and kept in shared
+preferences:
+
+```dart
+final installId = await AIClientIdentity.installId();
+final identity = AIClientIdentity(userId: currentUser.id, clientId: installId);
+```
+
+**Android** — exclude the id from backups. Android backs up app data and copies it to a new device,
+and a restored id makes both devices the same install: both would run a call meant for one. The id
+is kept in a preferences file of its own, `io.getstream.ai.client-id.xml`, so exclude that file.
+
+`android/app/src/main/res/xml/data_extraction_rules.xml` (Android 12 and later):
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="io.getstream.ai.client-id.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="io.getstream.ai.client-id.xml"/>
+    </device-transfer>
+</data-extraction-rules>
+```
+
+`android/app/src/main/res/xml/backup_rules.xml` (Android 11 and earlier):
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="io.getstream.ai.client-id.xml"/>
+</full-backup-content>
+```
+
+Then point the `<application>` in `android/app/src/main/AndroidManifest.xml` at both:
+```xml
+<application
+    android:dataExtractionRules="@xml/data_extraction_rules"
+    android:fullBackupContent="@xml/backup_rules"
+    ...>
+```
+
+If your app already has these files, add the `<exclude>` lines to them. Rules that only exclude
+leave the rest of your app's data backed up as before. Keep the `<device-transfer>` rule even with
+`android:allowBackup="false"`: in apps targeting Android 12 or later, that flag stops cloud backups
+but not transfers to a new device.
+
 ### Tool approvals: `AIToolApprover`
 
 An agent can ask the user before running a tool: the call waits with status `awaiting_approval`, and

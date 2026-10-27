@@ -43,16 +43,22 @@ melos:
         image_picker: ^1.2.2
         markdown: ^7.3.1
         photo_manager: ^3.9.0
+        shared_preferences: ^2.5.3
+        shared_preferences_android: ^2.4.0
         # Used only by the example, which supplies the grammars that
         # `CodeBlockView.highlighter` needs. See
         # `example/lib/code_highlighter.dart`.
         re_highlight: ^0.0.3
         speech_to_text: ^7.0.0
+        uuid: ^4.5.1
 
       # List of all the dev_dependencies used in the project.
       dev_dependencies:
         alchemist: ^0.14.0
         mocktail: ^1.0.5
+        # Direct because the install id tests substitute an in-memory
+        # `SharedPreferencesAsyncPlatform`.
+        shared_preferences_platform_interface: ^2.4.1
         # Direct because the speech tests substitute their own
         # `SpeechToTextPlatform`; it arrives transitively via `speech_to_text`,
         # but importing it without declaring it fails `melos run lint:pub`.
