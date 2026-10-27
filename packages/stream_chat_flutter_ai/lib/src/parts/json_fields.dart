@@ -79,7 +79,8 @@ class PartFields {
   }
 
   /// The RFC 3339 time at [key], such as `2026-10-26T12:00:00.123Z`, in UTC.
-  /// It needs a `Z` or a `±hh:mm` offset, and takes any number of fractional
+  /// It needs a `Z` or a `±hh:mm` offset (hours up to 23, minutes up to 59),
+  /// and takes any number of fractional
   /// digits, keeping microseconds. Other text reads as `null`: Dart's own
   /// parser would take a time without an offset as local, and roll an
   /// impossible date such as 30 February over into March.
@@ -127,8 +128,13 @@ DateTime? _parseRfc3339(String text) {
   // DateTime.utc rolls 31 February over into March; RFC 3339 has no such day.
   if (utc.day != day) return null;
   if (match.group(8) != null) return utc;
-  final offset = Duration(hours: part(10), minutes: part(11));
-  return match.group(9) == '-' ? utc.add(offset) : utc.subtract(offset);
+  final (offsetHours, offsetMinutes) = (part(10), part(11));
+  if (offsetHours > 23 || offsetMinutes > 59) return null;
+  final offset = Duration(hours: offsetHours, minutes: offsetMinutes);
+  final instant = match.group(9) == '-' ? utc.add(offset) : utc.subtract(offset);
+  // An offset can push the first or last day of year 0000 or 9999 out of
+  // the four-digit years RFC 3339 writes.
+  return instant.year < 0 || instant.year > 9999 ? null : instant;
 }
 
 /// A deeply unmodifiable copy of a decoded JSON value: maps (with their

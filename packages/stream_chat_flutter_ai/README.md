@@ -727,8 +727,10 @@ the call's step changes; with `false` (the person came back without connecting) 
 again; throw when the page couldn't be opened. Not now stays enabled meanwhile, so a sign-in that
 never comes back leaves the user a way out.
 
-The return URL is your app's own scheme in reverse-domain form, such as
-`com.example.app:/connected` (RFC 8252); the agent's backend may refuse anything else.
+Give the session a return URL in your app's own scheme, in reverse-domain form such as
+`com.example.app:/connected` (RFC 8252). The sign-in page hands its token over from the URL only
+when the return URL is such an app scheme: an `https` one, which the backend also accepts, is for a
+web page that opened the sign-in itself, and the page waits for it instead.
 
 With [`flutter_web_auth_2`](https://pub.dev/packages/flutter_web_auth_2), which uses
 `ASWebAuthenticationSession` on iOS and a Custom Tab on Android:
@@ -764,12 +766,35 @@ Or with [`url_launcher`](https://pub.dev/packages/url_launcher) and a deep link 
 (`CFBundleURLTypes` in `Info.plist`, an `<intent-filter>` like the one above on your activity):
 
 ```dart
+// Listened to once, at startup: `app_links` hands the link that launched the
+// app to its first listener, which must not pass for a sign-in's return.
+final signInReturns = StreamController<Uri>.broadcast();
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  AppLinks().uriLinkStream.where((link) => link.scheme == 'com.example.app').listen(signInReturns.add);
+  runApp(const MyApp());
+}
+
 Future<bool> signIn(Uri url) async {
-  final back = AppLinks().uriLinkStream.firstWhere((link) => link.scheme == 'com.example.app');
-  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) throw StateError('no browser');
-  // The agent's backend gives up on the sign-in after a while; so does the app.
-  final link = await back.timeout(const Duration(minutes: 10), onTimeout: () => Uri());
-  return link.queryParameters['status'] == 'connected';
+  final back = Completer<bool>();
+  final returns = signInReturns.stream.listen((link) {
+    if (!back.isCompleted) back.complete(link.queryParameters['status'] == 'connected');
+  });
+  // Back in the app without the page's redirect: not connected. The redirect
+  // itself also resumes the app, so give its link a moment to arrive first.
+  final lifecycle = AppLifecycleListener(
+    onResume: () => Future<void>.delayed(const Duration(seconds: 1), () {
+      if (!back.isCompleted) back.complete(false);
+    }),
+  );
+  try {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) throw StateError('no browser');
+    return await back.future;
+  } finally {
+    await returns.cancel();
+    lifecycle.dispose();
+  }
 }
 ```
 

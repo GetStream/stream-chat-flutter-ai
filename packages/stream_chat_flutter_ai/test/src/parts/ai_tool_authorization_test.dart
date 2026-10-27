@@ -53,7 +53,8 @@ void main() {
 
     for (final (description, json) in [
       ('no title', {'url': 'https://a.example'}),
-      ('a blank title', {'title': '', 'url': 'https://a.example'}),
+      ('an empty title', {'title': '', 'url': 'https://a.example'}),
+      ('a blank title', {'title': '  ', 'url': 'https://a.example'}),
       ('no url', {'title': 'Connect'}),
       ('a url that is not a web page', {'title': 'Connect', 'url': 'ftp://a.example/x'}),
       ('a mailto url', {'title': 'Connect', 'url': 'mailto:me@a.example'}),
@@ -114,6 +115,8 @@ void main() {
       expect(expiry('2026-10-21T21:42:19.834567891Z'), DateTime.utc(2026, 10, 21, 21, 42, 19, 834, 567));
       expect(expiry('2026-10-21T23:42:19+02:00'), DateTime.utc(2026, 10, 21, 21, 42, 19));
       expect(expiry('2026-10-21T16:12:19-05:30'), DateTime.utc(2026, 10, 21, 21, 42, 19));
+      expect(expiry('2026-10-21T21:42:19-00:00'), DateTime.utc(2026, 10, 21, 21, 42, 19));
+      expect(expiry('2026-10-21T21:42:19+23:59'), DateTime.utc(2026, 10, 20, 21, 43, 19));
       expect(expiry('2026-10-21T21:42:19Z')!.isUtc, isTrue);
       expect(reports, isEmpty);
     });
@@ -127,6 +130,10 @@ void main() {
       '2026-13-01T00:00:00Z',
       '2026-10-21T24:00:00Z',
       '2026-10-21T23:59:60Z', // a leap second, which DateTime can't hold
+      '2026-10-21T21:42:19+24:00', // offset hours run to 23
+      '2026-10-21T21:42:19+99:99',
+      '2026-10-21T21:42:19+02:60', // offset minutes run to 59
+      '9999-12-31T23:59:59-23:59', // past year 9999 in UTC
       'tomorrow',
     ]) {
       test('reads "$text" as absent, and reports it', () {
@@ -196,12 +203,27 @@ void main() {
       expect(_read(_linear), isNot(_read({..._linear, 'status': 'declined'})));
     });
 
-    test('copyWith replaces the given fields', () {
+    test('copyWith replaces the given fields and keeps the rest', () {
       final authorization = _read(_linear)!;
       final ended = authorization.copyWith(status: AIToolAuthorizationStatus.expired);
 
       expect(ended.status, AIToolAuthorizationStatus.expired);
-      expect(ended.copyWith(status: null).title, authorization.title);
+      expect(ended, authorization.copyWith(status: AIToolAuthorizationStatus.expired));
+      expect(ended.copyWith(status: AIToolAuthorizationStatus.expired), ended);
+      expect(ended.copyWith().toJson(), {...authorization.toJson(), 'status': 'expired'});
+    });
+
+    test('reads a local expiry back in UTC, the same instant', () {
+      final local = DateTime(2026, 10, 21, 23, 42, 19);
+      final authorization = AIToolAuthorization(
+        title: 'Connect',
+        url: Uri.parse('https://a.example'),
+        expiresAt: local,
+      );
+
+      final read = _read(authorization.toJson())!;
+      expect(read.expiresAt, local.toUtc());
+      expect(read.expiresAt!.isAtSameMomentAs(local), isTrue);
     });
   });
 

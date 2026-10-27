@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -568,10 +570,11 @@ void main() {
       await tester.pumpWidget(view(parts(), approver: approver));
 
       expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+      final row = find.ancestor(of: find.text('Using Linear'), matching: find.byType(AIToolCallView));
       expect(
-        tester.getTopLeft(find.byType(AIToolAuthorizationCard)).dy - tester.getBottomLeft(find.text('Using Linear')).dy,
-        greaterThanOrEqualTo(8),
-        reason: 'the sign-in sits under its row',
+        tester.getTopLeft(find.byType(AIToolAuthorizationCard)).dy - tester.getBottomLeft(row).dy,
+        8,
+        reason: 'the sign-in sits one spacing under its row',
       );
 
       await tester.tap(find.text('Connect'));
@@ -600,6 +603,32 @@ void main() {
 
       expect(find.byType(AIToolAuthorizationCard), findsNothing);
       expect(find.text('Waiting for you to sign in'), findsOneWidget, reason: 'the row still says so');
+    });
+
+    testWidgets('a hidden row of a call that no longer waits forgets its sign-in', (tester) async {
+      final pending = Completer<bool>();
+      final forgetful = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice'),
+        decide: (_, _) async {},
+        authorizer: AIToolAuthorizer(connect: (_, _) => pending.future, decline: (_) async {}),
+      );
+      addTearDown(forgetful.dispose);
+      final waiting = parts().first.toolCall!;
+      forgetful.connect(waiting);
+      expect(forgetful.authorizationStateOf(waiting).isConnecting, isTrue);
+
+      await tester.pumpWidget(
+        view(
+          parts(status: 'running'),
+          approver: forgetful,
+          builders: AIComponentBuilders(toolCall: (context, props) => AIMessagePartsView.hidden),
+        ),
+      );
+      pending.complete(false);
+      await tester.pump();
+
+      // Forgotten while it moved on: waiting again, it starts afresh.
+      expect(forgetful.authorizationStateOf(waiting), const AIToolAuthorizationState());
     });
 
     testWidgets('a row the factory hides still asks for the sign-in', (tester) async {

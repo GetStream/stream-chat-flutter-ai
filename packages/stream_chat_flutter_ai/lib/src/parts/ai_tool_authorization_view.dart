@@ -112,11 +112,15 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
   }
 
   // Bound to the call it was built for, so a callback kept by a builder never
-  // acts on another call this view shows since.
-  AIToolAuthorizationAction _actionFor(AIToolCallPart call, void Function(AIToolCallPart call) act) =>
+  // acts on another call this view shows since. The approver is read when it
+  // acts, so one swapped in since gets it.
+  AIToolAuthorizationAction _actionFor(
+    AIToolCallPart call,
+    void Function(AIToolApprover approver, AIToolCallPart call) act,
+  ) =>
       () => _act(call, act);
 
-  void _act(AIToolCallPart call, void Function(AIToolCallPart call) act) {
+  void _act(AIToolCallPart call, void Function(AIToolApprover approver, AIToolCallPart call) act) {
     if (!mounted) return reportDroppedAnswer(call, 'its AIToolAuthorizationView was disposed');
     if (widget.call.id != call.id) {
       return reportDroppedAnswer(call, 'its AIToolAuthorizationView shows another call now');
@@ -131,7 +135,7 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _act(call, act));
       return;
     }
-    act(widget.call);
+    act(widget.approver, widget.call);
   }
 
   @override
@@ -142,8 +146,8 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
     final authorization = approver.signInFor(call);
     if (authorization == null) return const SizedBox.shrink();
 
-    final connect = _actionFor(call, approver.connect);
-    final decline = _actionFor(call, approver.declineAuthorization);
+    final connect = _actionFor(call, (approver, call) => approver.connect(call));
+    final decline = _actionFor(call, (approver, call) => approver.declineAuthorization(call));
     if (widget.builder case final builder?) return builder(context, authorization, state, connect, decline);
     final props = AIToolAuthorizationProps(
       call: call,
@@ -175,7 +179,8 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
 /// ([AITranslations.toolAuthorizationDecline]) waits only while its own answer
 /// is on its way, so a sign-in that never comes back leaves the person a way
 /// out. A small progress indicator follows the buttons while busy (a static
-/// icon with reduced motion on). When an answer failed, a line in
+/// icon with reduced motion on); while declining, screen readers hear it as
+/// [AITranslations.toolApprovalSending]. When an answer failed, a line in
 /// [ToolApprovalThemeData.failureStyle] says so —
 /// [AITranslations.toolAuthorizationNotOpened] or
 /// [AITranslations.toolApprovalNotSent] — and is announced to screen readers.
@@ -275,7 +280,12 @@ class AIToolAuthorizationCard extends StatelessWidget {
                       ),
                       child: Text(translations.toolAuthorizationDecline),
                     ),
-                    if (state.isBusy) _Busy(color: theme.accentColor),
+                    if (state.isBusy)
+                      _Busy(
+                        color: theme.accentColor,
+                        // Connecting says so on its button; declining doesn't.
+                        label: state.isDeclining ? translations.toolApprovalSending : null,
+                      ),
                   ],
                 ),
                 if (failure != null)
@@ -296,18 +306,19 @@ class AIToolAuthorizationCard extends StatelessWidget {
 }
 
 /// A small progress indicator, or a still "in progress" with reduced motion
-/// on. Left out of the semantics tree: the button labels say what is under
-/// way.
+/// on. Screen readers hear [label]; without one it is left out, as a button
+/// label already says what is under way.
 class _Busy extends StatelessWidget {
-  const _Busy({required this.color});
+  const _Busy({required this.color, this.label});
 
   final Color color;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     const size = 16.0;
-    return ExcludeSemantics(
+    final indicator = ExcludeSemantics(
       child: SizedBox.square(
         dimension: size,
         // A spinner never stops, so reduced motion gets a still "in progress".
@@ -316,5 +327,8 @@ class _Busy extends StatelessWidget {
             : CircularProgressIndicator(strokeWidth: 2, color: color),
       ),
     );
+    final label = this.label;
+    if (label == null) return indicator;
+    return Semantics(label: label, liveRegion: true, child: indicator);
   }
 }

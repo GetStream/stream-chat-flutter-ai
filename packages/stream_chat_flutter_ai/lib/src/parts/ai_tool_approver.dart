@@ -108,12 +108,15 @@ class AIToolAuthorizer {
   /// Opens the sign-in page and says whether the person connected. Until it
   /// completes, and after it completes with `true`, the sign-in reads
   /// connecting; `false` lets them connect again, and an error says the page
-  /// couldn't be opened. It must not hang: a person who never comes back can
-  /// still answer "not now", but can't connect again until it completes.
+  /// couldn't be opened. It must not hang: until it completes, the person can
+  /// answer "not now" but can't open the page again. It isn't bounded by
+  /// [AIToolApprover.sentTimeout], since signing in can take minutes.
   final AIToolSignInConnector connect;
 
   /// Sends the person's "not now". Until the call's step changes the sign-in
-  /// reads declining; an error lets them answer again.
+  /// reads declining; an error lets them answer again. Sending it is bounded
+  /// by [AIToolApprover.sentTimeout] when one is set; the wait for the step
+  /// to change afterwards is not.
   final AIToolSignInDecliner decline;
 }
 
@@ -173,6 +176,11 @@ class AIToolApprover extends ChangeNotifier {
   /// call still waiting past the timeout is reported once [stateOf] next sees
   /// it waiting — the backend may have moved it on while no
   /// [AIToolApprovalView] showed it — and not at all if it no longer does.
+  ///
+  /// For a sign-in it bounds sending the person's "not now"
+  /// ([AIToolAuthorizer.decline]) only, which turns
+  /// [AIToolAuthorizationState.declineFailed] past it. It never bounds
+  /// [AIToolAuthorizer.connect], since signing in can take minutes.
   final Duration? sentTimeout;
 
   /// How this person signs in when a call waits for their account at a
@@ -275,8 +283,9 @@ class AIToolApprover extends ChangeNotifier {
   }
 
   /// Hands [call]'s sign-in page to the [authorizer], unless an answer is
-  /// already under way. Until the person comes back it reads connecting; back
-  /// connected, it stays so until the call's step changes.
+  /// already under way or the page is still open from an earlier Connect.
+  /// Until the person comes back it reads connecting; back connected, it stays
+  /// so until the call's step changes.
   void connect(AIToolCallPart call) {
     if (_disposed) return reportDroppedAnswer(call, 'its AIToolApprover was disposed');
     final authorizer = this.authorizer;
@@ -284,29 +293,45 @@ class AIToolApprover extends ChangeNotifier {
     if (authorizer == null || authorization == null) {
       return reportDroppedAnswer(call, 'it no longer waits for ${identity.userId} to sign in');
     }
-    if (authorizationStateOf(call).isBusy) return;
+    final entry = _signIns[call.id] ??= _SignIn();
+    // One page at a time: a failed "not now" makes the buttons idle again
+    // while the page it was sent over may still be open.
+    if (entry.connecting != null || entry.state.isBusy) return;
 
-    final entry = _signIns[call.id] = _SignIn(const AIToolAuthorizationState(isConnecting: true));
+    final attempt = entry.connecting = Object();
+    entry.state = const AIToolAuthorizationState(isConnecting: true);
     notifyListeners();
-    unawaited(_connect(call, authorizer, authorization.launchUrl, entry));
+    unawaited(_connect(call, authorizer, authorization.launchUrl, entry, attempt));
   }
 
-  Future<void> _connect(AIToolCallPart call, AIToolAuthorizer authorizer, Uri url, _SignIn entry) async {
-    AIToolAuthorizationState? next;
+  Future<void> _connect(
+    AIToolCallPart call,
+    AIToolAuthorizer authorizer,
+    Uri url,
+    _SignIn entry,
+    Object attempt,
+  ) async {
+    AIToolAuthorizationState Function(AIToolAuthorizationState state) outcome;
     try {
       final connected = await Future.sync(() => authorizer.connect(call, url));
       // Connected, the call's step changing hides the sign-in; until then it
-      // reads connecting.
-      if (!connected) next = const AIToolAuthorizationState();
+      // reads connecting. A "not now" that failed meanwhile still says so
+      // when the person comes back without connecting.
+      outcome = connected
+          ? (_) => const AIToolAuthorizationState(isConnecting: true)
+          : (state) => AIToolAuthorizationState(declineFailed: state.declineFailed);
     } catch (error, stackTrace) {
-      next = const AIToolAuthorizationState(connectFailed: true);
+      outcome = (state) => AIToolAuthorizationState(connectFailed: true, declineFailed: state.declineFailed);
       _reportError(error, stackTrace, 'while opening the sign-in of tool call "${call.id}"');
     }
-    // A "not now" sent meanwhile stays.
-    if (next != null && _isCurrentSignIn(call, entry)) {
-      entry.state = next;
-      notifyListeners();
-    }
+    if (!_isCurrentSignIn(call, entry) || !identical(entry.connecting, attempt)) return;
+    entry.connecting = null;
+    // A "not now" on its way or sent stays.
+    if (entry.state.isDeclining) return;
+    final next = outcome(entry.state);
+    if (next == entry.state) return;
+    entry.state = next;
+    notifyListeners();
   }
 
   /// Sends the person's "not now" for [call] through the [authorizer], unless
@@ -318,14 +343,16 @@ class AIToolApprover extends ChangeNotifier {
     if (authorizer == null || signInFor(call) == null) {
       return reportDroppedAnswer(call, 'it no longer waits for ${identity.userId} to sign in');
     }
-    if (authorizationStateOf(call).isDeclining) return;
+    final entry = _signIns[call.id] ??= _SignIn();
+    if (entry.state.isDeclining) return;
 
-    final entry = _signIns[call.id] = _SignIn(const AIToolAuthorizationState(isDeclining: true));
+    final attempt = entry.declining = Object();
+    entry.state = const AIToolAuthorizationState(isDeclining: true);
     notifyListeners();
-    unawaited(_decline(call, authorizer, entry));
+    unawaited(_decline(call, authorizer, entry, attempt));
   }
 
-  Future<void> _decline(AIToolCallPart call, AIToolAuthorizer authorizer, _SignIn entry) async {
+  Future<void> _decline(AIToolCallPart call, AIToolAuthorizer authorizer, _SignIn entry, Object attempt) async {
     try {
       final sending = Future.sync(() => authorizer.decline(call));
       await (sentTimeout == null
@@ -337,12 +364,15 @@ class AIToolApprover extends ChangeNotifier {
       // Sent, the call's step changing hides the sign-in; until then it reads
       // declining.
     } catch (error, stackTrace) {
-      // The state first, as for answers.
-      if (_isCurrentSignIn(call, entry)) {
-        entry.state = const AIToolAuthorizationState(declineFailed: true);
+      // The state first, as for answers. A page still open from Connect keeps
+      // it connecting, so the person can't open a second one.
+      if (_isCurrentSignIn(call, entry) && identical(entry.declining, attempt)) {
+        entry.state = AIToolAuthorizationState(isConnecting: entry.connecting != null, declineFailed: true);
         notifyListeners();
       }
       _reportError(error, stackTrace, 'while sending the "not now" for tool call "${call.id}"');
+    } finally {
+      if (identical(entry.declining, attempt)) entry.declining = null;
     }
   }
 
@@ -382,9 +412,13 @@ class AIToolApprover extends ChangeNotifier {
 }
 
 class _SignIn {
-  _SignIn(this.state);
+  AIToolAuthorizationState state = const AIToolAuthorizationState();
 
-  AIToolAuthorizationState state;
+  /// The Connect whose page is open, until the authorizer comes back.
+  Object? connecting;
+
+  /// The "not now" on its way, until it is sent or fails.
+  Object? declining;
 }
 
 class _Entry {

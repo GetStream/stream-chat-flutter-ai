@@ -80,8 +80,8 @@ class AIToolAuthorization {
   });
 
   /// Reads an `authorization` object leniently, or returns `null` when it asks
-  /// nothing: it has no `title`, or its `url` isn't an `http` or `https` page
-  /// with a host. Any other missing or wrong-typed field reads as its default,
+  /// nothing: it has no `title` (or a blank one), or its `url` isn't an `http`
+  /// or `https` page with a host. Any other missing or wrong-typed field reads as its default,
   /// and nothing throws.
   ///
   /// [context] names the step in debug reports, such as
@@ -94,7 +94,7 @@ class AIToolAuthorization {
       final url? => Uri.tryParse(url),
       null => null,
     };
-    if (title == null || url == null || !isWebPage(url)) {
+    if (title == null || title.trim().isEmpty || url == null || !isWebPage(url)) {
       reportPartIssue(() => '$where asks nothing: it needs a `title` and an http(s) `url` with a host.');
       return null;
     }
@@ -156,7 +156,8 @@ class AIToolAuthorization {
   /// sign-in is over.
   final String? handoffToken;
 
-  /// When the sign-in expires, in UTC.
+  /// When the sign-in expires. [AIToolAuthorization.fromJson] reads it in
+  /// UTC.
   final DateTime? expiresAt;
 
   /// How the sign-in ended, once it did; `null` while it waits.
@@ -221,9 +222,12 @@ class AIToolAuthorization {
     );
   }
 
-  /// The sign-in as an `authorization` object, which
-  /// [AIToolAuthorization.fromJson] reads back to an equal sign-in. Absent
-  /// fields are left out.
+  /// The sign-in as an `authorization` object. Absent fields are left out.
+  ///
+  /// [AIToolAuthorization.fromJson] reads it back to an equal sign-in when
+  /// [title] isn't blank and [expiresAt], if any, is in UTC: it reads the
+  /// time back in UTC, and a [DateTime] in local time never equals one in
+  /// UTC.
   Map<String, Object?> toJson() => {
     'type': kind,
     if (provider.isNotEmpty) 'provider': provider,

@@ -261,6 +261,103 @@ void main() {
       expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isDeclining: true));
     });
 
+    testWidgets('a failed not now while the page is open keeps it connecting, so it opens once', (tester) async {
+      _captureErrors();
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver
+        ..connect(_call())
+        ..declineAuthorization(_call());
+      fake.declines.single.completeError(Exception('offline'));
+      await tester.pump();
+
+      expect(
+        approver.authorizationStateOf(_call()),
+        const AIToolAuthorizationState(isConnecting: true, declineFailed: true),
+      );
+      approver.connect(_call());
+      expect(fake.opened, hasLength(1), reason: 'the first page is still open');
+
+      // Back without connecting: the failed not now still says so, and Connect works again.
+      fake.connects.single.complete(false);
+      await tester.pump();
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(declineFailed: true));
+      approver.connect(_call());
+      expect(fake.opened, hasLength(2));
+      fake.connects.last.complete(true);
+    });
+
+    testWidgets('after a failed not now, the page coming back connected reads connecting', (tester) async {
+      _captureErrors();
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver
+        ..connect(_call())
+        ..declineAuthorization(_call());
+      fake.declines.single.completeError(Exception('offline'));
+      await tester.pump();
+      fake.connects.single.complete(true);
+      await tester.pump();
+
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isConnecting: true));
+    });
+
+    testWidgets('after a failed not now, a page that could not open says both', (tester) async {
+      _captureErrors();
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver
+        ..connect(_call())
+        ..declineAuthorization(_call());
+      fake.declines.single.completeError(Exception('offline'));
+      await tester.pump();
+      fake.connects.single.completeError(StateError('no browser'));
+      await tester.pump();
+
+      expect(
+        approver.authorizationStateOf(_call()),
+        const AIToolAuthorizationState(connectFailed: true, declineFailed: true),
+      );
+    });
+
+    testWidgets('a page that throws after a not now leaves the not now', (tester) async {
+      _captureErrors();
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver
+        ..connect(_call())
+        ..declineAuthorization(_call());
+      fake.connects.single.completeError(StateError('closed'));
+      await tester.pump();
+
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isDeclining: true));
+    });
+
+    testWidgets('a page coming back for a sign-in since forgotten changes nothing', (tester) async {
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+      var notified = 0;
+
+      approver
+        ..connect(_call())
+        ..authorizationStateOf(_call(status: AIToolCallStatus.running))
+        ..addListener(() => notified++);
+      fake.connects.single.complete(false);
+      await tester.pump();
+
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState());
+      expect(notified, 0);
+    });
+
     testWidgets('the sent timeout bounds the not now', (tester) async {
       final errors = _captureErrors();
       final fake = _Fake();
@@ -451,6 +548,53 @@ void main() {
       await tester.pumpWidget(_wrap(AIToolAuthorizationView(call: _call(), approver: approver)));
 
       expect(find.text(_connecting), findsOneWidget);
+      fake.connects.single.complete(true);
+    });
+
+    testWidgets('while declining, screen readers hear that the answer is on its way', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(AIToolAuthorizationView(call: _call(), approver: approver)));
+
+      await tester.tap(find.text(_notNow));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Sending your answer…'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('while connecting, the spinner adds nothing for screen readers', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(AIToolAuthorizationView(call: _call(), approver: approver)));
+
+      await tester.tap(find.text(_connect));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Sending your answer…'), findsNothing);
+      expect(find.text(_connecting), findsOneWidget);
+      handle.dispose();
+      fake.connects.single.complete(true);
+    });
+
+    testWidgets('a callback a builder kept acts on the approver the view has now', (tester) async {
+      final other = fake.approver();
+      addTearDown(other.dispose);
+      AIToolAuthorizationAction? kept;
+      Widget view(AIToolApprover approver) => _wrap(
+        AIToolAuthorizationView(
+          call: _call(),
+          approver: approver,
+          builder: (context, authorization, state, connect, decline) {
+            kept ??= connect;
+            return Text('busy: ${state.isBusy}');
+          },
+        ),
+      );
+      await tester.pumpWidget(view(approver));
+      await tester.pumpWidget(view(other));
+
+      kept!();
+      await tester.pump();
+
+      expect(other.authorizationStateOf(_call()).isConnecting, isTrue);
+      expect(approver.authorizationStateOf(_call()).isConnecting, isFalse);
       fake.connects.single.complete(true);
     });
 
