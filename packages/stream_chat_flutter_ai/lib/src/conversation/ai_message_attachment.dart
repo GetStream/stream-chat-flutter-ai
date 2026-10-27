@@ -9,30 +9,21 @@ import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_vi
 /// What kind of attachment an [AIMessageAttachment] is.
 ///
 /// An open set: compare against the kinds you know ([image], [file]) and give
-/// the rest a fallback. [AIMessageAttachmentView] shows any kind but [image] as
-/// a file.
-@immutable
-class AIMessageAttachmentKind {
-  /// Wraps a raw kind, such as one of your own.
-  const AIMessageAttachmentKind(this.value);
-
+/// the rest a fallback. A kind this package doesn't know, such as one of your
+/// own, keeps its raw value and reports `false` from [isKnown].
+/// [AIMessageAttachmentView] shows any kind but [image] as a file.
+extension type const AIMessageAttachmentKind(String _) implements String {
   /// An image, shown as a thumbnail.
   static const image = AIMessageAttachmentKind('image');
 
   /// A file, such as a PDF, shown with its name, type and size.
   static const file = AIMessageAttachmentKind('file');
 
-  /// The kind's name.
-  final String value;
+  /// The kinds this package knows.
+  static const values = [image, file];
 
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIMessageAttachmentKind && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIMessageAttachmentKind($value)';
+  /// Whether this is one of [values].
+  bool get isKnown => values.contains(this);
 }
 
 /// Something a message carries besides its text, such as an image or a file.

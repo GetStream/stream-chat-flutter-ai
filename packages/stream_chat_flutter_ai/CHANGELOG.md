@@ -165,6 +165,10 @@
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
+- `AIMessagePartKind`, `AIReasoningStatus`, `AIToolCallStatus`, `AIToolExecutor`,
+  `AIToolApprovalDecision`, `AIMessageRole` and `AIMessageAttachmentKind` are extension types on
+  `String` instead of classes: compare or switch on them as strings, with no `.value`. All of them
+  now have `values` and `isKnown`.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.

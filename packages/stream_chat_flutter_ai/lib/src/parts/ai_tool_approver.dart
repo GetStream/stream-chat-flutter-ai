@@ -46,7 +46,7 @@ typedef AIToolApprovalContentBuilder =
 /// ```dart
 /// late final approver = AIToolApprover(
 ///   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
-///   decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+///   decide: (call, decision) => backend.answerToolCall(call.id, decision),
 /// );
 ///
 /// AIMessagePartsView(parts: parts, approver: approver)
@@ -250,7 +250,7 @@ final class AIToolApprovalSending extends AIToolApprovalState {
   int get hashCode => Object.hash(AIToolApprovalSending, decision);
 
   @override
-  String toString() => 'AIToolApprovalSending(${decision.value})';
+  String toString() => 'AIToolApprovalSending($decision)';
 }
 
 /// The answer [decision] arrived; the call's step hasn't changed yet.
@@ -268,7 +268,7 @@ final class AIToolApprovalSent extends AIToolApprovalState {
   int get hashCode => Object.hash(AIToolApprovalSent, decision);
 
   @override
-  String toString() => 'AIToolApprovalSent(${decision.value})';
+  String toString() => 'AIToolApprovalSent($decision)';
 }
 
 /// The answer [decision] couldn't be sent, because of [error]; the person can
@@ -291,5 +291,5 @@ final class AIToolApprovalFailed extends AIToolApprovalState {
   int get hashCode => Object.hash(AIToolApprovalFailed, decision, error);
 
   @override
-  String toString() => 'AIToolApprovalFailed(${decision.value}, $error)';
+  String toString() => 'AIToolApprovalFailed($decision, $error)';
 }
