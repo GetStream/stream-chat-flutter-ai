@@ -23,8 +23,9 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 ///
 ///  * **A status icon.** A small spinner while the call runs (and for a status
 ///    this package doesn't know, which counts as still in progress — debug
-///    builds say so); a shimmering hand while it waits for approval, or a
-///    phone while it waits for a device; a check once completed, an
+///    builds say so); a shimmering hand while it waits for approval, a key
+///    while it waits for the person to sign in, or a phone while it waits for
+///    a device; a check once completed, an
 ///    exclamation mark once failed, and a cross once cancelled or declined.
 ///  * **The title:** [AIToolCallPart.displayName] (the agent's title, or the
 ///    tool's name with underscores turned into spaces), or
@@ -75,11 +76,12 @@ class AIToolCallView extends StatefulWidget {
   State<AIToolCallView> createState() => _AIToolCallViewState();
 }
 
-/// What the row shows, folding [AIToolCallPart.status] and the approval's
-/// decision into one.
+/// What the row shows, folding [AIToolCallPart.status] and a declined
+/// approval or sign-in into one.
 enum _ToolCallState {
   running,
   awaitingApproval,
+  awaitingAuthorization,
   awaitingClient,
   completed,
   failed,
@@ -91,6 +93,7 @@ enum _ToolCallState {
     if (call.isDeclined) return declined;
     return switch (call.status) {
       AIToolCallStatus.awaitingApproval => awaitingApproval,
+      AIToolCallStatus.awaitingAuthorization => awaitingAuthorization,
       AIToolCallStatus.awaitingClient => awaitingClient,
       AIToolCallStatus.completed => completed,
       AIToolCallStatus.failed => failed,
@@ -100,7 +103,7 @@ enum _ToolCallState {
     };
   }
 
-  bool get isAwaiting => this == awaitingApproval || this == awaitingClient;
+  bool get isAwaiting => this == awaitingApproval || this == awaitingAuthorization || this == awaitingClient;
 
   /// Whether the call may still change: running or waiting.
   bool get isLive => this == running || isAwaiting;
@@ -110,6 +113,7 @@ enum _ToolCallState {
   String? detail(AITranslations translations) => switch (this) {
     running || completed => null,
     awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingAuthorization => translations.toolCallAwaitingAuthorization,
     awaitingClient => translations.toolCallAwaitingClient,
     failed => translations.toolCallFailed,
     cancelled => translations.toolCallCancelled,
@@ -121,6 +125,7 @@ enum _ToolCallState {
     running => translations.toolCallRunning,
     completed => translations.toolCallCompleted,
     awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingAuthorization => translations.toolCallAwaitingAuthorization,
     awaitingClient => translations.toolCallAwaitingClient,
     failed => translations.toolCallFailed,
     cancelled => translations.toolCallCancelled,
@@ -282,6 +287,7 @@ class _StatusIcon extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: math.max(1.5, size / 8), color: theme.accentColor),
       ),
       _ToolCallState.awaitingApproval => waiting(Icons.back_hand_outlined),
+      _ToolCallState.awaitingAuthorization => waiting(Icons.key_outlined),
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
       _ToolCallState.completed => icon(Icons.check_rounded, theme.successColor),
       _ToolCallState.failed => icon(Icons.priority_high_rounded, theme.failureColor),

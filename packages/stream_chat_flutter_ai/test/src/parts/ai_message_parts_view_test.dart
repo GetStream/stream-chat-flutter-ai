@@ -520,6 +520,104 @@ void main() {
     });
   });
 
+  group('AIMessagePartsView with an authorizer', () {
+    final opened = <String>[];
+    late AIToolApprover approver;
+    setUp(() {
+      opened.clear();
+      approver = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
+        decide: (_, _) async {},
+        authorizer: AIToolAuthorizer(
+          connect: (call, url) async {
+            opened.add(call.id);
+            return true;
+          },
+          decline: (_) async {},
+        ),
+      );
+    });
+    tearDown(() => approver.dispose());
+
+    List<AIMessagePart> parts({String status = 'awaiting_authorization'}) => AIMessagePart.parseAll([
+      (
+        type: 'ai_tool_call',
+        payload: {
+          'id': 'call_1',
+          'name': 'linear__list_issues',
+          'display_title': 'Using Linear',
+          'status': status,
+          'target_user_id': 'alice',
+          'authorization': {'title': 'Connect Linear', 'url': 'https://agent.example/launch'},
+        },
+      ),
+      (type: 'ai_tool_call', payload: const {'id': 'call_2', 'name': 'search_web', 'status': 'completed'}),
+    ]);
+
+    Widget view(List<AIMessagePart> parts, {AIToolApprover? approver, AIComponentBuilders? builders}) => _wrap(
+      AIComponentFactory(
+        builders: builders ?? const AIComponentBuilders(),
+        child: SizedBox(
+          width: 360,
+          child: AIMessagePartsView(parts: parts, approver: approver),
+        ),
+      ),
+    );
+
+    testWidgets('asks for the sign-in under its row, one spacing below it', (tester) async {
+      await tester.pumpWidget(view(parts(), approver: approver));
+
+      expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byType(AIToolAuthorizationCard)).dy - tester.getBottomLeft(find.text('Using Linear')).dy,
+        greaterThanOrEqualTo(8),
+        reason: 'the sign-in sits under its row',
+      );
+
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      expect(opened, ['call_1']);
+    });
+
+    testWidgets('a call that no longer waits takes no extra room', (tester) async {
+      await tester.pumpWidget(view(parts(status: 'running')));
+      final without = tester.getSize(find.byType(AIMessagePartsView)).height;
+
+      await tester.pumpWidget(view(parts(status: 'running'), approver: approver));
+
+      expect(find.byType(AIToolAuthorizationCard), findsNothing);
+      expect(tester.getSize(find.byType(AIMessagePartsView)).height, without);
+    });
+
+    testWidgets('asks nothing without an authorizer', (tester) async {
+      final plain = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice'),
+        decide: (_, _) async {},
+      );
+      addTearDown(plain.dispose);
+
+      await tester.pumpWidget(view(parts(), approver: plain));
+
+      expect(find.byType(AIToolAuthorizationCard), findsNothing);
+      expect(find.text('Waiting for you to sign in'), findsOneWidget, reason: 'the row still says so');
+    });
+
+    testWidgets('a row the factory hides still asks for the sign-in', (tester) async {
+      await tester.pumpWidget(
+        view(
+          parts(),
+          approver: approver,
+          builders: AIComponentBuilders(
+            toolCall: (context, props) => props.call.id == 'call_1' ? AIMessagePartsView.hidden : const Text('row'),
+          ),
+        ),
+      );
+
+      expect(find.text('Using Linear'), findsNothing);
+      expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+    });
+  });
+
   group('AIUnsupportedPartView', () {
     testWidgets('translates its text', (tester) async {
       await tester.pumpWidget(

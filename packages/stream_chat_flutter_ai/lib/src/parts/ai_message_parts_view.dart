@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
@@ -72,9 +73,11 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 ///
 /// Pass an [approver] to ask the person on this device about the tool calls
 /// waiting for their approval: such a call's row gets an [AIToolApprovalView]
-/// under it, which goes away once the call stops waiting. A call a builder
-/// shows its own way gets no question; put an [AIToolApprovalView] in your
-/// own widget then.
+/// under it, which goes away once the call stops waiting. With the
+/// approver's [AIToolApprover.authorizer], a call waiting for them to sign in
+/// at a provider gets an [AIToolAuthorizationView] the same way. A call a
+/// builder shows its own way gets neither; put an [AIToolApprovalView] and an
+/// [AIToolAuthorizationView] in your own widget then.
 ///
 /// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
 /// list grows while a reply streams in. A part whose id an earlier part already
@@ -103,9 +106,10 @@ class AIMessagePartsView extends StatelessWidget {
   /// [partBuilder] left to the default.
   final AIToolCallWidgetBuilder? toolCallBuilder;
 
-  /// Who answers tool calls' questions on this device. With one, a tool call
-  /// awaiting this person's approval shows an [AIToolApprovalView] under its
-  /// row; without one, no questions are asked.
+  /// Who answers tool calls' questions and sign-ins on this device. With one,
+  /// a tool call awaiting this person's approval shows an [AIToolApprovalView]
+  /// under its row, and one awaiting their sign-in an
+  /// [AIToolAuthorizationView]; without one, nothing is asked.
   final AIToolApprover? approver;
 
   /// The vertical gap between two parts, and between a tool call's row and its
@@ -155,7 +159,8 @@ class AIMessagePartsView extends StatelessWidget {
   /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
   /// goes to [toolCallBuilder] first (which may return [hidden]), then the
   /// factory, and gets an [AIToolCallView] when both give `null` — with its
-  /// question under the factory's or default row when an [approver] is given.
+  /// question or sign-in under the factory's or default row when an
+  /// [approver] is given.
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     final builders = AIComponentFactory.of(context);
     if (!part.isSupported) {
@@ -176,19 +181,22 @@ class AIMessagePartsView extends StatelessWidget {
     final row = builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
     final showRow = !identical(row, hidden);
     final approver = this.approver;
-    final asks = approver != null && approver.identity.canApprove(call);
-    // A hidden row still asks its question; with nothing to ask it takes no
-    // spacing either. The approver is still told the call no longer waits, as
-    // the question view would have on its last build, so it forgets the answer
-    // and cancels its timeout.
-    if (!showRow && !asks) {
-      approver?.stateOf(call);
+    final asksApproval = approver != null && approver.identity.canApprove(call);
+    final asksSignIn = approver != null && approver.signInFor(call) != null;
+    // A hidden row still asks its question or sign-in; with nothing to ask it
+    // takes no spacing either. The approver is still told the call no longer
+    // waits, as the question and sign-in views would have on their last build,
+    // so it forgets the answers and cancels its timeout.
+    if (!showRow && !asksApproval && !asksSignIn) {
+      approver
+        ?..stateOf(call)
+        ..authorizationStateOf(call);
       return hidden;
     }
-    // The same column with or without an approver, a question or the row, so
-    // each keeps its state as the others come and go. With a row, the question
-    // view stays in while the call no longer waits — it is empty then — so its
-    // approver can forget the answer.
+    // The same column with or without an approver, a question, a sign-in or
+    // the row, so each keeps its state as the others come and go. With a row,
+    // the question and sign-in views stay in while the call no longer waits —
+    // they are empty then — so their approver can forget the answers.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -196,8 +204,13 @@ class AIMessagePartsView extends StatelessWidget {
         if (showRow) row,
         if (approver != null)
           Padding(
-            padding: EdgeInsets.only(top: showRow && asks ? spacing : 0),
+            padding: EdgeInsets.only(top: showRow && asksApproval ? spacing : 0),
             child: AIToolApprovalView(call: call, approver: approver),
+          ),
+        if (approver != null)
+          Padding(
+            padding: EdgeInsets.only(top: showRow && asksSignIn ? spacing : 0),
+            child: AIToolAuthorizationView(call: call, approver: approver),
           ),
       ],
     );

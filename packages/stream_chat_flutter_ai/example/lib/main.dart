@@ -1032,6 +1032,9 @@ class DutchTranslations implements AITranslations {
   String get toolCallAwaitingApproval => 'Wacht op toestemming';
 
   @override
+  String get toolCallAwaitingAuthorization => 'Wacht tot je inlogt';
+
+  @override
   String get toolCallAwaitingClient => 'Wacht op het apparaat';
 
   @override
@@ -1073,6 +1076,18 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get toolApprovalNotSent => 'Je antwoord kon niet worden verstuurd. Probeer het opnieuw.';
+
+  @override
+  String get toolAuthorizationConnect => 'Verbinden';
+
+  @override
+  String get toolAuthorizationConnecting => 'Verbinden…';
+
+  @override
+  String get toolAuthorizationDecline => 'Niet nu';
+
+  @override
+  String get toolAuthorizationNotOpened => 'Het inloggen kon niet worden geopend. Probeer het opnieuw.';
 
   @override
   String unnamedChartSlice(int number) => 'Segment $number';
