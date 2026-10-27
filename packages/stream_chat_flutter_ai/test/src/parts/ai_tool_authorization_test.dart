@@ -85,7 +85,7 @@ void main() {
 
     test('reads every status it knows', () {
       for (final status in AIToolAuthorizationStatus.values) {
-        final authorization = _read({..._linear, 'status': status.value})!;
+        final authorization = _read({..._linear, 'status': status})!;
         expect(authorization.status, status);
         expect(authorization.hasEnded, isTrue);
       }

@@ -6,33 +6,17 @@ import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 /// How a person signs in — an [AIToolAuthorization]'s `type`.
 ///
 /// An open set: compare against the kinds you know ([oauth]). A kind this
-/// package doesn't know keeps its raw [value] and reports `false` from
+/// package doesn't know keeps its raw value and reports `false` from
 /// [isKnown]; no sign-in is offered for it.
-@immutable
-class AIToolAuthorizationKind {
-  /// Wraps a raw kind string.
-  const AIToolAuthorizationKind(this.value);
-
+extension type const AIToolAuthorizationKind(String _) implements String {
   /// A consent at the provider, in a browser (OAuth).
   static const oauth = AIToolAuthorizationKind('oauth');
 
   /// The kinds this package knows.
   static const values = [oauth];
 
-  /// The kind as the agent wrote it, such as `oauth`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
-
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIToolAuthorizationKind && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIToolAuthorizationKind($value)';
 }
 
 /// How a sign-in ended — an [AIToolAuthorization]'s `status`, absent while it
@@ -40,12 +24,8 @@ class AIToolAuthorizationKind {
 ///
 /// An open set: compare against the statuses you know ([connected],
 /// [declined], [expired], [failed]). A status this package doesn't know keeps
-/// its raw [value] and reports `false` from [isKnown].
-@immutable
-class AIToolAuthorizationStatus {
-  /// Wraps a raw status string.
-  const AIToolAuthorizationStatus(this.value);
-
+/// its raw value and reports `false` from [isKnown].
+extension type const AIToolAuthorizationStatus(String _) implements String {
   /// The person connected their account, so the call goes on.
   static const connected = AIToolAuthorizationStatus('connected');
 
@@ -62,21 +42,8 @@ class AIToolAuthorizationStatus {
   /// The statuses this package knows.
   static const values = [connected, declined, expired, failed];
 
-  /// The status as the agent's backend wrote it, such as `connected`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) || other is AIToolAuthorizationStatus && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIToolAuthorizationStatus($value)';
 }
 
 /// A sign-in a tool call waits for, such as "Connect Linear", and how it
@@ -258,7 +225,7 @@ class AIToolAuthorization {
   /// [AIToolAuthorization.fromJson] reads back to an equal sign-in. Absent
   /// fields are left out.
   Map<String, Object?> toJson() => {
-    'type': kind.value,
+    'type': kind,
     if (provider.isNotEmpty) 'provider': provider,
     'provider_name': ?providerName,
     'title': title,
@@ -266,7 +233,7 @@ class AIToolAuthorization {
     'url': url.toString(),
     'handoff_token': ?handoffToken,
     'expires_at': ?expiresAt?.toUtc().toIso8601String(),
-    'status': ?status?.value,
+    'status': ?status,
   };
 
   @override
@@ -287,5 +254,5 @@ class AIToolAuthorization {
   int get hashCode => Object.hash(kind, provider, providerName, title, message, url, handoffToken, expiresAt, status);
 
   @override
-  String toString() => 'AIToolAuthorization(provider: $provider, title: $title, status: ${status?.value})';
+  String toString() => 'AIToolAuthorization(provider: $provider, title: $title, status: $status)';
 }
