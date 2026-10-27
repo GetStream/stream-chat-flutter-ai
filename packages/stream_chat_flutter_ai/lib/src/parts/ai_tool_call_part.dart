@@ -307,7 +307,7 @@ class AIToolCallPart {
       hasPayloadId &&
       status == AIToolCallStatus.awaitingAuthorization &&
       authorization != null &&
-      !authorization!.hasEnded &&
+      authorization!.status == null &&
       targetUserId == userId;
 
   /// A copy with the given fields replaced. A `null` argument keeps the

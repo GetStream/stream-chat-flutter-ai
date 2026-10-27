@@ -576,7 +576,7 @@ void main() {
     testWidgets('a callback a builder kept acts on the approver the view has now', (tester) async {
       final other = fake.approver();
       addTearDown(other.dispose);
-      AIToolAuthorizationAction? kept;
+      VoidCallback? kept;
       Widget view(AIToolApprover approver) => _wrap(
         AIToolAuthorizationView(
           call: _call(),
@@ -615,7 +615,7 @@ void main() {
 
     testWidgets('a callback a builder kept never acts on another call', (tester) async {
       final printed = _capturePrints();
-      AIToolAuthorizationAction? kept;
+      VoidCallback? kept;
       Widget view(AIToolCallPart call) => _wrap(
         AIToolAuthorizationView(
           call: call,

@@ -94,7 +94,7 @@ class AIToolAuthorization {
       final url? => Uri.tryParse(url),
       null => null,
     };
-    if (title == null || title.trim().isEmpty || url == null || !isWebPage(url)) {
+    if (title == null || title.trim().isEmpty || url == null || !_isWebPage(url)) {
       reportPartIssue(() => '$where asks nothing: it needs a `title` and an http(s) `url` with a host.');
       return null;
     }
@@ -127,10 +127,8 @@ class AIToolAuthorization {
     );
   }
 
-  /// Whether [url] is a web page a browser can open: `http` or `https`, with a
-  /// host.
-  @visibleForTesting
-  static bool isWebPage(Uri url) => (url.scheme == 'http' || url.scheme == 'https') && url.host.isNotEmpty;
+  // A web page a browser can open: `http` or `https`, with a host.
+  static bool _isWebPage(Uri url) => (url.scheme == 'http' || url.scheme == 'https') && url.host.isNotEmpty;
 
   /// How the person signs in. Defaults to [AIToolAuthorizationKind.oauth] when
   /// the agent sends none.
@@ -162,9 +160,6 @@ class AIToolAuthorization {
 
   /// How the sign-in ended, once it did; `null` while it waits.
   final AIToolAuthorizationStatus? status;
-
-  /// Whether the sign-in is over, one way or another.
-  bool get hasEnded => status != null;
 
   /// The page to open in a browser: [url] with its fragment replaced by
   /// `handoff_token=<handoffToken>`, or [url] itself without a token.

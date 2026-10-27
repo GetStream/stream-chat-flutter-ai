@@ -392,10 +392,10 @@ final class AIToolAuthorizationProps {
 
   /// Hands the sign-in page to the approver's [AIToolAuthorizer], which opens
   /// it. Does nothing while an answer is under way.
-  final AIToolAuthorizationAction onConnect;
+  final VoidCallback onConnect;
 
   /// Sends the person's "not now". Does nothing while it is on its way.
-  final AIToolAuthorizationAction onDecline;
+  final VoidCallback onDecline;
 
   /// The theme overrides the [AIToolAuthorizationView] was given.
   final ToolApprovalThemeData? theme;

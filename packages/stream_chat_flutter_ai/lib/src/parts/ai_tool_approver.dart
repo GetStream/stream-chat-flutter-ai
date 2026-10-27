@@ -38,25 +38,6 @@ typedef AIToolApprovalContentBuilder =
       AIToolApprovalAnswer answer,
     );
 
-/// Opens a tool call's sign-in page, [url], and completes once the person is
-/// back: `true` when the page came back saying the account is connected (its
-/// return URL has `status=connected` in its query), `false` when they came
-/// back without connecting, or when your app can't tell.
-///
-/// Throw (or complete with an error) when the page couldn't be opened, so the
-/// person can try again.
-typedef AIToolSignInConnector = Future<bool> Function(AIToolCallPart call, Uri url);
-
-/// Tells the agent's backend the person won't sign in for a tool call now.
-///
-/// Complete once the backend has it; throw (or complete with an error) when
-/// it couldn't be sent, so the person can answer again.
-typedef AIToolSignInDecliner = Future<void> Function(AIToolCallPart call);
-
-/// Opens or turns down the sign-in an [AIToolAuthorizationView] is showing,
-/// from its content.
-typedef AIToolAuthorizationAction = void Function();
-
 /// Builds your own content for an [AIToolAuthorizationView] in place of
 /// [AIComponentBuilders.toolAuthorization].
 ///
@@ -68,8 +49,8 @@ typedef AIToolAuthorizationContentBuilder =
       BuildContext context,
       AIToolAuthorization authorization,
       AIToolAuthorizationState state,
-      AIToolAuthorizationAction connect,
-      AIToolAuthorizationAction decline,
+      VoidCallback connect,
+      VoidCallback decline,
     );
 
 /// How the person signs in on this device when a tool call waits for their
@@ -105,19 +86,25 @@ class AIToolAuthorizer {
   /// Creates an [AIToolAuthorizer].
   const AIToolAuthorizer({required this.connect, required this.decline});
 
-  /// Opens the sign-in page and says whether the person connected. Until it
-  /// completes, and after it completes with `true`, the sign-in reads
-  /// connecting; `false` lets them connect again, and an error says the page
-  /// couldn't be opened. It must not hang: until it completes, the person can
-  /// answer "not now" but can't open the page again. It isn't bounded by
-  /// [AIToolApprover.sentTimeout], since signing in can take minutes.
-  final AIToolSignInConnector connect;
+  /// Opens `url`, the call's [AIToolAuthorization.launchUrl], and completes
+  /// once the person is back: `true` when the page came back saying the
+  /// account is connected (its return URL has `status=connected` in its
+  /// query), `false` when they came back without connecting or your app can't
+  /// tell, and with an error when the page couldn't be opened.
+  ///
+  /// Until it completes, and after `true`, the sign-in reads connecting; after
+  /// `false` the person can connect again. It must not hang: until it
+  /// completes, the person can answer "not now" but can't open the page again.
+  /// It isn't bounded by [AIToolApprover.sentTimeout], since signing in can
+  /// take minutes.
+  final Future<bool> Function(AIToolCallPart call, Uri url) connect;
 
-  /// Sends the person's "not now". Until the call's step changes the sign-in
-  /// reads declining; an error lets them answer again. Sending it is bounded
-  /// by [AIToolApprover.sentTimeout] when one is set; the wait for the step
-  /// to change afterwards is not.
-  final AIToolSignInDecliner decline;
+  /// Tells the agent's backend the person won't sign in for the call now, and
+  /// completes once the backend has it. Until the call's step changes, the
+  /// sign-in reads declining; an error lets them answer again. Sending it is
+  /// bounded by [AIToolApprover.sentTimeout] when one is set; the wait for
+  /// the step to change afterwards is not.
+  final Future<void> Function(AIToolCallPart call) decline;
 }
 
 /// The person answering tool calls' questions on this device, how their

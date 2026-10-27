@@ -39,7 +39,6 @@ void main() {
       expect(authorization.handoffToken, 'tok_123');
       expect(authorization.expiresAt, DateTime.utc(2026, 10, 21, 21, 42, 19, 834));
       expect(authorization.status, isNull);
-      expect(authorization.hasEnded, isFalse);
       expect(reports, isEmpty);
     });
 
@@ -88,7 +87,6 @@ void main() {
       for (final status in AIToolAuthorizationStatus.values) {
         final authorization = _read({..._linear, 'status': status})!;
         expect(authorization.status, status);
-        expect(authorization.hasEnded, isTrue);
       }
       expect(reports, isEmpty);
     });

@@ -114,7 +114,7 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
   // Bound to the call it was built for, so a callback kept by a builder never
   // acts on another call this view shows since. The approver is read when it
   // acts, so one swapped in since gets it.
-  AIToolAuthorizationAction _actionFor(
+  VoidCallback _actionFor(
     AIToolCallPart call,
     void Function(AIToolApprover approver, AIToolCallPart call) act,
   ) =>
