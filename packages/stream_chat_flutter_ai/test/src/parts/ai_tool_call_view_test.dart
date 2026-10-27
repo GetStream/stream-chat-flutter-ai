@@ -122,7 +122,7 @@ void main() {
         AIToolCallStatus.running: null,
         AIToolCallStatus.completed: null,
         AIToolCallStatus.awaitingApproval: 'Waiting for approval',
-        AIToolCallStatus.awaitingAuthorization: 'Waiting for you to sign in',
+        AIToolCallStatus.awaitingAuthorization: 'Waiting for sign-in',
         AIToolCallStatus.awaitingClient: 'Waiting for the device',
         AIToolCallStatus.failed: "Didn't complete",
         AIToolCallStatus.cancelled: 'Cancelled',
@@ -148,6 +148,26 @@ void main() {
           );
           expect(_texts(tester), ['get weather', 'Declined']);
         }
+      });
+
+      testWidgets('a call waiting for the viewer to sign in tells them, and only them', (tester) async {
+        _reduceMotion(tester);
+        final waiting = AIToolCallPart(
+          id: 'call_1',
+          name: 'get_weather',
+          status: AIToolCallStatus.awaitingAuthorization,
+          targetUserId: 'alice',
+          authorization: AIToolAuthorization(title: 'Connect', url: Uri.parse('https://agent.example/launch')),
+        );
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting, userId: 'alice')));
+        expect(_texts(tester), ['get weather', 'Waiting for you to sign in']);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting, userId: 'bob')));
+        expect(_texts(tester), ['get weather', 'Waiting for sign-in']);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting)));
+        expect(_texts(tester), ['get weather', 'Waiting for sign-in']);
       });
 
       testWidgets('a call whose sign-in was declined reads "Declined"', (tester) async {

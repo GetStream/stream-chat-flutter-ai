@@ -1032,7 +1032,10 @@ class DutchTranslations implements AITranslations {
   String get toolCallAwaitingApproval => 'Wacht op toestemming';
 
   @override
-  String get toolCallAwaitingAuthorization => 'Wacht tot je inlogt';
+  String get toolCallAwaitingAuthorization => 'Wacht op inloggen';
+
+  @override
+  String get toolCallAwaitingYourAuthorization => 'Wacht tot je inlogt';
 
   @override
   String get toolCallAwaitingClient => 'Wacht op het apparaat';
@@ -1088,6 +1091,9 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get toolAuthorizationNotOpened => 'Het inloggen kon niet worden geopend. Probeer het opnieuw.';
+
+  @override
+  String get toolAuthorizationExpired => 'Dit inloggen is verlopen.';
 
   @override
   String unnamedChartSlice(int number) => 'Segment $number';

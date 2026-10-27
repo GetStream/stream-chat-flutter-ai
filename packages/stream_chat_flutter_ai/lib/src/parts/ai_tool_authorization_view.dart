@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
@@ -16,6 +18,9 @@ import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.
 /// Asks the person a tool call waits for to sign in at the provider it needs
 /// — the sign-in on an `ai_tool_call` step whose status is
 /// `awaiting_authorization`.
+///
+/// Once the sign-in's [AIToolAuthorization.expiresAt] passes, it says so and
+/// stops offering Connect.
 ///
 /// It shows only while [AIToolApprover.signInFor] has a sign-in for the call:
 /// the [approver] has an [AIToolAuthorizer], the call waits for its person,
@@ -104,11 +109,30 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
   @override
   void dispose() {
     widget.approver.removeListener(_onApproverChanged);
+    _expiry?.cancel();
     super.dispose();
   }
 
   void _onApproverChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// Rebuilds when the shown sign-in expires, so it stops offering Connect.
+  Timer? _expiry;
+  DateTime? _expiryFor;
+  bool _expired = false;
+
+  void _watchExpiry(DateTime? expiresAt) {
+    if (expiresAt == _expiryFor) return;
+    _expiry?.cancel();
+    _expiryFor = expiresAt;
+    _expired = false;
+    if (expiresAt == null) return;
+    final left = expiresAt.difference(DateTime.now());
+    if (left <= Duration.zero) return;
+    _expiry = Timer(left, () {
+      if (mounted) setState(() => _expired = true);
+    });
   }
 
   // Bound to the call it was built for, so a callback kept by a builder never
@@ -142,9 +166,17 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
   Widget build(BuildContext context) {
     final call = widget.call;
     final approver = widget.approver;
-    final state = approver.authorizationStateOf(call);
+    var state = approver.authorizationStateOf(call);
     final authorization = approver.signInFor(call);
+    _watchExpiry(authorization?.expiresAt);
     if (authorization == null) return const SizedBox.shrink();
+    if (_expired && !state.isExpired) {
+      state = AIToolAuthorizationState(
+        isExpired: true,
+        isDeclining: state.isDeclining,
+        declineFailed: state.declineFailed,
+      );
+    }
 
     final connect = _actionFor(call, (approver, call) => approver.connect(call));
     final decline = _actionFor(call, (approver, call) => approver.declineAuthorization(call));
@@ -175,7 +207,8 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
 ///
 /// Connect ([AITranslations.toolAuthorizationConnect]) reads
 /// [AITranslations.toolAuthorizationConnecting] while [state] is connecting,
-/// and waits while any answer is under way. Not now
+/// and waits while any answer is under way or once the sign-in has expired,
+/// when a line says so ([AITranslations.toolAuthorizationExpired]). Not now
 /// ([AITranslations.toolAuthorizationDecline]) waits only while its own answer
 /// is on its way, so a sign-in that never comes back leaves the person a way
 /// out. A small progress indicator follows the buttons while busy (a static
@@ -259,7 +292,7 @@ class AIToolAuthorizationCard extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     FilledButton(
-                      onPressed: state.isBusy ? null : onConnect,
+                      onPressed: state.canConnect ? onConnect : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: theme.accentColor,
                         foregroundColor: theme.onAccentColor,
@@ -288,6 +321,14 @@ class AIToolAuthorizationCard extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (state.isExpired)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(translations.toolAuthorizationExpired, style: theme.messageStyle),
+                    ),
+                  ),
                 if (failure != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),

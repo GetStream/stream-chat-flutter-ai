@@ -580,6 +580,8 @@ void main() {
       await tester.tap(find.text('Connect'));
       await tester.pump();
       expect(opened, ['call_1']);
+      // Let the connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('a call that no longer waits takes no extra room', (tester) async {
@@ -603,6 +605,22 @@ void main() {
 
       expect(find.byType(AIToolAuthorizationCard), findsNothing);
       expect(find.text('Waiting for you to sign in'), findsOneWidget, reason: 'the row still says so');
+    });
+
+    testWidgets("the row tells the approver's person the call waits for them, and others it waits", (tester) async {
+      await tester.pumpWidget(view(parts(), approver: approver));
+      expect(find.text('Waiting for you to sign in'), findsOneWidget);
+
+      final bob = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'bob'),
+        decide: (_, _) async {},
+      );
+      addTearDown(bob.dispose);
+      await tester.pumpWidget(view(parts(), approver: bob));
+      expect(find.text('Waiting for sign-in'), findsOneWidget);
+
+      await tester.pumpWidget(view(parts()));
+      expect(find.text('Waiting for sign-in'), findsOneWidget);
     });
 
     testWidgets('a hidden row of a call that no longer waits forgets its sign-in', (tester) async {

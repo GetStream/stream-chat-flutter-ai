@@ -92,8 +92,9 @@ class AIToolAuthorizer {
   /// query), `false` when they came back without connecting or your app can't
   /// tell, and with an error when the page couldn't be opened.
   ///
-  /// Until it completes, and after `true`, the sign-in reads connecting; after
-  /// `false` the person can connect again. It must not hang: until it
+  /// Until it completes, and for up to 30 seconds after `true` while the
+  /// agent's backend updates the call's step, the sign-in reads connecting;
+  /// after `false` the person can connect again. It must not hang: until it
   /// completes, the person can answer "not now" but can't open the page again.
   /// It isn't bounded by [AIToolApprover.sentTimeout], since signing in can
   /// take minutes.
@@ -260,19 +261,47 @@ class AIToolApprover extends ChangeNotifier {
   }
 
   /// Where the person's sign-in for [call] is. A call that no longer waits
-  /// for it is forgotten, and reads idle.
+  /// for it is forgotten, and reads idle; so is one the agent's backend issued
+  /// again on the same step, with a new page or handoff token, which starts
+  /// over. Past the sign-in's [AIToolAuthorization.expiresAt] it reads
+  /// [AIToolAuthorizationState.isExpired].
   AIToolAuthorizationState authorizationStateOf(AIToolCallPart call) {
-    if (signInFor(call) == null) {
-      _signIns.remove(call.id);
+    final authorization = signInFor(call);
+    if (authorization == null) {
+      _forgetSignIn(call.id);
       return const AIToolAuthorizationState();
     }
-    return _signIns[call.id]?.state ?? const AIToolAuthorizationState();
+    final state = _signInEntry(call, authorization)?.state ?? const AIToolAuthorizationState();
+    if (!_hasExpired(authorization)) return state;
+    return AIToolAuthorizationState(
+      isExpired: true,
+      isDeclining: state.isDeclining,
+      declineFailed: state.declineFailed,
+    );
   }
 
+  static bool _hasExpired(AIToolAuthorization authorization) {
+    final expiresAt = authorization.expiresAt;
+    return expiresAt != null && !DateTime.now().isBefore(expiresAt);
+  }
+
+  /// [call]'s entry, when it is for [authorization]; one for an earlier
+  /// sign-in on the same step is forgotten.
+  _SignIn? _signInEntry(AIToolCallPart call, AIToolAuthorization authorization) {
+    final entry = _signIns[call.id];
+    if (entry == null || entry.isFor(authorization)) return entry;
+    _forgetSignIn(call.id);
+    return null;
+  }
+
+  void _forgetSignIn(String callId) => _signIns.remove(callId)?.settle?.cancel();
+
   /// Hands [call]'s sign-in page to the [authorizer], unless an answer is
-  /// already under way or the page is still open from an earlier Connect.
-  /// Until the person comes back it reads connecting; back connected, it stays
-  /// so until the call's step changes.
+  /// already under way, the page is still open from an earlier Connect, or
+  /// the sign-in has expired. Until the person comes back it reads
+  /// connecting; back connected, it stays so while the agent's backend
+  /// updates the call's step, and offers Connect again if, after 30 seconds,
+  /// it hasn't.
   void connect(AIToolCallPart call) {
     if (_disposed) return reportDroppedAnswer(call, 'its AIToolApprover was disposed');
     final authorizer = this.authorizer;
@@ -280,12 +309,14 @@ class AIToolApprover extends ChangeNotifier {
     if (authorizer == null || authorization == null) {
       return reportDroppedAnswer(call, 'it no longer waits for ${identity.userId} to sign in');
     }
-    final entry = _signIns[call.id] ??= _SignIn();
+    if (!authorizationStateOf(call).canConnect) return;
+    final entry = _signInEntry(call, authorization) ?? (_signIns[call.id] = _SignIn(authorization));
     // One page at a time: a failed "not now" makes the buttons idle again
     // while the page it was sent over may still be open.
-    if (entry.connecting != null || entry.state.isBusy) return;
+    if (entry.connecting != null) return;
 
     final attempt = entry.connecting = Object();
+    entry.settle?.cancel();
     entry.state = const AIToolAuthorizationState(isConnecting: true);
     notifyListeners();
     unawaited(_connect(call, authorizer, authorization.launchUrl, entry, attempt));
@@ -316,10 +347,23 @@ class AIToolApprover extends ChangeNotifier {
     // A "not now" on its way or sent stays.
     if (entry.state.isDeclining) return;
     final next = outcome(entry.state);
+    if (next.isConnecting) {
+      // Connected: the step changing hides the sign-in. One that hasn't
+      // changed after a while offers Connect again.
+      entry.settle = Timer(_connectedSettleTime, () {
+        if (!_isCurrentSignIn(call, entry) || !entry.state.isConnecting || entry.connecting != null) return;
+        entry.state = AIToolAuthorizationState(declineFailed: entry.state.declineFailed);
+        notifyListeners();
+      });
+    }
     if (next == entry.state) return;
     entry.state = next;
     notifyListeners();
   }
+
+  /// How long a sign-in that came back connected reads connecting while the
+  /// agent's backend updates the call's step, before Connect is offered again.
+  static const _connectedSettleTime = Duration(seconds: 30);
 
   /// Sends the person's "not now" for [call] through the [authorizer], unless
   /// one is already on its way or sent. It may be sent while the sign-in is
@@ -330,10 +374,12 @@ class AIToolApprover extends ChangeNotifier {
     if (authorizer == null || signInFor(call) == null) {
       return reportDroppedAnswer(call, 'it no longer waits for ${identity.userId} to sign in');
     }
-    final entry = _signIns[call.id] ??= _SignIn();
+    final authorization = signInFor(call)!;
+    final entry = _signInEntry(call, authorization) ?? (_signIns[call.id] = _SignIn(authorization));
     if (entry.state.isDeclining) return;
 
     final attempt = entry.declining = Object();
+    entry.settle?.cancel();
     entry.state = const AIToolAuthorizationState(isDeclining: true);
     notifyListeners();
     unawaited(_decline(call, authorizer, entry, attempt));
@@ -393,13 +439,29 @@ class AIToolApprover extends ChangeNotifier {
       entry.timer?.cancel();
     }
     _entries.clear();
+    for (final entry in _signIns.values) {
+      entry.settle?.cancel();
+    }
     _signIns.clear();
     super.dispose();
   }
 }
 
 class _SignIn {
+  _SignIn(this.authorization);
+
+  /// The sign-in this entry is for.
+  final AIToolAuthorization authorization;
+
   AIToolAuthorizationState state = const AIToolAuthorizationState();
+
+  /// Offers Connect again when a connected sign-in's step doesn't change.
+  Timer? settle;
+
+  /// Whether this entry is for [other]: the same page and handoff token, not
+  /// a sign-in the agent's backend issued again.
+  bool isFor(AIToolAuthorization other) =>
+      authorization.url == other.url && authorization.handoffToken == other.handoffToken;
 
   /// The Connect whose page is open, until the authorizer comes back.
   Object? connecting;
@@ -525,9 +587,11 @@ class AIToolAuthorizationState {
     this.isDeclining = false,
     this.connectFailed = false,
     this.declineFailed = false,
+    this.isExpired = false,
   });
 
-  /// The sign-in is open, or done and the call's step hasn't changed yet.
+  /// The sign-in is open, or came back connected a moment ago and the call's
+  /// step hasn't changed yet.
   final bool isConnecting;
 
   /// The "not now" is on its way, or arrived and the call's step hasn't
@@ -540,8 +604,16 @@ class AIToolAuthorizationState {
   /// The "not now" couldn't be sent, and the person can answer again.
   final bool declineFailed;
 
+  /// The sign-in is past its [AIToolAuthorization.expiresAt], so Connect is
+  /// no longer offered.
+  final bool isExpired;
+
   /// Whether an answer is under way, so Connect waits.
   bool get isBusy => isConnecting || isDeclining;
+
+  /// Whether Connect is offered: no answer is under way and the sign-in
+  /// hasn't expired.
+  bool get canConnect => !isBusy && !isExpired;
 
   @override
   bool operator ==(Object other) =>
@@ -549,13 +621,14 @@ class AIToolAuthorizationState {
       other.isConnecting == isConnecting &&
       other.isDeclining == isDeclining &&
       other.connectFailed == connectFailed &&
-      other.declineFailed == declineFailed;
+      other.declineFailed == declineFailed &&
+      other.isExpired == isExpired;
 
   @override
-  int get hashCode => Object.hash(isConnecting, isDeclining, connectFailed, declineFailed);
+  int get hashCode => Object.hash(isConnecting, isDeclining, connectFailed, declineFailed, isExpired);
 
   @override
   String toString() =>
       'AIToolAuthorizationState(isConnecting: $isConnecting, isDeclining: $isDeclining, '
-      'connectFailed: $connectFailed, declineFailed: $declineFailed)';
+      'connectFailed: $connectFailed, declineFailed: $declineFailed, isExpired: $isExpired)';
 }

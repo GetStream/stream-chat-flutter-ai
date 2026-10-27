@@ -178,7 +178,9 @@ class AIMessagePartsView extends StatelessWidget {
   }
 
   Widget _toolCallView(BuildContext context, AIComponentBuilders builders, AIToolCallPart call) {
-    final row = builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
+    final row =
+        builders.toolCall?.call(context, AIToolCallProps(call: call)) ??
+        AIToolCallView(call: call, userId: this.approver?.identity.userId);
     final showRow = !identical(row, hidden);
     final approver = this.approver;
     final asksApproval = approver != null && approver.identity.canApprove(call);

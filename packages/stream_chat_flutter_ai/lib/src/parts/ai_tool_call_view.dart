@@ -63,10 +63,16 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 /// {@endtemplate}
 class AIToolCallView extends StatefulWidget {
   /// {@macro aiToolCallView}
-  const AIToolCallView({super.key, required this.call, this.theme});
+  const AIToolCallView({super.key, required this.call, this.userId, this.theme});
 
   /// The tool call to show.
   final AIToolCallPart call;
+
+  /// The person viewing the call, so a call waiting for them to sign in says
+  /// it waits for them ([AITranslations.toolCallAwaitingYourAuthorization]).
+  /// Everyone else, and a view without one, reads the neutral
+  /// [AITranslations.toolCallAwaitingAuthorization].
+  final String? userId;
 
   /// Overrides for this view, layered over the ambient [ToolCallTheme]. Its
   /// text styles merge over the themed ones rather than replacing them.
@@ -110,9 +116,11 @@ enum _ToolCallState {
 
   /// The status in words, for the detail line (when the call has no summary)
   /// and for screen readers. `null` where the row shows no detail by default.
-  String? detail(AITranslations translations) => switch (this) {
+  /// [yours] says a sign-in waits for the person viewing the call.
+  String? detail(AITranslations translations, {required bool yours}) => switch (this) {
     running || completed => null,
     awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingAuthorization when yours => translations.toolCallAwaitingYourAuthorization,
     awaitingAuthorization => translations.toolCallAwaitingAuthorization,
     awaitingClient => translations.toolCallAwaitingClient,
     failed => translations.toolCallFailed,
@@ -121,10 +129,11 @@ enum _ToolCallState {
   };
 
   /// The status in words for screen readers, which always hear one.
-  String label(AITranslations translations) => switch (this) {
+  String label(AITranslations translations, {required bool yours}) => switch (this) {
     running => translations.toolCallRunning,
     completed => translations.toolCallCompleted,
     awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingAuthorization when yours => translations.toolCallAwaitingYourAuthorization,
     awaitingAuthorization => translations.toolCallAwaitingAuthorization,
     awaitingClient => translations.toolCallAwaitingClient,
     failed => translations.toolCallFailed,
@@ -202,10 +211,15 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     final translations = AITranslations.of(context);
     final call = widget.call;
     final state = _ToolCallState.of(call);
+    // Only the person a sign-in is for reads that it waits for them.
+    final yours = switch (widget.userId) {
+      final userId? => call.isAwaitingAuthorization(userId: userId),
+      null => false,
+    };
 
     final title = call.displayName.isEmpty ? translations.toolCallFallbackTitle : call.displayName;
     final summary = call.summaryText;
-    final detail = summary ?? state.detail(translations);
+    final detail = summary ?? state.detail(translations, yours: yours);
     final duration = call.status.isFinished && state != _ToolCallState.declined ? call.duration : null;
     final durationText = duration == null ? null : translations.toolCallDuration(duration);
 
@@ -213,7 +227,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     return Semantics(
       container: true,
       liveRegion: _announces,
-      label: [title, state.label(translations), ?summary, ?durationText].join(', '),
+      label: [title, state.label(translations, yours: yours), ?summary, ?durationText].join(', '),
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

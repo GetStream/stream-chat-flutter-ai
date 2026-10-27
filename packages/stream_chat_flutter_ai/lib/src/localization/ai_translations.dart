@@ -184,9 +184,14 @@ abstract class AITranslations {
   /// agent sent no summary.
   String get toolCallAwaitingApproval;
 
-  /// The detail line of a tool call waiting for the person to sign in at a
-  /// provider, when the agent sent no summary.
+  /// The detail line of a tool call waiting for someone to sign in at a
+  /// provider, when the agent sent no summary, as everyone but that person
+  /// sees it.
   String get toolCallAwaitingAuthorization;
+
+  /// The detail line of a tool call waiting for the person viewing it to sign
+  /// in at a provider, when the agent sent no summary.
+  String get toolCallAwaitingYourAuthorization;
 
   /// The detail line of a tool call waiting for a device to run it, when the
   /// agent sent no summary.
@@ -250,6 +255,9 @@ abstract class AITranslations {
 
   /// Shown under a tool call's sign-in when its page couldn't be opened.
   String get toolAuthorizationNotOpened;
+
+  /// Shown under a tool call's sign-in once it has expired.
+  String get toolAuthorizationExpired;
 
   /// Tooltip on the copy button under a finished reply.
   String get copyReply;
@@ -426,7 +434,10 @@ class DefaultAITranslations extends AITranslations {
   String get toolCallAwaitingApproval => 'Waiting for approval';
 
   @override
-  String get toolCallAwaitingAuthorization => 'Waiting for you to sign in';
+  String get toolCallAwaitingAuthorization => 'Waiting for sign-in';
+
+  @override
+  String get toolCallAwaitingYourAuthorization => 'Waiting for you to sign in';
 
   @override
   String get toolCallAwaitingClient => 'Waiting for the device';
@@ -480,6 +491,9 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get toolAuthorizationNotOpened => "The sign-in couldn't be opened. Try again.";
+
+  @override
+  String get toolAuthorizationExpired => 'This sign-in expired.';
 
   @override
   String get copyReply => 'Copy';

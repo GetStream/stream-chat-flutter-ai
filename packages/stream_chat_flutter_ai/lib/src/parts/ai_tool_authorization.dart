@@ -80,9 +80,10 @@ class AIToolAuthorization {
   });
 
   /// Reads an `authorization` object leniently, or returns `null` when it asks
-  /// nothing: it has no `title` (or a blank one), or its `url` isn't an `http`
-  /// or `https` page with a host. Any other missing or wrong-typed field reads as its default,
-  /// and nothing throws.
+  /// nothing: it has no `title` (or a blank one), or its `url` isn't an
+  /// `https` page with a host — the handoff token goes in the page's
+  /// fragment, which a cleartext page would expose. Any other missing or
+  /// wrong-typed field reads as its default, and nothing throws.
   ///
   /// [context] names the step in debug reports, such as
   /// `ai_tool_call "call_1"`.
@@ -95,7 +96,9 @@ class AIToolAuthorization {
       null => null,
     };
     if (title == null || title.trim().isEmpty || url == null || !_isWebPage(url)) {
-      reportPartIssue(() => '$where asks nothing: it needs a `title` and an http(s) `url` with a host.');
+      reportPartIssue(
+        () => '$where asks nothing: it needs a `title` and an https `url` with a host.',
+      );
       return null;
     }
     return AIToolAuthorization(
@@ -127,8 +130,10 @@ class AIToolAuthorization {
     );
   }
 
-  // A web page a browser can open: `http` or `https`, with a host.
-  static bool _isWebPage(Uri url) => (url.scheme == 'http' || url.scheme == 'https') && url.host.isNotEmpty;
+  // A secure web page: `https` with a host. The handoff token goes in the
+  // page's fragment, which a cleartext page would expose to anything on the
+  // way.
+  static bool _isWebPage(Uri url) => url.scheme == 'https' && url.host.isNotEmpty;
 
   /// How the person signs in. Defaults to [AIToolAuthorizationKind.oauth] when
   /// the agent sends none.
@@ -146,7 +151,8 @@ class AIToolAuthorization {
   /// What signing in means for the person.
   final String? message;
 
-  /// The sign-in page. Open [launchUrl], which carries the [handoffToken].
+  /// The sign-in page, an `https` URL.
+  /// Open [launchUrl], which carries the [handoffToken].
   final Uri url;
 
   /// What binds the sign-in to the first browser that opens it. It goes in

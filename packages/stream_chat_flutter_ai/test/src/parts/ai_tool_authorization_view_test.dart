@@ -111,6 +111,14 @@ void main() {
       expect(const AIToolAuthorizationState(declineFailed: true).isBusy, isFalse);
     });
 
+    test('offers Connect unless busy or expired', () {
+      expect(const AIToolAuthorizationState().canConnect, isTrue);
+      expect(const AIToolAuthorizationState(connectFailed: true).canConnect, isTrue);
+      expect(const AIToolAuthorizationState(isConnecting: true).canConnect, isFalse);
+      expect(const AIToolAuthorizationState(isDeclining: true).canConnect, isFalse);
+      expect(const AIToolAuthorizationState(isExpired: true).canConnect, isFalse);
+    });
+
     test('has value equality', () {
       expect(const AIToolAuthorizationState(isConnecting: true), const AIToolAuthorizationState(isConnecting: true));
       expect(const AIToolAuthorizationState(), isNot(const AIToolAuthorizationState(connectFailed: true)));
@@ -159,6 +167,8 @@ void main() {
       // The step moves on, and the sign-in is forgotten.
       expect(approver.authorizationStateOf(_call(status: AIToolCallStatus.running)), const AIToolAuthorizationState());
       expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState());
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('coming back without connecting lets the person connect again', (tester) async {
@@ -287,6 +297,8 @@ void main() {
       approver.connect(_call());
       expect(fake.opened, hasLength(2));
       fake.connects.last.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('after a failed not now, the page coming back connected reads connecting', (tester) async {
@@ -304,6 +316,8 @@ void main() {
       await tester.pump();
 
       expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isConnecting: true));
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('after a failed not now, a page that could not open says both', (tester) async {
@@ -358,6 +372,82 @@ void main() {
       expect(notified, 0);
     });
 
+    testWidgets('a connected sign-in whose step never changes offers Connect again after 30 seconds', (tester) async {
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver.connect(_call());
+      fake.connects.single.complete(true);
+      await tester.pump(const Duration(seconds: 29));
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isConnecting: true));
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState());
+      approver.connect(_call());
+      expect(fake.opened, hasLength(2));
+      fake.connects.last.complete(false);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('a not now sent after connecting stops the 30 seconds', (tester) async {
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver.connect(_call());
+      fake.connects.single.complete(true);
+      await tester.pump();
+      approver.declineAuthorization(_call());
+      fake.declines.single.complete();
+      await tester.pump(const Duration(minutes: 1));
+
+      expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isDeclining: true));
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('a sign-in issued again on the same step starts over', (tester) async {
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+
+      approver.connect(_call());
+      fake.connects.single.complete(true);
+      await tester.pump();
+      final again = _call(authorization: _signIn.copyWith(handoffToken: 'fresh'));
+
+      expect(approver.authorizationStateOf(again), const AIToolAuthorizationState());
+      approver.connect(again);
+      expect(fake.opened.last.$2, again.authorization!.launchUrl);
+      fake.connects.last.complete(false);
+      await tester.pump(const Duration(minutes: 1));
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('an expired sign-in reads expired, and offers only not now', (tester) async {
+      final fake = _Fake();
+      final approver = fake.approver();
+      addTearDown(approver.dispose);
+      final expired = _call(
+        authorization: _signIn.copyWith(expiresAt: DateTime.now().subtract(const Duration(minutes: 1))),
+      );
+
+      expect(approver.authorizationStateOf(expired), const AIToolAuthorizationState(isExpired: true));
+      expect(approver.authorizationStateOf(expired).canConnect, isFalse);
+      approver.connect(expired);
+      expect(fake.opened, isEmpty);
+
+      approver.declineAuthorization(expired);
+      expect(fake.declined, ['call_1']);
+      expect(
+        approver.authorizationStateOf(expired),
+        const AIToolAuthorizationState(isDeclining: true, isExpired: true),
+      );
+    });
+
     testWidgets('the sent timeout bounds the not now', (tester) async {
       final errors = _captureErrors();
       final fake = _Fake();
@@ -381,6 +471,8 @@ void main() {
 
       expect(approver.authorizationStateOf(_call()), const AIToolAuthorizationState(isConnecting: true));
       fake.connects.single.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('drops a sign-in for a call that does not wait for this person', (tester) async {
@@ -426,6 +518,8 @@ void main() {
 
       expect(approver.authorizationStateOf(_call(id: 'call_2')), const AIToolAuthorizationState());
       fake.connects.single.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
   });
 
@@ -538,6 +632,8 @@ void main() {
       );
 
       expect(_card, findsNothing);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('keeps a sign-in in progress when rebuilt from scratch', (tester) async {
@@ -549,6 +645,8 @@ void main() {
 
       expect(find.text(_connecting), findsOneWidget);
       fake.connects.single.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('while declining, screen readers hear that the answer is on its way', (tester) async {
@@ -571,6 +669,8 @@ void main() {
       expect(find.text(_connecting), findsOneWidget);
       handle.dispose();
       fake.connects.single.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('a callback a builder kept acts on the approver the view has now', (tester) async {
@@ -596,6 +696,31 @@ void main() {
       expect(other.authorizationStateOf(_call()).isConnecting, isTrue);
       expect(approver.authorizationStateOf(_call()).isConnecting, isFalse);
       fake.connects.single.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('says when the sign-in expired, and stops offering Connect', (tester) async {
+      final expired = _call(
+        authorization: _signIn.copyWith(expiresAt: DateTime.now().subtract(const Duration(seconds: 1))),
+      );
+      await tester.pumpWidget(_wrap(AIToolAuthorizationView(call: expired, approver: approver)));
+
+      expect(find.text('This sign-in expired.'), findsOneWidget);
+      expect(_enabled(tester, _connect), isFalse);
+      expect(_enabled(tester, _notNow), isTrue);
+    });
+
+    testWidgets('stops offering Connect when the sign-in expires while shown', (tester) async {
+      final soon = _call(
+        authorization: _signIn.copyWith(expiresAt: DateTime.now().add(const Duration(seconds: 5))),
+      );
+      await tester.pumpWidget(_wrap(AIToolAuthorizationView(call: soon, approver: approver)));
+      expect(_enabled(tester, _connect), isTrue);
+
+      await tester.pump(const Duration(seconds: 6));
+      expect(find.text('This sign-in expired.'), findsOneWidget);
+      expect(_enabled(tester, _connect), isFalse);
     });
 
     testWidgets('reduced motion shows a still icon in place of the spinner', (tester) async {
@@ -611,6 +736,8 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
       fake.connects.single.complete(true);
+      // Let a connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
     });
 
     testWidgets('a callback a builder kept never acts on another call', (tester) async {
@@ -787,6 +914,10 @@ void main() {
               GoldenTestScenario(
                 name: 'not sent',
                 child: card(theme, const AIToolAuthorizationState(declineFailed: true)),
+              ),
+              GoldenTestScenario(
+                name: 'expired',
+                child: card(theme, const AIToolAuthorizationState(isExpired: true)),
               ),
             ],
           ),

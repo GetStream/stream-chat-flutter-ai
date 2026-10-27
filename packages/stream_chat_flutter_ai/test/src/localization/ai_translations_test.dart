@@ -435,11 +435,13 @@ void main() {
     test('has the tool sign-in strings', () {
       const translations = DefaultAITranslations();
 
-      expect(translations.toolCallAwaitingAuthorization, 'Waiting for you to sign in');
+      expect(translations.toolCallAwaitingAuthorization, 'Waiting for sign-in');
+      expect(translations.toolCallAwaitingYourAuthorization, 'Waiting for you to sign in');
       expect(translations.toolAuthorizationConnect, 'Connect');
       expect(translations.toolAuthorizationConnecting, 'Connecting…');
       expect(translations.toolAuthorizationDecline, 'Not now');
       expect(translations.toolAuthorizationNotOpened, "The sign-in couldn't be opened. Try again.");
+      expect(translations.toolAuthorizationExpired, 'This sign-in expired.');
     });
   });
 }

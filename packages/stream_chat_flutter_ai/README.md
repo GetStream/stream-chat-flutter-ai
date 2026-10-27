@@ -722,10 +722,12 @@ The package opens no browser itself, so it adds no dependency: `connect` gets th
 `AIToolAuthorization.launchUrl`, and your app opens it. The provider hands the grant to the agent's
 backend, which moves the call on by itself, so nothing goes back from the app. The page then
 returns to the `return_url` your backend gave the session, with `status=connected` in its query when
-the account is connected. Complete `connect` with `true` then, and the card says "Connecting…" until
-the call's step changes; with `false` (the person came back without connecting) Connect is offered
+the account is connected. Complete `connect` with `true` then, and the card says "Connecting…" while
+the call's step changes (offering Connect again if, after 30 seconds, it hasn't); with `false` (the person came back without connecting) Connect is offered
 again; throw when the page couldn't be opened. Not now stays enabled meanwhile, so a sign-in that
-never comes back leaves the user a way out.
+never comes back leaves the user a way out. Once the sign-in's `expiresAt` passes, the card says it
+expired and offers only Not now. Only an `https` sign-in page is offered: its handoff token travels in
+the URL's fragment, which a cleartext page would expose.
 
 Give the session a return URL in your app's own scheme, in reverse-domain form such as
 `com.example.app:/connected` (RFC 8252). The sign-in page hands its token over from the URL only
@@ -798,7 +800,8 @@ Future<bool> signIn(Uri url) async {
 }
 ```
 
-Without an authorizer, the row still says "Waiting for you to sign in", but nothing is offered. A
+Without an authorizer, the row still says "Waiting for you to sign in" to the person it waits for
+(and "Waiting for sign-in" to everyone else), but nothing is offered. A
 call you draw yourself gets no sign-in; put an `AIToolAuthorizationView(call: call, approver:
 approver)` in your widget then. Pass it a `builder`, or set `AIComponentBuilders.toolAuthorization`,
 to ask in your own design. The default `AIToolAuthorizationCard` uses `ToolApprovalThemeData`.
