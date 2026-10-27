@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reply_actions_theme.dart';
 
@@ -15,12 +16,13 @@ enum AIMessageRating {
   negative,
 }
 
-/// Shares a reply's [text]. [origin] is the share button's rectangle in global
-/// coordinates, which a share sheet on iPad anchors its popover to.
+/// Shares a reply's [text] in place of the platform share sheet. [origin] is
+/// the share button's rectangle in global coordinates, which a share sheet on
+/// iPad anchors its popover to.
 typedef AIReplyShareCallback = void Function(String text, Rect? origin);
 
-/// What [AIReplyActionsView] offers besides copying a reply. Each action shows
-/// only when its callback is set.
+/// What [AIReplyActionsView] offers besides copying and sharing a reply.
+/// Regenerating and rating show only when their callback is set.
 @immutable
 class AIReplyActions {
   /// Creates an [AIReplyActions].
@@ -29,7 +31,8 @@ class AIReplyActions {
   /// How the person rated the reply, or `null` when they didn't.
   final AIMessageRating? rating;
 
-  /// Shares the reply, such as with `share_plus`.
+  /// Shares the reply in place of the platform share sheet, such as to record
+  /// that it was shared. When `null`, the share button opens the share sheet.
   final AIReplyShareCallback? onShare;
 
   /// Asks the agent for a new reply in its place.
@@ -39,8 +42,11 @@ class AIReplyActions {
   final ValueChanged<AIMessageRating?>? onRate;
 }
 
-/// The buttons under a finished reply: copy, then share, regenerate and rate
-/// when [actions] handles them.
+/// The buttons under a finished reply: copy and share, then regenerate and
+/// rate when [actions] handles them.
+///
+/// Sharing opens the platform share sheet with [text], unless
+/// [AIReplyActions.onShare] shares it instead.
 ///
 /// ```dart
 /// AIReplyActionsView(
@@ -87,6 +93,15 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
     _resetTimer = Timer(const Duration(milliseconds: 1500), () {
       if (mounted) setState(() => _copied = false);
     });
+  }
+
+  Future<void> _share(Rect? origin) async {
+    try {
+      await SharePlus.instance.share(ShareParams(text: widget.text, sharePositionOrigin: origin));
+    } on Object {
+      // Such as for an empty reply, or where the platform has no share sheet:
+      // nothing was shared, and there is nothing to tell the person.
+    }
   }
 
   @override
@@ -138,14 +153,17 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
           _copied ? translations.replyCopied : translations.copyReply,
           _copy,
         ),
-        if (onShare != null)
-          Builder(
-            builder: (context) => button(Icons.ios_share, translations.shareReply, () {
-              final box = context.findRenderObject() as RenderBox?;
-              final origin = box != null && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
+        Builder(
+          builder: (context) => button(Icons.ios_share, translations.shareReply, () {
+            final box = context.findRenderObject() as RenderBox?;
+            final origin = box != null && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
+            if (onShare != null) {
               onShare(widget.text, origin);
-            }),
-          ),
+            } else {
+              unawaited(_share(origin));
+            }
+          }),
+        ),
         if (onRegenerate != null) button(Icons.refresh, translations.regenerateReply, onRegenerate),
         if (onRate != null) ...[
           button(

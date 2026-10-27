@@ -925,13 +925,15 @@ AIComponentFactory(
       actions: AIReplyActions(
         rating: ratings[props.message.id],
         onRate: (rating) => rate(props.message, rating),
-        onShare: (text, origin) => SharePlus.instance.share(ShareParams(text: text, sharePositionOrigin: origin)),
       ),
     ),
   ),
   child: conversation,
 )
 ```
+
+Copy and share are always there: sharing opens the platform share sheet with the reply's text. To
+share some other way, such as to record that the reply was shared, set `AIReplyActions.onShare`.
 
 Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
 any other kind as a file card. A kind of your own, such as an artifact or a file in an agent's

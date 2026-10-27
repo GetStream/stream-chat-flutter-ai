@@ -4,6 +4,7 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
@@ -19,10 +20,16 @@ IconData _iconOf(WidgetTester tester, String tooltip) =>
     tester.widget<Icon>(find.descendant(of: find.byTooltip(tooltip), matching: find.byType(Icon))).icon!;
 
 void main() {
+  final sharePlatform = _FakeSharePlatform();
+  // `SharePlus.instance` keeps the platform it first finds, so the fake goes in
+  // before any test shares.
+  setUpAll(() => SharePlatform.instance = sharePlatform);
+  setUp(sharePlatform.reset);
+
   group('AIReplyActionsView', () {
-    testWidgets('offers only copying when the app handles nothing else', (tester) async {
+    testWidgets('offers copying and sharing when the app handles nothing else', (tester) async {
       await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'Hi')));
-      expect(_labels(tester), ['Copy']);
+      expect(_labels(tester), ['Copy', 'Share']);
     });
 
     testWidgets('offers each action the app handles, in order', (tester) async {
@@ -30,7 +37,7 @@ void main() {
         _wrap(
           AIReplyActionsView(
             text: 'Hi',
-            actions: AIReplyActions(onShare: (_, _) {}, onRegenerate: () {}, onRate: (_) {}),
+            actions: AIReplyActions(onRegenerate: () {}, onRate: (_) {}),
           ),
         ),
       );
@@ -44,7 +51,7 @@ void main() {
           _wrap(
             AIReplyActionsView(
               text: 'Hi',
-              actions: AIReplyActions(onShare: (_, _) {}, onRegenerate: () {}, onRate: (_) {}),
+              actions: AIReplyActions(onRegenerate: () {}, onRate: (_) {}),
             ),
             theme: ThemeData(useMaterial3: material3),
           ),
@@ -63,18 +70,18 @@ void main() {
       addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
 
       await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'The answer')));
-      await tester.tap(find.byType(IconButton));
+      await tester.tap(find.byTooltip('Copy'));
       await tester.pump();
 
       expect(copied, ['The answer']);
-      expect(_labels(tester), ['Copied!']);
+      expect(_labels(tester).first, 'Copied!');
       expect(_iconOf(tester, 'Copied!'), Icons.check);
       expect(tester.takeAnnouncements().map((a) => a.message), ['Copied!']);
 
       await tester.pump(const Duration(milliseconds: 1499));
-      expect(_labels(tester), ['Copied!']);
+      expect(_labels(tester).first, 'Copied!');
       await tester.pump(const Duration(milliseconds: 1));
-      expect(_labels(tester), ['Copy']);
+      expect(_labels(tester).first, 'Copy');
     });
 
     testWidgets('confirms nothing when the clipboard refuses the text', (tester) async {
@@ -85,15 +92,43 @@ void main() {
       addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
 
       await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'The answer')));
-      await tester.tap(find.byType(IconButton));
+      await tester.tap(find.byTooltip('Copy'));
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(_labels(tester), ['Copy']);
+      expect(_labels(tester).first, 'Copy');
       expect(tester.takeAnnouncements(), isEmpty);
     });
 
-    testWidgets('shares the text from where the button is', (tester) async {
+    testWidgets('opens the share sheet with the text, from where the button is', (tester) async {
+      await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'The answer')));
+      await tester.tap(find.byTooltip('Share'));
+
+      final params = sharePlatform.shared.single;
+      expect(params.text, 'The answer');
+      expect(params.sharePositionOrigin, tester.getRect(find.widgetWithIcon(IconButton, Icons.ios_share)));
+    });
+
+    testWidgets('shares nothing when the share sheet fails', (tester) async {
+      sharePlatform.error = PlatformException(code: 'unavailable');
+      await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'The answer')));
+      await tester.tap(find.byTooltip('Share'));
+      await tester.pump();
+
+      expect(sharePlatform.shared, hasLength(1));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shares nothing for an empty reply', (tester) async {
+      await tester.pumpWidget(_wrap(const AIReplyActionsView(text: '')));
+      await tester.tap(find.byTooltip('Share'));
+      await tester.pump();
+
+      expect(sharePlatform.shared, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('hands the text to onShare in place of the share sheet', (tester) async {
       String? shared;
       Rect? origin;
       await tester.pumpWidget(
@@ -113,6 +148,7 @@ void main() {
 
       expect(shared, 'The answer');
       expect(origin, tester.getRect(find.widgetWithIcon(IconButton, Icons.ios_share)));
+      expect(sharePlatform.shared, isEmpty);
     });
 
     testWidgets('regenerates', (tester) async {
@@ -185,7 +221,7 @@ void main() {
 
     testWidgets('a confirmation still showing is dropped with the view', (tester) async {
       await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'Hi')));
-      await tester.tap(find.byType(IconButton));
+      await tester.tap(find.byTooltip('Copy'));
       await tester.pump();
       await tester.pumpWidget(_wrap(const SizedBox()));
       await tester.pump(const Duration(milliseconds: 1500));
@@ -213,7 +249,12 @@ void main() {
         ),
       );
       final icons = tester.widgetList<Icon>(find.byType(Icon)).toList();
-      expect(icons.map((i) => i.color), [const Color(0xFF112233), const Color(0xFF112233), const Color(0xFF445566)]);
+      expect(icons.map((i) => i.color), [
+        const Color(0xFF112233),
+        const Color(0xFF112233),
+        const Color(0xFF112233),
+        const Color(0xFF445566),
+      ]);
       expect(icons.map((i) => i.size), everyElement(22));
     });
 
@@ -229,7 +270,7 @@ void main() {
           ),
         ),
       );
-      expect(_labels(tester), ['Kopiëren', 'Opnieuw']);
+      expect(_labels(tester), ['Kopiëren', 'Delen', 'Opnieuw']);
     });
 
     group('goldens', () {
@@ -247,11 +288,11 @@ void main() {
                 const AIReplyActionsView(text: 'Hi'),
                 AIReplyActionsView(
                   text: 'Hi',
-                  actions: AIReplyActions(onShare: (_, _) {}, onRegenerate: () {}, onRate: (_) {}),
+                  actions: AIReplyActions(onRegenerate: () {}, onRate: (_) {}),
                 ),
                 AIReplyActionsView(
                   text: 'Hi',
-                  actions: AIReplyActions(rating: AIMessageRating.positive, onShare: (_, _) {}, onRate: (_) {}),
+                  actions: AIReplyActions(rating: AIMessageRating.positive, onRate: (_) {}),
                 ),
               ],
             ),
@@ -277,5 +318,25 @@ class _DutchTranslations extends DefaultAITranslations {
   String get copyReply => 'Kopiëren';
 
   @override
+  String get shareReply => 'Delen';
+
+  @override
   String get regenerateReply => 'Opnieuw';
+}
+
+class _FakeSharePlatform extends SharePlatform {
+  final shared = <ShareParams>[];
+  Exception? error;
+
+  void reset() {
+    shared.clear();
+    error = null;
+  }
+
+  @override
+  Future<ShareResult> share(ShareParams params) async {
+    shared.add(params);
+    if (error case final error?) throw error;
+    return const ShareResult('', ShareResultStatus.success);
+  }
 }

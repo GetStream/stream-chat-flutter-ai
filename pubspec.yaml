@@ -47,12 +47,16 @@ melos:
         # `CodeBlockView.highlighter` needs. See
         # `example/lib/code_highlighter.dart`.
         re_highlight: ^0.0.3
+        share_plus: ^13.3.1
         speech_to_text: ^7.0.0
 
       # List of all the dev_dependencies used in the project.
       dev_dependencies:
         alchemist: ^0.14.0
         mocktail: ^1.0.5
+        # Direct because the reply actions tests substitute their own
+        # `SharePlatform`; it arrives transitively via `share_plus`.
+        share_plus_platform_interface: ^7.2.0
         # Direct because the speech tests substitute their own
         # `SpeechToTextPlatform`; it arrives transitively via `speech_to_text`,
         # but importing it without declaring it fails `melos run lint:pub`.
