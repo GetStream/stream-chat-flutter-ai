@@ -67,6 +67,8 @@ class _FakeSpeechPlatform extends SpeechToTextPlatform {
       listenError = null;
       throw error;
     }
+    // What the engines report once the microphone is open.
+    onStatus?.call(SpeechToText.listeningStatus);
     return true;
   }
 
@@ -119,22 +121,20 @@ void main() {
   tearDown(SpeechToTextController.instance.debugReset);
 
   group('SpeechToTextConfig', () {
-    test('falls back to a 3s pause on Apple platforms', () {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-
-      expect(const SpeechToTextConfig().effectivePauseFor, const Duration(seconds: 3));
+    test('caps a session at 5 minutes by default', () {
+      // A backstop only: iOS dictates until the user goes quiet or stops it,
+      // and the old 30s cap cut a long dictation off mid-sentence.
+      expect(const SpeechToTextConfig().listenFor, const Duration(minutes: 5));
     });
 
-    test('leaves endpointing to the engine on Android', () {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    for (final platform in TargetPlatform.values) {
+      test('defaults to a 3s pause on ${platform.name}', () {
+        debugDefaultTargetPlatformOverride = platform;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
-      // The plugin's pauseFor timer counts recognition results rather than
-      // silence, so a fixed value cuts off engines that only report at the end
-      // of an utterance.
-      expect(const SpeechToTextConfig().effectivePauseFor, isNull);
-    });
+        expect(const SpeechToTextConfig().effectivePauseFor, const Duration(seconds: 3));
+      });
+    }
 
     test('an explicit pauseFor wins on every platform', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -143,6 +143,111 @@ void main() {
       const config = SpeechToTextConfig(pauseFor: Duration(seconds: 5));
       expect(config.effectivePauseFor, const Duration(seconds: 5));
     });
+  });
+
+  group('SpeechToTextController session timing', () {
+    testWidgets(
+      'times the 3s pause from the start of the session on iOS',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        await SpeechToTextController.instance.start(onWords: (_) {});
+
+        expect(platform.lastOptions?.listenFor, const Duration(minutes: 5));
+        // Timed here, not by the plugin, whose own pause timer shrinks the
+        // window every time it re-arms.
+        expect(platform.lastOptions?.pauseFor, isNull);
+
+        await tester.pump(const Duration(milliseconds: 2900));
+        expect(platform.stopCalls, 0);
+
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(platform.stopCalls, 1, reason: 'three seconds without words end the session');
+        expect(SpeechToTextController.instance.isListening, isFalse);
+
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+
+    testWidgets(
+      'keeps listening past the old 30s cap while words keep coming',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        await SpeechToTextController.instance.start(onWords: (_) {});
+
+        // Both the old 30s cap and the plugin's own pause timer, which
+        // shrinks the window each time it re-arms, ended a session that was
+        // still receiving words.
+        for (var i = 0; i < 40; i++) {
+          platform.emitWords(List.filled(i + 1, 'word').join(' '));
+          await tester.pump(const Duration(seconds: 1));
+        }
+
+        expect(platform.stopCalls, 0);
+        expect(SpeechToTextController.instance.isListening, isTrue);
+
+        await tester.pump(const Duration(seconds: 3));
+        expect(platform.stopCalls, 1, reason: 'three quiet seconds still end it');
+
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+
+    testWidgets(
+      'waits for the first words before timing the pause on Android',
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+      (tester) async {
+        await SpeechToTextController.instance.start(onWords: (_) {});
+
+        // Timed from the start, the pause stopped engines that report nothing
+        // until the end of an utterance before they reported anything at all.
+        await tester.pump(const Duration(seconds: 5));
+        expect(platform.stopCalls, 0);
+        expect(SpeechToTextController.instance.isListening, isTrue);
+
+        platform.emitWords('hello');
+        await tester.pump(const Duration(milliseconds: 2900));
+        expect(platform.stopCalls, 0, reason: 'the pause counts from the words, not the start');
+
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(platform.stopCalls, 1);
+
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+
+    testWidgets(
+      'an explicit pauseFor counts from the start on Android too',
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+      (tester) async {
+        await SpeechToTextController.instance.start(
+          onWords: (_) {},
+          config: const SpeechToTextConfig(pauseFor: Duration(seconds: 5), listenFor: Duration(minutes: 1)),
+        );
+
+        expect(platform.lastOptions?.listenFor, const Duration(minutes: 1));
+
+        await tester.pump(const Duration(milliseconds: 4900));
+        expect(platform.stopCalls, 0);
+
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(platform.stopCalls, 1);
+
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+
+    testWidgets(
+      'stopping by hand cancels the pause timer',
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      (tester) async {
+        await SpeechToTextController.instance.start(onWords: (_) {});
+        await SpeechToTextController.instance.stop();
+        expect(platform.stopCalls, 1);
+
+        await tester.pump(const Duration(seconds: 5));
+        expect(platform.stopCalls, 1);
+      },
+    );
   });
 
   group('SpeechToTextController', () {
@@ -541,6 +646,138 @@ void main() {
       await endSession(tester);
     });
 
+    testWidgets('sending from the keyboard mid-dictation ends it and keeps the field empty', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      final sent = <String>[];
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            enableSpeechToText: true,
+            textInputAction: TextInputAction.send,
+            onSendPressed: (text, _, _) => sent.add(text),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      platform.emitWords('hello');
+      await settle(tester);
+
+      await tester.showKeyboard(find.byType(TextField));
+      await tester.testTextInput.receiveAction(TextInputAction.send);
+      await settle(tester);
+
+      expect(sent, ['hello']);
+      expect(controller.text, isEmpty);
+      expect(platform.cancelCalls, 1);
+      expect(SpeechToTextController.instance.isListening, isFalse);
+
+      // The recognizer reports the whole transcript every time, so a session
+      // left running wrote what was just sent straight back into the field.
+      platform.emitWords('hello there', isFinal: true);
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(controller.text, isEmpty);
+      expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
+    });
+
+    testWidgets('a final transcript owed to a stopped session does not refill the field after a send', (
+      tester,
+    ) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      late VoidCallback onSend;
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            factory: _SendCapturingFactory((props) => onSend = props.onSend),
+            onSendPressed: (_, _, _) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      platform.emitWords('hello');
+      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await settle(tester);
+
+      // A slot sending before the stopped session's final result has landed.
+      onSend();
+      await settle(tester);
+      expect(controller.text, isEmpty);
+
+      platform.emitWords('hello there', isFinal: true);
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(controller.text, isEmpty);
+    });
+
+    testWidgets('emptying the field mid-dictation ends it', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            enableSpeechToText: true,
+            onSendPressed: (_, _, _) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      platform.emitWords('hello');
+      await settle(tester);
+
+      // As iOS does: otherwise the next result puts it all back.
+      controller.textEditingController.clear();
+      await settle(tester);
+
+      expect(platform.cancelCalls, 1);
+      expect(SpeechToTextController.instance.isListening, isFalse);
+
+      platform.emitWords('hello there');
+      await tester.pump(const Duration(seconds: 3));
+      expect(controller.text, isEmpty);
+    });
+
+    testWidgets('an empty transcript neither empties the field nor ends dictation', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(
+            controller: controller,
+            enableSpeechToText: true,
+            onSendPressed: (_, _, _) {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Icons.mic_none_rounded));
+      await settle(tester);
+      platform
+        ..emitWords('hello')
+        ..emitWords('');
+      await settle(tester);
+
+      expect(controller.text, 'hello');
+      expect(platform.cancelCalls, 0);
+      expect(SpeechToTextController.instance.isListening, isTrue);
+
+      await endSession(tester);
+    });
+
     testWidgets('disposing the composer cancels the session', (tester) async {
       await tester.pumpWidget(
         _wrap(ChatComposer(enableSpeechToText: true, onSendPressed: (_, _, _) {})),
@@ -675,4 +912,18 @@ class _MicFactory extends ChatComposerFactory {
   @override
   Widget buildLeading(BuildContext context, ChatComposerLeadingProps props) =>
       SpeechToTextButton(controller: props.controller);
+}
+
+/// Places the mic in the trailing slot and hands the test the composer's
+/// `onSend`, the way a slot with its own send control would call it.
+class _SendCapturingFactory extends ChatComposerFactory {
+  _SendCapturingFactory(this.onProps);
+
+  final void Function(ChatComposerTrailingProps props) onProps;
+
+  @override
+  Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
+    onProps(props);
+    return SpeechToTextButton(controller: props.controller);
+  }
 }
