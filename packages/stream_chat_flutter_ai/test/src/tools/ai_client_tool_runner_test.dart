@@ -43,15 +43,18 @@ class _ResultTool extends AIResultClientTool {
 
 /// A plain, side-effect-only tool, as written before results existed.
 class _SideEffectTool implements AIClientTool {
-  _SideEffectTool({this.actions, this.onHandle});
+  _SideEffectTool({this.actions, this.onHandle, this.parameters});
 
   final List<AIToolAction>? actions;
   final void Function()? onHandle;
+  final Map<String, Object?>? parameters;
   final invocations = <AIToolInvocation>[];
   int ran = 0;
 
   @override
-  AIToolDefinition get definition => const AIToolDefinition(name: 'open_screen', description: 'Opens a screen');
+  AIToolDefinition get definition => parameters == null
+      ? const AIToolDefinition(name: 'open_screen', description: 'Opens a screen')
+      : AIToolDefinition(name: 'open_screen', description: 'Opens a screen', parameters: parameters!);
 
   @override
   List<AIToolAction> handleInvocation(AIToolInvocation invocation) {
@@ -511,12 +514,91 @@ void main() {
         expect(sender.sent.single.$2, AIClientToolResult.completed(null));
       });
 
-      test('get empty args when the call has no arguments', () async {
-        final tool = _SideEffectTool();
+      for (final (description, parameters) in [
+        ('the default schema', null),
+        ('an empty schema', const <String, Object?>{}),
+        ('an object schema without properties', const <String, Object?>{'type': 'object'}),
+        (
+          'only optional properties',
+          const <String, Object?>{
+            'type': 'object',
+            'properties': {
+              'accuracy': {'type': 'string'},
+            },
+          },
+        ),
+      ]) {
+        test('requiring no argument with $description, get empty args when the call has none', () async {
+          final tool = _SideEffectTool(parameters: parameters);
+          final sender = _Sender();
 
-        await _runner(tools: [tool], sender: _Sender()).handleCalls([_waitingCall(name: 'open_screen')]);
+          await _runner(tools: [tool], sender: sender).handleCalls([_waitingCall(name: 'open_screen')]);
 
-        expect(tool.invocations.single.args, isEmpty);
+          expect(tool.invocations.single.args, isEmpty);
+          expect(sender.sent.single.$2, AIClientToolResult.completed(null));
+        });
+      }
+
+      group('requiring arguments, when the call arrives without them', () {
+        _SideEffectTool tool() => _SideEffectTool(
+          parameters: const {
+            'type': 'object',
+            'properties': {
+              'screen': {'type': 'string'},
+            },
+            'required': ['screen'],
+          },
+        );
+
+        test('are not run, and the call fails and is reported', () async {
+          final opener = tool();
+          final sender = _Sender();
+          final toolErrors = <Object>[];
+
+          final reported = await _collectingErrors(
+            () => _runner(
+              tools: [opener],
+              sender: sender,
+              onToolError: (call, error, stack) => toolErrors.add(error),
+            ).handleCalls([_waitingCall(name: 'open_screen')]),
+          );
+
+          expect(opener.invocations, isEmpty);
+          expect(opener.ran, 0);
+          expect(
+            sender.sent.single.$2,
+            const AIClientToolResult.failed("This call's arguments didn't reach the device"),
+          );
+          expect(toolErrors.single, isA<StateError>());
+          expect(reported.single.exception, same(toolErrors.single));
+        });
+
+        test('failureMessage words the failure', () async {
+          final sender = _Sender();
+
+          await _collectingErrors(
+            () => _runner(
+              tools: [tool()],
+              sender: sender,
+              failureMessage: (call, error) => 'custom: ${call.name}',
+            ).handleCalls([_waitingCall(name: 'open_screen')]),
+          );
+
+          expect(sender.sent.single.$2, const AIClientToolResult.failed('custom: open_screen'));
+        });
+
+        test('still run with the empty arguments the model passed', () async {
+          final opener = tool();
+          final sender = _Sender();
+
+          await _runner(
+            tools: [opener],
+            sender: sender,
+          ).handleCalls([_waitingCall(name: 'open_screen', arguments: const {})]);
+
+          expect(opener.invocations.single.args, isEmpty);
+          expect(sender.sent.single.$2, AIClientToolResult.completed(null));
+        });
       });
 
       test('failing actions are all reported, the rest still run, and the first error is used', () async {

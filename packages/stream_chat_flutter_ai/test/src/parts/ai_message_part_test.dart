@@ -266,7 +266,7 @@ void main() {
         'url': 'https://example.com',
       });
 
-      expect(part.kind.value, 'ai_citation');
+      expect(part.kind, 'ai_citation');
       expect(part.kind.isKnown, isFalse);
       expect(part.isSupported, isFalse);
       expect(part.reasoning, isNull);
@@ -300,12 +300,12 @@ void main() {
         'executor': 'browser',
         'approval': {'title': 'Allow?', 'decision': 'later'},
       }).toolCall!;
-      expect(call.status.value, 'queued');
+      expect(call.status, 'queued');
       expect(call.status.isKnown, isFalse);
       expect(call.status.isFinished, isFalse);
-      expect(call.executor.value, 'browser');
+      expect(call.executor, 'browser');
       expect(call.executor.isKnown, isFalse);
-      expect(call.approval!.decision!.value, 'later');
+      expect(call.approval!.decision, 'later');
       expect(call.approval!.decision!.isKnown, isFalse);
       expect(call.approval!.isAnswered, isTrue);
       expect(call.isDeclined, isFalse);
@@ -446,7 +446,7 @@ void main() {
       expect(a.toolCall, isNot(changedDecision.toolCall));
     });
 
-    test('open sets compare by value', () {
+    test('open sets are their raw strings', () {
       // Built from runtime strings, so they are distinct instances of the consts.
       String raw(String value) => String.fromCharCodes(value.codeUnits);
 
@@ -455,8 +455,11 @@ void main() {
       expect(AIToolCallStatus(raw('failed')), AIToolCallStatus.failed);
       expect(AIToolExecutor(raw('client')), AIToolExecutor.client);
       expect(AIToolApprovalDecision(raw('declined')), AIToolApprovalDecision.declined);
-      expect(AIToolCallStatus(raw('x')).hashCode, AIToolCallStatus(raw('x')).hashCode);
-      expect(AIToolCallStatus.running, isNot(const AIToolExecutor('running')));
+      expect(AIMessageRole(raw('assistant')), AIMessageRole.assistant);
+      expect(AIMessageAttachmentKind(raw('image')), AIMessageAttachmentKind.image);
+      expect(AIToolCallStatus.awaitingApproval, 'awaiting_approval');
+      expect(AIMessagePartKind.toolCall, 'ai_tool_call');
+      expect(const AIToolCallStatus('queued'), 'queued');
     });
 
     test('known values report isKnown', () {
@@ -465,6 +468,10 @@ void main() {
       expect(AIToolCallStatus.values.every((status) => status.isKnown), isTrue);
       expect(AIToolExecutor.values.every((executor) => executor.isKnown), isTrue);
       expect(AIToolApprovalDecision.values.every((decision) => decision.isKnown), isTrue);
+      expect(AIMessageRole.values.every((role) => role.isKnown), isTrue);
+      expect(AIMessageAttachmentKind.values.every((kind) => kind.isKnown), isTrue);
+      expect(const AIMessageRole('system').isKnown, isFalse);
+      expect(const AIMessageAttachmentKind('athena_image').isKnown, isFalse);
     });
   });
 

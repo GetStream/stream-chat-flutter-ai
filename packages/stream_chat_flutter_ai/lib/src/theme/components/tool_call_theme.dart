@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 // Not doc-only: [ToolCallTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
-// Imported for the doc links below only.
-import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
 /// Overrides for how [AIToolCallView] is drawn: the title and detail text, the
@@ -49,10 +47,10 @@ class ToolCallThemeData with Diagnosticable {
   /// [TextTheme.bodySmall] in [ColorScheme.onSurfaceVariant].
   final TextStyle? detailStyle;
 
-  /// The spinner of a running call, and the band of light sweeping across the
-  /// icon of a call waiting for approval or for a device — the same role as
-  /// [ReasoningThemeData.shimmerColor]. With reduced motion on, the waiting
-  /// icon is drawn in it outright. Defaults to [ColorScheme.primary].
+  /// The spinner of a running call, and the icon of a call waiting for
+  /// approval or for a device, with a band of the [titleStyle]'s color
+  /// sweeping across it unless reduced motion is on. Defaults to
+  /// [ColorScheme.primary].
   final Color? accentColor;
 
   /// The check of a completed call. Defaults to a green that reads on the
@@ -62,12 +60,11 @@ class ToolCallThemeData with Diagnosticable {
   /// The icon of a failed call. Defaults to [ColorScheme.error].
   final Color? failureColor;
 
-  /// The neutral icons: the cross of a cancelled or declined call, and a
-  /// waiting call's icon beneath its [accentColor] band. Defaults to the
-  /// resolved [detailStyle]'s color.
+  /// The cross of a cancelled call. Defaults to the resolved [detailStyle]'s
+  /// color.
   final Color? iconColor;
 
-  /// The status icon's size, and the spinner's. Defaults to 14.
+  /// The status icon's size, and the spinner's. Defaults to 16.
   final double? iconSize;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the

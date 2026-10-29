@@ -2,6 +2,7 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
+import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
@@ -27,6 +28,7 @@ AIToolCallPart _call({
   String? summary,
   int? durationMs,
   AIToolApproval? approval,
+  AIToolAuthorization? authorization,
 }) => AIToolCallPart(
   id: 'call_1',
   name: name,
@@ -35,6 +37,7 @@ AIToolCallPart _call({
   summary: summary,
   durationMs: durationMs,
   approval: approval,
+  authorization: authorization,
 );
 
 const _declined = AIToolApproval(decision: AIToolApprovalDecision.declined);
@@ -58,22 +61,22 @@ List<String> _texts(WidgetTester tester) =>
 
 void main() {
   group('AIToolCallView', () {
-    testWidgets('a call declined while its status still waits stops shimmering', (tester) async {
-      const waiting = AIToolApproval(title: 'Send it?');
-      await tester.pumpWidget(
-        _wrap(
-          AIToolCallView(
-            call: _call(status: AIToolCallStatus.awaitingApproval, approval: waiting),
-          ),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(tester.binding.hasScheduledFrame, isTrue, reason: 'the hand shimmers while it waits');
-
+    testWidgets("a declined call's icon follows its status", (tester) async {
       await tester.pumpWidget(
         _wrap(
           AIToolCallView(
             call: _call(status: AIToolCallStatus.awaitingApproval, approval: _declined),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_icon(tester), Icons.back_hand_outlined, reason: 'the backend has yet to cancel it');
+      expect(tester.binding.hasScheduledFrame, isTrue, reason: 'the hand shimmers while the status waits');
+
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(
+            call: _call(status: AIToolCallStatus.cancelled, approval: _declined),
           ),
         ),
       );
@@ -120,13 +123,14 @@ void main() {
         AIToolCallStatus.running: null,
         AIToolCallStatus.completed: null,
         AIToolCallStatus.awaitingApproval: 'Waiting for approval',
+        AIToolCallStatus.awaitingAuthorization: 'Waiting for sign-in',
         AIToolCallStatus.awaitingClient: 'Waiting for the device',
         AIToolCallStatus.failed: "Didn't complete",
         AIToolCallStatus.cancelled: 'Cancelled',
         const AIToolCallStatus('queued'): null,
       };
       for (final MapEntry(key: status, value: detail) in cases.entries) {
-        testWidgets('${status.value}: ${detail ?? 'no detail line'}', (tester) async {
+        testWidgets('$status: ${detail ?? 'no detail line'}', (tester) async {
           _reduceMotion(tester);
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
           expect(_texts(tester), ['get weather', ?detail]);
@@ -147,6 +151,44 @@ void main() {
         }
       });
 
+      testWidgets('a call waiting for the viewer to sign in tells them, and only them', (tester) async {
+        _reduceMotion(tester);
+        final waiting = AIToolCallPart(
+          id: 'call_1',
+          name: 'get_weather',
+          status: AIToolCallStatus.awaitingAuthorization,
+          targetUserId: 'alice',
+          authorization: AIToolAuthorization(title: 'Connect', url: Uri.parse('https://agent.example/launch')),
+        );
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting, userId: 'alice')));
+        expect(_texts(tester), ['get weather', 'Waiting for you to sign in']);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting, userId: 'bob')));
+        expect(_texts(tester), ['get weather', 'Waiting for sign-in']);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting)));
+        expect(_texts(tester), ['get weather', 'Waiting for sign-in']);
+      });
+
+      testWidgets('a call whose sign-in was declined reads "Declined"', (tester) async {
+        _reduceMotion(tester);
+        final signIn = AIToolAuthorization(
+          title: 'Connect Linear',
+          url: Uri.parse('https://agent.example/launch'),
+          status: AIToolAuthorizationStatus.declined,
+        );
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.cancelled, authorization: signIn),
+            ),
+          ),
+        );
+        expect(_texts(tester), ['get weather', 'Declined']);
+        expect(_icon(tester), Icons.close_rounded);
+      });
+
       testWidgets('the summary wins over the status text', (tester) async {
         _reduceMotion(tester);
         for (final status in [AIToolCallStatus.running, AIToolCallStatus.failed, AIToolCallStatus.awaitingApproval]) {
@@ -157,7 +199,7 @@ void main() {
               ),
             ),
           );
-          expect(_texts(tester), ['get weather', 'Sunny, 21°C'], reason: status.value);
+          expect(_texts(tester), ['get weather', 'Sunny, 21°C'], reason: status);
         }
         await tester.pumpWidget(
           _wrap(
@@ -188,15 +230,15 @@ void main() {
         _reduceMotion(tester);
         for (final status in [AIToolCallStatus.running, AIToolCallStatus.awaitingClient]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status, durationMs: 400))));
-          expect(find.text('0.4s'), findsNothing, reason: status.value);
+          expect(find.text('0.4s'), findsNothing, reason: status);
         }
         for (final status in [AIToolCallStatus.completed, AIToolCallStatus.failed, AIToolCallStatus.cancelled]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status, durationMs: 400))));
-          expect(find.text('0.4s'), findsOneWidget, reason: status.value);
+          expect(find.text('0.4s'), findsOneWidget, reason: status);
         }
       });
 
-      testWidgets('a declined call shows none', (tester) async {
+      testWidgets('a declined call keeps it once finished', (tester) async {
         _reduceMotion(tester);
         await tester.pumpWidget(
           _wrap(
@@ -205,7 +247,7 @@ void main() {
             ),
           ),
         );
-        expect(find.text('0.4s'), findsNothing);
+        expect(find.text('0.4s'), findsOneWidget);
       });
 
       testWidgets('shows nothing when the agent sent none', (tester) async {
@@ -263,6 +305,11 @@ void main() {
             color: colors.primary,
           ),
           (
+            call: _call(status: AIToolCallStatus.awaitingAuthorization),
+            icon: Icons.key_outlined,
+            color: colors.primary,
+          ),
+          (
             call: _call(status: AIToolCallStatus.awaitingClient),
             icon: Icons.smartphone_outlined,
             color: colors.primary,
@@ -277,8 +324,8 @@ void main() {
         ];
         for (final (:call, :icon, :color) in cases) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: call), theme: theme));
-          expect(_icon(tester), icon, reason: call.status.value);
-          expect(_iconColor(tester), color, reason: call.status.value);
+          expect(_icon(tester), icon, reason: call.status);
+          expect(_iconColor(tester), color, reason: call.status);
         }
 
         await tester.pumpWidget(
@@ -290,6 +337,14 @@ void main() {
         expect(_icon(tester), Icons.check_rounded);
         final success = _iconColor(tester)!;
         expect(success.g, greaterThan(success.r), reason: 'a green');
+      });
+
+      testWidgets('spins a 12 dp ring with a 1.5 stroke at the default size', (tester) async {
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.running))));
+
+        final spinner = find.byType(CircularProgressIndicator);
+        expect(tester.getSize(spinner), const Size.square(12));
+        expect(tester.widget<CircularProgressIndicator>(spinner).strokeWidth, 1.5);
       });
 
       testWidgets('an unknown status spins, and debug builds report it once per change', (tester) async {
@@ -314,16 +369,20 @@ void main() {
       testWidgets('a running call, or one in a status this package does not know, spins', (tester) async {
         for (final status in [AIToolCallStatus.running, const AIToolCallStatus('queued')]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget, reason: status.value);
+          expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget, reason: status);
           expect(_icon(tester), isNull);
           expect(tester.hasRunningAnimations, isTrue);
         }
       });
 
       testWidgets('shimmers while the call waits, and stops once it does not', (tester) async {
-        for (final status in [AIToolCallStatus.awaitingApproval, AIToolCallStatus.awaitingClient]) {
+        for (final status in [
+          AIToolCallStatus.awaitingApproval,
+          AIToolCallStatus.awaitingAuthorization,
+          AIToolCallStatus.awaitingClient,
+        ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: status.value);
+          expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: status);
           expect(tester.hasRunningAnimations, isTrue);
         }
 
@@ -339,10 +398,14 @@ void main() {
         expect(_icon(tester), Icons.more_horiz_rounded);
         expect(tester.hasRunningAnimations, isFalse);
 
-        for (final status in [AIToolCallStatus.awaitingApproval, AIToolCallStatus.awaitingClient]) {
+        for (final status in [
+          AIToolCallStatus.awaitingApproval,
+          AIToolCallStatus.awaitingAuthorization,
+          AIToolCallStatus.awaitingClient,
+        ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status.value);
-          expect(tester.hasRunningAnimations, isFalse, reason: status.value);
+          expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status);
+          expect(tester.hasRunningAnimations, isFalse, reason: status);
         }
       });
 
@@ -366,8 +429,12 @@ void main() {
         expect(tester.hasRunningAnimations, isTrue, reason: 'the stopped shimmer starts again');
       });
 
-      testWidgets('the shimmer sweeps an accent band over the neutral icon', (tester) async {
-        const data = ToolCallThemeData(accentColor: Color(0xFF0000D1), iconColor: Color(0xFF0000D2));
+      testWidgets("the shimmer sweeps a band of the title's color over the accent icon", (tester) async {
+        const data = ToolCallThemeData(
+          accentColor: Color(0xFF0000D1),
+          iconColor: Color(0xFF0000D2),
+          titleStyle: TextStyle(color: Color(0xFF0000D3)),
+        );
         await tester.pumpWidget(
           _wrap(
             AIToolCallView(
@@ -376,7 +443,10 @@ void main() {
             ),
           ),
         );
-        expect(_iconColor(tester), isSameColorAs(const Color(0xFF0000D2)));
+        final shimmer = tester.widget<Shimmer>(_inView(find.byType(Shimmer)));
+        expect(shimmer.base, const Color(0xFF0000D1));
+        expect(shimmer.highlight, const Color(0xFF0000D3));
+        expect(_iconColor(tester), const Color(0xFF0000D1));
       });
 
       testWidgets('swaps spinner and still icon both ways as reduced motion toggles', (tester) async {
@@ -541,7 +611,7 @@ void main() {
         final labels = {
           _call(): 'get weather, Running',
           _call(status: AIToolCallStatus.failed): "get weather, Didn't complete",
-          _call(status: AIToolCallStatus.cancelled, approval: _declined, durationMs: 1200): 'get weather, Declined',
+          _call(status: AIToolCallStatus.cancelled, approval: _declined, durationMs: 1200): 'get weather, Declined, 1s',
           _call(status: const AIToolCallStatus('queued')): 'get weather, Running',
         };
         for (final MapEntry(key: call, value: label) in labels.entries) {
@@ -574,7 +644,12 @@ void main() {
         final detail = tester.widget<Text>(find.text('Timed out')).style!;
         expect(detail.color, theme.colorScheme.onSurfaceVariant);
         expect(detail.fontSize, textTheme.bodySmall!.fontSize);
-        expect(tester.widget<Icon>(_inView(find.byType(Icon))).size, 14);
+        expect(tester.widget<Icon>(_inView(find.byType(Icon))).size, 16);
+        expect(
+          tester.getTopLeft(find.text('get weather')).dx - tester.getTopRight(_inView(find.byType(Icon))).dx,
+          8,
+          reason: 'the gap after the icon',
+        );
 
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call()), theme: theme));
         expect(spinnerColor(tester), theme.colorScheme.primary);
@@ -693,7 +768,7 @@ void main() {
             ),
           );
           await tester.pump(const Duration(milliseconds: 100));
-          expect(tester.takeException(), isNull, reason: status.value);
+          expect(tester.takeException(), isNull, reason: status);
         }
       });
 
@@ -735,7 +810,7 @@ void main() {
               ),
             ),
           );
-          expect(_iconColor(tester), color, reason: status.value);
+          expect(_iconColor(tester), color, reason: status);
         }
       });
     });
@@ -747,6 +822,11 @@ void main() {
           name: 'get_location',
           displayTitle: 'Sharing your location',
           status: AIToolCallStatus.awaitingApproval,
+        ),
+        _call(
+          name: 'linear__list_issues',
+          displayTitle: 'Using Linear',
+          status: AIToolCallStatus.awaitingAuthorization,
         ),
         _call(name: 'read_contacts', status: AIToolCallStatus.awaitingClient),
         _call(

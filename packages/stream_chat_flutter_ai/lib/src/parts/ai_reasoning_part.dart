@@ -6,12 +6,8 @@ import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 ///
 /// An open set: compare against the statuses you know ([streaming],
 /// [completed]) and give the rest a sensible fallback. A status this package
-/// doesn't know keeps its raw [value] and reports `false` from [isKnown].
-@immutable
-class AIReasoningStatus {
-  /// Wraps a raw status string.
-  const AIReasoningStatus(this.value);
-
+/// doesn't know keeps its raw value and reports `false` from [isKnown].
+extension type const AIReasoningStatus(String _) implements String {
   /// The model is still thinking.
   static const streaming = AIReasoningStatus('streaming');
 
@@ -21,20 +17,8 @@ class AIReasoningStatus {
   /// The statuses this package knows.
   static const values = [streaming, completed];
 
-  /// The status as the agent wrote it, such as `streaming`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
-
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIReasoningStatus && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIReasoningStatus($value)';
 }
 
 /// A round of the model's reasoning — the typed view of an `ai_reasoning`
@@ -123,7 +107,7 @@ class AIReasoningPart {
   Map<String, Object?> toJson() => {
     'id': id,
     'v': AIMessagePart.supportedVersion,
-    'status': status.value,
+    'status': status,
     'summary': ?summary,
     'preview': ?preview,
     'duration_ms': ?durationMs,
@@ -143,5 +127,5 @@ class AIReasoningPart {
   int get hashCode => Object.hash(id, status, summary, preview, durationMs);
 
   @override
-  String toString() => 'AIReasoningPart(id: $id, status: ${status.value}, summary: $summary, durationMs: $durationMs)';
+  String toString() => 'AIReasoningPart(id: $id, status: $status, summary: $summary, durationMs: $durationMs)';
 }

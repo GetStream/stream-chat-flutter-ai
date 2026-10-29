@@ -8,7 +8,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
-const _kDefaultIconSize = 14.0;
+const _kDefaultIconSize = 16.0;
 
 /// The default success green on light surfaces: dark enough for 4.5:1 on
 /// white.

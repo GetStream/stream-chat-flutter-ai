@@ -25,6 +25,9 @@ environment:
 resolution: workspace
 
 dependencies:
+  # Depended on directly, not just via flutter_test: a sign-in's expiry reads
+  # `clock.now()`, so tests can move time on with the widget tester.
+  clock: ^1.1.2
   # Deep and list equality for the public value types, whose fields include
   # lists and maps.
   collection: ^1.19.0
@@ -42,6 +45,7 @@ dependencies:
   # `md.BlockSyntax` and `md.InlineSyntax`.
   markdown: ^7.3.1
   photo_manager: ^3.9.0
+  share_plus: ^13.3.1
   shared_preferences: ^2.5.3
   # Depended on directly, not just via shared_preferences: the install id is
   # kept in a preferences file of its own on Android, set through
@@ -55,6 +59,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.5
+  share_plus_platform_interface: ^7.2.0
   shared_preferences_platform_interface: ^2.4.1
   speech_to_text_platform_interface: ^2.4.0
 

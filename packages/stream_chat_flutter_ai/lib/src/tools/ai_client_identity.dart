@@ -24,11 +24,13 @@ import 'package:uuid/uuid.dart';
 /// );
 /// ```
 ///
-/// Two matchers say what this device may do with a call, and they treat a
+/// Three matchers say what this device may do with a call, and they treat a
 /// missing `target_client_id` differently:
 ///
 ///  * [canApprove] — answering a call's question. A call that names no
 ///    install can be answered from any of the person's devices.
+///  * [canAuthorize] — signing in for a call. Any of the person's devices
+///    may, so `target_client_id` isn't checked.
 ///  * [canRun] — running a client tool. The call must name exactly this
 ///    install, so a call without `target_client_id`, or an identity without a
 ///    [clientId], never runs here: two devices must never both run it.
@@ -84,6 +86,10 @@ class AIClientIdentity {
   /// Whether [call] waits for this person to answer its question, on this
   /// device. See [AIToolCallPart.isAwaitingApproval].
   bool canApprove(AIToolCallPart call) => call.isAwaitingApproval(userId: userId, clientId: clientId);
+
+  /// Whether [call] waits for this person to sign in at a provider it needs,
+  /// from any of their devices. See [AIToolCallPart.isAwaitingAuthorization].
+  bool canAuthorize(AIToolCallPart call) => call.isAwaitingAuthorization(userId: userId);
 
   /// Whether [call] is a client tool waiting for this install to run it:
   /// targeted at [userId] and exactly at [clientId]. Always `false` without a

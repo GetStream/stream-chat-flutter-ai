@@ -19,6 +19,8 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
@@ -90,6 +92,7 @@ class AIComponentBuilders with Diagnosticable {
     this.reasoning,
     this.toolCall,
     this.toolApproval,
+    this.toolAuthorization,
     this.unsupportedPart,
     this.userMessage,
     this.assistantMessage,
@@ -111,13 +114,20 @@ class AIComponentBuilders with Diagnosticable {
 
   /// A tool call's row in [AIMessagePartsView]. Defaults to [AIToolCallView].
   ///
-  /// Only the row: the approval question under it comes from [toolApproval],
-  /// and is still asked when this returns [AIMessagePartsView.hidden].
+  /// Only the row: the approval question under it comes from [toolApproval]
+  /// and the sign-in from [toolAuthorization], and both are still asked when
+  /// this returns [AIMessagePartsView.hidden].
   final AIComponentBuilder<AIToolCallProps>? toolCall;
 
   /// The question an [AIToolApprovalView] asks. Defaults to
   /// [AIToolApprovalCard]. Return `const SizedBox.shrink()` to ask nothing.
   final AIComponentBuilder<AIToolApprovalProps>? toolApproval;
+
+  /// The sign-in an [AIToolAuthorizationView] asks for. Defaults to
+  /// [AIToolAuthorizationCard]. Content of your own calls the props'
+  /// `onConnect` and `onDecline`, which hand the sign-in page to the
+  /// approver's [AIToolAuthorizer] and send the person's "not now".
+  final AIComponentBuilder<AIToolAuthorizationProps>? toolAuthorization;
 
   /// A part this package can't read, in [AIMessagePartsView]. Defaults to
   /// [AIUnsupportedPartView].
@@ -126,25 +136,42 @@ class AIComponentBuilders with Diagnosticable {
   /// A message the person sent, in [AIConversationView]. Defaults to
   /// [AIUserMessageView].
   ///
-  /// The conversation builds a row again only when what [AIMessage] says about
-  /// it changes, so read anything else that changes, such as a send status,
-  /// from your own listenable rather than from the message.
+  /// The conversation caches its rows: it builds one again only when what
+  /// [AIMessage] says about it changes, or the builders do. Read anything else
+  /// that changes, such as a send status, through a [Listenable] of your own
+  /// (a [ListenableBuilder] or [ValueListenableBuilder] in what you return),
+  /// and create the builders once, not in `build`.
   final AIComponentBuilder<AIUserMessageProps>? userMessage;
 
   /// A reply of the agent, in [AIConversationView]. Defaults to
   /// [AIAssistantMessageView]. Like [userMessage], it is built again only when
-  /// what [AIMessage] says about the reply changes.
+  /// what [AIMessage] says about the reply changes, or the builders do, so read
+  /// state of your own through a [Listenable].
   final AIComponentBuilder<AIAssistantMessageProps>? assistantMessage;
 
   /// What the person can do with a finished reply, shown under it in
   /// [AIConversationView] once its answer is typed out. Nothing by default; an
-  /// [AIReplyActionsView] is what to return:
+  /// [AIReplyActionsView] is what to return.
+  ///
+  /// Like [userMessage], it is built again only when the reply changes, or the
+  /// builders do. So read the rating, which changes without the reply
+  /// changing, through a [Listenable], and create the builders once:
   ///
   /// ```dart
-  /// replyActions: (context, props) => AIReplyActionsView(
-  ///   text: props.text,
-  ///   actions: AIReplyActions(onRegenerate: props.isLatestReply ? chat.regenerate : null),
-  /// ),
+  /// // In your State, next to a `ValueNotifier<Map<String, AIMessageRating>> ratings`.
+  /// late final builders = AIComponentBuilders(
+  ///   replyActions: (context, props) => ValueListenableBuilder(
+  ///     valueListenable: ratings,
+  ///     builder: (context, rated, _) => AIReplyActionsView(
+  ///       text: props.text,
+  ///       actions: AIReplyActions(
+  ///         rating: rated[props.message.id],
+  ///         onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
+  ///         onRegenerate: props.isLatestReply ? chat.regenerate : null,
+  ///       ),
+  ///     ),
+  ///   ),
+  /// );
   /// ```
   final AIComponentBuilder<AIReplyActionsProps>? replyActions;
 
@@ -167,6 +194,7 @@ class AIComponentBuilders with Diagnosticable {
     AIComponentBuilder<AIReasoningProps>? reasoning,
     AIComponentBuilder<AIToolCallProps>? toolCall,
     AIComponentBuilder<AIToolApprovalProps>? toolApproval,
+    AIComponentBuilder<AIToolAuthorizationProps>? toolAuthorization,
     AIComponentBuilder<AIUnsupportedPartProps>? unsupportedPart,
     AIComponentBuilder<AIUserMessageProps>? userMessage,
     AIComponentBuilder<AIAssistantMessageProps>? assistantMessage,
@@ -179,6 +207,7 @@ class AIComponentBuilders with Diagnosticable {
     reasoning: reasoning ?? this.reasoning,
     toolCall: toolCall ?? this.toolCall,
     toolApproval: toolApproval ?? this.toolApproval,
+    toolAuthorization: toolAuthorization ?? this.toolAuthorization,
     unsupportedPart: unsupportedPart ?? this.unsupportedPart,
     userMessage: userMessage ?? this.userMessage,
     assistantMessage: assistantMessage ?? this.assistantMessage,
@@ -197,6 +226,7 @@ class AIComponentBuilders with Diagnosticable {
       reasoning: other.reasoning,
       toolCall: other.toolCall,
       toolApproval: other.toolApproval,
+      toolAuthorization: other.toolAuthorization,
       unsupportedPart: other.unsupportedPart,
       userMessage: other.userMessage,
       assistantMessage: other.assistantMessage,
@@ -215,6 +245,7 @@ class AIComponentBuilders with Diagnosticable {
       ..add(FlagProperty('reasoning', value: reasoning != null, ifTrue: 'custom reasoning'))
       ..add(FlagProperty('toolCall', value: toolCall != null, ifTrue: 'custom toolCall'))
       ..add(FlagProperty('toolApproval', value: toolApproval != null, ifTrue: 'custom toolApproval'))
+      ..add(FlagProperty('toolAuthorization', value: toolAuthorization != null, ifTrue: 'custom toolAuthorization'))
       ..add(FlagProperty('unsupportedPart', value: unsupportedPart != null, ifTrue: 'custom unsupportedPart'))
       ..add(FlagProperty('userMessage', value: userMessage != null, ifTrue: 'custom userMessage'))
       ..add(FlagProperty('assistantMessage', value: assistantMessage != null, ifTrue: 'custom assistantMessage'))
@@ -232,6 +263,7 @@ class AIComponentBuilders with Diagnosticable {
           other.reasoning == reasoning &&
           other.toolCall == toolCall &&
           other.toolApproval == toolApproval &&
+          other.toolAuthorization == toolAuthorization &&
           other.unsupportedPart == unsupportedPart &&
           other.userMessage == userMessage &&
           other.assistantMessage == assistantMessage &&
@@ -246,6 +278,7 @@ class AIComponentBuilders with Diagnosticable {
     reasoning,
     toolCall,
     toolApproval,
+    toolAuthorization,
     unsupportedPart,
     userMessage,
     assistantMessage,
@@ -349,6 +382,39 @@ final class AIToolApprovalProps {
   final AIToolApprovalAnswer onAnswer;
 
   /// The theme overrides the [AIToolApprovalView] was given.
+  final ToolApprovalThemeData? theme;
+}
+
+/// What [AIComponentBuilders.toolAuthorization] gets.
+@immutable
+final class AIToolAuthorizationProps {
+  /// Creates an [AIToolAuthorizationProps].
+  const AIToolAuthorizationProps({
+    required this.call,
+    required this.authorization,
+    required this.state,
+    required this.onConnect,
+    required this.onDecline,
+    this.theme,
+  });
+
+  /// The tool call that waits for the sign-in.
+  final AIToolCallPart call;
+
+  /// The sign-in, such as "Connect Linear".
+  final AIToolAuthorization authorization;
+
+  /// Where the person's answer is.
+  final AIToolAuthorizationState state;
+
+  /// Hands the sign-in page to the approver's [AIToolAuthorizer], which opens
+  /// it. Does nothing while an answer is under way.
+  final VoidCallback onConnect;
+
+  /// Sends the person's "not now". Does nothing while it is on its way.
+  final VoidCallback onDecline;
+
+  /// The theme overrides the [AIToolAuthorizationView] was given.
   final ToolApprovalThemeData? theme;
 }
 

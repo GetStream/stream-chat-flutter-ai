@@ -31,6 +31,8 @@ melos:
 
       # List of all the dependencies used in the project.
       dependencies:
+        # A sign-in's expiry reads `clock.now()`, so tests can fake the time.
+        clock: ^1.1.2
         # Deep and list equality for the package's public value types.
         # Already resolved transitively via the Flutter SDK; declared because
         # the package imports it directly.
@@ -49,6 +51,7 @@ melos:
         # `CodeBlockView.highlighter` needs. See
         # `example/lib/code_highlighter.dart`.
         re_highlight: ^0.0.3
+        share_plus: ^13.3.1
         speech_to_text: ^7.0.0
         uuid: ^4.5.1
 
@@ -56,6 +59,9 @@ melos:
       dev_dependencies:
         alchemist: ^0.14.0
         mocktail: ^1.0.5
+        # Direct because the reply actions tests substitute their own
+        # `SharePlatform`; it arrives transitively via `share_plus`.
+        share_plus_platform_interface: ^7.2.0
         # Direct because the install id tests substitute an in-memory
         # `SharedPreferencesAsyncPlatform`.
         shared_preferences_platform_interface: ^2.4.1

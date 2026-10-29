@@ -8,29 +8,20 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 /// Who wrote an [AIMessage].
 ///
 /// An open set: compare against the roles you know ([user], [assistant]). A
-/// message of any role other than [user] shows as the agent's.
-@immutable
-class AIMessageRole {
-  /// Wraps a raw role, such as `'system'`.
-  const AIMessageRole(this.value);
-
+/// role this package doesn't know keeps its raw value and reports `false` from
+/// [isKnown]; a message of any role other than [user] shows as the agent's.
+extension type const AIMessageRole(String _) implements String {
   /// The person using the app. Each of their messages starts a turn.
   static const user = AIMessageRole('user');
 
   /// The agent.
   static const assistant = AIMessageRole('assistant');
 
-  /// The role's name.
-  final String value;
+  /// The roles this package knows.
+  static const values = [user, assistant];
 
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIMessageRole && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIMessageRole($value)';
+  /// Whether this is one of [values].
+  bool get isKnown => values.contains(this);
 }
 
 /// A message [AIConversationView] can show: the person's in a bubble with its
