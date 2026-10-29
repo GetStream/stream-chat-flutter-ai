@@ -383,7 +383,7 @@ void main() {
         parts: _parts.take(1).toList(),
         partBuilder: (context, part) => const SizedBox(width: 40, height: 10),
       );
-      await tester.pumpWidget(_wrap(SizedBox(width: 300, child: parts())));
+      await tester.pumpWidget(_wrap(ConstrainedBox(constraints: const BoxConstraints(maxWidth: 300), child: parts())));
       expect(tester.getSize(find.byType(AIMessagePartsView)), const Size(300, 10));
 
       await tester.pumpWidget(_wrap(Row(mainAxisSize: MainAxisSize.min, children: [parts()])));
@@ -444,6 +444,20 @@ void main() {
       await tester.tap(find.text('Allow'));
       await tester.pump();
       expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
+    });
+
+    testWidgets('leaves 8 between a call and its question, whatever the spacing', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(parts: parts(), approver: approver, spacing: 20),
+          ),
+        ),
+      );
+
+      final row = find.ancestor(of: find.text('send email'), matching: find.byType(AIToolCallView));
+      expect(tester.getTopLeft(find.byType(AIToolApprovalCard)).dy - tester.getBottomLeft(row).dy, 8);
     });
 
     testWidgets('asks nothing without an approver', (tester) async {

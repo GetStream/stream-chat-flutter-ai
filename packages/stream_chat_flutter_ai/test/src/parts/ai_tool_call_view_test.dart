@@ -293,6 +293,14 @@ void main() {
         expect(success.g, greaterThan(success.r), reason: 'a green');
       });
 
+      testWidgets('spins a 12 dp ring with a 1.5 stroke at the default size', (tester) async {
+        await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.running))));
+
+        final spinner = find.byType(CircularProgressIndicator);
+        expect(tester.getSize(spinner), const Size.square(12));
+        expect(tester.widget<CircularProgressIndicator>(spinner).strokeWidth, 1.5);
+      });
+
       testWidgets('an unknown status spins, and debug builds report it once per change', (tester) async {
         final reports = <String>[];
         debugPartIssueReporter = reports.add;

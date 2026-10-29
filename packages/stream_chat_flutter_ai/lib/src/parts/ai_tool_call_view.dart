@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
@@ -288,8 +286,9 @@ class _StatusIcon extends StatelessWidget {
       _ToolCallState.running when reduceMotion => icon(Icons.more_horiz_rounded, theme.accentColor),
       _ToolCallState.running => SizedBox.square(
         // Inset a little: a ring fills its box, where a glyph leaves a margin.
-        dimension: size * 0.85,
-        child: CircularProgressIndicator(strokeWidth: math.max(1.5, size / 8), color: theme.accentColor),
+        // 12 with a 1.5 stroke at the default size.
+        dimension: size * 0.75,
+        child: CircularProgressIndicator(strokeWidth: size * 3 / 32, color: theme.accentColor),
       ),
       _ToolCallState.awaitingApproval => waiting(Icons.back_hand_outlined),
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),

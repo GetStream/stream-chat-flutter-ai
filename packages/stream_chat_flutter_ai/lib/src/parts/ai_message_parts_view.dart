@@ -111,8 +111,7 @@ class AIMessagePartsView extends StatelessWidget {
   /// row; without one, no questions are asked.
   final AIToolApprover? approver;
 
-  /// The vertical gap between two parts, and between a tool call's row and its
-  /// question.
+  /// The vertical gap between two parts.
   final double spacing;
 
   /// Returned from [partBuilder], [toolCallBuilder] or an
@@ -205,13 +204,17 @@ class AIMessagePartsView extends StatelessWidget {
         if (showRow) row,
         if (approver != null)
           Padding(
-            padding: EdgeInsets.only(top: showRow && asks ? spacing : 0),
+            padding: EdgeInsets.only(top: showRow && asks ? _questionGap : 0),
             child: AIToolApprovalView(call: call, approver: approver),
           ),
       ],
     );
   }
 }
+
+/// The gap between a tool call's row and its question, closer than the gap
+/// between steps so the two read as one.
+const double _questionGap = 8;
 
 /// [AIMessagePartsView.hidden]. Never built: the view leaves it out.
 class _HiddenPart extends StatelessWidget {

@@ -41,8 +41,8 @@
 - `AIToolCallPart` — the typed view of an `ai_tool_call` step, with `AIToolCallStatus` and
   `AIToolExecutor` (server or client).
 - `AIToolApproval` — what a tool call asks before it runs, with `AIToolApprovalDecision`.
-- `AIMessagePartsView` — shows a reply's steps in order, keyed by id. `AIMessagePartWidgetBuilder`
-  builds parts your own way.
+- `AIMessagePartsView` — shows a reply's steps in order, keyed by id, filling its width.
+  `AIMessagePartWidgetBuilder` builds parts your own way.
 - `AIUnsupportedPartView` — the placeholder for a step this app version can't show.
 - `AITranslations.unsupportedMessagePart` — that placeholder's text.
 - `StreamingReasoningView` — a collapsible "Thinking… 7s / Thought for 12s" panel for the model's
@@ -52,10 +52,11 @@
   translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
   `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
   `DefaultAITranslations.reasoningDuration` spells the durations.
-- `AIToolCallView` — a one-line row for a tool-call step: a status icon, the title, a detail line
-  (the summary, or the status in words) and the duration once the call has finished. Screen readers
-  hear it as one node, announced as a live call finishes or starts waiting. `AIMessagePartsView`
-  shows tool calls with it.
+- `AIToolCallView` — a one-line row for a tool-call step: a status icon that follows the call's
+  status (a shimmering hand while it waits for approval, a cross once declined), the title, a detail
+  line (the summary, or the status in words) and the duration once the call has finished, declined
+  included. Screen readers hear it as one node, announced as a live call finishes or starts
+  waiting. `AIMessagePartsView` shows tool calls with it.
 - `ToolCallThemeData` and `ToolCallTheme`, and `AITheme.toolCallTheme`, for styling tool-call rows.
 - `AIMessagePartsView.toolCallBuilder` (an `AIToolCallWidgetBuilder`) — builds some tools your own
   way and leaves the rest to `AIToolCallView`.
@@ -169,19 +170,10 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
-- New layout defaults for agent steps: `AIMessagePartsView` fills its width and spaces steps 10
-  apart (was 8); `AIToolCallView`'s icon defaults to 16 (`ToolCallThemeData.iconSize`, was
-  14) with a gap of 8 after it; `AIUnsupportedPartView` reads like a tool call's row, in its title's
-  font and its detail color, with the same icon size; and `AIToolApprovalCard` spaces its lines 4
-  apart and its buttons and failure line 12, with the sending spinner after the buttons instead of
-  inside the pressed one.
 
 🐞 Fixed
 
 - `AITypingIndicatorView`'s dots were black by default, which made them invisible in dark mode.
-- `AIToolCallView`: a declined call's icon follows its status — the shimmering hand while it
-  still waits for approval, then the cross — and keeps its duration once finished. A waiting call's icon is drawn in `ToolCallThemeData.accentColor` with a band of the
-  title's color sweeping across it; the two were reversed.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
 - A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
