@@ -679,13 +679,18 @@ AIToolCallView(call: part.toolCall!);
 
 An agent can aim a tool call at one install of your app, through its `target_client_id`, so a
 person signed in on two devices doesn't get the call twice. `AIClientIdentity.installId()` gives
-each install an id, `flutter-` followed by a UUID, created on first use and kept in shared
-preferences:
+each install an id, created on first use and kept in shared preferences:
 
 ```dart
 final installId = await AIClientIdentity.installId();
 final identity = AIClientIdentity(userId: currentUser.id, clientId: installId);
 ```
+
+Treat the id as opaque. Uninstalling the app or clearing its data removes it, and so does
+`SharedPreferencesAsync().clear()` without an `allowList` on iOS, macOS, web and desktop; the next
+call then creates a new one.
+
+**iOS** — backups and Quick Start copy the id to a new device, as they do the native iOS SDK's.
 
 **Android** — exclude the id from backups. Android backs up app data and copies it to a new device,
 and a restored id makes both devices the same install: both would run a call meant for one. The id
@@ -724,6 +729,14 @@ If your app already has these files, add the `<exclude>` lines to them. Rules th
 leave the rest of your app's data backed up as before. Keep the `<device-transfer>` rule even with
 `android:allowBackup="false"`: in apps targeting Android 12 or later, that flag stops cloud backups
 but not transfers to a new device.
+
+**Widget tests** — `installId()` needs a shared preferences store. Without one, it throws
+`StateError('The SharedPreferencesAsyncPlatform instance must be set.')`. Set an in-memory store
+first, from `shared_preferences_platform_interface`:
+
+```dart
+SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
+```
 
 ### Tool approvals: `AIToolApprover`
 

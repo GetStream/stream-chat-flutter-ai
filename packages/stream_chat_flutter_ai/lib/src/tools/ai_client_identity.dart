@@ -46,20 +46,18 @@ class AIClientIdentity {
   /// the host keeps no install id: calls naming an install then never match.
   final String? clientId;
 
-  /// An id for this install of the app, to pass as [clientId].
+  /// Returns the id of this install of the app, to pass as [clientId].
   ///
-  /// The first call creates it, `flutter-` followed by an uppercase UUID, and
-  /// keeps it in shared preferences under `io.getstream.ai.client-id`; later
-  /// calls, in this launch and the next, complete with the same id. Calls made
-  /// while the first one is still in flight complete with that same id too.
-  /// The id is gone once the app is uninstalled or its data is cleared, and
-  /// the next call creates a new one.
+  /// The first call creates the id and stores it on the device. Later calls,
+  /// including concurrent ones and those in later launches, complete with the
+  /// same id. Uninstalling the app or clearing its data removes the id, and the
+  /// next call creates a new one. On iOS, macOS, web and desktop the id is kept
+  /// in shared preferences, so `SharedPreferencesAsync().clear()` without an
+  /// allowList removes it too.
   ///
-  /// On Android the id is kept in a preferences file of its own,
-  /// `io.getstream.ai.client-id.xml`, which Android backs up and copies to a
-  /// new device like the rest of the app's data unless the app's backup rules
-  /// exclude it. Exclude it: a restored id makes two devices the same install,
-  /// so both would run a call meant for one. The package README has the rules.
+  /// On Android, exclude the id from the app's backups so that a restore
+  /// doesn't give two devices the same id; the package README lists the rules.
+  /// On iOS, backups and Quick Start copy the id, as they do the native SDK's.
   ///
   /// If the id can't be read or stored, the returned future completes with
   /// that error, and the next call tries again.
@@ -76,7 +74,7 @@ class AIClientIdentity {
   static Future<String> _readOrCreateInstallId() async {
     final preferences = SharedPreferencesAsync(options: kAIInstallIdPreferencesOptions);
     final storedId = await preferences.getString(_installIdKey);
-    if (storedId != null) return storedId;
+    if (storedId != null && storedId.trim().isNotEmpty) return storedId;
 
     final newId = 'flutter-${const Uuid().v4().toUpperCase()}';
     await preferences.setString(_installIdKey, newId);

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_android/shared_preferences_android.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -6,12 +8,12 @@ import 'package:shared_preferences_platform_interface/types.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 
 void main() {
-  test('installId creates a flutter- prefixed uppercase UUID', () async {
+  test('installId creates an id around a random UUID', () async {
     _usePreferences(InMemorySharedPreferencesAsync.empty());
 
     final id = await AIClientIdentity.installId();
 
-    expect(id, matches(RegExp(r'^flutter-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$')));
+    expect(id, contains(RegExp('[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}')));
   });
 
   test('installId returns the same id on later calls', () async {
@@ -41,6 +43,17 @@ void main() {
     expect(id, 'flutter-0B8A1D5E-KEPT');
   });
 
+  for (final blank in ['', '  ']) {
+    test('installId replaces a blank stored id (${jsonEncode(blank)})', () async {
+      _usePreferences(InMemorySharedPreferencesAsync.withData({'io.getstream.ai.client-id': blank}));
+
+      final id = await AIClientIdentity.installId();
+
+      expect(id.trim(), isNotEmpty);
+      expect(await AIClientIdentity.installId(), id);
+    });
+  }
+
   test('installId keeps the id in its own Android preferences file', () async {
     final preferences = _RecordingPreferences();
     _usePreferences(preferences);
@@ -62,18 +75,33 @@ void main() {
   });
 
   test('installId completes with the error when the id cannot be read', () async {
-    _usePreferences(_FailingOncePreferences());
+    _usePreferences(_FailingReadOncePreferences());
 
     await expectLater(AIClientIdentity.installId(), throwsA(isA<StateError>()));
   });
 
-  test('installId tries again after a failed call', () async {
-    _usePreferences(_FailingOncePreferences());
-    await AIClientIdentity.installId().then<void>((_) {}, onError: (_) {});
+  test('installId completes with the error when the id cannot be stored', () async {
+    _usePreferences(_FailingWriteOncePreferences());
+
+    await expectLater(AIClientIdentity.installId(), throwsA(isA<StateError>()));
+  });
+
+  test('installId tries again after a failed read', () async {
+    _usePreferences(_FailingReadOncePreferences());
+    await expectLater(AIClientIdentity.installId(), throwsStateError);
 
     final id = await AIClientIdentity.installId();
 
-    expect(id, startsWith('flutter-'));
+    expect(await AIClientIdentity.installId(), id);
+  });
+
+  test('installId tries again after a failed write', () async {
+    _usePreferences(_FailingWriteOncePreferences());
+    await expectLater(AIClientIdentity.installId(), throwsStateError);
+
+    final id = await AIClientIdentity.installId();
+
+    expect(await AIClientIdentity.installId(), id);
   });
 }
 
@@ -103,8 +131,8 @@ final class _RecordingPreferences extends InMemorySharedPreferencesAsync {
 }
 
 // Fails the first read, as a platform error would, then behaves normally.
-final class _FailingOncePreferences extends InMemorySharedPreferencesAsync {
-  _FailingOncePreferences() : super.empty();
+final class _FailingReadOncePreferences extends InMemorySharedPreferencesAsync {
+  _FailingReadOncePreferences() : super.empty();
 
   var _failed = false;
 
@@ -115,5 +143,21 @@ final class _FailingOncePreferences extends InMemorySharedPreferencesAsync {
       throw StateError('storage unavailable');
     }
     return super.getString(key, options);
+  }
+}
+
+// Fails the first write, as a platform error would, then behaves normally.
+final class _FailingWriteOncePreferences extends InMemorySharedPreferencesAsync {
+  _FailingWriteOncePreferences() : super.empty();
+
+  var _failed = false;
+
+  @override
+  Future<bool> setString(String key, String value, SharedPreferencesOptions options) async {
+    if (!_failed) {
+      _failed = true;
+      throw StateError('storage unavailable');
+    }
+    return super.setString(key, value, options);
   }
 }
