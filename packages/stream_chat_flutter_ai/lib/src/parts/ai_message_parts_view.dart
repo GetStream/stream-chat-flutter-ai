@@ -119,8 +119,9 @@ class AIMessagePartsView extends StatelessWidget {
 
   /// Returned from [partBuilder], [toolCallBuilder] or an
   /// [AIComponentFactory] part slot, hides that part: it is left out of the
-  /// list, with no [spacing] around it. Compared by identity, so return this
-  /// very instance.
+  /// list, with no [spacing] around it, except that a tool call waiting for
+  /// this person's approval still asks its question. Compared by identity, so
+  /// return this very instance.
   static const Widget hidden = _HiddenPart();
 
   @override
