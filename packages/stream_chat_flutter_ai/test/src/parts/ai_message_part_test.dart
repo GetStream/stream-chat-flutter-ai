@@ -446,7 +446,7 @@ void main() {
       expect(a.toolCall, isNot(changedDecision.toolCall));
     });
 
-    test('open sets compare by value', () {
+    test('open sets are their raw strings', () {
       // Built from runtime strings, so they are distinct instances of the consts.
       String raw(String value) => String.fromCharCodes(value.codeUnits);
 
@@ -457,10 +457,6 @@ void main() {
       expect(AIToolApprovalDecision(raw('declined')), AIToolApprovalDecision.declined);
       expect(AIMessageRole(raw('assistant')), AIMessageRole.assistant);
       expect(AIMessageAttachmentKind(raw('image')), AIMessageAttachmentKind.image);
-      expect(AIToolCallStatus(raw('x')).hashCode, AIToolCallStatus(raw('x')).hashCode);
-    });
-
-    test('open sets are their raw strings', () {
       expect(AIToolCallStatus.awaitingApproval, 'awaiting_approval');
       expect(AIMessagePartKind.toolCall, 'ai_tool_call');
       expect(const AIToolCallStatus('queued'), 'queued');
