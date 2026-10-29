@@ -518,8 +518,17 @@ void main() {
         ('the default schema', null),
         ('an empty schema', const <String, Object?>{}),
         ('an object schema without properties', const <String, Object?>{'type': 'object'}),
+        (
+          'only optional properties',
+          const <String, Object?>{
+            'type': 'object',
+            'properties': {
+              'accuracy': {'type': 'string'},
+            },
+          },
+        ),
       ]) {
-        test('declaring no arguments with $description, get empty args when the call has none', () async {
+        test('requiring no argument with $description, get empty args when the call has none', () async {
           final tool = _SideEffectTool(parameters: parameters);
           final sender = _Sender();
 
@@ -530,13 +539,14 @@ void main() {
         });
       }
 
-      group('declaring arguments, when the call arrives without them', () {
+      group('requiring arguments, when the call arrives without them', () {
         _SideEffectTool tool() => _SideEffectTool(
           parameters: const {
             'type': 'object',
             'properties': {
               'screen': {'type': 'string'},
             },
+            'required': ['screen'],
           },
         );
 
