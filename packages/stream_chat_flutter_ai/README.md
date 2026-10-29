@@ -932,8 +932,9 @@ AIComponentFactory(
 )
 ```
 
-Copy and share are always there: sharing opens the platform share sheet with the reply's text. To
-share some other way, such as to record that the reply was shared, set `AIReplyActions.onShare`.
+Copy and share are always there: sharing opens the platform share sheet with the reply's text, or an
+email draft on Linux and in browsers without the Web Share API. To share some other way, such as to
+record that the reply was shared, set `AIReplyActions.onShare`.
 
 Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
 any other kind as a file card. A kind of your own, such as an artifact or a file in an agent's

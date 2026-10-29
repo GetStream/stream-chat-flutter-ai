@@ -109,7 +109,7 @@ void main() {
       expect(params.sharePositionOrigin, tester.getRect(find.widgetWithIcon(IconButton, Icons.ios_share)));
     });
 
-    testWidgets('shares nothing when the share sheet fails', (tester) async {
+    testWidgets('ignores a share sheet that fails', (tester) async {
       sharePlatform.error = PlatformException(code: 'unavailable');
       await tester.pumpWidget(_wrap(const AIReplyActionsView(text: 'The answer')));
       await tester.tap(find.byTooltip('Share'));

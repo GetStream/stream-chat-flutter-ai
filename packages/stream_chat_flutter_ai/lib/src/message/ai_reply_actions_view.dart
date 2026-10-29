@@ -16,9 +16,10 @@ enum AIMessageRating {
   negative,
 }
 
-/// Shares a reply's [text] in place of the platform share sheet. [origin] is
-/// the share button's rectangle in global coordinates, which a share sheet on
-/// iPad anchors its popover to.
+/// Shares a reply's [text] in place of the platform share sheet.
+///
+/// [origin] is the share button's rectangle in global coordinates, which the
+/// share sheet on iPad and macOS anchors its popover to.
 typedef AIReplyShareCallback = void Function(String text, Rect? origin);
 
 /// What [AIReplyActionsView] offers besides copying and sharing a reply.
@@ -45,7 +46,8 @@ class AIReplyActions {
 /// The buttons under a finished reply: copy and share, then regenerate and
 /// rate when [actions] handles them.
 ///
-/// Sharing opens the platform share sheet with [text], unless
+/// Sharing opens the platform share sheet with [text], or an email draft on
+/// Linux and in browsers without the Web Share API, unless
 /// [AIReplyActions.onShare] shares it instead.
 ///
 /// ```dart
@@ -99,8 +101,9 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
     try {
       await SharePlus.instance.share(ShareParams(text: widget.text, sharePositionOrigin: origin));
     } on Object {
-      // Such as for an empty reply, or where the platform has no share sheet:
-      // nothing was shared, and there is nothing to tell the person.
+      // Such as for an empty reply, or where there is neither a share sheet nor
+      // a mail app to fall back to: nothing was shared, and there is nothing to
+      // tell the person.
     }
   }
 

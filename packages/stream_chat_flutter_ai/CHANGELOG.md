@@ -113,8 +113,9 @@
 - `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) replace the code blocks, charts, agent steps, approval card and composer slots the package builds.
 - `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each `AIComponentBuilders` slot gets.
 - `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
-  "Copied!" for a moment, and share, which opens the platform share sheet, then regenerate and
-  👍 / 👎 when the app handles them. Tapping the
+  "Copied!" for a moment, and share, which opens the platform share sheet (or an email draft on
+  Linux and in browsers without the Web Share API), then regenerate and 👍 / 👎 when the app
+  handles them. Tapping the
   current rating takes it back, and the selected rating is reported to screen readers.
 - `AIReplyActions` — what `AIReplyActionsView` offers besides copying and sharing: the `rating`, and
   the `onRegenerate` and `onRate` callbacks, each of whose buttons shows only when it is set. Set
