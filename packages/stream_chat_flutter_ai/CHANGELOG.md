@@ -92,7 +92,9 @@
   is left for another runner unless `failUnknownTools` is set. Options: `maxAttempts`, `retryDelay`
   (capped at `AIClientToolRunner.maxRetryDelay`), `runTimeout`, `sendTimeout`, `failureMessage` (an
   `AIClientToolFailureMessage`), `onToolError` (an `AIClientToolCallErrorCallback`) and
-  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`).
+  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`). A plain `AIClientTool` whose schema
+  requires arguments isn't run when its call arrives without them: the call fails with "This call's
+  arguments didn't reach the device".
   Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
   `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
 - `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
@@ -180,6 +182,10 @@
   client tool runner, `AILocalModel`, chart legends, `AIComponentFactory`, `AIReplyActionsView`,
   `AIConversationView` and the voice views — and its `SpeechToTextButton` snippet now uses
   `SpeechToTextConfig`.
+- The `AIConversationView`, `AIComponentBuilders.userMessage`, `assistantMessage` and `replyActions`
+  docs and the README say that the conversation caches its rows, so a builder must read state that
+  changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
+  The README's `replyActions` example now does that; before, its 👍 never filled.
 
 🐞 Fixed
 
