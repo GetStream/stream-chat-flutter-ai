@@ -520,14 +520,15 @@ void main() {
         semantics.dispose();
       });
 
-      testWidgets('while sending, the buttons are disabled and the pressed one says so', (tester) async {
+      testWidgets('while sending, the buttons are disabled and the indicator after them says so', (tester) async {
         final semantics = tester.ensureSemantics();
         await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
         await tester.tap(find.text('Allow'));
         await tester.pump();
 
+        expect(find.bySemanticsLabel('Sending your answer…'), findsOneWidget);
         final allow = tester.getSemantics(find.byType(FilledButton));
-        expect(allow.label, contains('Sending your answer…'));
+        expect(allow.label, isNot(contains('Sending your answer…')));
         expect(allow.flagsCollection.isEnabled, Tristate.isFalse);
         expect(tester.getSemantics(find.byType(OutlinedButton)).flagsCollection.isEnabled, Tristate.isFalse);
         semantics.dispose();
@@ -557,12 +558,12 @@ void main() {
         expect(backend.answers, [('call_1', _decline)]);
         expect(_enabled(tester, 'Allow'), isFalse);
         expect(_enabled(tester, "Don't Allow"), isFalse);
-        // The pressed button shows the progress; reduced motion makes it still.
+        // The progress follows the buttons; reduced motion makes it still.
+        expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
         expect(
           find.descendant(of: find.byType(OutlinedButton), matching: find.byIcon(Icons.more_horiz_rounded)),
-          findsOneWidget,
+          findsNothing,
         );
-        expect(find.descendant(of: find.byType(FilledButton), matching: find.byType(Icon)), findsNothing);
 
         await tester.tap(find.text('Allow'), warnIfMissed: false);
         await tester.tap(find.text("Don't Allow"), warnIfMissed: false);
@@ -570,18 +571,31 @@ void main() {
         expect(backend.answers, hasLength(1), reason: 'taps while sending are ignored');
       });
 
-      testWidgets('allowing shows a spinner on the allow button with motion on', (tester) async {
-        await tester.pumpWidget(_wrap(AIToolApprovalView(call: _call(), approver: approver)));
+      testWidgets('allowing shows a spinner after the buttons with motion on', (tester) async {
+        // Wide enough for the buttons and the spinner on one line in the test font.
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 600,
+                  child: AIToolApprovalView(call: _call(), approver: approver),
+                ),
+              ),
+            ),
+          ),
+        );
         await tester.tap(find.text('Allow'));
         await tester.pump();
         expect(backend.answers, [('call_1', _allow)]);
+        final spinner = find.byType(CircularProgressIndicator);
+        expect(spinner, findsOneWidget);
+        expect(find.descendant(of: find.byType(FilledButton), matching: spinner), findsNothing);
         expect(
-          find.descendant(of: find.byType(FilledButton), matching: find.byType(CircularProgressIndicator)),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: find.byType(OutlinedButton), matching: find.byType(CircularProgressIndicator)),
-          findsNothing,
+          tester.getTopLeft(spinner).dx - tester.getTopRight(find.byType(OutlinedButton)).dx,
+          8,
+          reason: 'one button gap after the decline button',
         );
       });
 

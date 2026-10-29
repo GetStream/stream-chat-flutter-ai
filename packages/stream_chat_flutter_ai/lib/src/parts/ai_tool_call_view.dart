@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
@@ -21,11 +19,12 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 ///
 /// The row reads, from the start:
 ///
-///  * **A status icon.** A small spinner while the call runs (and for a status
-///    this package doesn't know, which counts as still in progress — debug
-///    builds say so); a shimmering hand while it waits for approval, or a
-///    phone while it waits for a device; a check once completed, an
-///    exclamation mark once failed, and a cross once cancelled or declined.
+///  * **A status icon,** following [AIToolCallPart.status]. A small spinner
+///    while the call runs (and for a status this package doesn't know, which
+///    counts as still in progress — debug builds say so); a shimmering hand
+///    while it waits for approval, or a phone while it waits for a device; a
+///    check once completed, an exclamation mark once failed, and a cross once
+///    cancelled.
 ///  * **The title:** [AIToolCallPart.displayName] (the agent's title, or the
 ///    tool's name with underscores turned into spaces), or
 ///    [AITranslations.toolCallFallbackTitle] when the agent sent neither.
@@ -35,11 +34,12 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 ///    running or completed call without a summary has no detail line.
 ///  * **The duration**, when known, at the end once the call has finished:
 ///    `0.4s` under a second, otherwise `12s` or `1m 5s`
-///    ([AITranslations.toolCallDuration]). A declined call never ran, so it
-///    shows none.
+///    ([AITranslations.toolCallDuration]).
 ///
-/// A declined call ([AIToolCallPart.isDeclined]) reads as declined whatever
-/// its status says.
+/// A declined call ([AIToolCallPart.isDeclined]) says so in its detail line
+/// and to screen readers whatever its status says, while its icon still
+/// follows the status: the hand while the backend has yet to cancel the call,
+/// then the cross.
 ///
 /// It is a row of text, so give it a bounded width, as a chat list does.
 ///
@@ -86,9 +86,12 @@ enum _ToolCallState {
   cancelled,
   declined;
 
-  static _ToolCallState of(AIToolCallPart call) {
-    // Declined comes first: the call never ran, whatever its status says yet.
-    if (call.isDeclined) return declined;
+  /// What the detail line and screen readers say. Declined comes first: the
+  /// call never ran, whatever its status says yet.
+  static _ToolCallState of(AIToolCallPart call) => call.isDeclined ? declined : ofStatus(call);
+
+  /// What the icon shows: the status alone, declined or not.
+  static _ToolCallState ofStatus(AIToolCallPart call) {
     return switch (call.status) {
       AIToolCallStatus.awaitingApproval => awaitingApproval,
       AIToolCallStatus.awaitingClient => awaitingClient,
@@ -181,9 +184,9 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     );
   }
 
-  /// Runs the shimmer only while the call waits and motion is on.
+  /// Runs the shimmer only while the call's icon waits and motion is on.
   void _syncShimmer() {
-    if (_ToolCallState.of(widget.call).isAwaiting && !_reduceMotion) {
+    if (_ToolCallState.ofStatus(widget.call).isAwaiting && !_reduceMotion) {
       final shimmer = _shimmer ??= AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
       if (!shimmer.isAnimating) shimmer.repeat();
     } else {
@@ -201,10 +204,10 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     final title = call.displayName.isEmpty ? translations.toolCallFallbackTitle : call.displayName;
     final summary = call.summaryText;
     final detail = summary ?? state.detail(translations);
-    final duration = call.status.isFinished && state != _ToolCallState.declined ? call.duration : null;
+    final duration = call.status.isFinished ? call.duration : null;
     final durationText = duration == null ? null : translations.toolCallDuration(duration);
 
-    final gap = math.max<double>(6, theme.iconSize * 0.5);
+    const gap = 8.0;
     return Semantics(
       container: true,
       liveRegion: _announces,
@@ -219,13 +222,18 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
               SizedBox.square(
                 dimension: theme.iconSize,
                 child: Center(
-                  child: _StatusIcon(state: state, theme: theme, reduceMotion: _reduceMotion, shimmer: _shimmer),
+                  child: _StatusIcon(
+                    state: _ToolCallState.ofStatus(call),
+                    theme: theme,
+                    reduceMotion: _reduceMotion,
+                    shimmer: _shimmer,
+                  ),
                 ),
               ),
-              SizedBox(width: gap),
+              const SizedBox(width: gap),
               Expanded(child: Text(title, style: theme.titleStyle)),
               if (durationText != null) ...[
-                SizedBox(width: gap),
+                const SizedBox(width: gap),
                 Text(
                   durationText,
                   style: theme.detailStyle.copyWith(
@@ -262,14 +270,14 @@ class _StatusIcon extends StatelessWidget {
     final size = theme.iconSize;
     Widget icon(IconData data, Color color) => Icon(data, size: size, color: color);
     Widget waiting(IconData data) {
-      // Still, the icon is drawn in the accent outright. Moving, as for the
-      // reasoning header, a band of the accent sweeps over the neutral icon.
+      // Drawn in the accent; moving, a band of the title's color sweeps over
+      // it.
       if (reduceMotion || shimmer == null) return icon(data, theme.accentColor);
       return Shimmer(
         animation: shimmer!,
-        base: theme.iconColor,
-        highlight: theme.accentColor,
-        child: icon(data, theme.iconColor),
+        base: theme.accentColor,
+        highlight: theme.titleStyle.color ?? theme.titleStyle.foreground?.color ?? theme.accentColor,
+        child: icon(data, theme.accentColor),
       );
     }
 
@@ -278,13 +286,15 @@ class _StatusIcon extends StatelessWidget {
       _ToolCallState.running when reduceMotion => icon(Icons.more_horiz_rounded, theme.accentColor),
       _ToolCallState.running => SizedBox.square(
         // Inset a little: a ring fills its box, where a glyph leaves a margin.
-        dimension: size * 0.85,
-        child: CircularProgressIndicator(strokeWidth: math.max(1.5, size / 8), color: theme.accentColor),
+        // 12 with a 1.5 stroke at the default size.
+        dimension: size * 0.75,
+        child: CircularProgressIndicator(strokeWidth: size * 3 / 32, color: theme.accentColor),
       ),
       _ToolCallState.awaitingApproval => waiting(Icons.back_hand_outlined),
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
       _ToolCallState.completed => icon(Icons.check_rounded, theme.successColor),
       _ToolCallState.failed => icon(Icons.priority_high_rounded, theme.failureColor),
+      // `declined` never gets here, as the icon follows the status alone.
       _ToolCallState.cancelled || _ToolCallState.declined => icon(Icons.close_rounded, theme.iconColor),
     };
   }
