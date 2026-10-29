@@ -95,7 +95,9 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
   @override
   void didUpdateWidget(AIAssistantMessageView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.text != oldWidget.text || (widget.isGenerating && !oldWidget.isGenerating)) _typed = false;
+    // Only text that types out reports [_onFinished]; one shown at once is done.
+    final typesOut = _generating && widget.text != oldWidget.text;
+    if (typesOut || (widget.isGenerating && !oldWidget.isGenerating)) _typed = false;
     if (widget.isGenerating) {
       _tail?.cancel();
       _generating = true;

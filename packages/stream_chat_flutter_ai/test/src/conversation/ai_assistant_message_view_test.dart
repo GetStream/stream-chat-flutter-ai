@@ -103,6 +103,26 @@ void main() {
       expect(find.textContaining(answer, findRichText: true), findsOneWidget);
     });
 
+    testWidgets('in a conversation, keeps the reply actions after an edit once done', (tester) async {
+      Widget conversation(_Reply reply) => AIComponentFactory(
+        builders: AIComponentBuilders(replyActions: (context, props) => const Text('actions')),
+        child: MaterialApp(
+          home: Scaffold(body: AIConversationView(messages: [reply])),
+        ),
+      );
+
+      await tester.pumpWidget(conversation(_Reply('Hello', isGenerating: true)));
+      await tester.pumpWidget(conversation(_Reply('Hello', isGenerating: false)));
+      await _typeOut(tester);
+      await tester.pump();
+      expect(find.text('actions'), findsOneWidget);
+
+      await tester.pumpWidget(conversation(_Reply('Hello, edited.', isGenerating: false)));
+      await _typeOut(tester);
+      await tester.pump();
+      expect(find.text('actions'), findsOneWidget);
+    });
+
     testWidgets('shows a generating answer at once with reduced motion', (tester) async {
       tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
         disableAnimations: true,

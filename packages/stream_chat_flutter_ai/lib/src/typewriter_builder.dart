@@ -155,8 +155,8 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   /// Anything else (a regenerated or edited message, a shorter replacement, an
   /// error message swapped in for a partial reply) keeps the part it shares
   /// with what is on screen and types only the rest, so a reply rewritten near
-  /// its end doesn't start over from its first character. A replacement that
-  /// is shorter than what is displayed is cut back to it at once.
+  /// its end doesn't start over from its first character. Whatever is on
+  /// screen past the shared part is removed at once.
   void updateText(String newText, {bool autoStart = true}) {
     _targetText = newText.characters;
 
