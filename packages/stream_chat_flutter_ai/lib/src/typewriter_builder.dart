@@ -101,7 +101,7 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   /// {@macro typewriterController}
   TypewriterController({
     String text = '',
-    this.typingSpeed = const Duration(milliseconds: 10),
+    this.typingSpeed = const Duration(milliseconds: 5),
   }) : super(TypewriterValue(text: text)) {
     // Start fully revealed: a controller constructed with its complete text
     // represents an already-finished message (e.g. one loaded from history),
@@ -112,7 +112,7 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
 
   /// The speed at which the text should be typed out.
   ///
-  /// Defaults to `10 milliseconds` per character.
+  /// Defaults to `5 milliseconds` per character.
   final Duration typingSpeed;
 
   Timer? _timer;
@@ -153,30 +153,36 @@ class TypewriterController extends ValueNotifier<TypewriterValue> {
   /// to the last — and typing simply carries on from where it was.
   ///
   /// Anything else (a regenerated or edited message, a shorter replacement, an
-  /// error message swapped in for a partial reply) is treated as a *new* text
-  /// and revealed from the start. Without this, a replacement shorter than what
-  /// is already displayed would leave the previous text on screen indefinitely,
-  /// because there would be nothing left for [startTyping] to reveal.
+  /// error message swapped in for a partial reply) keeps the part it shares
+  /// with what is on screen and types only the rest, so a reply rewritten near
+  /// its end doesn't start over from its first character. Whatever is on
+  /// screen past the shared part is removed at once.
   void updateText(String newText, {bool autoStart = true}) {
-    final target = newText.characters;
+    _targetText = newText.characters;
+
     // Compared in grapheme clusters, the unit [_currentCharIndex] counts. A
     // plain `startsWith` is a UTF-16 test, and the two disagree when a chunk
     // boundary lands inside a cluster: "👨" is a prefix of "👨‍👩‍👦" by code unit
     // but not by grapheme, and treating that as a continuation left the index
     // past the end of a target one cluster long, freezing the view.
-    final isContinuation = target.length >= _currentCharIndex && target.take(_currentCharIndex).string == value.text;
-    _targetText = target;
-
-    if (!isContinuation) {
-      _timer?.cancel();
-      _reveal(0, state: TypewriterState.idle);
-    }
+    final shared = _commonPrefixLength(value.text.characters, _targetText);
+    if (shared < _currentCharIndex) _reveal(shared);
 
     // Start typing the new text if autoStart is true.
     //
     // This is only needed if the controller is currently not typing. If it is
     // typing, the new text will be typed out automatically.
     if (autoStart) startTyping();
+  }
+
+  static int _commonPrefixLength(Characters a, Characters b) {
+    final ai = a.iterator;
+    final bi = b.iterator;
+    var length = 0;
+    while (ai.moveNext() && bi.moveNext() && ai.current == bi.current) {
+      length++;
+    }
+    return length;
   }
 
   /// Starts typing the target text.

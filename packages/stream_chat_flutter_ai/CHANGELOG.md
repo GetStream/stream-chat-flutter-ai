@@ -9,6 +9,7 @@
 - `AITypingIndicatorView.dotCount` and `dotSize` are now nullable; unset, they come from the theme.
 - `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable; unset, they come from the theme.
 - `ChatComposer.factory` is nullable; `null` uses `AIComponentBuilders.composer`, then the default.
+- `StreamingMessageView` types only while `expectMoreText` is `true`; given only `text`, it shows each new text in full. Pass `expectMoreText: isGenerating` while a reply streams.
 
 ✅ Added
 
@@ -191,11 +192,24 @@
 - The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
   fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
   and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
+- `StreamingMessageView.expectMoreText` now means the reply is still being generated: text is typed
+  out only while it is `true` and in the update that turns it `false`; after that, and for a view
+  created while it is `false`, a new `text` shows in full at once.
+- When `text` is replaced by something other than a continuation, `StreamingMessageView` and
+  `TypewriterController.updateText` keep the part it shares with what is on screen and type only the
+  rest, instead of starting over from the first character.
+- The default typing speed of `StreamingMessageView` and `TypewriterController` is 5 ms per
+  character instead of 10 ms.
 
 🐞 Fixed
 
 - `AITypingIndicatorView`'s and `AnimatedDots`' dots were black by default, which made them invisible
   in dark mode. They now default to the themed caption color.
+- A generating reply's first chunk is typed out from its first character in `StreamingMessageView`
+  and `AIAssistantMessageView`, instead of appearing at once.
+- `AIAssistantMessageView` keeps an answer writing for 0.1 s after `isGenerating` turns `false`, so
+  an answer that arrives whole in its last update — after a reasoning step, say — still types out
+  instead of appearing at once.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
 - A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
