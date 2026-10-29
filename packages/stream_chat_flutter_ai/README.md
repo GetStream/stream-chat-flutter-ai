@@ -912,9 +912,10 @@ AIConversationView(
 )
 ```
 
-An `AIMessage` has an `id`, a `role`, its `text`, and optionally `isGenerating`, `parts` (the agent's
-steps), `attachments` and `reasoningText(step)` (a reasoning step's whole thinking, when you have it). `AIMessageRole` is an open set: each `AIMessageRole.user`
-message starts a turn, and a message of any other role (`AIMessageRole.assistant`, or your own such
+An `AIMessage` has an `id`, a `role`, its `text`, and optionally `isGenerating`, `parts`
+(the agent's steps), `attachments` and `reasoningText(step)` (a reasoning step's whole thinking,
+when you have it). `AIMessageRole` is an open set: each `AIMessageRole.user` message starts a turn,
+and a message of any other role (`AIMessageRole.assistant`, or your own such
 as `AIMessageRole('system')`) shows as the agent's. `pendingMessage` takes an `AIPendingMessage`, a
 message the person sent that isn't in `messages` yet, such as while its attachments upload: it shows
 as theirs at once, and the first message of theirs that arrives replaces it without the list moving.
@@ -1027,18 +1028,14 @@ Four slots belong to `AIConversationView`:
   `message` (`null` while it is still an `AIPendingMessage`), its `text`, `attachments` and
   `onAttachmentTap`.
 - `assistantMessage` replaces a reply, `AIAssistantMessageView`. `AIAssistantMessageProps` has the
-  `message` (with its `text`, `isGenerating`, `parts` and `attachments`), the `approver` and
-  `onAttachmentTap`.
+  `message` (with its `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`), the
+  `approver` and `onAttachmentTap`.
 - `replyActions` adds what the person can do under a finished reply. It's empty by default; return
   an `AIReplyActionsView` to get copy, share, regenerate and rate (see the example under
   [Conversations](#conversations-aiconversationview)). `AIReplyActionsProps` has the reply's
   `message`, its `text` and `isLatestReply`.
 - `messageAttachment` replaces one attachment's `AIMessageAttachmentView`, in either kind of message.
   `AIMessageAttachmentProps` has the `attachment`, `isFromUser` and `onTap`.
-
-The conversation caches its rows and builds one again only when its message changes or the builders
-do. So these builders must read state of your own, such as a reply's rating, through a `Listenable`,
-and be created once.
 
 ### Theming
 
@@ -1080,7 +1077,8 @@ chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` a
 `ConversationThemeData` covers `AIConversationView` and its message views:
 `userMessageBackgroundColor` and `userMessageTextStyle` (the person's bubble),
 `attachmentBackgroundColor`, `attachmentTitleStyle` and `attachmentDetailsStyle` (a file
-attachment's card), and `scrollButtonBackgroundColor`, `scrollButtonIconColor` (also the spinner
+attachment's card; the background also fills an image while it loads), and
+`scrollButtonBackgroundColor`, `scrollButtonIconColor` (also the spinner
 shown while older messages load) and `scrollButtonBorderColor`. `ReplyActionsThemeData` covers
 `AIReplyActionsView`: `iconColor`, `selectedIconColor` (the rating given) and `iconSize`.
 
