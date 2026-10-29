@@ -1,0 +1,272 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
+
+/// How a person signs in — an [AIToolAuthorization]'s `type`.
+///
+/// An open set: compare against the kinds you know ([oauth]). A kind this
+/// package doesn't know keeps its raw value and reports `false` from
+/// [isKnown]; no sign-in is offered for it.
+extension type const AIToolAuthorizationKind(String _) implements String {
+  /// A consent at the provider, in a browser (OAuth).
+  static const oauth = AIToolAuthorizationKind('oauth');
+
+  /// The kinds this package knows.
+  static const values = [oauth];
+
+  /// Whether this is one of [values].
+  bool get isKnown => values.contains(this);
+}
+
+/// How a sign-in ended — an [AIToolAuthorization]'s `status`, absent while it
+/// waits.
+///
+/// An open set: compare against the statuses you know ([connected],
+/// [declined], [expired], [failed]). A status this package doesn't know keeps
+/// its raw value and reports `false` from [isKnown].
+extension type const AIToolAuthorizationStatus(String _) implements String {
+  /// The person connected their account, so the call goes on.
+  static const connected = AIToolAuthorizationStatus('connected');
+
+  /// The person declined to sign in, so the call never ran.
+  static const declined = AIToolAuthorizationStatus('declined');
+
+  /// The sign-in expired before the person finished it.
+  static const expired = AIToolAuthorizationStatus('expired');
+
+  /// The provider or the agent's backend ended it without connecting, such as
+  /// when the person came back as another account.
+  static const failed = AIToolAuthorizationStatus('failed');
+
+  /// The statuses this package knows.
+  static const values = [connected, declined, expired, failed];
+
+  /// Whether this is one of [values].
+  bool get isKnown => values.contains(this);
+}
+
+/// A sign-in a tool call waits for, such as "Connect Linear", and how it
+/// ended.
+///
+/// The agent's backend writes it as the `authorization` of an `ai_tool_call`
+/// step whose status is `awaiting_authorization`, and holds the call until the
+/// person signs in at the provider in a browser:
+///
+/// ```json
+/// {"type": "oauth", "provider": "linear", "provider_name": "Linear", "title": "Connect Linear",
+///  "message": "You sign in at Linear, and the agent never sees your password.",
+///  "url": "https://example.com/sign-in", "handoff_token": "…",
+///  "expires_at": "2026-10-26T21:42:19.834Z"}
+/// ```
+///
+/// Once they connect, the call goes on. When the sign-in is declined, expires
+/// or fails, the call is cancelled and never runs. The step holds no
+/// credential; [launchUrl] is the page to open.
+@immutable
+class AIToolAuthorization {
+  /// Creates an [AIToolAuthorization].
+  const AIToolAuthorization({
+    this.kind = AIToolAuthorizationKind.oauth,
+    this.provider = '',
+    this.providerName,
+    required this.title,
+    this.message,
+    required this.url,
+    this.handoffToken,
+    this.expiresAt,
+    this.status,
+  });
+
+  /// Reads an `authorization` object leniently, or returns `null` when it has
+  /// no non-blank `title` or its `url` isn't `https` with a host (or `http` on
+  /// a loopback host, such as `localhost`). Any other missing or wrong-typed
+  /// field reads as its default, and nothing throws.
+  ///
+  /// [context] names the step in debug reports, such as
+  /// `ai_tool_call "call_1"`.
+  static AIToolAuthorization? fromJson(Map<String, Object?> json, {String? context}) {
+    final where = context == null ? 'authorization' : '$context authorization';
+    final fields = PartFields(json, where);
+    final title = fields.string('title');
+    final url = switch (fields.string('url')) {
+      final url? => Uri.tryParse(url),
+      null => null,
+    };
+    if (title == null || title.trim().isEmpty || url == null || !_isWebPage(url)) {
+      reportPartIssue(
+        () => '$where asks nothing: it needs a `title`, and an https `url` with a host or an http one on loopback.',
+      );
+      return null;
+    }
+    return AIToolAuthorization(
+      kind: switch (fields.string('type')) {
+        final kind? => reportUnknown<AIToolAuthorizationKind>(
+          AIToolAuthorizationKind(kind),
+          (k) => k.isKnown,
+          where,
+          'type',
+        ),
+        null => AIToolAuthorizationKind.oauth,
+      },
+      provider: fields.string('provider') ?? '',
+      providerName: fields.string('provider_name'),
+      title: title,
+      message: fields.string('message'),
+      url: url,
+      handoffToken: fields.string('handoff_token'),
+      expiresAt: fields.date('expires_at'),
+      status: switch (fields.string('status')) {
+        final status? => reportUnknown<AIToolAuthorizationStatus>(
+          AIToolAuthorizationStatus(status),
+          (s) => s.isKnown,
+          where,
+          'status',
+        ),
+        null => null,
+      },
+    );
+  }
+
+  // A page the handoff token can travel to unread: `https` with a host, or
+  // `http` to this device itself, as a router run locally serves, since that
+  // never leaves the device. The token goes in the page's fragment, which a
+  // cleartext page elsewhere would expose to anything on the way. Matches
+  // Android's rule.
+  static bool _isWebPage(Uri url) => switch (url.scheme) {
+    'https' => url.host.isNotEmpty,
+    'http' => _isLoopback(url.host),
+    _ => false,
+  };
+
+  // `Uri.host` drops the brackets around an IPv6 address.
+  static bool _isLoopback(String host) =>
+      host == 'localhost' || host == '::1' || RegExp(r'^127(\.\d{1,3}){3}$').hasMatch(host);
+
+  /// How the person signs in. Defaults to [AIToolAuthorizationKind.oauth] when
+  /// the agent sends none.
+  final AIToolAuthorizationKind kind;
+
+  /// The provider, such as `linear`. Empty when the agent sent none.
+  final String provider;
+
+  /// What people call the provider, such as "Linear".
+  final String? providerName;
+
+  /// The question, such as "Connect Linear".
+  final String title;
+
+  /// What signing in means for the person.
+  final String? message;
+
+  /// The sign-in page: an `https` URL, or an `http` one on this device itself
+  /// (`localhost` or a loopback address), as a router run locally serves.
+  ///
+  /// To open it, use [launchUrl], which carries the [handoffToken].
+  final Uri url;
+
+  /// The token that binds the sign-in to the first browser that opens it,
+  /// carried in [launchUrl]. `null` once the sign-in has ended, or when the
+  /// agent sent none.
+  final String? handoffToken;
+
+  /// When the sign-in expires. [AIToolAuthorization.fromJson] reads it in
+  /// UTC.
+  final DateTime? expiresAt;
+
+  /// How the sign-in ended, once it did; `null` while it waits.
+  final AIToolAuthorizationStatus? status;
+
+  /// The page to open in a browser: [url] with its fragment replaced by
+  /// `handoff_token=<handoffToken>`, or [url] itself without a token.
+  ///
+  /// The token is percent-encoded so the page reads it back unchanged.
+  Uri get launchUrl {
+    final token = handoffToken;
+    if (token == null) return url;
+    return Uri.parse('${url.removeFragment()}#handoff_token=${_encodeFragmentValue(token)}');
+  }
+
+  // The page reads its fragment as form parameters, where `+` is a space and
+  // `&` and `=` separate them, so everything but ASCII letters, digits and
+  // `!$'()*,-./:;?@_~` is percent-encoded.
+  static String _encodeFragmentValue(String value) {
+    final encoded = StringBuffer();
+    for (final byte in utf8.encode(value)) {
+      if (_isFragmentSafe(byte)) {
+        encoded.writeCharCode(byte);
+      } else {
+        encoded.write('%${byte.toRadixString(16).toUpperCase().padLeft(2, '0')}');
+      }
+    }
+    return encoded.toString();
+  }
+
+  static bool _isFragmentSafe(int byte) =>
+      (byte >= 0x30 && byte <= 0x39) || // 0-9
+      (byte >= 0x41 && byte <= 0x5A) || // A-Z
+      (byte >= 0x61 && byte <= 0x7A) || // a-z
+      r"!$'()*,-./:;?@_~".codeUnits.contains(byte);
+
+  /// A copy with the given fields replaced. A `null` argument keeps the
+  /// current value.
+  AIToolAuthorization copyWith({
+    AIToolAuthorizationKind? kind,
+    String? provider,
+    String? providerName,
+    String? title,
+    String? message,
+    Uri? url,
+    String? handoffToken,
+    DateTime? expiresAt,
+    AIToolAuthorizationStatus? status,
+  }) {
+    return AIToolAuthorization(
+      kind: kind ?? this.kind,
+      provider: provider ?? this.provider,
+      providerName: providerName ?? this.providerName,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      url: url ?? this.url,
+      handoffToken: handoffToken ?? this.handoffToken,
+      expiresAt: expiresAt ?? this.expiresAt,
+      status: status ?? this.status,
+    );
+  }
+
+  /// The sign-in as an `authorization` object. Absent fields are left out.
+  ///
+  /// [AIToolAuthorization.fromJson] reads it back to an equal sign-in when
+  /// [title] isn't blank and [expiresAt], if any, is in UTC.
+  Map<String, Object?> toJson() => {
+    'type': kind,
+    if (provider.isNotEmpty) 'provider': provider,
+    'provider_name': ?providerName,
+    'title': title,
+    'message': ?message,
+    'url': url.toString(),
+    'handoff_token': ?handoffToken,
+    'expires_at': ?expiresAt?.toUtc().toIso8601String(),
+    'status': ?status,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AIToolAuthorization &&
+          other.kind == kind &&
+          other.provider == provider &&
+          other.providerName == providerName &&
+          other.title == title &&
+          other.message == message &&
+          other.url == url &&
+          other.handoffToken == handoffToken &&
+          other.expiresAt == expiresAt &&
+          other.status == status;
+
+  @override
+  int get hashCode => Object.hash(kind, provider, providerName, title, message, url, handoffToken, expiresAt, status);
+
+  @override
+  String toString() => 'AIToolAuthorization(provider: $provider, title: $title, status: $status)';
+}

@@ -75,7 +75,9 @@ dependencies:
 ### `StreamingMessageView`
 
 Renders markdown text with a character-by-character typewriter animation — ideal for
-displaying streaming AI responses as they arrive. Markdown is fully parsed: code fences
+displaying streaming AI responses as they arrive. Text is typed out while `expectMoreText` is
+`true` (the reply is still being generated); otherwise it is shown in full at once, as for a
+reply loaded from history. Markdown is fully parsed: code fences
 get a `CodeBlockView` (with copy button, and syntax highlighting when you supply a
 `codeHighlighter`), and JSON/chart fences are rendered as interactive charts via
 `ChartView`. A code fence is styled from its opening line onwards, so a block still
@@ -84,7 +86,8 @@ being streamed doesn't show raw ` ``` ` markers while it arrives.
 ```dart
 StreamingMessageView(
   text: markdownText,          // updated in real time as chunks arrive
-  typingSpeed: Duration(milliseconds: 10),
+  expectMoreText: isGenerating, // true while the backend may still send text
+  typingSpeed: Duration(milliseconds: 5),
   onTypewriterStateChanged: (state) {
     // TypewriterState.typing | idle | paused | stopped
   },
@@ -93,7 +96,7 @@ StreamingMessageView(
 
 The typewriter usually falls behind the backend, so the reply is still being revealed after
 generation ends. To know when it is completely on screen — to swap a stop button back to send,
-say — pass `expectMoreText` and listen to `onFinished`:
+say — listen to `onFinished`:
 
 ```dart
 StreamingMessageView(
@@ -686,7 +689,7 @@ the user's answer, `AIToolApprovalDecision.allowed` or `.declined`, goes to your
 late final approver = AIToolApprover(
   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
   // Throw to let the person answer again.
-  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+  decide: (call, decision) => backend.answerToolCall(call.id, decision),
 );
 
 AIMessagePartsView(parts: parts, approver: approver);
@@ -697,6 +700,122 @@ through `toolCallBuilder` or `partBuilder` gets no question; put an
 `AIToolApprovalView(call: call, approver: approver)` in your widget then. Pass it a `builder` to ask
 in your own design, and style the default card with `ToolApprovalThemeData` (see its API docs for
 the fields).
+
+### Tool sign-ins: `AIToolAuthorizer`
+
+A tool can need the user's own account at a provider, such as Linear or Gmail. The first time, the
+call waits with status `awaiting_authorization` and an `authorization` saying where to sign in
+("Connect Linear"). Give your `AIToolApprover` an `AIToolAuthorizer`, and each call waiting for this
+user gets an `AIToolAuthorizationView` under its row, with **Connect** and **Not now**:
+
+```dart
+late final approver = AIToolApprover(
+  identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
+  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+  authorizer: AIToolAuthorizer(
+    // Open the page; complete with whether the person connected.
+    connect: (call, url) => signIn(url),
+    // "Not now": your backend cancels the call. Throw to let the person answer again.
+    decline: (call) => backend.declineSignIn(call.id),
+  ),
+);
+```
+
+The package opens no browser itself, so it adds no dependency: `connect` gets the sign-in page,
+`AIToolAuthorization.launchUrl`, and your app opens it. The provider hands the grant to the agent's
+backend, which moves the call on by itself, so nothing goes back from the app. The page then
+returns to the `return_url` your backend gave the session, with `status=connected` in its query when
+the account is connected. Complete `connect` with `true` then, and the card says "Connecting…" while
+the call's step changes, offering Connect again if it still hasn't after a while; with `false` (the
+person came back without connecting) Connect is offered again; throw when the page couldn't be
+opened. Not now stays enabled meanwhile, so a sign-in that never comes back leaves the user a way
+out. Once the sign-in's `expiresAt` passes, the card says it expired and offers only Not now.
+
+Complete `decline` only once your backend has the "not now", and throw when it couldn't be sent. A
+`decline` that returns before the send finishes, such as one calling a method that returns `void`,
+never shows that the "not now" failed.
+
+Only an `https` sign-in page is offered, or an `http` one on this device itself (`localhost` or a
+loopback address) for a router you run locally: its handoff token travels in the URL's fragment,
+which a cleartext page elsewhere would expose. The handoff works once: after the page has loaded, a
+second Connect on the same sign-in opens a page saying the consent has expired.
+
+Give the session a return URL in your app's own scheme, in reverse-domain form such as
+`com.example.app:/connected` (RFC 8252). The sign-in page hands its token over from the URL only
+when the return URL is such an app scheme: an `https` one, which the backend also accepts, is for a
+web page that opened the sign-in itself, and the page waits for it instead.
+
+With [`flutter_web_auth_2`](https://pub.dev/packages/flutter_web_auth_2), which uses
+`ASWebAuthenticationSession` on iOS and a Custom Tab on Android:
+
+```dart
+Future<bool> signIn(Uri url) async {
+  try {
+    final back = await FlutterWebAuth2.authenticate(url: '$url', callbackUrlScheme: 'com.example.app');
+    return Uri.parse(back).queryParameters['status'] == 'connected';
+  } on PlatformException catch (e) {
+    if (e.code == 'CANCELED') return false; // closed without connecting
+    rethrow; // the card says the sign-in couldn't be opened
+  }
+}
+```
+
+iOS needs nothing more. On Android, register its callback activity for your scheme in
+`AndroidManifest.xml`:
+
+```xml
+<activity android:name="com.linusu.flutter_web_auth_2.CallbackActivity" android:exported="true">
+  <intent-filter android:label="flutter_web_auth_2">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="com.example.app" />
+  </intent-filter>
+</activity>
+```
+
+Or with [`url_launcher`](https://pub.dev/packages/url_launcher) and a deep link through
+[`app_links`](https://pub.dev/packages/app_links), registering the scheme yourself
+(`CFBundleURLTypes` in `Info.plist`, an `<intent-filter>` like the one above on your activity):
+
+```dart
+// Listened to once, at startup: `app_links` hands the link that launched the
+// app to its first listener, which must not pass for a sign-in's return.
+final signInReturns = StreamController<Uri>.broadcast();
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  AppLinks().uriLinkStream.where((link) => link.scheme == 'com.example.app').listen(signInReturns.add);
+  runApp(const MyApp());
+}
+
+Future<bool> signIn(Uri url) async {
+  final back = Completer<bool>();
+  final returns = signInReturns.stream.listen((link) {
+    if (!back.isCompleted) back.complete(link.queryParameters['status'] == 'connected');
+  });
+  // Back in the app without the page's redirect: not connected. The redirect
+  // itself also resumes the app, so give its link a moment to arrive first.
+  final lifecycle = AppLifecycleListener(
+    onResume: () => Future<void>.delayed(const Duration(seconds: 1), () {
+      if (!back.isCompleted) back.complete(false);
+    }),
+  );
+  try {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) throw StateError('no browser');
+    return await back.future;
+  } finally {
+    await returns.cancel();
+    lifecycle.dispose();
+  }
+}
+```
+
+Without an authorizer, the row still says "Waiting for you to sign in" to the person it waits for
+(and "Waiting for sign-in" to everyone else), but nothing is offered. A
+call you draw yourself gets no sign-in; put an `AIToolAuthorizationView(call: call, approver:
+approver)` in your widget then. Pass it a `builder`, or set `AIComponentBuilders.toolAuthorization`,
+to ask in your own design. The default `AIToolAuthorizationCard` uses `ToolApprovalThemeData`.
 
 ### `AIToolRegistry`
 
@@ -885,7 +1004,10 @@ StreamBuilder<String>(
   stream: _answers,
   builder: (context, snapshot) => snapshot.hasError
       ? const Text('The on-device model could not answer.')
-      : StreamingMessageView(text: snapshot.data ?? ''),
+      : StreamingMessageView(
+          text: snapshot.data ?? '',
+          expectMoreText: snapshot.connectionState != ConnectionState.done,
+        ),
 );
 ```
 
@@ -912,24 +1034,52 @@ AIConversationView(
 )
 ```
 
+An `AIMessage` has an `id`, a `role`, its `text`, and optionally `isGenerating`, `parts`
+(the agent's steps), `attachments` and `reasoningText(step)` (a reasoning step's whole thinking,
+when you have it). `AIMessageRole` is an open set: each `AIMessageRole.user` message starts a turn,
+and a message of any other role (`AIMessageRole.assistant`, or your own such
+as `AIMessageRole('system')`) shows as the agent's. `pendingMessage` takes an `AIPendingMessage`, a
+message the person sent that isn't in `messages` yet, such as while its attachments upload: it shows
+as theirs at once, and the first message of theirs that arrives replaces it without the list moving.
+While `isThinking` is set, an `AIThinkingView` ("Thinking… 4s") counts under the latest question
+until the reply's first reasoning step takes over the count. It works on its own too, counting from
+its `since`.
+
 The rows are `AIUserMessageView` and `AIAssistantMessageView`, with attachments as
 `AIMessageAttachmentView`. Under each finished reply there is room for actions, empty until you
 set `AIComponentBuilders.replyActions`, typically to an `AIReplyActionsView` (copy, share,
-regenerate, rate):
+regenerate, rate).
+
+The conversation caches its rows: a row is built again only when what its message says changes, or
+the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
+show state of your own, such as a reply's rating:
+
+- Read that state through a `Listenable` (a `ListenableBuilder` or `ValueListenableBuilder` in what
+  the builder returns). A value captured directly isn't read again when it changes, so a tapped 👍
+  wouldn't fill.
+- Create the builders once, such as in a `late final` field, not in `build`: new builders rebuild
+  every row whenever your widget rebuilds, such as on every chunk of a streaming reply. The same goes
+  for the `onAttachmentTap` and `approver` you give `AIConversationView`.
 
 ```dart
-AIComponentFactory(
-  builders: AIComponentBuilders(
-    replyActions: (context, props) => AIReplyActionsView(
+// In your State:
+final ratings = ValueNotifier<Map<String, AIMessageRating>>({});
+
+late final builders = AIComponentBuilders(
+  replyActions: (context, props) => ValueListenableBuilder(
+    valueListenable: ratings,
+    builder: (context, rated, _) => AIReplyActionsView(
       text: props.text,
       actions: AIReplyActions(
-        rating: ratings[props.message.id],
-        onRate: (rating) => rate(props.message, rating),
+        rating: rated[props.message.id],
+        onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
       ),
     ),
   ),
-  child: conversation,
-)
+);
+
+// In build:
+AIComponentFactory(builders: builders, child: conversation)
 ```
 
 Copy and share are always there: sharing opens the platform share sheet with the reply's text, or an
@@ -950,7 +1100,7 @@ List<AIMessageAttachment> get attachments => [
 ];
 
 // In your AIComponentBuilders:
-messageAttachment: (context, props) => switch (props.attachment.kind.value) {
+messageAttachment: (context, props) => switch (props.attachment.kind) {
   'athena_image' => ArtifactImage(
     id: props.attachment.extraData['artifact_id']! as String,
     revision: props.attachment.extraData['revision'] as int?,
@@ -994,7 +1144,7 @@ SizedBox.square(
 
 `AIComponentFactory` replaces the components the package creates inside its own widgets, the same
 way `StreamComponentFactory` does in Stream's other Flutter SDKs: the code blocks and charts in
-markdown, the reasoning, tool call and unsupported-step views, the tool approval card, the messages
+markdown, the reasoning, tool call and unsupported-step views, the tool approval and sign-in cards, the messages
 of an `AIConversationView`, and (through `composer`) the `ChatComposerFactory` a `ChatComposer` uses
 when it is given none. Each builder in `AIComponentBuilders` is nullable; leave one out and its
 component keeps its default. A part builder may return `AIMessagePartsView.hidden` to leave the
@@ -1011,15 +1161,31 @@ AIComponentFactory(
 ```
 
 Per-widget builders (`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.builder`,
+`AIToolAuthorizationView.builder`,
 `ChatComposer.factory`) still win where given. Keep the builders stable, ideally `const` with
 top-level functions: a new instance rebuilds every widget that reads it.
+
+Four slots belong to `AIConversationView`:
+
+- `userMessage` replaces the person's bubble, `AIUserMessageView`. `AIUserMessageProps` has the
+  `message` (`null` while it is still an `AIPendingMessage`), its `text`, `attachments` and
+  `onAttachmentTap`.
+- `assistantMessage` replaces a reply, `AIAssistantMessageView`. `AIAssistantMessageProps` has the
+  `message` (with its `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`), the
+  `approver` and `onAttachmentTap`.
+- `replyActions` adds what the person can do under a finished reply. It's empty by default; return
+  an `AIReplyActionsView` to get copy, share, regenerate and rate (see the example under
+  [Conversations](#conversations-aiconversationview)). `AIReplyActionsProps` has the reply's
+  `message`, its `text` and `isLatestReply`.
+- `messageAttachment` replaces one attachment's `AIMessageAttachmentView`, in either kind of message.
+  `AIMessageAttachmentProps` has the `attachment`, `isFromUser` and `onTap`.
 
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
 data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData`,
-`ReasoningThemeData`, `SuggestionsThemeData`, `ToolApprovalThemeData`, `ToolCallThemeData` and
-`TypingIndicatorThemeData`:
+`ConversationThemeData`, `ReasoningThemeData`, `ReplyActionsThemeData`, `SuggestionsThemeData`,
+`ToolApprovalThemeData`, `ToolCallThemeData` and `TypingIndicatorThemeData`:
 
 ```dart
 MaterialApp(
@@ -1051,10 +1217,17 @@ grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceho
 with the surface it is drawn on, so overriding one pair never leaves an icon on a surface it wasn't
 chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
 `TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize`, `dotCount` and `dotSpacing`.
+`ConversationThemeData` covers `AIConversationView` and its message views:
+`userMessageBackgroundColor` and `userMessageTextStyle` (the person's bubble),
+`attachmentBackgroundColor`, `attachmentTitleStyle` and `attachmentDetailsStyle` (a file
+attachment's card; the background also fills an image while it loads), and
+`scrollButtonBackgroundColor`, `scrollButtonIconColor` (also the spinner
+shown while older messages load) and `scrollButtonBorderColor`. `ReplyActionsThemeData` covers
+`AIReplyActionsView`: `iconColor`, `selectedIconColor` (the rating given) and `iconSize`.
 
 Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme`, `ComposerTheme`,
-`ReasoningTheme`, `SuggestionsTheme`, `ToolApprovalTheme`, `ToolCallTheme` or
-`TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
+`ConversationTheme`, `ReasoningTheme`, `ReplyActionsTheme`, `SuggestionsTheme`, `ToolApprovalTheme`,
+`ToolCallTheme` or `TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
 `HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView`,
 `AIToolApprovalView` or `AIToolApprovalCard`:
 
@@ -1077,7 +1250,7 @@ Four things worth knowing:
   `recordingButtonColor` applies only while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
   each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
-  enclosing scope instead of shadowing it. All eight are `InheritedTheme`s, so they carry across a
+  enclosing scope instead of shadowing it. All ten are `InheritedTheme`s, so they carry across a
   `Navigator` — a scope above the composer still reaches the attachment sheet that
   `showModalBottomSheet` pushes.
 

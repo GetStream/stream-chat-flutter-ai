@@ -62,7 +62,7 @@ class AIUserMessageView extends StatelessWidget {
     final builders = AIComponentFactory.of(context);
 
     return Padding(
-      padding: const EdgeInsetsDirectional.only(start: 48),
+      padding: const EdgeInsetsDirectional.only(start: 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         spacing: 8,
@@ -87,7 +87,7 @@ class AIUserMessageView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Text(
                     text,
                     style: Theme.of(

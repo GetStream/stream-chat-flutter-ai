@@ -31,6 +31,8 @@ melos:
 
       # List of all the dependencies used in the project.
       dependencies:
+        # A sign-in's expiry reads `clock.now()`, so tests can fake the time.
+        clock: ^1.1.2
         # Deep and list equality for the package's public value types.
         # Already resolved transitively via the Flutter SDK; declared because
         # the package imports it directly.

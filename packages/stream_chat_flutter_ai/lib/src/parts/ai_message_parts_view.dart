@@ -6,9 +6,13 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
+import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 
 /// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
 /// [AIMessagePartsView]'s default for it, or [AIMessagePartsView.hidden] to
@@ -40,7 +44,7 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 /// ```dart
 /// AIMessagePartsView(
 ///   parts: parts,
-///   partBuilder: (context, part) => switch (part.kind.value) {
+///   partBuilder: (context, part) => switch (part.kind) {
 ///     'ai_citation' => CitationView(part: part),
 ///     _ => null,
 ///   },
@@ -64,7 +68,9 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 ///
 /// To hide a part, return [AIMessagePartsView.hidden] from either builder: it
 /// is left out entirely, taking up no [spacing], where an empty widget would
-/// still be spaced like a step.
+/// still be spaced like a step. A tool call waiting for this person's approval
+/// or sign-in is the exception: only its row goes, and its question or
+/// sign-in still shows.
 ///
 /// ```dart
 /// toolCallBuilder: (context, call) => call.name == 'log_event' ? AIMessagePartsView.hidden : null,
@@ -72,9 +78,13 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 ///
 /// Pass an [approver] to ask the person on this device about the tool calls
 /// waiting for their approval: such a call's row gets an [AIToolApprovalView]
-/// under it, which goes away once the call stops waiting. A call a builder
-/// shows its own way gets no question; put an [AIToolApprovalView] in your
-/// own widget then.
+/// under it, which goes away once the call stops waiting. With the
+/// approver's [AIToolApprover.authorizer], a call waiting for them to sign in
+/// at a provider gets an [AIToolAuthorizationView] the same way. A call whose
+/// row [partBuilder], [toolCallBuilder] or the [AIComponentFactory] hides
+/// still asks its question or sign-in, without the row. A call a builder
+/// shows with its own widget gets neither; put an [AIToolApprovalView] and an
+/// [AIToolAuthorizationView] in your own widget then.
 ///
 /// Children are keyed by [AIMessagePart.id], so a step keeps its state as the
 /// list grows while a reply streams in. A part whose id an earlier part already
@@ -88,34 +98,37 @@ class AIMessagePartsView extends StatelessWidget {
     this.partBuilder,
     this.toolCallBuilder,
     this.approver,
-    this.spacing = 8,
+    this.spacing = 10,
   });
 
   /// The steps to show, in order.
   final List<AIMessagePart> parts;
 
   /// Builds a part your own way; returning `null` falls back to the default
-  /// for that part.
+  /// for that part, and [hidden] leaves it out, except that a tool call
+  /// waiting for this person's approval or sign-in still asks it.
   final AIMessagePartWidgetBuilder? partBuilder;
 
   /// Builds a tool call your own way; returning `null` falls back to an
-  /// [AIToolCallView] for that call. Only asked for the tool calls
+  /// [AIToolCallView] for that call, and [hidden] leaves its row out while
+  /// still asking its question or sign-in. Only asked for the tool calls
   /// [partBuilder] left to the default.
   final AIToolCallWidgetBuilder? toolCallBuilder;
 
-  /// Who answers tool calls' questions on this device. With one, a tool call
-  /// awaiting this person's approval shows an [AIToolApprovalView] under its
-  /// row; without one, no questions are asked.
+  /// Who answers tool calls' questions and sign-ins on this device. With one,
+  /// a tool call awaiting this person's approval shows an [AIToolApprovalView]
+  /// under its row, and one awaiting their sign-in an
+  /// [AIToolAuthorizationView]; without one, nothing is asked.
   final AIToolApprover? approver;
 
-  /// The vertical gap between two parts, and between a tool call's row and its
-  /// question.
+  /// The vertical gap between two parts.
   final double spacing;
 
   /// Returned from [partBuilder], [toolCallBuilder] or an
   /// [AIComponentFactory] part slot, hides that part: it is left out of the
-  /// list, with no [spacing] around it. Compared by identity, so return this
-  /// very instance.
+  /// list, with no [spacing] around it, except that a tool call waiting for
+  /// this person's approval or sign-in still asks it. Compared by identity,
+  /// so return this very instance.
   static const Widget hidden = _HiddenPart();
 
   @override
@@ -126,7 +139,9 @@ class AIMessagePartsView extends StatelessWidget {
       // Counted for every part, shown or not, so a part's key doesn't change
       // when an earlier one starts or stops showing.
       final occurrence = occurrences.update(part.id, (count) => count + 1, ifAbsent: () => 0);
-      final child = partBuilder?.call(context, part) ?? _defaultPartView(context, part);
+      final custom = partBuilder?.call(context, part);
+      final call = part.isSupported ? part.toolCall : null;
+      final child = call != null ? _toolCallPartView(context, call, custom) : custom ?? _defaultPartView(context, part);
       if (child == null || identical(child, hidden)) continue;
       children.add(
         KeyedSubtree(
@@ -137,11 +152,17 @@ class AIMessagePartsView extends StatelessWidget {
     }
     if (children.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      spacing: spacing,
-      children: children,
+    // Fills a bounded width, so the steps line up with the reply's text
+    // whatever their own widths; shrink-wraps an unbounded one.
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      heightFactor: 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        spacing: spacing,
+        children: children,
+      ),
     );
   }
 
@@ -152,10 +173,8 @@ class AIMessagePartsView extends StatelessWidget {
   /// [StreamingReasoningView] showing its [AIReasoningPart.preview], or else
   /// its [AIReasoningPart.summary]: the full text, when an app has it, goes
   /// through a [partBuilder] returning
-  /// `StreamingReasoningView.part(reasoning, text: fullText)`. A tool call
-  /// goes to [toolCallBuilder] first (which may return [hidden]), then the
-  /// factory, and gets an [AIToolCallView] when both give `null` — with its
-  /// question under the factory's or default row when an [approver] is given.
+  /// `StreamingReasoningView.part(reasoning, text: fullText)`. Tool calls go
+  /// to [_toolCallPartView].
   Widget? _defaultPartView(BuildContext context, AIMessagePart part) {
     final builders = AIComponentFactory.of(context);
     if (!part.isSupported) {
@@ -166,29 +185,57 @@ class AIMessagePartsView extends StatelessWidget {
       return builders.reasoning?.call(context, AIReasoningProps(reasoning: reasoning)) ??
           StreamingReasoningView.part(reasoning);
     }
-    if (part.toolCall case final call?) {
-      return toolCallBuilder?.call(context, call) ?? _toolCallView(context, builders, call);
-    }
     return null;
   }
 
-  Widget _toolCallView(BuildContext context, AIComponentBuilders builders, AIToolCallPart call) {
-    final row = builders.toolCall?.call(context, AIToolCallProps(call: call)) ?? AIToolCallView(call: call);
+  /// A tool call's view: [partBuilder]'s widget ([custom]), else
+  /// [toolCallBuilder]'s, else the factory's or the default row, with its
+  /// question or sign-in under it when an [approver] is given. A row any of
+  /// them hides still asks its question or sign-in.
+  Widget _toolCallPartView(BuildContext context, AIToolCallPart call, Widget? custom) {
+    final approver = this.approver;
+    final own = custom ?? toolCallBuilder?.call(context, call);
+    if (own != null && !identical(own, hidden)) {
+      // A widget of the host's own asks its question and sign-in itself. Once
+      // the call no longer waits for them, the approver is still told, as the
+      // question and sign-in views would have been, so an answer given there
+      // is forgotten and its timeout cancelled even after that view is gone.
+      if (approver != null) {
+        if (!approver.identity.canApprove(call)) approver.stateOf(call);
+        if (approver.signInFor(call) == null) approver.authorizationStateOf(call);
+      }
+      return own;
+    }
+    final asksSignIn = approver != null && approver.signInFor(call) != null;
+    final builders = AIComponentFactory.of(context);
+    // The row says a sign-in waits for this person only when it is offered
+    // here, so it never asks them to sign in with nothing to tap.
+    final row =
+        own ??
+        builders.toolCall?.call(context, AIToolCallProps(call: call)) ??
+        AIToolCallView(call: call, userId: asksSignIn ? approver.identity.userId : null);
+    return _toolCallView(call, row);
+  }
+
+  Widget _toolCallView(AIToolCallPart call, Widget row) {
     final showRow = !identical(row, hidden);
     final approver = this.approver;
-    final asks = approver != null && approver.identity.canApprove(call);
-    // A hidden row still asks its question; with nothing to ask it takes no
-    // spacing either. The approver is still told the call no longer waits, as
-    // the question view would have on its last build, so it forgets the answer
-    // and cancels its timeout.
-    if (!showRow && !asks) {
-      approver?.stateOf(call);
+    final asksApproval = approver != null && approver.identity.canApprove(call);
+    final asksSignIn = approver != null && approver.signInFor(call) != null;
+    // A hidden row still asks its question or sign-in; with nothing to ask it
+    // takes no spacing either. The approver is still told the call no longer
+    // waits, as the question and sign-in views would have on their last build,
+    // so it forgets the answers and cancels its timeout.
+    if (!showRow && !asksApproval && !asksSignIn) {
+      approver
+        ?..stateOf(call)
+        ..authorizationStateOf(call);
       return hidden;
     }
-    // The same column with or without an approver, a question or the row, so
-    // each keeps its state as the others come and go. With a row, the question
-    // view stays in while the call no longer waits — it is empty then — so its
-    // approver can forget the answer.
+    // The same column with or without an approver, a question, a sign-in or
+    // the row, so each keeps its state as the others come and go. With a row,
+    // the question and sign-in views stay in while the call no longer waits —
+    // they are empty then — so their approver can forget the answers.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -196,13 +243,22 @@ class AIMessagePartsView extends StatelessWidget {
         if (showRow) row,
         if (approver != null)
           Padding(
-            padding: EdgeInsets.only(top: showRow && asks ? spacing : 0),
+            padding: EdgeInsets.only(top: showRow && asksApproval ? _questionGap : 0),
             child: AIToolApprovalView(call: call, approver: approver),
+          ),
+        if (approver != null)
+          Padding(
+            padding: EdgeInsets.only(top: showRow && asksSignIn ? _questionGap : 0),
+            child: AIToolAuthorizationView(call: call, approver: approver),
           ),
       ],
     );
   }
 }
+
+/// The gap between a tool call's row and its question or sign-in, closer
+/// than the gap between steps so the two read as one.
+const double _questionGap = 8;
 
 /// [AIMessagePartsView.hidden]. Never built: the view leaves it out.
 class _HiddenPart extends StatelessWidget {
@@ -216,12 +272,15 @@ class _HiddenPart extends StatelessWidget {
 /// it doesn't know, a format newer than it reads, or a payload it couldn't
 /// decode. It says that something happened without guessing what.
 ///
-/// The text is [AITranslations.unsupportedMessagePart].
+/// The text is [AITranslations.unsupportedMessagePart]. It reads like a tool
+/// call's row: its font, its icon size, and the color of its detail line.
 class AIUnsupportedPartView extends StatelessWidget {
   /// Creates an [AIUnsupportedPartView].
   const AIUnsupportedPartView({super.key, this.textStyle, this.iconColor});
 
-  /// The style of the text, merged over `bodySmall` in `onSurfaceVariant`.
+  /// The style of the text, merged over a tool call's title style
+  /// ([ToolCallThemeData.titleStyle]) in the color of its detail line
+  /// ([ToolCallThemeData.detailStyle]).
   final TextStyle? textStyle;
 
   /// The color of the sparkles icon; defaults to the text's color.
@@ -229,15 +288,22 @@ class AIUnsupportedPartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.onSurfaceVariant).merge(textStyle);
-    final iconSize = (style.fontSize ?? 12) * 1.25;
+    final toolCall = ResolvedToolCallTheme.resolve(context);
+    final step = toolCall.titleStyle;
+    final detail = toolCall.detailStyle;
+    final detailColor = detail.color ?? detail.foreground?.color;
+    // A title painted with a `foreground` keeps its paint.
+    final style = (step.foreground == null ? step.copyWith(color: detailColor) : step).merge(textStyle);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      spacing: 8,
       children: [
-        Icon(Icons.auto_awesome_outlined, size: iconSize, color: iconColor ?? style.color),
-        const SizedBox(width: 6),
+        Icon(
+          Icons.auto_awesome_outlined,
+          size: toolCall.iconSize,
+          color: iconColor ?? style.color ?? style.foreground?.color,
+        ),
         Flexible(child: Text(AITranslations.of(context).unsupportedMessagePart, style: style)),
       ],
     );

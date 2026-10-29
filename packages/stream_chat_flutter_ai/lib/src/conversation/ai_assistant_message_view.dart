@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
@@ -64,7 +66,24 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
   late bool _typed = !widget.isGenerating;
   ValueNotifier<bool?>? _writing;
 
-  bool get _isWriting => widget.isGenerating || (widget.text.isNotEmpty && !_typed);
+  // [AIAssistantMessageView.isGenerating], held for [_writingTail] after it
+  // turns false. An answer whose last chunk, or whole text, arrives in the
+  // same update as the end of generation still types out instead of appearing
+  // at once.
+  late bool _generating;
+  Timer? _tail;
+
+  static const _writingTail = Duration(milliseconds: 100);
+
+  bool get _isWriting => _generating || (widget.text.isNotEmpty && !_typed);
+
+  @override
+  void initState() {
+    super.initState();
+    // Not a `late` initializer: that would run on first read, which may come
+    // only after `isGenerating` has already turned false.
+    _generating = widget.isGenerating;
+  }
 
   @override
   void didChangeDependencies() {
@@ -76,8 +95,27 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
   @override
   void didUpdateWidget(AIAssistantMessageView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.text != oldWidget.text || (widget.isGenerating && !oldWidget.isGenerating)) _typed = false;
+    // Only text that types out reports [_onFinished]; one shown at once is done.
+    final typesOut = _generating && widget.text != oldWidget.text;
+    if (typesOut || (widget.isGenerating && !oldWidget.isGenerating)) _typed = false;
+    if (widget.isGenerating) {
+      _tail?.cancel();
+      _generating = true;
+    } else if (oldWidget.isGenerating) {
+      _tail?.cancel();
+      _tail = Timer(_writingTail, () {
+        if (!mounted) return;
+        setState(() => _generating = false);
+        _report();
+      });
+    }
     _report();
+  }
+
+  @override
+  void dispose() {
+    _tail?.cancel();
+    super.dispose();
   }
 
   // After the frame: the scope's listener sets state in the row above.
@@ -133,7 +171,7 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         if (widget.parts.isNotEmpty)
           AIMessagePartsView(parts: widget.parts, approver: widget.approver, partBuilder: _reasoning),
         if (widget.text.isNotEmpty)
-          StreamingMessageView(text: widget.text, expectMoreText: widget.isGenerating, onFinished: _onFinished),
+          StreamingMessageView(text: widget.text, expectMoreText: _generating, onFinished: _onFinished),
         for (final attachment in widget.attachments)
           AIMessageAttachmentView.of(
             context,

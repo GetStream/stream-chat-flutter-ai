@@ -120,11 +120,11 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
     final color = theme.iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant;
     final selectedColor = theme.selectedIconColor ?? color;
     final size = theme.iconSize ?? 18;
-    // A 32 dp button, padded to a 48 dp tap target where the theme asks for
+    // A 40 dp button, padded to a 48 dp tap target where the theme asks for
     // one. Material 2 ignores `tapTargetSize`, so there the button is as
     // big as its target.
     final padded = Theme.of(context).materialTapTargetSize == MaterialTapTargetSize.padded;
-    final extent = padded && !Theme.of(context).useMaterial3 ? kMinInteractiveDimension : 32.0;
+    final extent = padded && !Theme.of(context).useMaterial3 ? kMinInteractiveDimension : 40.0;
     final actions = widget.actions;
 
     Widget button(IconData icon, String label, VoidCallback onPressed, {bool? selected}) {
@@ -150,6 +150,9 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
+      // Buttons 8 dp apart, 48 dp from one to the next, which padded targets
+      // already are.
+      spacing: padded ? 0 : 8,
       children: [
         button(
           _copied ? Icons.check : Icons.content_copy,

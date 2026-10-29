@@ -11,6 +11,8 @@ import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 // Here for the [AIToolApprovalCard] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
+// Here for the [AIToolAuthorizationCard] doc link below only.
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization_view.dart';
 // Here for the [AIToolCallView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 // Here for the [StreamingReasoningView] doc link below only.
@@ -182,6 +184,15 @@ abstract class AITranslations {
   /// agent sent no summary.
   String get toolCallAwaitingApproval;
 
+  /// The detail line of a tool call waiting for someone to sign in at a
+  /// provider, when the agent sent no summary, as everyone but that person
+  /// sees it.
+  String get toolCallAwaitingAuthorization;
+
+  /// The detail line of a tool call waiting for the person viewing it to sign
+  /// in at a provider, when the agent sent no summary.
+  String get toolCallAwaitingYourAuthorization;
+
   /// The detail line of a tool call waiting for a device to run it, when the
   /// agent sent no summary.
   String get toolCallAwaitingClient;
@@ -221,15 +232,35 @@ abstract class AITranslations {
   /// none.
   String get toolApprovalDecline;
 
-  /// Read out by screen readers while an answer to a tool call is on its way.
+  /// Read out by screen readers while an answer to a tool call, or a sign-in's
+  /// "not now", is on its way.
   String get toolApprovalSending;
 
   /// Shown, with a check, once an answer to a tool call was sent and the call
   /// hasn't moved on yet.
   String get toolApprovalSent;
 
-  /// Shown under a tool call's question when the answer couldn't be sent.
+  /// Shown under a tool call's question when the answer couldn't be sent, and
+  /// under its sign-in when the "not now" couldn't be.
   String get toolApprovalNotSent;
+
+  /// The label of the button that opens a tool call's sign-in. See
+  /// [AIToolAuthorizationCard].
+  String get toolAuthorizationConnect;
+
+  /// The label of the Connect button ([toolAuthorizationConnect]) while the
+  /// sign-in page is open, or the person connected and the call hasn't moved on
+  /// yet.
+  String get toolAuthorizationConnecting;
+
+  /// The label of the button that turns a tool call's sign-in down for now.
+  String get toolAuthorizationDecline;
+
+  /// Shown under a tool call's sign-in when its page couldn't be opened.
+  String get toolAuthorizationNotOpened;
+
+  /// Shown under a tool call's sign-in once it has expired.
+  String get toolAuthorizationExpired;
 
   /// Tooltip on the copy button under a finished reply.
   String get copyReply;
@@ -406,6 +437,12 @@ class DefaultAITranslations extends AITranslations {
   String get toolCallAwaitingApproval => 'Waiting for approval';
 
   @override
+  String get toolCallAwaitingAuthorization => 'Waiting for sign-in';
+
+  @override
+  String get toolCallAwaitingYourAuthorization => 'Waiting for you to sign in';
+
+  @override
   String get toolCallAwaitingClient => 'Waiting for the device';
 
   @override
@@ -445,6 +482,21 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get toolApprovalNotSent => "Your answer couldn't be sent. Try again.";
+
+  @override
+  String get toolAuthorizationConnect => 'Connect';
+
+  @override
+  String get toolAuthorizationConnecting => 'Connecting…';
+
+  @override
+  String get toolAuthorizationDecline => 'Not now';
+
+  @override
+  String get toolAuthorizationNotOpened => "The sign-in couldn't be opened. Try again.";
+
+  @override
+  String get toolAuthorizationExpired => 'This sign-in expired.';
 
   @override
   String get copyReply => 'Copy';

@@ -30,13 +30,9 @@ typedef AIMessagePartAttachment = ({String type, Map<String, Object?> payload});
 ///
 /// An open set: compare against the kinds you know ([reasoning], [toolCall])
 /// and give the rest a fallback. A kind this package doesn't know — a newer
-/// agent's, or one of your own — keeps its raw [value] and reports `false` from
+/// agent's, or one of your own — keeps its raw value and reports `false` from
 /// [isKnown].
-@immutable
-class AIMessagePartKind {
-  /// Wraps a raw attachment type.
-  const AIMessagePartKind(this.value);
-
+extension type const AIMessagePartKind(String _) implements String {
   /// A round of the model's reasoning (`ai_reasoning`).
   static const reasoning = AIMessagePartKind('ai_reasoning');
 
@@ -46,20 +42,8 @@ class AIMessagePartKind {
   /// The kinds this package knows.
   static const values = [reasoning, toolCall];
 
-  /// The attachment type, such as `ai_reasoning`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
-
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIMessagePartKind && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIMessagePartKind($value)';
 }
 
 /// One step an AI agent took while replying, such as a round of reasoning or a
@@ -179,7 +163,7 @@ class AIMessagePart {
     if (!type.startsWith(typePrefix)) return null;
     final payloadId = PartFields(payload, type).string('id');
     final id = payloadId ?? '$type-$position';
-    if (payloadId == null && type == AIMessagePartKind.toolCall.value) {
+    if (payloadId == null && type == AIMessagePartKind.toolCall) {
       reportPartIssue(() => '$type at step $position has no `id`, so it can never be answered or run.');
     }
     return AIMessagePart(
@@ -293,7 +277,7 @@ class AIMessagePart {
           exception: error,
           stack: stack,
           library: 'stream_chat_flutter_ai',
-          context: ErrorDescription('while decoding the ${kind.value} message part "$id"'),
+          context: ErrorDescription('while decoding the $kind message part "$id"'),
         ),
       );
       return null;
@@ -306,7 +290,7 @@ class AIMessagePart {
   Map<String, Object?> toJson() => {
     ...payload,
     if (!payload.containsKey('v') && version != supportedVersion) 'v': version,
-    'type': kind.value,
+    'type': kind,
   };
 
   @override
@@ -322,5 +306,5 @@ class AIMessagePart {
   int get hashCode => Object.hash(id, kind, version, const DeepCollectionEquality().hash(payload));
 
   @override
-  String toString() => 'AIMessagePart(id: $id, kind: ${kind.value}, version: $version)';
+  String toString() => 'AIMessagePart(id: $id, kind: $kind, version: $version)';
 }
