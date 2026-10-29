@@ -8,7 +8,6 @@
 - `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `AITypingIndicatorView.dotCount` and `dotSize` are now nullable; unset, they come from the theme.
 - `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable; unset, they come from the theme.
-- `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of inheriting `DefaultTextStyle`.
 - `ChatComposer.factory` is nullable; `null` uses `AIComponentBuilders.composer`, then the default.
 
 ✅ Added
@@ -169,8 +168,10 @@
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
-- Charts show a legend by default: `ChartThemeData.showLegend` defaults to `true`, so a pie and a
-  chart with two or more series now draw one. Set `showLegend: false` to keep the previous look.
+- Charts show a legend by default (`ChartThemeData.showLegend` defaults to `true`). Set
+  `showLegend: false` to keep the previous look.
+- `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of
+  inheriting `DefaultTextStyle`.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
