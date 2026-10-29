@@ -232,22 +232,25 @@ abstract class AITranslations {
   /// none.
   String get toolApprovalDecline;
 
-  /// Read out by screen readers while an answer to a tool call is on its way.
+  /// Read out by screen readers while an answer to a tool call, or a sign-in's
+  /// "not now", is on its way.
   String get toolApprovalSending;
 
   /// Shown, with a check, once an answer to a tool call was sent and the call
   /// hasn't moved on yet.
   String get toolApprovalSent;
 
-  /// Shown under a tool call's question when the answer couldn't be sent.
+  /// Shown under a tool call's question when the answer couldn't be sent, and
+  /// under its sign-in when the "not now" couldn't be.
   String get toolApprovalNotSent;
 
   /// The label of the button that opens a tool call's sign-in. See
   /// [AIToolAuthorizationCard].
   String get toolAuthorizationConnect;
 
-  /// The label of that button while the sign-in is open, or done and the call
-  /// hasn't moved on yet.
+  /// The label of the Connect button ([toolAuthorizationConnect]) while the
+  /// sign-in page is open, or the person connected and the call hasn't moved on
+  /// yet.
   String get toolAuthorizationConnecting;
 
   /// The label of the button that turns a tool call's sign-in down for now.

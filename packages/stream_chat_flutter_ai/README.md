@@ -723,11 +723,19 @@ The package opens no browser itself, so it adds no dependency: `connect` gets th
 backend, which moves the call on by itself, so nothing goes back from the app. The page then
 returns to the `return_url` your backend gave the session, with `status=connected` in its query when
 the account is connected. Complete `connect` with `true` then, and the card says "Connecting…" while
-the call's step changes (offering Connect again if, after 30 seconds, it hasn't); with `false` (the person came back without connecting) Connect is offered
-again; throw when the page couldn't be opened. Not now stays enabled meanwhile, so a sign-in that
-never comes back leaves the user a way out. Once the sign-in's `expiresAt` passes, the card says it
-expired and offers only Not now. Only an `https` sign-in page is offered: its handoff token travels in
-the URL's fragment, which a cleartext page would expose.
+the call's step changes, offering Connect again if it still hasn't after a while; with `false` (the
+person came back without connecting) Connect is offered again; throw when the page couldn't be
+opened. Not now stays enabled meanwhile, so a sign-in that never comes back leaves the user a way
+out. Once the sign-in's `expiresAt` passes, the card says it expired and offers only Not now.
+
+Complete `decline` only once your backend has the "not now", and throw when it couldn't be sent. A
+`decline` that returns before the send finishes, such as one calling a method that returns `void`,
+never shows that the "not now" failed.
+
+Only an `https` sign-in page is offered, or an `http` one on this device itself (`localhost` or a
+loopback address) for a router you run locally: its handoff token travels in the URL's fragment,
+which a cleartext page elsewhere would expose. The handoff works once: after the page has loaded, a
+second Connect on the same sign-in opens a page saying the consent has expired.
 
 Give the session a return URL in your app's own scheme, in reverse-domain form such as
 `com.example.app:/connected` (RFC 8252). The sign-in page hands its token over from the URL only

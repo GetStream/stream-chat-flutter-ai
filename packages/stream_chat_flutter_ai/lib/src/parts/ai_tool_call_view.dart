@@ -71,7 +71,9 @@ class AIToolCallView extends StatefulWidget {
   /// The person viewing the call, so a call waiting for them to sign in says
   /// it waits for them ([AITranslations.toolCallAwaitingYourAuthorization]).
   /// Everyone else, and a view without one, reads the neutral
-  /// [AITranslations.toolCallAwaitingAuthorization].
+  /// [AITranslations.toolCallAwaitingAuthorization]. Set it only where the
+  /// person can sign in; `AIMessagePartsView` does so when its approver
+  /// offers the sign-in.
   final String? userId;
 
   /// Overrides for this view, layered over the ambient [ToolCallTheme]. Its

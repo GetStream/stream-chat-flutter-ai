@@ -594,7 +594,7 @@ void main() {
       expect(tester.getSize(find.byType(AIMessagePartsView)).height, without);
     });
 
-    testWidgets('asks nothing without an authorizer', (tester) async {
+    testWidgets('asks nothing without an authorizer, and the row says only that the call waits', (tester) async {
       final plain = AIToolApprover(
         identity: const AIClientIdentity(userId: 'alice'),
         decide: (_, _) async {},
@@ -604,7 +604,30 @@ void main() {
       await tester.pumpWidget(view(parts(), approver: plain));
 
       expect(find.byType(AIToolAuthorizationCard), findsNothing);
-      expect(find.text('Waiting for you to sign in'), findsOneWidget, reason: 'the row still says so');
+      expect(find.text('Waiting for sign-in'), findsOneWidget, reason: 'nothing here lets them sign in');
+    });
+
+    testWidgets('a sign-in of a kind it does not show leaves the row saying only that the call waits', (
+      tester,
+    ) async {
+      final deviceCode = AIMessagePart.parseAll([
+        (
+          type: 'ai_tool_call',
+          payload: {
+            'id': 'call_1',
+            'name': 'linear__list_issues',
+            'display_title': 'Using Linear',
+            'status': 'awaiting_authorization',
+            'target_user_id': 'alice',
+            'authorization': {'type': 'device_code', 'title': 'Connect Linear', 'url': 'https://agent.example/launch'},
+          },
+        ),
+      ]);
+
+      await tester.pumpWidget(view(deviceCode, approver: approver));
+
+      expect(find.byType(AIToolAuthorizationCard), findsNothing);
+      expect(find.text('Waiting for sign-in'), findsOneWidget);
     });
 
     testWidgets("the row tells the approver's person the call waits for them, and others it waits", (tester) async {

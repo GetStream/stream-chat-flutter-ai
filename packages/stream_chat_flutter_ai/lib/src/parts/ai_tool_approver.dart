@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/widgets.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
@@ -53,17 +54,38 @@ typedef AIToolAuthorizationContentBuilder =
       VoidCallback decline,
     );
 
+/// Opens `url`, the call's [AIToolAuthorization.launchUrl], and completes
+/// once the person is back: `true` when they connected their account, `false`
+/// when they came back without connecting or the app can't tell, and with an
+/// error when the page couldn't be opened.
+///
+/// Until it completes, and for a while after `true` as the agent's backend
+/// updates the call's step, the sign-in reads connecting; after `false` the
+/// person can connect again. It must not hang: until it completes, the person
+/// can answer "not now" but can't open the page again. It isn't bounded by
+/// [AIToolApprover.sentTimeout], since signing in can take minutes.
+typedef AIToolAuthorizationConnector = Future<bool> Function(AIToolCallPart call, Uri url);
+
+/// Tells the agent's backend the person won't sign in for the call now.
+///
+/// Complete once the backend has it, and throw (or complete with an error)
+/// when it couldn't be sent, so the person can answer again. One that
+/// completes before the "not now" is sent, such as by not awaiting the send,
+/// never shows a failed "not now". Until the call's step changes, the sign-in
+/// reads declining. Sending it is bounded by [AIToolApprover.sentTimeout] when
+/// one is set; the wait for the step to change afterwards is not.
+typedef AIToolAuthorizationDecliner = Future<void> Function(AIToolCallPart call);
+
 /// How the person signs in on this device when a tool call waits for their
 /// account at a provider, and how their "not now" reaches the agent's backend,
 /// which holds the call until one or the other.
 ///
 /// This package doesn't open the sign-in page itself, so it needs no browser
 /// plugin: Connect hands the call's [AIToolAuthorization.launchUrl] to
-/// [connect], and your app opens it, such as with `flutter_web_auth_2`. The
-/// page goes back to the return URL your backend gave the session, with
-/// `status=connected` in its query once the account is connected. By then the
-/// backend has the grant and has moved the call on, so the app sends nothing
-/// back; the call's step changing is what hides the sign-in.
+/// [connect], and the app opens it in a browser, such as with
+/// `flutter_web_auth_2`. The app sends nothing back when the person connects:
+/// the agent's backend moves the call on, and the call's step changing hides
+/// the sign-in.
 ///
 /// ```dart
 /// final authorizer = AIToolAuthorizer(
@@ -86,26 +108,11 @@ class AIToolAuthorizer {
   /// Creates an [AIToolAuthorizer].
   const AIToolAuthorizer({required this.connect, required this.decline});
 
-  /// Opens `url`, the call's [AIToolAuthorization.launchUrl], and completes
-  /// once the person is back: `true` when the page came back saying the
-  /// account is connected (its return URL has `status=connected` in its
-  /// query), `false` when they came back without connecting or your app can't
-  /// tell, and with an error when the page couldn't be opened.
-  ///
-  /// Until it completes, and for up to 30 seconds after `true` while the
-  /// agent's backend updates the call's step, the sign-in reads connecting;
-  /// after `false` the person can connect again. It must not hang: until it
-  /// completes, the person can answer "not now" but can't open the page again.
-  /// It isn't bounded by [AIToolApprover.sentTimeout], since signing in can
-  /// take minutes.
-  final Future<bool> Function(AIToolCallPart call, Uri url) connect;
+  /// Opens the call's sign-in page when the person taps Connect.
+  final AIToolAuthorizationConnector connect;
 
-  /// Tells the agent's backend the person won't sign in for the call now, and
-  /// completes once the backend has it. Until the call's step changes, the
-  /// sign-in reads declining; an error lets them answer again. Sending it is
-  /// bounded by [AIToolApprover.sentTimeout] when one is set; the wait for
-  /// the step to change afterwards is not.
-  final Future<void> Function(AIToolCallPart call) decline;
+  /// Sends the person's "not now".
+  final AIToolAuthorizationDecliner decline;
 }
 
 /// The person answering tool calls' questions on this device, how their
@@ -282,7 +289,7 @@ class AIToolApprover extends ChangeNotifier {
 
   static bool _hasExpired(AIToolAuthorization authorization) {
     final expiresAt = authorization.expiresAt;
-    return expiresAt != null && !DateTime.now().isBefore(expiresAt);
+    return expiresAt != null && !clock.now().isBefore(expiresAt);
   }
 
   /// [call]'s entry, when it is for [authorization]; one for an earlier
@@ -300,8 +307,8 @@ class AIToolApprover extends ChangeNotifier {
   /// already under way, the page is still open from an earlier Connect, or
   /// the sign-in has expired. Until the person comes back it reads
   /// connecting; back connected, it stays so while the agent's backend
-  /// updates the call's step, and offers Connect again if, after 30 seconds,
-  /// it hasn't.
+  /// updates the call's step, and offers Connect again if it still hasn't
+  /// after a while.
   void connect(AIToolCallPart call) {
     if (_disposed) return reportDroppedAnswer(call, 'its AIToolApprover was disposed');
     final authorizer = this.authorizer;
@@ -344,21 +351,23 @@ class AIToolApprover extends ChangeNotifier {
     }
     if (!_isCurrentSignIn(call, entry) || !identical(entry.connecting, attempt)) return;
     entry.connecting = null;
-    // A "not now" on its way or sent stays.
-    if (entry.state.isDeclining) return;
     final next = outcome(entry.state);
-    if (next.isConnecting) {
-      // Connected: the step changing hides the sign-in. One that hasn't
-      // changed after a while offers Connect again.
-      entry.settle = Timer(_connectedSettleTime, () {
-        if (!_isCurrentSignIn(call, entry) || !entry.state.isConnecting || entry.connecting != null) return;
-        entry.state = AIToolAuthorizationState(declineFailed: entry.state.declineFailed);
-        notifyListeners();
-      });
-    }
-    if (next == entry.state) return;
+    // Connected: the step changing hides the sign-in. One that hasn't changed
+    // after a while offers Connect again. Kept with a "not now" on its way, so
+    // if that fails the account still reads connected.
+    if (next.isConnecting) _settle(call, entry);
+    // A "not now" on its way or sent stays.
+    if (entry.state.isDeclining || next == entry.state) return;
     entry.state = next;
     notifyListeners();
+  }
+
+  void _settle(AIToolCallPart call, _SignIn entry) {
+    entry.settle = Timer(_connectedSettleTime, () {
+      if (!_isCurrentSignIn(call, entry) || !entry.state.isConnecting || entry.connecting != null) return;
+      entry.state = AIToolAuthorizationState(declineFailed: entry.state.declineFailed);
+      notifyListeners();
+    });
   }
 
   /// How long a sign-in that came back connected reads connecting while the
@@ -379,7 +388,6 @@ class AIToolApprover extends ChangeNotifier {
     if (entry.state.isDeclining) return;
 
     final attempt = entry.declining = Object();
-    entry.settle?.cancel();
     entry.state = const AIToolAuthorizationState(isDeclining: true);
     notifyListeners();
     unawaited(_decline(call, authorizer, entry, attempt));
@@ -397,10 +405,14 @@ class AIToolApprover extends ChangeNotifier {
       // Sent, the call's step changing hides the sign-in; until then it reads
       // declining.
     } catch (error, stackTrace) {
-      // The state first, as for answers. A page still open from Connect keeps
-      // it connecting, so the person can't open a second one.
+      // The state first, as for answers. A page still open from Connect, or
+      // one that came back connected while the step hasn't changed, keeps it
+      // connecting, so the person can't open a second one.
       if (_isCurrentSignIn(call, entry) && identical(entry.declining, attempt)) {
-        entry.state = AIToolAuthorizationState(isConnecting: entry.connecting != null, declineFailed: true);
+        entry.state = AIToolAuthorizationState(
+          isConnecting: entry.connecting != null || entry.isSettling,
+          declineFailed: true,
+        );
         notifyListeners();
       }
       _reportError(error, stackTrace, 'while sending the "not now" for tool call "${call.id}"');
@@ -457,6 +469,10 @@ class _SignIn {
 
   /// Offers Connect again when a connected sign-in's step doesn't change.
   Timer? settle;
+
+  /// Whether the sign-in came back connected and the call's step hasn't
+  /// changed yet.
+  bool get isSettling => settle?.isActive ?? false;
 
   /// Whether this entry is for [other]: the same page and handoff token, not
   /// a sign-in the agent's backend issued again.
@@ -590,22 +606,22 @@ class AIToolAuthorizationState {
     this.isExpired = false,
   });
 
-  /// The sign-in is open, or came back connected a moment ago and the call's
+  /// Whether the sign-in page is open, or came back connected and the call's
   /// step hasn't changed yet.
   final bool isConnecting;
 
-  /// The "not now" is on its way, or arrived and the call's step hasn't
-  /// changed yet.
+  /// Whether the "not now" is on its way, or arrived and the call's step
+  /// hasn't changed yet.
   final bool isDeclining;
 
-  /// The sign-in couldn't be opened, and the person can try again.
+  /// Whether the sign-in page couldn't be opened. The person can try again.
   final bool connectFailed;
 
-  /// The "not now" couldn't be sent, and the person can answer again.
+  /// Whether the "not now" couldn't be sent. The person can answer again.
   final bool declineFailed;
 
-  /// The sign-in is past its [AIToolAuthorization.expiresAt], so Connect is
-  /// no longer offered.
+  /// Whether the sign-in is past its [AIToolAuthorization.expiresAt], so
+  /// Connect is no longer offered.
   final bool isExpired;
 
   /// Whether an answer is under way, so Connect waits.

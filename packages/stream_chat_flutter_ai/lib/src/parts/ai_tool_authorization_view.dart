@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
@@ -128,7 +129,7 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
     _expiryFor = expiresAt;
     _expired = false;
     if (expiresAt == null) return;
-    final left = expiresAt.difference(DateTime.now());
+    final left = expiresAt.difference(clock.now());
     if (left <= Duration.zero) return;
     _expiry = Timer(left, () {
       if (mounted) setState(() => _expired = true);

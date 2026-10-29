@@ -178,13 +178,15 @@ class AIMessagePartsView extends StatelessWidget {
   }
 
   Widget _toolCallView(BuildContext context, AIComponentBuilders builders, AIToolCallPart call) {
-    final row =
-        builders.toolCall?.call(context, AIToolCallProps(call: call)) ??
-        AIToolCallView(call: call, userId: this.approver?.identity.userId);
-    final showRow = !identical(row, hidden);
     final approver = this.approver;
     final asksApproval = approver != null && approver.identity.canApprove(call);
     final asksSignIn = approver != null && approver.signInFor(call) != null;
+    // The row says a sign-in waits for this person only when it is offered
+    // here, so it never asks them to sign in with nothing to tap.
+    final row =
+        builders.toolCall?.call(context, AIToolCallProps(call: call)) ??
+        AIToolCallView(call: call, userId: asksSignIn ? approver.identity.userId : null);
+    final showRow = !identical(row, hidden);
     // A hidden row still asks its question or sign-in; with nothing to ask it
     // takes no spacing either. The approver is still told the call no longer
     // waits, as the question and sign-in views would have on their last build,

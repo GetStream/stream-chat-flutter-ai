@@ -61,7 +61,8 @@ void main() {
       ('a relative url', {'title': 'Connect', 'url': '/v1/launch'}),
       ('a javascript url', {'title': 'Connect', 'url': 'javascript:alert(1)'}),
       ('a cleartext page off the device', {'title': 'Connect', 'url': 'http://agent.example/launch'}),
-      ('a cleartext page on the device', {'title': 'Connect', 'url': 'http://localhost:8080/launch'}),
+      ('a cleartext page on a host named like loopback', {'title': 'Connect', 'url': 'http://127.example.com/x'}),
+      ('a cleartext page outside 127/8', {'title': 'Connect', 'url': 'http://128.0.0.1/x'}),
       ('a url that does not parse', {'title': 'Connect', 'url': 'http://[::1'}),
     ]) {
       test('asks nothing with $description, and says so', () {
@@ -73,6 +74,18 @@ void main() {
     test('takes an https page with a host, whatever the case of its scheme', () {
       expect(_read({'title': 'Connect', 'url': 'HTTPS://a.example/x'})?.url.scheme, 'https');
     });
+
+    for (final url in [
+      'http://localhost:8080/launch',
+      'http://127.0.0.1/launch',
+      'http://127.1.2.3/x',
+      'http://[::1]:8080/x',
+    ]) {
+      test('takes a cleartext page on this device, as a router run locally serves: $url', () {
+        expect(_read({'title': 'Connect', 'url': url})?.url, Uri.parse(url));
+        expect(reports, isEmpty);
+      });
+    }
 
     test('keeps a kind and a status it does not know, and reports them', () {
       final authorization = _read({..._linear, 'type': 'device_code', 'status': 'paused'})!;

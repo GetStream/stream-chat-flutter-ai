@@ -56,14 +56,13 @@ extension type const AIToolAuthorizationStatus(String _) implements String {
 /// ```json
 /// {"type": "oauth", "provider": "linear", "provider_name": "Linear", "title": "Connect Linear",
 ///  "message": "You sign in at Linear, and the agent never sees your password.",
-///  "url": "https://agent.example/v1/agents/connectors/oauth/launch/…", "handoff_token": "…",
+///  "url": "https://example.com/sign-in", "handoff_token": "…",
 ///  "expires_at": "2026-10-26T21:42:19.834Z"}
 /// ```
 ///
 /// Once they connect, the call goes on. When the sign-in is declined, expires
 /// or fails, the call is cancelled and never runs. The step holds no
-/// credential: [url] is the agent's own sign-in page, and the provider hands
-/// what it grants to the agent's backend, never to the app.
+/// credential; [launchUrl] is the page to open.
 @immutable
 class AIToolAuthorization {
   /// Creates an [AIToolAuthorization].
@@ -79,11 +78,10 @@ class AIToolAuthorization {
     this.status,
   });
 
-  /// Reads an `authorization` object leniently, or returns `null` when it asks
-  /// nothing: it has no `title` (or a blank one), or its `url` isn't an
-  /// `https` page with a host — the handoff token goes in the page's
-  /// fragment, which a cleartext page would expose. Any other missing or
-  /// wrong-typed field reads as its default, and nothing throws.
+  /// Reads an `authorization` object leniently, or returns `null` when it has
+  /// no non-blank `title` or its `url` isn't `https` with a host (or `http` on
+  /// a loopback host, such as `localhost`). Any other missing or wrong-typed
+  /// field reads as its default, and nothing throws.
   ///
   /// [context] names the step in debug reports, such as
   /// `ai_tool_call "call_1"`.
@@ -97,7 +95,7 @@ class AIToolAuthorization {
     };
     if (title == null || title.trim().isEmpty || url == null || !_isWebPage(url)) {
       reportPartIssue(
-        () => '$where asks nothing: it needs a `title` and an https `url` with a host.',
+        () => '$where asks nothing: it needs a `title`, and an https `url` with a host or an http one on loopback.',
       );
       return null;
     }
@@ -130,10 +128,20 @@ class AIToolAuthorization {
     );
   }
 
-  // A secure web page: `https` with a host. The handoff token goes in the
-  // page's fragment, which a cleartext page would expose to anything on the
-  // way.
-  static bool _isWebPage(Uri url) => url.scheme == 'https' && url.host.isNotEmpty;
+  // A page the handoff token can travel to unread: `https` with a host, or
+  // `http` to this device itself, as a router run locally serves, since that
+  // never leaves the device. The token goes in the page's fragment, which a
+  // cleartext page elsewhere would expose to anything on the way. Matches
+  // Android's rule.
+  static bool _isWebPage(Uri url) => switch (url.scheme) {
+    'https' => url.host.isNotEmpty,
+    'http' => _isLoopback(url.host),
+    _ => false,
+  };
+
+  // `Uri.host` drops the brackets around an IPv6 address.
+  static bool _isLoopback(String host) =>
+      host == 'localhost' || host == '::1' || RegExp(r'^127(\.\d{1,3}){3}$').hasMatch(host);
 
   /// How the person signs in. Defaults to [AIToolAuthorizationKind.oauth] when
   /// the agent sends none.
@@ -151,13 +159,15 @@ class AIToolAuthorization {
   /// What signing in means for the person.
   final String? message;
 
-  /// The sign-in page, an `https` URL.
-  /// Open [launchUrl], which carries the [handoffToken].
+  /// The sign-in page: an `https` URL, or an `http` one on this device itself
+  /// (`localhost` or a loopback address), as a router run locally serves.
+  ///
+  /// To open it, use [launchUrl], which carries the [handoffToken].
   final Uri url;
 
-  /// What binds the sign-in to the first browser that opens it. It goes in
-  /// the page's fragment, which no server sees ([launchUrl]). Gone once the
-  /// sign-in is over.
+  /// The token that binds the sign-in to the first browser that opens it,
+  /// carried in [launchUrl]. `null` once the sign-in has ended, or when the
+  /// agent sent none.
   final String? handoffToken;
 
   /// When the sign-in expires. [AIToolAuthorization.fromJson] reads it in
@@ -170,15 +180,16 @@ class AIToolAuthorization {
   /// The page to open in a browser: [url] with its fragment replaced by
   /// `handoff_token=<handoffToken>`, or [url] itself without a token.
   ///
-  /// The page reads its fragment as form parameters, where `+` is a space and
-  /// `&` and `=` separate them, so the token is percent-encoded, keeping only
-  /// ASCII letters, digits and `!$'()*,-./:;?@_~`.
+  /// The token is percent-encoded so the page reads it back unchanged.
   Uri get launchUrl {
     final token = handoffToken;
     if (token == null) return url;
     return Uri.parse('${url.removeFragment()}#handoff_token=${_encodeFragmentValue(token)}');
   }
 
+  // The page reads its fragment as form parameters, where `+` is a space and
+  // `&` and `=` separate them, so everything but ASCII letters, digits and
+  // `!$'()*,-./:;?@_~` is percent-encoded.
   static String _encodeFragmentValue(String value) {
     final encoded = StringBuffer();
     for (final byte in utf8.encode(value)) {
@@ -226,9 +237,7 @@ class AIToolAuthorization {
   /// The sign-in as an `authorization` object. Absent fields are left out.
   ///
   /// [AIToolAuthorization.fromJson] reads it back to an equal sign-in when
-  /// [title] isn't blank and [expiresAt], if any, is in UTC: it reads the
-  /// time back in UTC, and a [DateTime] in local time never equals one in
-  /// UTC.
+  /// [title] isn't blank and [expiresAt], if any, is in UTC.
   Map<String, Object?> toJson() => {
     'type': kind,
     if (provider.isNotEmpty) 'provider': provider,
