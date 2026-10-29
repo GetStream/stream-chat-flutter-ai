@@ -127,7 +127,8 @@
   and `rateReplyNegative` — the buttons' tooltips and labels.
 - `AIConversationView` — an AI conversation laid out in turns. A question the person sends scrolls
   to the top and its reply types out below it without the list moving; a conversation opens at its
-  end, `loadOlderMessages` loads older messages at its start without moving what is on screen, and a
+  end, `loadOlderMessages` loads older messages at its start, without moving what is on screen, when
+  its spinner comes into view and again each time the first turn changes while it stays there, and a
   button scrolls back to the latest. `isThinking` shows the agent thinking, and the reply's first
   reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
   with a way to retry.
@@ -181,9 +182,6 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
-- `AIConversationView` no longer calls `loadOlderMessages` over and over while its spinner stays in
-  view after a load that failed or brought nothing. It loads again when the first turn changes or
-  the spinner comes back into view.
 
 ## 0.1.0
 
