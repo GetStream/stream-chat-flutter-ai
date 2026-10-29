@@ -94,7 +94,9 @@
   is left for another runner unless `failUnknownTools` is set. Options: `maxAttempts`, `retryDelay`
   (capped at `AIClientToolRunner.maxRetryDelay`), `runTimeout`, `sendTimeout`, `failureMessage` (an
   `AIClientToolFailureMessage`), `onToolError` (an `AIClientToolCallErrorCallback`) and
-  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`).
+  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`). A plain `AIClientTool` whose schema
+  requires arguments isn't run when its call arrives without them: the call fails with "This call's
+  arguments didn't reach the device".
   Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
   `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
 - `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
