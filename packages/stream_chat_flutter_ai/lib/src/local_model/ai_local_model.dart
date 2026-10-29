@@ -41,9 +41,10 @@ import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
 /// ```
 ///
 /// Each answer is the whole reply so far, which is what
-/// [StreamingMessageView.text] takes: pass the latest one and the view types
-/// out what it hasn't shown yet. A `StreamBuilder` does the same without a
-/// subscription of your own. Create the stream once — in `initState` or when
+/// [StreamingMessageView.text] takes: pass the latest one, with
+/// [StreamingMessageView.expectMoreText] while the stream is open, and the
+/// view types out what it hasn't shown yet. A `StreamBuilder` does the same
+/// without a subscription of your own. Create the stream once — in `initState` or when
 /// the question is sent, and keep it in your state — never in `build`, where
 /// every rebuild would start the model again:
 ///
@@ -52,7 +53,10 @@ import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
 ///   stream: _answers, // created once, when the question was sent
 ///   builder: (context, snapshot) {
 ///     if (snapshot.hasError) return const Text('The on-device model could not answer.');
-///     return StreamingMessageView(text: snapshot.data ?? '');
+///     return StreamingMessageView(
+///       text: snapshot.data ?? '',
+///       expectMoreText: snapshot.connectionState != ConnectionState.done,
+///     );
 ///   },
 /// )
 /// ```

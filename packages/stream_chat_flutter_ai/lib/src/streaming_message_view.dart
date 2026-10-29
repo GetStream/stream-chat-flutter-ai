@@ -16,8 +16,9 @@ bool get _isDesktopDeviceOrWeb =>
     defaultTargetPlatform == TargetPlatform.linux;
 
 /// {@template streamingMessageView}
-/// A widget that displays a message in a streaming fashion. The message is
-/// displayed as if it is being typed out by a typewriter.
+/// A widget that displays a message in a streaming fashion. While
+/// [expectMoreText] is `true` the message is displayed as if it is being typed
+/// out by a typewriter; otherwise it is shown in full.
 ///
 /// Markdown in the message is fully rendered, including:
 /// - Fenced code blocks (with a copy-to-clipboard button and language label,
@@ -45,7 +46,7 @@ class StreamingMessageView extends StatefulWidget {
     super.key,
     required this.text,
     this.onTapLink,
-    this.typingSpeed = const Duration(milliseconds: 10),
+    this.typingSpeed = const Duration(milliseconds: 5),
     this.onTypewriterStateChanged,
     this.expectMoreText = false,
     this.onFinished,
@@ -79,7 +80,7 @@ class StreamingMessageView extends StatefulWidget {
 
   /// The speed at which the text is typed out.
   ///
-  /// Defaults to 10 milliseconds per character.
+  /// Defaults to 5 milliseconds per character.
   final Duration typingSpeed;
 
   /// Called when the user taps a hyperlink in the rendered markdown.
@@ -100,8 +101,18 @@ class StreamingMessageView extends StatefulWidget {
   /// reply is completely on screen, use [onFinished].
   final ValueChanged<TypewriterState>? onTypewriterStateChanged;
 
-  /// Whether more [text] for this message may still arrive, e.g. while the
-  /// backend is generating the reply. [onFinished] waits until this is `false`.
+  /// Whether the reply is still being generated, so more [text] may still
+  /// arrive.
+  ///
+  /// Text is typed out only while this is `true`: a view created while it is
+  /// `true` types its first [text] from the first character, and every new
+  /// [text] carries on typing from what is on screen. The update that turns it
+  /// `false` is still typed, so a reply whose last chunk arrives with the done
+  /// signal doesn't jump; whatever is left keeps typing to the end. After that,
+  /// a new [text] is shown in full at once, as is a view created while it is
+  /// `false`, such as a reply loaded from history.
+  ///
+  /// [onFinished] waits until this is `false`.
   ///
   /// Defaults to `false`.
   final bool expectMoreText;
@@ -189,10 +200,14 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
   @override
   void initState() {
     super.initState();
+    // A reply that is still generating types its first chunk out too, rather
+    // than showing it at once and typing only what follows.
     _controller = TypewriterController(
-      text: widget.text,
+      text: widget.expectMoreText ? '' : widget.text,
       typingSpeed: widget.typingSpeed,
-    )..addListener(_onTypewriterValueChanged);
+    );
+    if (widget.expectMoreText) _controller.updateText(widget.text);
+    _controller.addListener(_onTypewriterValueChanged);
 
     _displayText = _controller.value.text;
 
@@ -213,8 +228,10 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reduced motion switched on mid-reveal: show what has arrived rather than
-    // carrying on animating it.
+    // Reduced motion is on, or switched on mid-reveal: show what has arrived
+    // rather than animating it. This also covers a reply first built while
+    // generating, which started typing in [initState] before the setting could
+    // be read.
     if (_reduceMotion && _controller.value.state == TypewriterState.typing) {
       _controller.finishTyping();
     }
@@ -224,7 +241,10 @@ class _StreamingMessageViewState extends State<StreamingMessageView> {
   void didUpdateWidget(covariant StreamingMessageView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.text != oldWidget.text) {
-      if (_reduceMotion) {
+      // Typed while generating, and in the update that ends it, which may
+      // carry the last chunk.
+      final typesOut = widget.expectMoreText || oldWidget.expectMoreText;
+      if (_reduceMotion || !typesOut) {
         // Reveals the whole text at once and reports `idle`, with no timer.
         _controller.text = widget.text;
       } else {

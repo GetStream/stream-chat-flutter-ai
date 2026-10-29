@@ -25,6 +25,9 @@ environment:
 resolution: workspace
 
 dependencies:
+  # Depended on directly, not just via flutter_test: a sign-in's expiry reads
+  # `clock.now()`, so tests can move time on with the widget tester.
+  clock: ^1.1.2
   # Deep and list equality for the public value types, whose fields include
   # lists and maps.
   collection: ^1.19.0

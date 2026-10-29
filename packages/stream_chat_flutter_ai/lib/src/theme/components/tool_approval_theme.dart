@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// Imported for the doc links below only; nothing in this file's code uses it.
+// Imported for the doc links below only; nothing in this file's code uses them.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization_view.dart';
 // Not doc-only: [ToolApprovalTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 
-/// Overrides for how [AIToolApprovalCard] is drawn: the question and its
-/// message, the card's background and border, the allow button's color and the
+/// Overrides for how [AIToolApprovalCard] and the sign-in card,
+/// [AIToolAuthorizationCard], are drawn: the question and its message, the
+/// card's background and border, the allow or Connect button's color and the
 /// "couldn't be sent" line.
 ///
 /// Every field is nullable, and `null` means "use the default", which derives
@@ -37,8 +39,8 @@ class ToolApprovalThemeData with Diagnosticable {
     this.failureStyle,
   });
 
-  /// The question's style — "Send the summary by email?" — merged over a
-  /// semibold [TextTheme.bodyMedium] in [ColorScheme.onSurface].
+  /// The question's style — "Send the summary by email?", or a sign-in's
+  /// "Connect Linear" — merged over a semibold [TextTheme.bodyMedium] in [ColorScheme.onSurface].
   final TextStyle? titleStyle;
 
   /// The style of the agent's reason and of what allowing the call shares,
@@ -48,15 +50,16 @@ class ToolApprovalThemeData with Diagnosticable {
   /// The card's fill. Defaults to [ColorScheme.surfaceContainerLow].
   final Color? backgroundColor;
 
-  /// The card's border, and the decline button's outline. Defaults to
+  /// The card's border, and the decline or Not now button's outline. Defaults to
   /// [ColorScheme.outlineVariant].
   final Color? borderColor;
 
-  /// The allow button's fill, and the decline button's text. Defaults to
-  /// [ColorScheme.primary].
+  /// The allow or Connect button's fill, and the decline or Not now button's
+  /// text. Defaults to [ColorScheme.primary].
   final Color? accentColor;
 
-  /// The style of the line shown when an answer couldn't be sent, merged over
+  /// The style of the line shown when an answer or a sign-in's "not now"
+  /// couldn't be sent, or its page couldn't be opened, merged over
   /// [TextTheme.bodySmall] in [ColorScheme.error].
   final TextStyle? failureStyle;
 
@@ -137,7 +140,8 @@ class ToolApprovalThemeData with Diagnosticable {
   int get hashCode => Object.hash(titleStyle, messageStyle, backgroundColor, borderColor, accentColor, failureStyle);
 }
 
-/// Overrides the tool-approval theme for the widgets below it.
+/// Overrides the tool-approval theme, which also draws sign-in cards, for the
+/// widgets below it.
 ///
 /// Layers [data] over the ambient [AITheme], so a scope setting only a color
 /// leaves everything else alone:

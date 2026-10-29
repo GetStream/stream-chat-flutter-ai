@@ -78,6 +78,20 @@ class PartFields {
     return parsed;
   }
 
+  /// The RFC 3339 time at [key], such as `2026-10-26T12:00:00.123Z`, in UTC.
+  /// It needs a `Z` or a `±hh:mm` offset (hours up to 23, minutes up to 59),
+  /// and takes any number of fractional
+  /// digits, keeping microseconds. Other text reads as `null`: Dart's own
+  /// parser would take a time without an offset as local, and roll an
+  /// impossible date such as 30 February over into March.
+  DateTime? date(String key) {
+    final value = string(key);
+    if (value == null) return null;
+    final parsed = _parseRfc3339(value);
+    if (parsed == null) _reject(key, value, 'an RFC 3339 time');
+    return parsed;
+  }
+
   /// The JSON object at [key], or — for a backend that sends it JSON-encoded —
   /// the object a string at [key] decodes to, deeply unmodifiable either way.
   Map<String, Object?>? object(String key) {
@@ -96,6 +110,31 @@ class PartFields {
     _reject(key, value, 'a JSON object');
     return null;
   }
+}
+
+final _rfc3339 = RegExp(
+  r'^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:([Zz])|([+-])(\d{2}):(\d{2}))$',
+);
+
+DateTime? _parseRfc3339(String text) {
+  final match = _rfc3339.firstMatch(text);
+  if (match == null) return null;
+  int part(int group) => int.parse(match.group(group)!);
+  final (year, month, day, hour, minute, second) = (part(1), part(2), part(3), part(4), part(5), part(6));
+  // RFC 3339 allows a leap second (60), which DateTime can't hold.
+  if (month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) return null;
+  final micros = int.parse((match.group(7) ?? '').padRight(6, '0').substring(0, 6));
+  final utc = DateTime.utc(year, month, day, hour, minute, second, 0, micros);
+  // DateTime.utc rolls 31 February over into March; RFC 3339 has no such day.
+  if (utc.day != day) return null;
+  if (match.group(8) != null) return utc;
+  final (offsetHours, offsetMinutes) = (part(10), part(11));
+  if (offsetHours > 23 || offsetMinutes > 59) return null;
+  final offset = Duration(hours: offsetHours, minutes: offsetMinutes);
+  final instant = match.group(9) == '-' ? utc.add(offset) : utc.subtract(offset);
+  // An offset can push the first or last day of year 0000 or 9999 out of
+  // the four-digit years RFC 3339 writes.
+  return instant.year < 0 || instant.year > 9999 ? null : instant;
 }
 
 /// A deeply unmodifiable copy of a decoded JSON value: maps (with their
