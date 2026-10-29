@@ -41,8 +41,13 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// The rows can be replaced through [AIComponentBuilders.userMessage] and
 /// [AIComponentBuilders.assistantMessage], and under each finished reply
 /// [AIComponentBuilders.replyActions] shows the person's actions, nothing until
-/// you set it. A row is only built again when what it shows changes, so a
-/// reply streaming in does not rebuild the rest of the conversation.
+/// you set it. A row is only built again when what its message says changes,
+/// or the builders do, so a reply streaming in does not rebuild the rest of the
+/// conversation. A builder that shows state of your own, such as a reply's
+/// rating, should therefore read it through a [Listenable] (a
+/// [ListenableBuilder] or [ValueListenableBuilder] in what it returns), and
+/// the builders, [onAttachmentTap] and [approver] should be created once
+/// rather than in `build`, since new ones rebuild every row.
 ///
 /// Place the composer below the list rather than over it, so the list knows how
 /// much of it is visible.
@@ -545,7 +550,8 @@ class _EntryViewState extends State<_EntryView> {
 /// A spinner at the start of the list that loads older messages once it has
 /// stayed in view a moment, rather than for the frame a list opening at its end
 /// can show its start, and again whenever the first turn changes while it is in
-/// view.
+/// view. A load that brings nothing, or fails, isn't retried until the first
+/// turn changes or the spinner leaves and comes back into view.
 class _OlderMessagesLoader extends StatefulWidget {
   const _OlderMessagesLoader({required this.firstTurn, required this.load, required this.color});
 
@@ -560,13 +566,15 @@ class _OlderMessagesLoader extends StatefulWidget {
 class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
   Timer? _timer;
   bool _loading = false;
+  bool _wasInView = false;
+  bool _checkingView = false;
   ScrollPosition? _position;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _position?.removeListener(_schedule);
-    _position = Scrollable.maybeOf(context)?.position?..addListener(_schedule);
+    _position?.removeListener(_onScroll);
+    _position = Scrollable.maybeOf(context)?.position?..addListener(_onScroll);
     _schedule();
   }
 
@@ -579,8 +587,23 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
   @override
   void dispose() {
     _timer?.cancel();
-    _position?.removeListener(_schedule);
+    _position?.removeListener(_onScroll);
     super.dispose();
+  }
+
+  // Scrolling loads only when it brings the spinner into view, not on every
+  // movement while it stays there. The position changes before the list lays
+  // out, so where the spinner is gets checked after the frame.
+  void _onScroll() {
+    if (_checkingView) return;
+    _checkingView = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _checkingView = false;
+      if (!mounted) return;
+      final inView = _inView;
+      if (inView && !_wasInView) _schedule();
+      _wasInView = inView;
+    });
   }
 
   void _schedule() {
@@ -597,7 +620,10 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
   }
 
   Future<void> _loadIfInView() async {
-    if (!mounted || _loading || !_inView) return;
+    if (!mounted || _loading) return;
+    _wasInView = _inView;
+    if (!_wasInView) return;
+    final firstTurn = widget.firstTurn;
     _loading = true;
     try {
       await widget.load();
@@ -613,8 +639,9 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
     } finally {
       _loading = false;
     }
-    // Still in view, such as after a short page: load the next one.
-    if (mounted) _schedule();
+    // The first turn changed while loading, such as a short page arriving:
+    // load the next one if the spinner is still in view.
+    if (mounted && widget.firstTurn != firstTurn) _schedule();
   }
 
   @override

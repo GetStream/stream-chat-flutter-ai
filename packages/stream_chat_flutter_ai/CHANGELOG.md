@@ -94,7 +94,9 @@
   is left for another runner unless `failUnknownTools` is set. Options: `maxAttempts`, `retryDelay`
   (capped at `AIClientToolRunner.maxRetryDelay`), `runTimeout`, `sendTimeout`, `failureMessage` (an
   `AIClientToolFailureMessage`), `onToolError` (an `AIClientToolCallErrorCallback`) and
-  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`).
+  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`). A plain `AIClientTool` whose schema
+  requires arguments isn't run when its call arrives without them: the call fails with "This call's
+  arguments didn't reach the device".
   Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
   `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
 - `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
@@ -127,7 +129,8 @@
   and `rateReplyNegative` — the buttons' tooltips and labels.
 - `AIConversationView` — an AI conversation laid out in turns. A question the person sends scrolls
   to the top and its reply types out below it without the list moving; a conversation opens at its
-  end, `loadOlderMessages` loads older messages at its start without moving what is on screen, and a
+  end, `loadOlderMessages` loads older messages at its start, without moving what is on screen, when
+  its spinner comes into view and again each time the first turn changes while it stays there, and a
   button scrolls back to the latest. `isThinking` shows the agent thinking, and the reply's first
   reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
   with a way to retry.
@@ -169,6 +172,10 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
+- The `AIConversationView`, `AIComponentBuilders.userMessage`, `assistantMessage` and `replyActions`
+  docs and the README say that the conversation caches its rows, so a builder must read state that
+  changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
+  The README's `replyActions` example now does that; before, its 👍 never filled.
 - The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
   fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
   and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
@@ -184,6 +191,13 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
+- A tool call whose row `AIMessagePartsView.toolCallBuilder` or `partBuilder` hides with
+  `AIMessagePartsView.hidden` now still asks its approval question, as a row hidden by the
+  `AIComponentFactory` already did. Before, the question never showed and the call waited until the
+  backend timed it out.
+- An `AIToolApprover` now forgets an answer given for a call that `AIMessagePartsView`'s builders
+  draw their own way once the call stops waiting, instead of keeping it and failing it at its
+  `sentTimeout`.
 
 ## 0.1.0
 

@@ -18,7 +18,8 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_tool_registry.dart';
 typedef AIClientToolResultSender = Future<void> Function(AIToolCallPart call, AIClientToolResult result);
 
 /// Called when a client tool fails while an [AIClientToolRunner] runs [call]:
-/// it threw, timed out, or, with [AIClientToolRunner.failUnknownTools], isn't
+/// it threw, timed out, its call arrived without the arguments its schema
+/// requires, or, with [AIClientToolRunner.failUnknownTools], it isn't
 /// registered.
 typedef AIClientToolCallErrorCallback = FutureOr<void> Function(AIToolCallPart call, Object error, StackTrace stack);
 
@@ -145,9 +146,10 @@ final class AIClientToolRunner {
   final Duration? sendTimeout;
 
   /// What the agent is told when a tool fails. Defaults to a generic message
-  /// naming the tool, or "The result couldn't be read" when the tool's result
-  /// can't be JSON-encoded; the error itself only goes to [onToolError] and
-  /// [FlutterError.onError].
+  /// naming the tool, "The result couldn't be read" when the tool's result
+  /// can't be JSON-encoded, or "This call's arguments didn't reach the device"
+  /// when a call arrived without the arguments its tool requires; the error
+  /// itself only goes to [onToolError] and [FlutterError.onError].
   final AIClientToolFailureMessage? failureMessage;
 
   /// Called when a tool fails. [FlutterError.onError] hears about it too.
@@ -270,6 +272,21 @@ final class AIClientToolRunner {
       );
     }
 
+    // A plain tool reads `{}` as "the model passed nothing", so it isn't run
+    // when the call's arguments never arrived, such as when the backend left
+    // out arguments too large to copy onto the step. A call without arguments
+    // can also be one the model made with none, so a tool requiring no
+    // argument still runs.
+    if (tool is! AIResultClientTool && call.arguments == null && !_requiresNoArguments(tool)) {
+      final error = StateError(
+        'The "${call.name}" call arrived without its arguments, so the client tool was not run.',
+      );
+      _reportToolError(call, error, StackTrace.current, 'while running the "${call.name}" client tool');
+      return AIClientToolResult.failed(
+        failureMessage == null ? "This call's arguments didn't reach the device" : _failureMessageFor(call, error),
+      );
+    }
+
     try {
       final work = tool is AIResultClientTool ? tool.run(call) : _runActions(tool, call);
       if (runTimeout == null) return await work;
@@ -294,11 +311,18 @@ final class AIClientToolRunner {
     }
   }
 
+  /// Whether [tool]'s schema requires no argument, so `{}` is a call it can take.
+  static bool _requiresNoArguments(AIClientTool tool) {
+    final required = tool.definition.parameters['required'];
+    return required is! List || required.isEmpty;
+  }
+
   /// Runs a plain tool's actions, all of them, then throws the first failure.
   Future<AIClientToolResult> _runActions(AIClientTool tool, AIToolCallPart call) async {
     final actions = tool.handleInvocation(
       AIToolInvocation(
         tool: AIInvokedTool(name: call.name),
+        // Only `null` for a tool that requires no argument.
         args: call.arguments ?? const {},
       ),
     );

@@ -926,22 +926,39 @@ its `since`.
 The rows are `AIUserMessageView` and `AIAssistantMessageView`, with attachments as
 `AIMessageAttachmentView`. Under each finished reply there is room for actions, empty until you
 set `AIComponentBuilders.replyActions`, typically to an `AIReplyActionsView` (copy, share,
-regenerate, rate):
+regenerate, rate).
+
+The conversation caches its rows: a row is built again only when what its message says changes, or
+the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
+show state of your own, such as a reply's rating:
+
+- Read that state through a `Listenable` (a `ListenableBuilder` or `ValueListenableBuilder` in what
+  the builder returns). A value captured directly isn't read again when it changes, so a tapped 👍
+  wouldn't fill.
+- Create the builders once, such as in a `late final` field, not in `build`: new builders rebuild
+  every row whenever your widget rebuilds, such as on every chunk of a streaming reply. The same goes
+  for the `onAttachmentTap` and `approver` you give `AIConversationView`.
 
 ```dart
-AIComponentFactory(
-  builders: AIComponentBuilders(
-    replyActions: (context, props) => AIReplyActionsView(
+// In your State:
+final ratings = ValueNotifier<Map<String, AIMessageRating>>({});
+
+late final builders = AIComponentBuilders(
+  replyActions: (context, props) => ValueListenableBuilder(
+    valueListenable: ratings,
+    builder: (context, rated, _) => AIReplyActionsView(
       text: props.text,
       actions: AIReplyActions(
-        rating: ratings[props.message.id],
-        onRate: (rating) => rate(props.message, rating),
+        rating: rated[props.message.id],
+        onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
         onShare: (text, origin) => SharePlus.instance.share(ShareParams(text: text, sharePositionOrigin: origin)),
       ),
     ),
   ),
-  child: conversation,
-)
+);
+
+// In build:
+AIComponentFactory(builders: builders, child: conversation)
 ```
 
 Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
