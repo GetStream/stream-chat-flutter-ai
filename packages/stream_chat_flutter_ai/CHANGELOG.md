@@ -128,8 +128,8 @@
 - `AIConversationView` — an AI conversation laid out in turns. A question the person sends scrolls
   to the top and its reply types out below it without the list moving; a conversation opens at its
   end, `loadOlderMessages` loads older messages at its start without moving what is on screen, and a
-  button scrolls back to the latest. `isThinking` shows the agent thinking, and the reply's first
-  reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
+  button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
+  thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
   with a way to retry.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
   `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
@@ -169,11 +169,6 @@
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
-- `AIConversationView`, `AIUserMessageView` and `AIReplyActionsView` have new sizes: 8
-  between turns; a 40 dp scroll-to-latest circle with a light shadow and a 48 dp tap target, which
-  fades and scales in once the end is more than 24 dp out of view; a 20 dp older-messages spinner;
-  a user bubble 40 dp from the leading edge with 16×12 padding; and 40 dp reply actions, 8 apart and
-  8 below the answer.
 
 🐞 Fixed
 

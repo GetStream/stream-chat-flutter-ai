@@ -527,11 +527,13 @@ class _EntryViewState extends State<_EntryView> {
       onAttachmentTap: widget.onAttachmentTap,
     );
     final showsActions = !reply.isGenerating && reply.text.isNotEmpty && _writing.value != true;
+    final actions = showsActions
+        ? builders.replyActions?.call(context, AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply))
+        : null;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      spacing: 8,
       children: [
         builders.assistantMessage?.call(context, assistant) ??
             AIAssistantMessageView(
@@ -545,13 +547,11 @@ class _EntryViewState extends State<_EntryView> {
             ),
         AnimatedSwitcher(
           duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
-          child: showsActions
-              ? builders.replyActions?.call(
-                      context,
-                      AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply),
-                    ) ??
-                    const SizedBox.shrink()
-              : const SizedBox.shrink(),
+          // The gap above the actions comes and goes with them, so an answer
+          // without any leaves no space under it.
+          child: actions == null
+              ? const SizedBox.shrink()
+              : Padding(padding: const EdgeInsets.only(top: 8), child: actions),
         ),
       ],
     );

@@ -63,6 +63,7 @@ Future<void> _pump(
   Widget? empty,
   ThemeData? theme,
   bool settle = true,
+  bool reduceMotion = true,
 }) async {
   tester.view.physicalSize = const Size(400, 600);
   tester.view.devicePixelRatio = 1;
@@ -73,8 +74,8 @@ Future<void> _pump(
       child: MaterialApp(
         theme: theme,
         home: MediaQuery(
-          // No typewriter, so a reply is on screen at once.
-          data: const MediaQueryData(size: Size(400, 600), disableAnimations: true),
+          // By default no typewriter, so a reply is on screen at once.
+          data: MediaQueryData(size: const Size(400, 600), disableAnimations: reduceMotion),
           child: Scaffold(
             body: AIConversationView(
               messages: messages,
@@ -388,6 +389,20 @@ void main() {
         expect(tester.getTopLeft(find.text('actions for r1 (latest)')).dy - answer.bottom, 8);
       });
 
+      testWidgets('leaves no room under an answer without actions', (tester) async {
+        await _pump(
+          tester,
+          [_user('u1', 'Q1'), _reply('r1'), _user('u2', 'Q2'), _reply('r2')],
+          builders: const AIComponentBuilders(),
+        );
+        await tester.drag(find.byType(Scrollable), const Offset(0, 200));
+        await tester.pumpAndSettle();
+
+        final answer = tester.getRect(find.byType(AIAssistantMessageView).first);
+        final question = tester.getRect(find.byType(AIUserMessageView).at(1));
+        expect(question.top - answer.bottom, 24, reason: '8 between turns and 16 above the question');
+      });
+
       testWidgets('shows a 20 dp spinner while older messages load', (tester) async {
         await _pump(tester, _history(1), loadOlder: () => Completer<void>().future, settle: false);
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
@@ -406,15 +421,17 @@ void main() {
           matching: find.byWidgetPredicate((w) => w is Material && w.shape is CircleBorder),
         );
         expect(tester.getSize(circle), const Size.square(40));
+      });
 
-        // Just outside the circle, inside the target.
-        await tester.tapAt(tester.getCenter(button) + const Offset(23, 0));
+      testWidgets('scrolls to the latest on a tap just outside the circle', (tester) async {
+        await _pump(tester, _history(6));
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await tester.pumpAndSettle();
+
+        // Just outside the 40 dp circle, inside the 48 dp target.
+        await tester.tapAt(tester.getCenter(find.byTooltip('Scroll to latest')) + const Offset(23, 0));
         await tester.pumpAndSettle();
         expect(find.text('Question 5'), findsOneWidget);
-        expect(
-          tester.widget<IgnorePointer>(find.ancestor(of: button, matching: find.byType(IgnorePointer)).first).ignoring,
-          isTrue,
-        );
       });
 
       testWidgets("casts the scroll-to-latest button's shadow in the theme's shadow color", (tester) async {
@@ -443,12 +460,28 @@ void main() {
         position.jumpTo(position.maxScrollExtent - 25);
         await tester.pumpAndSettle();
         expect(scale(), 1);
-        expect(
-          tester.widget<AnimatedScale>(find.ancestor(of: button, matching: find.byType(AnimatedScale))).duration,
-          Duration.zero,
-          reason: 'reduced motion shows it at once',
-        );
       });
+
+      for (final (description, reduceMotion, duration) in [
+        ('shows the scroll-to-latest button at once with reduced motion', true, Duration.zero),
+        ('fades and scales the scroll-to-latest button in over 200 ms', false, const Duration(milliseconds: 200)),
+      ]) {
+        testWidgets(description, (tester) async {
+          await _pump(tester, _history(6), reduceMotion: reduceMotion);
+          final button = find.byTooltip('Scroll to latest');
+          final scale = tester.widget<AnimatedScale>(find.ancestor(of: button, matching: find.byType(AnimatedScale)));
+          final fade = tester.widget<AnimatedOpacity>(
+            find.ancestor(of: button, matching: find.byType(AnimatedOpacity)),
+          );
+
+          expect(scale.duration, duration);
+          expect(fade.duration, duration);
+          if (!reduceMotion) {
+            expect(scale.curve, Curves.easeInOut);
+            expect(fade.curve, Curves.easeInOut);
+          }
+        });
+      }
     });
 
     group('goldens', () {
