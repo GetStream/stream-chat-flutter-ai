@@ -126,25 +126,42 @@ class AIComponentBuilders with Diagnosticable {
   /// A message the person sent, in [AIConversationView]. Defaults to
   /// [AIUserMessageView].
   ///
-  /// The conversation builds a row again only when what [AIMessage] says about
-  /// it changes, so read anything else that changes, such as a send status,
-  /// from your own listenable rather than from the message.
+  /// The conversation caches its rows: it builds one again only when what
+  /// [AIMessage] says about it changes, or the builders do. Read anything else
+  /// that changes, such as a send status, through a [Listenable] of your own
+  /// (a [ListenableBuilder] or [ValueListenableBuilder] in what you return),
+  /// and create the builders once, not in `build`.
   final AIComponentBuilder<AIUserMessageProps>? userMessage;
 
   /// A reply of the agent, in [AIConversationView]. Defaults to
   /// [AIAssistantMessageView]. Like [userMessage], it is built again only when
-  /// what [AIMessage] says about the reply changes.
+  /// what [AIMessage] says about the reply changes, or the builders do, so read
+  /// state of your own through a [Listenable].
   final AIComponentBuilder<AIAssistantMessageProps>? assistantMessage;
 
   /// What the person can do with a finished reply, shown under it in
   /// [AIConversationView] once its answer is typed out. Nothing by default; an
-  /// [AIReplyActionsView] is what to return:
+  /// [AIReplyActionsView] is what to return.
+  ///
+  /// Like [userMessage], it is built again only when the reply changes, or the
+  /// builders do. So read the rating, which changes without the reply
+  /// changing, through a [Listenable], and create the builders once:
   ///
   /// ```dart
-  /// replyActions: (context, props) => AIReplyActionsView(
-  ///   text: props.text,
-  ///   actions: AIReplyActions(onRegenerate: props.isLatestReply ? chat.regenerate : null),
-  /// ),
+  /// // In your State, next to a `ValueNotifier<Map<String, AIMessageRating>> ratings`.
+  /// late final builders = AIComponentBuilders(
+  ///   replyActions: (context, props) => ValueListenableBuilder(
+  ///     valueListenable: ratings,
+  ///     builder: (context, rated, _) => AIReplyActionsView(
+  ///       text: props.text,
+  ///       actions: AIReplyActions(
+  ///         rating: rated[props.message.id],
+  ///         onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
+  ///         onRegenerate: props.isLatestReply ? chat.regenerate : null,
+  ///       ),
+  ///     ),
+  ///   ),
+  /// );
   /// ```
   final AIComponentBuilder<AIReplyActionsProps>? replyActions;
 

@@ -4,11 +4,10 @@
 
 - `CodeHighlighter` now takes a single `CodeHighlightRequest` instead of `(code, language, baseStyle)`.
 - `CodeBlockView.backgroundColor` and `CodeBlockView.foregroundColor` are replaced by `CodeBlockView.theme`.
-- `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` and
-  `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
+- `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
+- `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `AITypingIndicatorView.dotCount` and `dotSize` are now nullable; unset, they come from the theme.
-- `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable, and the dots default to the themed caption color instead of black.
-- `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of inheriting `DefaultTextStyle`.
+- `AnimatedDots.count`, `size`, `spacing` and `color` are now nullable; unset, they come from the theme.
 - `ChatComposer.factory` is nullable; `null` uses `AIComponentBuilders.composer`, then the default.
 
 ✅ Added
@@ -20,7 +19,6 @@
   app-wide.
 - `CodeHighlightRequest` — what a `CodeHighlighter` is asked to highlight: the code, its language,
   the block's resolved theme, and the `baseStyle` and `brightness` derived from it.
-
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
@@ -41,8 +39,8 @@
 - `AIToolCallPart` — the typed view of an `ai_tool_call` step, with `AIToolCallStatus` and
   `AIToolExecutor` (server or client).
 - `AIToolApproval` — what a tool call asks before it runs, with `AIToolApprovalDecision`.
-- `AIMessagePartsView` — shows a reply's steps in order, keyed by id. `AIMessagePartWidgetBuilder`
-  builds parts your own way.
+- `AIMessagePartsView` — shows a reply's steps in order, keyed by id, filling its width.
+  `AIMessagePartWidgetBuilder` builds parts your own way.
 - `AIUnsupportedPartView` — the placeholder for a step this app version can't show.
 - `AITranslations.unsupportedMessagePart` — that placeholder's text.
 - `StreamingReasoningView` — a collapsible "Thinking… 7s / Thought for 12s" panel for the model's
@@ -52,10 +50,11 @@
   translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
   `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
   `DefaultAITranslations.reasoningDuration` spells the durations.
-- `AIToolCallView` — a one-line row for a tool-call step: a status icon, the title, a detail line
-  (the summary, or the status in words) and the duration once the call has finished. Screen readers
-  hear it as one node, announced as a live call finishes or starts waiting. `AIMessagePartsView`
-  shows tool calls with it.
+- `AIToolCallView` — a one-line row for a tool-call step: a status icon that follows the call's
+  status (a shimmering hand while it waits for approval, a cross once declined), the title, a detail
+  line (the summary, or the status in words) and the duration once the call has finished, declined
+  included. Screen readers hear it as one node, announced as a live call finishes or starts
+  waiting. `AIMessagePartsView` shows tool calls with it.
 - `ToolCallThemeData` and `ToolCallTheme`, and `AITheme.toolCallTheme`, for styling tool-call rows.
 - `AIMessagePartsView.toolCallBuilder` (an `AIToolCallWidgetBuilder`) — builds some tools your own
   way and leaves the rest to `AIToolCallView`.
@@ -94,23 +93,30 @@
   is left for another runner unless `failUnknownTools` is set. Options: `maxAttempts`, `retryDelay`
   (capped at `AIClientToolRunner.maxRetryDelay`), `runTimeout`, `sendTimeout`, `failureMessage` (an
   `AIClientToolFailureMessage`), `onToolError` (an `AIClientToolCallErrorCallback`) and
-  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`).
+  `onDeliveryError` (an `AIClientToolDeliveryErrorCallback`). A plain `AIClientTool` whose schema
+  requires arguments isn't run when its call arrives without them: the call fails with "This call's
+  arguments didn't reach the device".
   Also `handle` / `handleCalls`, `registrations`, `toolNames`, `retryUndelivered`, `close`,
   `whenIdle`, `isClosed`, `hasPendingWork` and `hasUndelivered`.
 - `AIToolRegistry.toolNamed` — the tool registered under a name, or `null`.
-- `ChartView` draws a legend for a pie and for a chart with two or more series, themed via the new
-  `ChartThemeData.showLegend`, `legendPosition` (a `ChartLegendPosition`) and `legendTextStyle`. A
-  long legend is cut off with a "+N more" entry.
+- `ChartView` draws a legend for a pie, and for a line, area, bar, scatter or bubble chart with two
+  or more series (a histogram or heatmap gets none), themed via the new `ChartThemeData.showLegend`,
+  `legendPosition` (a `ChartLegendPosition`) and `legendTextStyle`. A long legend is cut off with a
+  "+N more" entry.
 - `ChartThemeData.showPiePercentages` and `piePercentageThreshold` — pie slices show their share of
   the whole, from 8% up by default.
 - `ChartSemantics.sliceLabels` — the names of the slices a pie draws.
+- `ChartSemantics.fromSpec`'s `unnamedSlice:` — names a pie slice the chart data didn't name, given
+  its position.
 - `ChartView.legendKey` — the key of a chart's legend, for finding it in widget tests.
 - `AITranslations.unnamedChartSlice` and `chartLegendMore` — the legend's names for an unnamed slice
   and for the entries left out.
 - `AILocalModel` — an interface over an on-device model that streams a fallback reply when the person is offline or the agent hit its usage limit. Each event is the whole answer so far, which is what `StreamingMessageView.text` takes, and cancelling the subscription stops the model.
 - `AIConversationTurn` and `AIConversationRole` — one turn of the conversation handed to an `AILocalModel`. `AIConversationTurn.fitToBudget` trims the history to a small context, keeping the newest unbroken run of turns and always the question; `estimateTokens` and `tokensPerTurn` set what a turn costs.
 - `AILocalModelException` and `AILocalModelErrorReason` (`unavailable`, `invalidConversation`, `contextExceeded`, `failed`) — the error an `AILocalModel.reply` stream emits when the model can't answer.
-- `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) replace the code blocks, charts, agent steps, approval card and composer slots the package builds.
+- `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) — one place to swap
+  the components the package builds inside its own widgets for your own: code blocks, charts, agent
+  steps, the approval card, a conversation's messages and the composer's slots.
 - `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each `AIComponentBuilders` slot gets.
 - `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
   "Copied!" for a moment, then share, regenerate and 👍 / 👎 when the app handles them. Tapping the
@@ -127,10 +133,11 @@
   and `rateReplyNegative` — the buttons' tooltips and labels.
 - `AIConversationView` — an AI conversation laid out in turns. A question the person sends scrolls
   to the top and its reply types out below it without the list moving; a conversation opens at its
-  end, `loadOlderMessages` loads older messages at its start without moving what is on screen, and a
+  end, `loadOlderMessages` loads older messages at its start, without moving what is on screen, when
+  its spinner comes into view and again each time the first turn changes while it stays there, and a
   button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
-  thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
-  with a way to retry.
+  thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest
+  turn, such as for an error with a way to retry.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
   `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
 - `AIPendingMessage` — a message the person sent, shown at once until its copy arrives.
@@ -165,14 +172,30 @@
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
+- Charts show a legend by default (`ChartThemeData.showLegend` defaults to `true`). Set
+  `showLegend: false` to keep the previous look.
+- `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of
+  inheriting `DefaultTextStyle`.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
-- The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
+- A chart's screen-reader summary names at most eight series or slices, then says "and N more".
+- The README documents the new components — agent steps, reasoning, tool calls, approvals, the
+  client tool runner, `AILocalModel`, chart legends, `AIComponentFactory`, `AIReplyActionsView`,
+  `AIConversationView` and the voice views — and its `SpeechToTextButton` snippet now uses
+  `SpeechToTextConfig`.
+- The `AIConversationView`, `AIComponentBuilders.userMessage`, `assistantMessage` and `replyActions`
+  docs and the README say that the conversation caches its rows, so a builder must read state that
+  changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
+  The README's `replyActions` example now does that; before, its 👍 never filled.
+- The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
+  fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
+  and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
 
 🐞 Fixed
 
-- `AITypingIndicatorView`'s dots were black by default, which made them invisible in dark mode.
+- `AITypingIndicatorView`'s and `AnimatedDots`' dots were black by default, which made them invisible
+  in dark mode. They now default to the themed caption color.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
 - A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
@@ -181,6 +204,13 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
+- A tool call whose row `AIMessagePartsView.toolCallBuilder` or `partBuilder` hides with
+  `AIMessagePartsView.hidden` now still asks its approval question, as a row hidden by the
+  `AIComponentFactory` already did. Before, the question never showed and the call waited until the
+  backend timed it out.
+- An `AIToolApprover` now forgets an answer given for a call that `AIMessagePartsView`'s builders
+  draw their own way once the call stops waiting, instead of keeping it and failing it at its
+  `sentTimeout`.
 
 ## 0.1.0
 

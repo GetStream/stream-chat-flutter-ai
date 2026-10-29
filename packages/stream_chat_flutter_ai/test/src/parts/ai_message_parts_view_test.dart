@@ -364,6 +364,32 @@ void main() {
       expect(gap, 20);
     });
 
+    testWidgets('spaces parts 10 apart by default', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AIMessagePartsView(
+            parts: _parts.take(2).toList(),
+            partBuilder: (context, part) => SizedBox(height: 10, child: Text(part.id)),
+          ),
+        ),
+      );
+
+      final gap = tester.getTopLeft(find.text('call_1')).dy - tester.getBottomLeft(find.text('r1')).dy;
+      expect(gap, 10);
+    });
+
+    testWidgets('fills a bounded width and shrink-wraps an unbounded one', (tester) async {
+      Widget parts() => AIMessagePartsView(
+        parts: _parts.take(1).toList(),
+        partBuilder: (context, part) => const SizedBox(width: 40, height: 10),
+      );
+      await tester.pumpWidget(_wrap(ConstrainedBox(constraints: const BoxConstraints(maxWidth: 300), child: parts())));
+      expect(tester.getSize(find.byType(AIMessagePartsView)), const Size(300, 10));
+
+      await tester.pumpWidget(_wrap(Row(mainAxisSize: MainAxisSize.min, children: [parts()])));
+      expect(tester.getSize(find.byType(AIMessagePartsView)), const Size(40, 10));
+    });
+
     testWidgets('renders nothing for no parts', (tester) async {
       await tester.pumpWidget(_wrap(const AIMessagePartsView(parts: [])));
 
@@ -418,6 +444,20 @@ void main() {
       await tester.tap(find.text('Allow'));
       await tester.pump();
       expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
+    });
+
+    testWidgets('leaves 8 between a call and its question, whatever the spacing', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 360,
+            child: AIMessagePartsView(parts: parts(), approver: approver, spacing: 20),
+          ),
+        ),
+      );
+
+      final row = find.ancestor(of: find.text('send email'), matching: find.byType(AIToolCallView));
+      expect(tester.getTopLeft(find.byType(AIToolApprovalCard)).dy - tester.getBottomLeft(row).dy, 8);
     });
 
     testWidgets('asks nothing without an approver', (tester) async {
@@ -502,21 +542,70 @@ void main() {
       );
       expect(find.text('part'), findsOneWidget);
       expect(find.byType(AIToolApprovalCard), findsNothing);
+    });
 
-      await tester.pumpWidget(
-        _wrap(
-          SizedBox(
-            width: 360,
-            child: AIMessagePartsView(
-              parts: parts(),
-              approver: approver,
-              toolCallBuilder: (context, call) => call.id == 'call_1' ? AIMessagePartsView.hidden : null,
-            ),
+    testWidgets('a call partBuilder hides still asks its question, without its row', (tester) async {
+      Widget view({String status = 'awaiting_approval'}) => _wrap(
+        SizedBox(
+          width: 360,
+          child: AIMessagePartsView(
+            parts: parts(status: status),
+            approver: approver,
+            partBuilder: (context, part) => part.id == 'call_1' ? AIMessagePartsView.hidden : null,
           ),
         ),
       );
-      expect(find.byType(AIToolCallView), findsOneWidget, reason: 'the hidden call is left out');
+
+      await tester.pumpWidget(view());
+      expect(find.byType(AIToolCallView), findsOneWidget, reason: 'only the other call has a row');
+      expect(find.byType(AIToolApprovalCard), findsOneWidget);
+      await tester.tap(find.text('Allow'));
+      await tester.pump();
+      expect(answers, [('call_1', AIToolApprovalDecision.allowed)]);
+
+      // With nothing to ask, it is left out.
+      await tester.pumpWidget(view(status: 'completed'));
       expect(find.byType(AIToolApprovalCard), findsNothing);
+      expect(find.byType(AIToolCallView), findsOneWidget);
+    });
+
+    testWidgets('a call a builder draws its own way lets the approver forget the answer once it stops waiting', (
+      tester,
+    ) async {
+      final timing = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
+        decide: (call, decision) async {},
+        sentTimeout: const Duration(seconds: 5),
+      );
+      addTearDown(timing.dispose);
+      // The host's own widget asks while the call waits, then shows a summary.
+      Widget view(List<AIMessagePart> parts) => _wrap(
+        SizedBox(
+          width: 360,
+          child: AIMessagePartsView(
+            parts: parts,
+            approver: timing,
+            toolCallBuilder: (context, call) => call.name != 'send_email'
+                ? null
+                : timing.identity.canApprove(call)
+                ? AIToolApprovalView(call: call, approver: timing)
+                : const Text('email sent'),
+          ),
+        ),
+      );
+
+      final waiting = parts();
+      await tester.pumpWidget(view(waiting));
+      timing.answer(waiting.first.toolCall!, AIToolApprovalDecision.allowed);
+      await tester.pump();
+      expect(timing.stateOf(waiting.first.toolCall!), isA<AIToolApprovalSent>());
+
+      var notified = 0;
+      timing.addListener(() => notified++);
+      await tester.pumpWidget(view(parts(status: 'running', decision: 'allowed')));
+      await tester.pump(const Duration(seconds: 6));
+      expect(notified, 0, reason: 'the sent timeout was cancelled, so nothing turns failed');
+      expect(timing.stateOf(waiting.first.toolCall!), const AIToolApprovalIdle(), reason: 'the answer was forgotten');
     });
   });
 
@@ -549,8 +638,39 @@ void main() {
       expect(text.style!.color, const Color(0xFFFF0000));
       final icon = tester.widget<Icon>(find.byType(Icon));
       expect(icon.color, const Color(0xFF00FF00));
-      // Scales with the text rather than staying a fixed size.
-      expect(icon.size, greaterThan(20));
+      // A tool call's icon size, whatever the text's.
+      expect(icon.size, 16);
+    });
+
+    testWidgets("reads like a tool call's row by default", (tester) async {
+      await tester.pumpWidget(_wrap(const AIUnsupportedPartView()));
+      final theme = Theme.of(tester.element(find.byType(AIUnsupportedPartView)));
+
+      final style = tester.widget<Text>(find.byType(Text)).style!;
+      expect(style.fontSize, theme.textTheme.bodyMedium!.fontSize, reason: "the tool call title's size");
+      expect(style.color, theme.colorScheme.onSurfaceVariant, reason: "the tool call detail's color");
+      expect(tester.widget<Icon>(find.byType(Icon)).size, 16);
+      expect(tester.getTopLeft(find.byType(Text)).dx - tester.getTopRight(find.byType(Icon)).dx, 8);
+    });
+
+    testWidgets('follows the tool call theme', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const ToolCallTheme(
+            data: ToolCallThemeData(
+              titleStyle: TextStyle(fontSize: 17),
+              detailStyle: TextStyle(color: Color(0xFF0000E1)),
+              iconSize: 20,
+            ),
+            child: AIUnsupportedPartView(),
+          ),
+        ),
+      );
+
+      final style = tester.widget<Text>(find.byType(Text)).style!;
+      expect(style.fontSize, 17);
+      expect(style.color, const Color(0xFF0000E1));
+      expect(tester.widget<Icon>(find.byType(Icon)).size, 20);
     });
 
     testWidgets('the icon takes the text color by default', (tester) async {
