@@ -54,6 +54,38 @@ void main() {
       });
     }
 
+    for (final (material3, tapTarget) in [
+      (true, MaterialTapTargetSize.padded),
+      (false, MaterialTapTargetSize.padded),
+      (true, MaterialTapTargetSize.shrinkWrap),
+      (false, MaterialTapTargetSize.shrinkWrap),
+    ]) {
+      testWidgets(
+        'puts its buttons 48 dp apart (Material ${material3 ? 3 : 2}, ${tapTarget.name} targets)',
+        (tester) async {
+          await tester.pumpWidget(
+            _wrap(
+              AIReplyActionsView(
+                text: 'Hi',
+                actions: AIReplyActions(onShare: (_, _) {}, onRegenerate: () {}, onRate: (_) {}),
+              ),
+              theme: ThemeData(useMaterial3: material3, materialTapTargetSize: tapTarget),
+            ),
+          );
+          final centers = [
+            for (final label in ['Copy', 'Share', 'Regenerate', 'Good response', 'Bad response'])
+              tester.getCenter(find.byTooltip(label)).dx,
+          ];
+          for (var i = 1; i < centers.length; i++) {
+            expect(centers[i] - centers[i - 1], 48);
+          }
+          if (tapTarget == MaterialTapTargetSize.shrinkWrap) {
+            expect(tester.getSize(find.byTooltip('Copy')), const Size.square(40));
+          }
+        },
+      );
+    }
+
     testWidgets('copies the text and confirms it for a moment', (tester) async {
       final copied = <String>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -176,7 +208,7 @@ void main() {
           expect(tester.getSemantics(find.byTooltip('Bad response')).flagsCollection.isSelected, Tristate.isFalse);
           // Material 2 can't pad a button out to its tap target, so there the
           // button fills it.
-          expect(tester.getSize(find.byTooltip('Good response')), Size.square(material3 ? 32 : 48));
+          expect(tester.getSize(find.byTooltip('Good response')), Size.square(material3 ? 40 : 48));
           expect(tester.getSize(find.widgetWithIcon(IconButton, Icons.thumb_up)), const Size.square(48));
           semantics.dispose();
         });
