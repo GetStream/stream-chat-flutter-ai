@@ -26,7 +26,7 @@ void reportPartIssue(String Function() message) {
 /// package knows. An unknown value is kept, since a newer agent may send it,
 /// but a typo (`"complete"`) would otherwise stall a step with no sign why.
 T reportUnknown<T>(T value, bool Function(T value) isKnown, String context, String key) {
-  if (!isKnown(value)) reportPartIssue(() => '$context: `$key` $value is not one this package knows.');
+  if (!isKnown(value)) reportPartIssue(() => '$context: `$key` "$value" is not one this package knows.');
   return value;
 }
 

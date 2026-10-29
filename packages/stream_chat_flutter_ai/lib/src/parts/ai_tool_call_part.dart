@@ -12,13 +12,9 @@ import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 /// [failed] / [cancelled].
 ///
 /// An open set: compare against the statuses you know and treat the rest as
-/// still in progress. A status this package doesn't know keeps its raw [value]
+/// still in progress. A status this package doesn't know keeps its raw value
 /// and reports `false` from [isKnown].
-@immutable
-class AIToolCallStatus {
-  /// Wraps a raw status string.
-  const AIToolCallStatus(this.value);
-
+extension type const AIToolCallStatus(String _) implements String {
   /// The call is running.
   static const running = AIToolCallStatus('running');
 
@@ -53,36 +49,20 @@ class AIToolCallStatus {
     cancelled,
   ];
 
-  /// The status as the agent wrote it, such as `awaiting_approval`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
 
   /// Whether the call has finished, one way or another: [completed], [failed]
   /// or [cancelled]. An unknown status counts as still in progress.
   bool get isFinished => this == completed || this == failed || this == cancelled;
-
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIToolCallStatus && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIToolCallStatus($value)';
 }
 
 /// Who runs a tool — the `executor` of an `ai_tool_call` step.
 ///
 /// An open set: compare against the executors you know ([server], [client]).
-/// An executor this package doesn't know keeps its raw [value] and reports
+/// An executor this package doesn't know keeps its raw value and reports
 /// `false` from [isKnown].
-@immutable
-class AIToolExecutor {
-  /// Wraps a raw executor string.
-  const AIToolExecutor(this.value);
-
+extension type const AIToolExecutor(String _) implements String {
   /// The agent's backend.
   static const server = AIToolExecutor('server');
 
@@ -92,20 +72,8 @@ class AIToolExecutor {
   /// The executors this package knows.
   static const values = [server, client];
 
-  /// The executor as the agent wrote it, such as `client`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
-
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIToolExecutor && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIToolExecutor($value)';
 }
 
 /// A tool the agent called, run by the agent's backend or by a person's
@@ -352,8 +320,8 @@ class AIToolCallPart {
     'v': AIMessagePart.supportedVersion,
     'name': name,
     'display_title': ?displayTitle,
-    'status': status.value,
-    'executor': executor.value,
+    'status': status,
+    'executor': executor,
     'target_user_id': ?targetUserId,
     'target_client_id': ?targetClientId,
     'arguments': ?arguments,
@@ -399,5 +367,5 @@ class AIToolCallPart {
   );
 
   @override
-  String toString() => 'AIToolCallPart(id: $id, name: $name, status: ${status.value}, executor: ${executor.value})';
+  String toString() => 'AIToolCallPart(id: $id, name: $name, status: $status, executor: $executor)';
 }

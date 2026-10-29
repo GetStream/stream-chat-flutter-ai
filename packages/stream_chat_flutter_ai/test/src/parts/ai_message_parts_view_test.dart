@@ -143,7 +143,7 @@ void main() {
         _wrap(
           AIMessagePartsView(
             parts: _parts,
-            partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const Text('citation') : null,
+            partBuilder: (context, part) => part.kind == 'ai_citation' ? const Text('citation') : null,
             toolCallBuilder: (context, call) {
               asked.add(call.id);
               return const Text('call');
@@ -162,7 +162,7 @@ void main() {
         AIMessagePartsView(
           parts: _parts,
           spacing: 20,
-          partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const SizedBox(height: 10) : null,
+          partBuilder: (context, part) => part.kind == 'ai_citation' ? const SizedBox(height: 10) : null,
           toolCallBuilder: (context, call) => hide ? AIMessagePartsView.hidden : const SizedBox(height: 10),
         ),
       );
@@ -290,7 +290,7 @@ void main() {
         _wrap(
           AIMessagePartsView(
             parts: _parts,
-            partBuilder: (context, part) => part.kind.value == 'ai_citation' ? const Text('citation') : null,
+            partBuilder: (context, part) => part.kind == 'ai_citation' ? const Text('citation') : null,
           ),
         ),
       );
@@ -322,7 +322,7 @@ void main() {
       ]);
 
       await tester.pumpWidget(
-        _wrap(AIMessagePartsView(parts: parts, partBuilder: (context, part) => Text(part.kind.value))),
+        _wrap(AIMessagePartsView(parts: parts, partBuilder: (context, part) => Text(part.kind))),
       );
 
       expect(tester.takeException(), isNull);

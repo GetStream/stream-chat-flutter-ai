@@ -130,7 +130,7 @@ void main() {
         const AIToolCallStatus('queued'): null,
       };
       for (final MapEntry(key: status, value: detail) in cases.entries) {
-        testWidgets('${status.value}: ${detail ?? 'no detail line'}', (tester) async {
+        testWidgets('$status: ${detail ?? 'no detail line'}', (tester) async {
           _reduceMotion(tester);
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
           expect(_texts(tester), ['get weather', ?detail]);
@@ -199,7 +199,7 @@ void main() {
               ),
             ),
           );
-          expect(_texts(tester), ['get weather', 'Sunny, 21°C'], reason: status.value);
+          expect(_texts(tester), ['get weather', 'Sunny, 21°C'], reason: status);
         }
         await tester.pumpWidget(
           _wrap(
@@ -230,11 +230,11 @@ void main() {
         _reduceMotion(tester);
         for (final status in [AIToolCallStatus.running, AIToolCallStatus.awaitingClient]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status, durationMs: 400))));
-          expect(find.text('0.4s'), findsNothing, reason: status.value);
+          expect(find.text('0.4s'), findsNothing, reason: status);
         }
         for (final status in [AIToolCallStatus.completed, AIToolCallStatus.failed, AIToolCallStatus.cancelled]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status, durationMs: 400))));
-          expect(find.text('0.4s'), findsOneWidget, reason: status.value);
+          expect(find.text('0.4s'), findsOneWidget, reason: status);
         }
       });
 
@@ -324,8 +324,8 @@ void main() {
         ];
         for (final (:call, :icon, :color) in cases) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: call), theme: theme));
-          expect(_icon(tester), icon, reason: call.status.value);
-          expect(_iconColor(tester), color, reason: call.status.value);
+          expect(_icon(tester), icon, reason: call.status);
+          expect(_iconColor(tester), color, reason: call.status);
         }
 
         await tester.pumpWidget(
@@ -369,7 +369,7 @@ void main() {
       testWidgets('a running call, or one in a status this package does not know, spins', (tester) async {
         for (final status in [AIToolCallStatus.running, const AIToolCallStatus('queued')]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget, reason: status.value);
+          expect(_inView(find.byType(CircularProgressIndicator)), findsOneWidget, reason: status);
           expect(_icon(tester), isNull);
           expect(tester.hasRunningAnimations, isTrue);
         }
@@ -382,7 +382,7 @@ void main() {
           AIToolCallStatus.awaitingClient,
         ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: status.value);
+          expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: status);
           expect(tester.hasRunningAnimations, isTrue);
         }
 
@@ -404,8 +404,8 @@ void main() {
           AIToolCallStatus.awaitingClient,
         ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status.value);
-          expect(tester.hasRunningAnimations, isFalse, reason: status.value);
+          expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status);
+          expect(tester.hasRunningAnimations, isFalse, reason: status);
         }
       });
 
@@ -768,7 +768,7 @@ void main() {
             ),
           );
           await tester.pump(const Duration(milliseconds: 100));
-          expect(tester.takeException(), isNull, reason: status.value);
+          expect(tester.takeException(), isNull, reason: status);
         }
       });
 
@@ -810,7 +810,7 @@ void main() {
               ),
             ),
           );
-          expect(_iconColor(tester), color, reason: status.value);
+          expect(_iconColor(tester), color, reason: status);
         }
       });
     });

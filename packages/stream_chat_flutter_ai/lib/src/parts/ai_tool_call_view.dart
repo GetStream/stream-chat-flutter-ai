@@ -194,7 +194,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     if (status.isKnown) return;
     reportPartIssue(
       () =>
-          'ai_tool_call "${widget.call.id}" has a status this package does not know, "${status.value}"; '
+          'ai_tool_call "${widget.call.id}" has a status this package does not know, "$status"; '
           'it is shown as still running.',
     );
   }

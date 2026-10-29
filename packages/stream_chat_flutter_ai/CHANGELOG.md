@@ -35,11 +35,15 @@
 - `AIMessagePart` — one step an AI agent took while replying, decoded from an `ai_*` attachment.
   `AIMessagePart.parseAll` turns a message's `AIMessagePartAttachment`s (`type` + payload) into
   parts, skipping other attachments, and decoding is lenient. `AIMessagePartKind` is the step's
-  kind: an open set, so a kind this package doesn't know keeps its raw value.
-- `AIReasoningPart` — the typed view of an `ai_reasoning` step, with `AIReasoningStatus`.
+  kind, a `String` extension type and an open set: a kind this package doesn't know keeps its raw
+  value and reports `false` from `isKnown`.
+- `AIReasoningPart` — the typed view of an `ai_reasoning` step, with `AIReasoningStatus`, a `String`
+  extension type and an open set with `values` and `isKnown`.
 - `AIToolCallPart` — the typed view of an `ai_tool_call` step, with `AIToolCallStatus` and
-  `AIToolExecutor` (server or client).
-- `AIToolApproval` — what a tool call asks before it runs, with `AIToolApprovalDecision`.
+  `AIToolExecutor` (server or client), both `String` extension types and open sets with `values` and
+  `isKnown`.
+- `AIToolApproval` — what a tool call asks before it runs, with `AIToolApprovalDecision`, a `String`
+  extension type and an open set with `values` and `isKnown`.
 - `AIMessagePartsView` — shows a reply's steps in order, keyed by id, filling its width.
   `AIMessagePartWidgetBuilder` builds parts your own way.
 - `AIUnsupportedPartView` — the placeholder for a step this app version can't show.
@@ -141,9 +145,11 @@
   turn, such as for an error with a way to retry.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
   `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
+  `AIMessageRole` is a `String` extension type and an open set, with `values` and `isKnown`.
 - `AIPendingMessage` — a message the person sent, shown at once until its copy arrives.
 - `AIMessageAttachment` — an image or file a message carries, or a kind of your own with its raw
-  fields in `extraData`, which compares by value. `AIMessageAttachmentKind` is an open set.
+  fields in `extraData`, which compares by value. `AIMessageAttachmentKind` is a `String`
+  extension type and an open set, with `values` and `isKnown`.
 - `AIUserMessageView`, `AIAssistantMessageView` and `AIThinkingView` — a conversation's rows and its
   "Thinking… 4s".
 - `AIMessageAttachmentView` — an image as a thumbnail and anything else as a file card;

@@ -44,7 +44,7 @@ typedef AIToolCallWidgetBuilder = Widget? Function(BuildContext context, AIToolC
 /// ```dart
 /// AIMessagePartsView(
 ///   parts: parts,
-///   partBuilder: (context, part) => switch (part.kind.value) {
+///   partBuilder: (context, part) => switch (part.kind) {
 ///     'ai_citation' => CitationView(part: part),
 ///     _ => null,
 ///   },

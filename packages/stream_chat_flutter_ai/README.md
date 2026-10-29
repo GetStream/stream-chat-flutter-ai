@@ -689,7 +689,7 @@ the user's answer, `AIToolApprovalDecision.allowed` or `.declined`, goes to your
 late final approver = AIToolApprover(
   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
   // Throw to let the person answer again.
-  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+  decide: (call, decision) => backend.answerToolCall(call.id, decision),
 );
 
 AIMessagePartsView(parts: parts, approver: approver);
@@ -1097,7 +1097,7 @@ List<AIMessageAttachment> get attachments => [
 ];
 
 // In your AIComponentBuilders:
-messageAttachment: (context, props) => switch (props.attachment.kind.value) {
+messageAttachment: (context, props) => switch (props.attachment.kind) {
   'athena_image' => ArtifactImage(
     id: props.attachment.extraData['artifact_id']! as String,
     revision: props.attachment.extraData['revision'] as int?,

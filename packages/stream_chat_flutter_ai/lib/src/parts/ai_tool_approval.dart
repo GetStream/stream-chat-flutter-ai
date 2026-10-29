@@ -5,13 +5,9 @@ import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 /// `decision`.
 ///
 /// An open set: compare against the decisions you know ([allowed],
-/// [declined]). A decision this package doesn't know keeps its raw [value] and
+/// [declined]). A decision this package doesn't know keeps its raw value and
 /// reports `false` from [isKnown].
-@immutable
-class AIToolApprovalDecision {
-  /// Wraps a raw decision string.
-  const AIToolApprovalDecision(this.value);
-
+extension type const AIToolApprovalDecision(String _) implements String {
   /// The person allowed the call, so it goes on.
   static const allowed = AIToolApprovalDecision('allowed');
 
@@ -21,20 +17,8 @@ class AIToolApprovalDecision {
   /// The decisions this package knows.
   static const values = [allowed, declined];
 
-  /// The decision as the agent wrote it, such as `allowed`.
-  final String value;
-
   /// Whether this is one of [values].
   bool get isKnown => values.contains(this);
-
-  @override
-  bool operator ==(Object other) => identical(this, other) || other is AIToolApprovalDecision && other.value == value;
-
-  @override
-  int get hashCode => value.hashCode;
-
-  @override
-  String toString() => 'AIToolApprovalDecision($value)';
 }
 
 /// What a tool call asks the person it waits for before it runs, such as
@@ -142,7 +126,7 @@ class AIToolApproval {
     'reason': ?reason,
     'allow_title': ?allowTitle,
     'decline_title': ?declineTitle,
-    'decision': ?decision?.value,
+    'decision': ?decision,
   };
 
   @override
@@ -160,5 +144,5 @@ class AIToolApproval {
   int get hashCode => Object.hash(title, message, reason, allowTitle, declineTitle, decision);
 
   @override
-  String toString() => 'AIToolApproval(title: $title, decision: ${decision?.value})';
+  String toString() => 'AIToolApproval(title: $title, decision: $decision)';
 }
