@@ -110,7 +110,7 @@ class AITheme extends ThemeExtension<AITheme> {
   /// [ThemeData].
   final SuggestionsThemeData suggestionsTheme;
 
-  /// How tool-approval cards are drawn. Defaults to
+  /// How tool-approval and sign-in cards are drawn. Defaults to
   /// `const ToolApprovalThemeData()`, which derives every field from the
   /// ambient [ThemeData].
   final ToolApprovalThemeData toolApprovalTheme;

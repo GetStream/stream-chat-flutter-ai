@@ -2,12 +2,14 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
+import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 
 /// Where a tool call is — the `status` of an `ai_tool_call` step.
 ///
-/// Calls move `running` → optionally [awaitingApproval] → optionally
-/// [awaitingClient] → [completed] / [failed] / [cancelled].
+/// Calls move `running` → optionally [awaitingApproval] or
+/// [awaitingAuthorization] → optionally [awaitingClient] → [completed] /
+/// [failed] / [cancelled].
 ///
 /// An open set: compare against the statuses you know and treat the rest as
 /// still in progress. A status this package doesn't know keeps its raw [value]
@@ -24,6 +26,10 @@ class AIToolCallStatus {
   /// [AIToolCallPart.approval] says what to ask them.
   static const awaitingApproval = AIToolCallStatus('awaiting_approval');
 
+  /// Waiting for the targeted person to sign in at a provider the call needs.
+  /// Its [AIToolCallPart.authorization] says where.
+  static const awaitingAuthorization = AIToolCallStatus('awaiting_authorization');
+
   /// Waiting for the targeted device to run the tool and send its result.
   static const awaitingClient = AIToolCallStatus('awaiting_client');
 
@@ -37,7 +43,15 @@ class AIToolCallStatus {
   static const cancelled = AIToolCallStatus('cancelled');
 
   /// The statuses this package knows.
-  static const values = [running, awaitingApproval, awaitingClient, completed, failed, cancelled];
+  static const values = [
+    running,
+    awaitingApproval,
+    awaitingAuthorization,
+    awaitingClient,
+    completed,
+    failed,
+    cancelled,
+  ];
 
   /// The status as the agent wrote it, such as `awaiting_approval`.
   final String value;
@@ -105,7 +119,8 @@ class AIToolExecutor {
 /// ```
 ///
 /// A call that waits adds `target_user_id` (and `target_client_id` for a client
-/// tool), `arguments` (client tools only) and, when it asks first, `approval`.
+/// tool), `arguments` (client tools only) and, when it asks first, `approval`
+/// — or, when it needs the person's account at a provider, `authorization`.
 @immutable
 class AIToolCallPart {
   /// Creates an [AIToolCallPart].
@@ -125,6 +140,7 @@ class AIToolCallPart {
     this.summary,
     this.durationMs,
     this.approval,
+    this.authorization,
     this.hasPayloadId = true,
   }) : assert(durationMs == null || durationMs >= 0, 'durationMs must not be negative');
 
@@ -147,6 +163,13 @@ class AIToolCallPart {
     if (status == AIToolCallStatus.awaitingApproval && approval == null) {
       reportPartIssue(() => '$context is awaiting approval but has no `approval` to ask.');
     }
+    final authorization = switch (fields.object('authorization')) {
+      final authorization? => AIToolAuthorization.fromJson(authorization, context: context),
+      null => null,
+    };
+    if (status == AIToolCallStatus.awaitingAuthorization && authorization == null) {
+      reportPartIssue(() => '$context is awaiting authorization but has no usable `authorization` to ask.');
+    }
     return AIToolCallPart(
       id: id,
       name: fields.string('name') ?? '',
@@ -162,6 +185,7 @@ class AIToolCallPart {
       summary: fields.string('summary'),
       durationMs: fields.count('duration_ms'),
       approval: approval,
+      authorization: authorization,
       hasPayloadId: fields.string('id') != null,
     );
   }
@@ -191,8 +215,8 @@ class AIToolCallPart {
   /// sends none.
   final AIToolExecutor executor;
 
-  /// The person the call waits for: whose device must run a client tool, or
-  /// who must answer its [approval].
+  /// The person the call waits for: whose device must run a client tool, who
+  /// must answer its [approval], or who must sign in for its [authorization].
   final String? targetUserId;
 
   /// The install that must run a client tool (or answer its [approval]), from
@@ -217,6 +241,10 @@ class AIToolCallPart {
   /// answered, when its tool asks first.
   final AIToolApproval? approval;
 
+  /// The sign-in the call waits for the person to finish before it runs, and
+  /// how it ended, when it needs their account at a provider.
+  final AIToolAuthorization? authorization;
+
   /// [durationMs] as a [Duration].
   Duration? get duration => durationMs == null ? null : Duration(milliseconds: durationMs!);
 
@@ -236,12 +264,13 @@ class AIToolCallPart {
     return summary == null || summary.trim().isEmpty ? null : summary;
   }
 
-  /// Whether the person declined the call, so it never ran.
+  /// Whether the person declined the call, or the sign-in it waited for, so
+  /// it never ran.
   ///
   /// Takes precedence over [status] when showing the call: a declined call
   /// reads as declined (and shows no duration) even while its status still
   /// says `awaiting_approval` or has moved to `cancelled`.
-  bool get isDeclined => approval?.isDeclined ?? false;
+  bool get isDeclined => (approval?.isDeclined ?? false) || authorization?.status == AIToolAuthorizationStatus.declined;
 
   /// Whether this call is waiting for this device: a client tool with an id
   /// from the agent, still awaiting its result, targeted at [userId] and
@@ -270,6 +299,17 @@ class AIToolCallPart {
       targetUserId == userId &&
       (targetClientId == null || targetClientId == clientId);
 
+  /// Whether this call is waiting for [userId] to sign in at a provider it
+  /// needs: still awaiting authorization with a sign-in that hasn't ended, with
+  /// an id from the agent, and targeted at [userId]. They may sign in from any
+  /// of their devices, so no install is checked.
+  bool isAwaitingAuthorization({required String userId}) =>
+      hasPayloadId &&
+      status == AIToolCallStatus.awaitingAuthorization &&
+      authorization != null &&
+      authorization!.status == null &&
+      targetUserId == userId;
+
   /// A copy with the given fields replaced. A `null` argument keeps the
   /// current value. New [arguments] are copied, deeply unmodifiable.
   AIToolCallPart copyWith({
@@ -284,6 +324,7 @@ class AIToolCallPart {
     String? summary,
     int? durationMs,
     AIToolApproval? approval,
+    AIToolAuthorization? authorization,
     bool? hasPayloadId,
   }) {
     return AIToolCallPart(
@@ -298,6 +339,7 @@ class AIToolCallPart {
       summary: summary ?? this.summary,
       durationMs: durationMs ?? this.durationMs,
       approval: approval ?? this.approval,
+      authorization: authorization ?? this.authorization,
       hasPayloadId: hasPayloadId ?? this.hasPayloadId,
     );
   }
@@ -318,6 +360,7 @@ class AIToolCallPart {
     'summary': ?summary,
     'duration_ms': ?durationMs,
     'approval': ?approval?.toJson(),
+    'authorization': ?authorization?.toJson(),
   };
 
   @override
@@ -335,7 +378,8 @@ class AIToolCallPart {
           const DeepCollectionEquality().equals(other.arguments, arguments) &&
           other.summary == summary &&
           other.durationMs == durationMs &&
-          other.approval == approval;
+          other.approval == approval &&
+          other.authorization == authorization;
 
   @override
   int get hashCode => Object.hash(
@@ -351,6 +395,7 @@ class AIToolCallPart {
     summary,
     durationMs,
     approval,
+    authorization,
   );
 
   @override

@@ -115,6 +115,7 @@ void main() {
       expect(builders.reasoning, isNull);
       expect(builders.toolCall, isNull);
       expect(builders.toolApproval, isNull);
+      expect(builders.toolAuthorization, isNull);
       expect(builders.unsupportedPart, isNull);
       expect(builders.composer, isNull);
     });
@@ -126,6 +127,10 @@ void main() {
       expect(merged.chart, same(custom.chart));
       expect(merged.codeBlock, isNull);
       expect(merged.copyWith(codeBlock: custom.codeBlock).codeBlock, same(custom.codeBlock));
+      final signIn = merged.merge(const AIComponentBuilders(toolAuthorization: _hidden));
+      expect(signIn.toolAuthorization, _hidden);
+      expect(signIn.reasoning, _hidden);
+      expect(signIn, isNot(merged));
       expect(const AIComponentBuilders().merge(null), const AIComponentBuilders());
     });
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -606,6 +608,237 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
       expect(notified, 0, reason: 'the sent timeout was cancelled, so nothing turns failed');
       expect(timing.stateOf(waiting.first.toolCall!), const AIToolApprovalIdle(), reason: 'the answer was forgotten');
+    });
+  });
+
+  group('AIMessagePartsView with an authorizer', () {
+    final opened = <String>[];
+    late AIToolApprover approver;
+    setUp(() {
+      opened.clear();
+      approver = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice', clientId: 'phone'),
+        decide: (_, _) async {},
+        authorizer: AIToolAuthorizer(
+          connect: (call, url) async {
+            opened.add(call.id);
+            return true;
+          },
+          decline: (_) async {},
+        ),
+      );
+    });
+    tearDown(() => approver.dispose());
+
+    List<AIMessagePart> parts({String status = 'awaiting_authorization'}) => AIMessagePart.parseAll([
+      (
+        type: 'ai_tool_call',
+        payload: {
+          'id': 'call_1',
+          'name': 'linear__list_issues',
+          'display_title': 'Using Linear',
+          'status': status,
+          'target_user_id': 'alice',
+          'authorization': {'title': 'Connect Linear', 'url': 'https://agent.example/launch'},
+        },
+      ),
+      (type: 'ai_tool_call', payload: const {'id': 'call_2', 'name': 'search_web', 'status': 'completed'}),
+    ]);
+
+    Widget view(
+      List<AIMessagePart> parts, {
+      AIToolApprover? approver,
+      AIComponentBuilders? builders,
+      AIMessagePartWidgetBuilder? partBuilder,
+      AIToolCallWidgetBuilder? toolCallBuilder,
+    }) => _wrap(
+      AIComponentFactory(
+        builders: builders ?? const AIComponentBuilders(),
+        child: SizedBox(
+          width: 360,
+          child: AIMessagePartsView(
+            parts: parts,
+            approver: approver,
+            partBuilder: partBuilder,
+            toolCallBuilder: toolCallBuilder,
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('asks for the sign-in under its row, 8 below it whatever the spacing', (tester) async {
+      await tester.pumpWidget(view(parts(), approver: approver));
+
+      expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+      final row = find.ancestor(of: find.text('Using Linear'), matching: find.byType(AIToolCallView));
+      expect(
+        tester.getTopLeft(find.byType(AIToolAuthorizationCard)).dy - tester.getBottomLeft(row).dy,
+        8,
+        reason: 'the sign-in sits 8 under its row, closer than the steps',
+      );
+
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      expect(opened, ['call_1']);
+      // Let the connected sign-in settle, so no timer is left.
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('a call that no longer waits takes no extra room', (tester) async {
+      await tester.pumpWidget(view(parts(status: 'running')));
+      final without = tester.getSize(find.byType(AIMessagePartsView)).height;
+
+      await tester.pumpWidget(view(parts(status: 'running'), approver: approver));
+
+      expect(find.byType(AIToolAuthorizationCard), findsNothing);
+      expect(tester.getSize(find.byType(AIMessagePartsView)).height, without);
+    });
+
+    testWidgets('asks nothing without an authorizer, and the row says only that the call waits', (tester) async {
+      final plain = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice'),
+        decide: (_, _) async {},
+      );
+      addTearDown(plain.dispose);
+
+      await tester.pumpWidget(view(parts(), approver: plain));
+
+      expect(find.byType(AIToolAuthorizationCard), findsNothing);
+      expect(find.text('Waiting for sign-in'), findsOneWidget, reason: 'nothing here lets them sign in');
+    });
+
+    testWidgets('a sign-in of a kind it does not show leaves the row saying only that the call waits', (
+      tester,
+    ) async {
+      final deviceCode = AIMessagePart.parseAll([
+        (
+          type: 'ai_tool_call',
+          payload: {
+            'id': 'call_1',
+            'name': 'linear__list_issues',
+            'display_title': 'Using Linear',
+            'status': 'awaiting_authorization',
+            'target_user_id': 'alice',
+            'authorization': {'type': 'device_code', 'title': 'Connect Linear', 'url': 'https://agent.example/launch'},
+          },
+        ),
+      ]);
+
+      await tester.pumpWidget(view(deviceCode, approver: approver));
+
+      expect(find.byType(AIToolAuthorizationCard), findsNothing);
+      expect(find.text('Waiting for sign-in'), findsOneWidget);
+    });
+
+    testWidgets("the row tells the approver's person the call waits for them, and others it waits", (tester) async {
+      await tester.pumpWidget(view(parts(), approver: approver));
+      expect(find.text('Waiting for you to sign in'), findsOneWidget);
+
+      final bob = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'bob'),
+        decide: (_, _) async {},
+      );
+      addTearDown(bob.dispose);
+      await tester.pumpWidget(view(parts(), approver: bob));
+      expect(find.text('Waiting for sign-in'), findsOneWidget);
+
+      await tester.pumpWidget(view(parts()));
+      expect(find.text('Waiting for sign-in'), findsOneWidget);
+    });
+
+    testWidgets('a hidden row of a call that no longer waits forgets its sign-in', (tester) async {
+      final pending = Completer<bool>();
+      final forgetful = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice'),
+        decide: (_, _) async {},
+        authorizer: AIToolAuthorizer(connect: (_, _) => pending.future, decline: (_) async {}),
+      );
+      addTearDown(forgetful.dispose);
+      final waiting = parts().first.toolCall!;
+      forgetful.connect(waiting);
+      expect(forgetful.authorizationStateOf(waiting).isConnecting, isTrue);
+
+      await tester.pumpWidget(
+        view(
+          parts(status: 'running'),
+          approver: forgetful,
+          builders: AIComponentBuilders(toolCall: (context, props) => AIMessagePartsView.hidden),
+        ),
+      );
+      pending.complete(false);
+      await tester.pump();
+
+      // Forgotten while it moved on: waiting again, it starts afresh.
+      expect(forgetful.authorizationStateOf(waiting), const AIToolAuthorizationState());
+    });
+
+    testWidgets('a row the factory hides still asks for the sign-in', (tester) async {
+      await tester.pumpWidget(
+        view(
+          parts(),
+          approver: approver,
+          builders: AIComponentBuilders(
+            toolCall: (context, props) => props.call.id == 'call_1' ? AIMessagePartsView.hidden : const Text('row'),
+          ),
+        ),
+      );
+
+      expect(find.text('Using Linear'), findsNothing);
+      expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+    });
+
+    testWidgets('a row partBuilder or toolCallBuilder hides still asks for the sign-in', (tester) async {
+      await tester.pumpWidget(
+        view(
+          parts(),
+          approver: approver,
+          partBuilder: (context, part) => part.id == 'call_1' ? AIMessagePartsView.hidden : null,
+        ),
+      );
+      expect(find.text('Using Linear'), findsNothing);
+      expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+
+      await tester.pumpWidget(
+        view(
+          parts(),
+          approver: approver,
+          toolCallBuilder: (context, call) => call.id == 'call_1' ? AIMessagePartsView.hidden : null,
+        ),
+      );
+      expect(find.text('Using Linear'), findsNothing);
+      expect(find.byType(AIToolAuthorizationCard), findsOneWidget);
+    });
+
+    testWidgets('a call a builder draws its own way forgets its sign-in once it stops waiting', (tester) async {
+      final pending = Completer<bool>();
+      final forgetful = AIToolApprover(
+        identity: const AIClientIdentity(userId: 'alice'),
+        decide: (_, _) async {},
+        authorizer: AIToolAuthorizer(connect: (_, _) => pending.future, decline: (_) async {}),
+      );
+      addTearDown(forgetful.dispose);
+      final waiting = parts().first.toolCall!;
+      forgetful.connect(waiting);
+      expect(forgetful.authorizationStateOf(waiting).isConnecting, isTrue);
+
+      Widget own(BuildContext context, AIToolCallPart call) => Text('own ${call.id}');
+      await tester.pumpWidget(view(parts(), approver: forgetful, toolCallBuilder: own));
+      expect(find.byType(AIToolAuthorizationCard), findsNothing, reason: 'its own widget asks for the sign-in');
+      expect(forgetful.authorizationStateOf(waiting).isConnecting, isTrue, reason: 'still waiting, so kept');
+
+      await tester.pumpWidget(
+        view(
+          parts(status: 'running'),
+          approver: forgetful,
+          toolCallBuilder: own,
+        ),
+      );
+      // Connected: kept, it would read connecting until its settle ran out.
+      pending.complete(true);
+      await tester.pump();
+
+      // Forgotten while it moved on: waiting again, it starts afresh.
+      expect(forgetful.authorizationStateOf(waiting), const AIToolAuthorizationState());
     });
   });
 

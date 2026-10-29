@@ -166,6 +166,34 @@
   `audioLevel` (0 to 1, a live voice level such as a call participant's) on both views.
 - `AITranslations.voiceAgent`, `voiceIdle`, `voiceConnecting`, `voiceListening`, `voiceThinking`
   and `voiceSpeaking` — what screen readers hear: the view, and the state as its value.
+- Tool sign-ins: a tool call can wait for the person to sign in at a provider, such as "Connect
+  Linear", with status `AIToolCallStatus.awaitingAuthorization` and an `AIToolCallPart.authorization`
+  (`AIToolAuthorization`: the provider, the title and message, the sign-in page, its handoff token,
+  expiry and how it ended). `AIToolAuthorization.launchUrl` is the page to open, with the handoff
+  token in its fragment; only an `https` page is read, or an `http` one on a loopback host for a
+  router run locally, since a cleartext page elsewhere would expose the token.
+  `AIToolCallPart.isAwaitingAuthorization` and `AIClientIdentity.canAuthorize` say whether a call
+  waits for this person, and a declined sign-in makes the call `isDeclined`.
+- `AIToolAuthorizer` — set as `AIToolApprover.authorizer`, it is how the person signs in: `connect`
+  (an `AIToolAuthorizationConnector`) gets the call and the sign-in page, which your app opens in a
+  browser, and completes with whether the person connected; `decline` (an
+  `AIToolAuthorizationDecliner`) sends their "not now". The package opens no browser itself and adds
+  no browser plugin. The approver keeps where each sign-in is (`AIToolAuthorizationState`): one
+  page at a time; back connected, it reads connecting for a while as the step changes;
+  a sign-in issued again on the same step starts over; past `expiresAt` it reads `isExpired` and
+  `canConnect` turns false.
+- `AIToolAuthorizationView` and `AIToolAuthorizationCard` — ask the person to sign in, with Connect
+  and Not now, styled by the approval card's theme. Once the sign-in expires, the card says so and
+  stops offering Connect. `AIMessagePartsView` shows the view under each
+  call waiting for this person's sign-in when its approver has an authorizer.
+- `AIComponentBuilders.toolAuthorization` and `AIToolAuthorizationProps` — replace the sign-in card.
+- `AIToolCallView` shows a call waiting for a sign-in with a key and "Waiting for sign-in", where it
+  used to read as running until the backend gave up on it. Given the viewer's `userId`, which
+  `AIMessagePartsView` passes when its approver offers the sign-in, it tells the person the call
+  waits for "Waiting for you to sign in".
+- `AITranslations.toolCallAwaitingAuthorization`, `toolCallAwaitingYourAuthorization`,
+  `toolAuthorizationConnect`, `toolAuthorizationConnecting`, `toolAuthorizationDecline`,
+  `toolAuthorizationNotOpened` and `toolAuthorizationExpired`.
 
 🔄 Changed
 

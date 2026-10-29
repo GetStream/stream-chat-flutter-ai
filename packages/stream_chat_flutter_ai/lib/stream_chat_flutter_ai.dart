@@ -49,6 +49,8 @@ export 'src/parts/ai_reasoning_part.dart';
 export 'src/parts/ai_tool_approval.dart';
 export 'src/parts/ai_tool_approval_view.dart';
 export 'src/parts/ai_tool_approver.dart';
+export 'src/parts/ai_tool_authorization.dart';
+export 'src/parts/ai_tool_authorization_view.dart';
 export 'src/parts/ai_tool_call_part.dart';
 export 'src/parts/ai_tool_call_view.dart';
 export 'src/reasoning/streaming_reasoning_view.dart';

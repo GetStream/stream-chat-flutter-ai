@@ -28,6 +28,7 @@ AIToolCallPart _call({
   String? summary,
   int? durationMs,
   AIToolApproval? approval,
+  AIToolAuthorization? authorization,
 }) => AIToolCallPart(
   id: 'call_1',
   name: name,
@@ -36,6 +37,7 @@ AIToolCallPart _call({
   summary: summary,
   durationMs: durationMs,
   approval: approval,
+  authorization: authorization,
 );
 
 const _declined = AIToolApproval(decision: AIToolApprovalDecision.declined);
@@ -121,6 +123,7 @@ void main() {
         AIToolCallStatus.running: null,
         AIToolCallStatus.completed: null,
         AIToolCallStatus.awaitingApproval: 'Waiting for approval',
+        AIToolCallStatus.awaitingAuthorization: 'Waiting for sign-in',
         AIToolCallStatus.awaitingClient: 'Waiting for the device',
         AIToolCallStatus.failed: "Didn't complete",
         AIToolCallStatus.cancelled: 'Cancelled',
@@ -146,6 +149,44 @@ void main() {
           );
           expect(_texts(tester), ['get weather', 'Declined']);
         }
+      });
+
+      testWidgets('a call waiting for the viewer to sign in tells them, and only them', (tester) async {
+        _reduceMotion(tester);
+        final waiting = AIToolCallPart(
+          id: 'call_1',
+          name: 'get_weather',
+          status: AIToolCallStatus.awaitingAuthorization,
+          targetUserId: 'alice',
+          authorization: AIToolAuthorization(title: 'Connect', url: Uri.parse('https://agent.example/launch')),
+        );
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting, userId: 'alice')));
+        expect(_texts(tester), ['get weather', 'Waiting for you to sign in']);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting, userId: 'bob')));
+        expect(_texts(tester), ['get weather', 'Waiting for sign-in']);
+
+        await tester.pumpWidget(_wrap(AIToolCallView(call: waiting)));
+        expect(_texts(tester), ['get weather', 'Waiting for sign-in']);
+      });
+
+      testWidgets('a call whose sign-in was declined reads "Declined"', (tester) async {
+        _reduceMotion(tester);
+        final signIn = AIToolAuthorization(
+          title: 'Connect Linear',
+          url: Uri.parse('https://agent.example/launch'),
+          status: AIToolAuthorizationStatus.declined,
+        );
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(
+              call: _call(status: AIToolCallStatus.cancelled, authorization: signIn),
+            ),
+          ),
+        );
+        expect(_texts(tester), ['get weather', 'Declined']);
+        expect(_icon(tester), Icons.close_rounded);
       });
 
       testWidgets('the summary wins over the status text', (tester) async {
@@ -264,6 +305,11 @@ void main() {
             color: colors.primary,
           ),
           (
+            call: _call(status: AIToolCallStatus.awaitingAuthorization),
+            icon: Icons.key_outlined,
+            color: colors.primary,
+          ),
+          (
             call: _call(status: AIToolCallStatus.awaitingClient),
             icon: Icons.smartphone_outlined,
             color: colors.primary,
@@ -330,7 +376,11 @@ void main() {
       });
 
       testWidgets('shimmers while the call waits, and stops once it does not', (tester) async {
-        for (final status in [AIToolCallStatus.awaitingApproval, AIToolCallStatus.awaitingClient]) {
+        for (final status in [
+          AIToolCallStatus.awaitingApproval,
+          AIToolCallStatus.awaitingAuthorization,
+          AIToolCallStatus.awaitingClient,
+        ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
           expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: status.value);
           expect(tester.hasRunningAnimations, isTrue);
@@ -348,7 +398,11 @@ void main() {
         expect(_icon(tester), Icons.more_horiz_rounded);
         expect(tester.hasRunningAnimations, isFalse);
 
-        for (final status in [AIToolCallStatus.awaitingApproval, AIToolCallStatus.awaitingClient]) {
+        for (final status in [
+          AIToolCallStatus.awaitingApproval,
+          AIToolCallStatus.awaitingAuthorization,
+          AIToolCallStatus.awaitingClient,
+        ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
           expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status.value);
           expect(tester.hasRunningAnimations, isFalse, reason: status.value);
@@ -768,6 +822,11 @@ void main() {
           name: 'get_location',
           displayTitle: 'Sharing your location',
           status: AIToolCallStatus.awaitingApproval,
+        ),
+        _call(
+          name: 'linear__list_issues',
+          displayTitle: 'Using Linear',
+          status: AIToolCallStatus.awaitingAuthorization,
         ),
         _call(name: 'read_contacts', status: AIToolCallStatus.awaitingClient),
         _call(

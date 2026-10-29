@@ -22,9 +22,9 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 ///  * **A status icon,** following [AIToolCallPart.status]. A small spinner
 ///    while the call runs (and for a status this package doesn't know, which
 ///    counts as still in progress — debug builds say so); a shimmering hand
-///    while it waits for approval, or a phone while it waits for a device; a
-///    check once completed, an exclamation mark once failed, and a cross once
-///    cancelled.
+///    while it waits for approval, a key while it waits for the person to sign
+///    in, or a phone while it waits for a device; a check once completed, an
+///    exclamation mark once failed, and a cross once cancelled.
 ///  * **The title:** [AIToolCallPart.displayName] (the agent's title, or the
 ///    tool's name with underscores turned into spaces), or
 ///    [AITranslations.toolCallFallbackTitle] when the agent sent neither.
@@ -62,10 +62,18 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 /// {@endtemplate}
 class AIToolCallView extends StatefulWidget {
   /// {@macro aiToolCallView}
-  const AIToolCallView({super.key, required this.call, this.theme});
+  const AIToolCallView({super.key, required this.call, this.userId, this.theme});
 
   /// The tool call to show.
   final AIToolCallPart call;
+
+  /// The person viewing the call, so a call waiting for them to sign in says
+  /// it waits for them ([AITranslations.toolCallAwaitingYourAuthorization]).
+  /// Everyone else, and a view without one, reads the neutral
+  /// [AITranslations.toolCallAwaitingAuthorization]. Set it only where the
+  /// person can sign in; `AIMessagePartsView` does so when its approver
+  /// offers the sign-in.
+  final String? userId;
 
   /// Overrides for this view, layered over the ambient [ToolCallTheme]. Its
   /// text styles merge over the themed ones rather than replacing them.
@@ -75,11 +83,12 @@ class AIToolCallView extends StatefulWidget {
   State<AIToolCallView> createState() => _AIToolCallViewState();
 }
 
-/// What the row shows, folding [AIToolCallPart.status] and the approval's
-/// decision into one.
+/// What the row shows, folding [AIToolCallPart.status] and a declined
+/// approval or sign-in into one.
 enum _ToolCallState {
   running,
   awaitingApproval,
+  awaitingAuthorization,
   awaitingClient,
   completed,
   failed,
@@ -94,6 +103,7 @@ enum _ToolCallState {
   static _ToolCallState ofStatus(AIToolCallPart call) {
     return switch (call.status) {
       AIToolCallStatus.awaitingApproval => awaitingApproval,
+      AIToolCallStatus.awaitingAuthorization => awaitingAuthorization,
       AIToolCallStatus.awaitingClient => awaitingClient,
       AIToolCallStatus.completed => completed,
       AIToolCallStatus.failed => failed,
@@ -103,16 +113,19 @@ enum _ToolCallState {
     };
   }
 
-  bool get isAwaiting => this == awaitingApproval || this == awaitingClient;
+  bool get isAwaiting => this == awaitingApproval || this == awaitingAuthorization || this == awaitingClient;
 
   /// Whether the call may still change: running or waiting.
   bool get isLive => this == running || isAwaiting;
 
   /// The status in words, for the detail line (when the call has no summary)
   /// and for screen readers. `null` where the row shows no detail by default.
-  String? detail(AITranslations translations) => switch (this) {
+  /// [yours] says a sign-in waits for the person viewing the call.
+  String? detail(AITranslations translations, {required bool yours}) => switch (this) {
     running || completed => null,
     awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingAuthorization when yours => translations.toolCallAwaitingYourAuthorization,
+    awaitingAuthorization => translations.toolCallAwaitingAuthorization,
     awaitingClient => translations.toolCallAwaitingClient,
     failed => translations.toolCallFailed,
     cancelled => translations.toolCallCancelled,
@@ -120,10 +133,12 @@ enum _ToolCallState {
   };
 
   /// The status in words for screen readers, which always hear one.
-  String label(AITranslations translations) => switch (this) {
+  String label(AITranslations translations, {required bool yours}) => switch (this) {
     running => translations.toolCallRunning,
     completed => translations.toolCallCompleted,
     awaitingApproval => translations.toolCallAwaitingApproval,
+    awaitingAuthorization when yours => translations.toolCallAwaitingYourAuthorization,
+    awaitingAuthorization => translations.toolCallAwaitingAuthorization,
     awaitingClient => translations.toolCallAwaitingClient,
     failed => translations.toolCallFailed,
     cancelled => translations.toolCallCancelled,
@@ -200,10 +215,15 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     final translations = AITranslations.of(context);
     final call = widget.call;
     final state = _ToolCallState.of(call);
+    // Only the person a sign-in is for reads that it waits for them.
+    final yours = switch (widget.userId) {
+      final userId? => call.isAwaitingAuthorization(userId: userId),
+      null => false,
+    };
 
     final title = call.displayName.isEmpty ? translations.toolCallFallbackTitle : call.displayName;
     final summary = call.summaryText;
-    final detail = summary ?? state.detail(translations);
+    final detail = summary ?? state.detail(translations, yours: yours);
     final duration = call.status.isFinished ? call.duration : null;
     final durationText = duration == null ? null : translations.toolCallDuration(duration);
 
@@ -211,7 +231,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     return Semantics(
       container: true,
       liveRegion: _announces,
-      label: [title, state.label(translations), ?summary, ?durationText].join(', '),
+      label: [title, state.label(translations, yours: yours), ?summary, ?durationText].join(', '),
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,6 +311,7 @@ class _StatusIcon extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: size * 3 / 32, color: theme.accentColor),
       ),
       _ToolCallState.awaitingApproval => waiting(Icons.back_hand_outlined),
+      _ToolCallState.awaitingAuthorization => waiting(Icons.key_outlined),
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
       _ToolCallState.completed => icon(Icons.check_rounded, theme.successColor),
       _ToolCallState.failed => icon(Icons.priority_high_rounded, theme.failureColor),
