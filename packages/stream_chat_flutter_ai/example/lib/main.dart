@@ -177,6 +177,26 @@ const _emailCall = AIToolCallPart(
   ),
 );
 
+/// The canned tool call that needs the user's own account: run after the
+/// email, it waits for them to connect Linear, through
+/// [AIToolAuthorizationView]. `final` rather than `const`, as a [Uri] can't be
+/// const; the expiry is set when it is added.
+final _linearCall = AIToolCallPart(
+  id: 'call_linear',
+  name: 'create_linear_issue',
+  displayTitle: 'Filing a Linear issue',
+  status: AIToolCallStatus.awaitingAuthorization,
+  targetUserId: 'me',
+  authorization: AIToolAuthorization(
+    provider: 'linear',
+    providerName: 'Linear',
+    title: 'Connect Linear',
+    message: 'To file the issue under your own name.',
+    url: Uri.parse('https://example.com/connect/linear'),
+    handoffToken: 'example-handoff-token',
+  ),
+);
+
 /// The canned reasoning streamed before the reply, the way a reasoning model
 /// "thinks out loud" before it answers.
 const _cannedReasoning = '''
@@ -349,7 +369,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   Timer? _reasoningTimer;
 
   /// Non-null while a canned tool call is running, or while the fake backend
-  /// is about to update the call waiting for approval.
+  /// is about to update the call waiting for approval or a sign-in.
   Timer? _toolTimer;
 
   /// Non-null while chunks of the reply are still being delivered.
@@ -360,9 +380,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
   bool _answerFailedOnce = false;
 
   /// Answers tool calls' questions for [_identity], through a fake backend
-  /// that is slow and, the first time, fails. Kept for the screen's lifetime:
-  /// it remembers where each answer is.
-  late final _approver = AIToolApprover(identity: _identity, decide: _sendAnswer);
+  /// that is slow and, the first time, fails, and signs them in through a fake
+  /// provider page. Kept for the screen's lifetime: it remembers where each
+  /// answer is.
+  late final _approver = AIToolApprover(
+    identity: _identity,
+    decide: _sendAnswer,
+    authorizer: AIToolAuthorizer(connect: _connect, decline: _declineSignIn),
+  );
 
   /// Runs the client tool calls addressed to [_identity], and sends their
   /// results through [_sendToolResult]. A real app would also post
@@ -585,7 +610,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           approval: call.approval?.copyWith(decision: decision),
         ),
       );
-      if (!allowed) return _streamReply();
+      if (!allowed) return _askToConnectLinear();
 
       const takes = Duration(milliseconds: 1100);
       _toolTimer = Timer(takes, () {
@@ -598,8 +623,86 @@ class _AssistantScreenState extends State<AssistantScreen> {
             durationMs: takes.inMilliseconds,
           ),
         );
-        _streamReply();
+        _askToConnectLinear();
       });
+    });
+  }
+
+  /// Adds the call that waits for the user to connect Linear, its sign-in
+  /// expiring in a few minutes. [_connect] and [_declineSignIn] carry on from
+  /// there.
+  void _askToConnectLinear() {
+    // A fresh id per reply, so the approver doesn't take it for an earlier one.
+    final call = _linearCall.copyWith(
+      id: '${_linearCall.id}_${_messages.length}',
+      authorization: _linearCall.authorization?.copyWith(expiresAt: DateTime.now().add(const Duration(minutes: 5))),
+    );
+    setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
+    _scrollToEnd();
+  }
+
+  /// Stands in for opening [url] in a browser: a dialog plays the provider's
+  /// page. Connected, the provider hands the grant to the agent's backend,
+  /// which moves the call on by itself a moment later; nothing goes back from
+  /// the app.
+  Future<bool> _connect(AIToolCallPart call, Uri url) async {
+    if (!mounted) return false;
+    final connected = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(call.authorization?.title ?? 'Sign in'),
+        content: Text("Pretend you're at Linear's sign-in page.\n\n$url"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Back without connecting')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Connect')),
+        ],
+      ),
+    );
+    // Dismissed by tapping outside: back without connecting.
+    if (connected != true) return false;
+    _toolTimer?.cancel();
+    _toolTimer = Timer(const Duration(seconds: 1), () => _settleSignIn(call.id, connected: true));
+    return true;
+  }
+
+  /// Stands in for sending the user's "not now" to the agent's backend: slow,
+  /// and once it "arrives", the backend cancels the call a moment later.
+  Future<void> _declineSignIn(AIToolCallPart call) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    _toolTimer?.cancel();
+    _toolTimer = Timer(const Duration(milliseconds: 500), () => _settleSignIn(call.id, connected: false));
+  }
+
+  /// The fake backend ending the sign-in for the call with [id]: connected,
+  /// the call runs and files the issue; declined, it is cancelled unrun.
+  void _settleSignIn(String id, {required bool connected}) {
+    // Stopped meanwhile: the call is no longer waiting.
+    final current = _messages.lastOrNull?.toolCalls.where((c) => c.id == id).firstOrNull;
+    if (!mounted || current?.status != AIToolCallStatus.awaitingAuthorization) return;
+    _updateToolCall(
+      id,
+      (call) => call.copyWith(
+        status: connected ? AIToolCallStatus.running : AIToolCallStatus.cancelled,
+        authorization: call.authorization?.copyWith(
+          status: connected ? AIToolAuthorizationStatus.connected : AIToolAuthorizationStatus.declined,
+        ),
+      ),
+    );
+    if (!connected) return _streamReply();
+
+    const takes = Duration(milliseconds: 1100);
+    _toolTimer = Timer(takes, () {
+      if (!mounted) return;
+      _updateToolCall(
+        id,
+        (call) => call.copyWith(
+          status: AIToolCallStatus.completed,
+          summary: 'Filed ENG-42 in Linear',
+          durationMs: takes.inMilliseconds,
+        ),
+      );
+      _streamReply();
     });
   }
 
