@@ -178,8 +178,8 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
 /// [AITranslations.toolApprovalTitle] with [toolName], the buttons to
 /// [AITranslations.toolApprovalAllow] and [AITranslations.toolApprovalDecline].
 ///
-/// While [state] is sending, both buttons are disabled and the pressed one
-/// shows a small progress indicator (a static icon with reduced motion on).
+/// While [state] is sending, both buttons are disabled and a small progress
+/// indicator follows them (a static icon with reduced motion on).
 /// Once sent, they stay disabled and a check with
 /// [AITranslations.toolApprovalSent] follows them. When it has failed, a line
 /// in [ToolApprovalThemeData.failureStyle] says the answer couldn't be sent,
@@ -266,10 +266,10 @@ class AIToolApprovalCard extends StatelessWidget {
                 Text(title, style: theme.titleStyle),
                 for (final line in _lines(approval))
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(line, style: theme.messageStyle),
                   ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -282,10 +282,7 @@ class AIToolApprovalCard extends StatelessWidget {
                         foregroundColor: theme.onAccentColor,
                         visualDensity: VisualDensity.compact,
                       ),
-                      child: _ButtonLabel(
-                        allowLabel,
-                        busy: sending && state.decision == AIToolApprovalDecision.allowed,
-                      ),
+                      child: Text(allowLabel),
                     ),
                     OutlinedButton(
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.declined),
@@ -294,11 +291,9 @@ class AIToolApprovalCard extends StatelessWidget {
                         side: BorderSide(color: theme.borderColor),
                         visualDensity: VisualDensity.compact,
                       ),
-                      child: _ButtonLabel(
-                        declineLabel,
-                        busy: sending && state.decision == AIToolApprovalDecision.declined,
-                      ),
+                      child: Text(declineLabel),
                     ),
+                    if (sending) _SendingIndicator(color: theme.accentColor),
                     if (state.isSent)
                       Semantics(
                         liveRegion: true,
@@ -315,7 +310,7 @@ class AIToolApprovalCard extends StatelessWidget {
                 ),
                 if (state.hasFailed)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: 12),
                     child: Semantics(
                       liveRegion: true,
                       child: Text(translations.toolApprovalNotSent, style: theme.failureStyle),
@@ -330,38 +325,27 @@ class AIToolApprovalCard extends StatelessWidget {
   }
 }
 
-/// A button's label, led by a small progress indicator while its answer is
-/// on its way.
-class _ButtonLabel extends StatelessWidget {
-  const _ButtonLabel(this.text, {required this.busy});
+/// The small progress indicator after the buttons while the answer is on its
+/// way.
+class _SendingIndicator extends StatelessWidget {
+  const _SendingIndicator({required this.color});
 
-  final String text;
-  final bool busy;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    if (!busy) return Text(text);
-
-    // The button's own (disabled) foreground, which it puts in the icon theme.
-    final color = IconTheme.of(context).color;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    const size = 14.0;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          label: AITranslations.of(context).toolApprovalSending,
-          child: SizedBox.square(
-            dimension: size,
-            // A spinner never stops, so reduced motion gets a still "in progress".
-            child: reduceMotion
-                ? Icon(Icons.more_horiz_rounded, size: size, color: color)
-                : CircularProgressIndicator(strokeWidth: 2, color: color),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(text),
-      ],
+    const size = 16.0;
+    return Semantics(
+      container: true,
+      label: AITranslations.of(context).toolApprovalSending,
+      child: SizedBox.square(
+        dimension: size,
+        // A spinner never stops, so reduced motion gets a still "in progress".
+        child: reduceMotion
+            ? Icon(Icons.more_horiz_rounded, size: size, color: color)
+            : CircularProgressIndicator(strokeWidth: 2, color: color),
+      ),
     );
   }
 }

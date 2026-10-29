@@ -41,8 +41,13 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// The rows can be replaced through [AIComponentBuilders.userMessage] and
 /// [AIComponentBuilders.assistantMessage], and under each finished reply
 /// [AIComponentBuilders.replyActions] shows the person's actions, nothing until
-/// you set it. A row is only built again when what it shows changes, so a
-/// reply streaming in does not rebuild the rest of the conversation.
+/// you set it. A row is only built again when what its message says changes,
+/// or the builders do, so a reply streaming in does not rebuild the rest of the
+/// conversation. A builder that shows state of your own, such as a reply's
+/// rating, should therefore read it through a [Listenable] (a
+/// [ListenableBuilder] or [ValueListenableBuilder] in what it returns), and
+/// the builders, [onAttachmentTap] and [approver] should be created once
+/// rather than in `build`, since new ones rebuild every row.
 ///
 /// Place the composer below the list rather than over it, so the list knows how
 /// much of it is visible.
@@ -139,7 +144,7 @@ class _AIConversationViewState extends State<AIConversationView> {
   void _updateEndInView() {
     if (!_controller.hasClients) return;
     final position = _controller.position;
-    final inView = position.maxScrollExtent - position.pixels <= 32;
+    final inView = position.maxScrollExtent - position.pixels <= 24;
     if (inView != _endInView) setState(() => _endInView = inView);
   }
 
@@ -333,7 +338,13 @@ class _AIConversationViewState extends State<AIConversationView> {
                   child: AnimatedOpacity(
                     opacity: _endInView ? 0 : 1,
                     duration: _reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
-                    child: _ScrollToLatestButton(onPressed: _scrollToLatest),
+                    curve: Curves.easeInOut,
+                    child: AnimatedScale(
+                      scale: _endInView ? 0.8 : 1,
+                      duration: _reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: _ScrollToLatestButton(onPressed: _scrollToLatest),
+                    ),
                   ),
                 ),
               ),
@@ -375,20 +386,30 @@ class _TurnView extends StatelessWidget {
     return ThinkingTurnScope(
       clock: clock,
       turn: turn.id,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: isLatest ? minHeight : 0),
-        child: Padding(
-          padding: padding.copyWith(top: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            spacing: 16,
-            children: [
-              for (final entry in turn.entries)
-                _EntryView(key: ValueKey(entry.id), entry: entry, approver: approver, onAttachmentTap: onAttachmentTap),
-              if (isLatest && isThinking) const Align(alignment: Alignment.centerLeft, child: AIThinkingView()),
-              if (isLatest && footer != null) footer,
-            ],
+      // 8 between turns. It goes under a turn rather than above it, so the
+      // first one keeps its place whether or not older messages can load.
+      child: Padding(
+        padding: EdgeInsets.only(bottom: isLatest ? 0 : 8),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: isLatest ? minHeight : 0),
+          child: Padding(
+            padding: padding.copyWith(top: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              spacing: 16,
+              children: [
+                for (final entry in turn.entries)
+                  _EntryView(
+                    key: ValueKey(entry.id),
+                    entry: entry,
+                    approver: approver,
+                    onAttachmentTap: onAttachmentTap,
+                  ),
+                if (isLatest && isThinking) const Align(alignment: Alignment.centerLeft, child: AIThinkingView()),
+                if (isLatest && footer != null) footer,
+              ],
+            ),
           ),
         ),
       ),
@@ -511,11 +532,13 @@ class _EntryViewState extends State<_EntryView> {
       onAttachmentTap: widget.onAttachmentTap,
     );
     final showsActions = !reply.isGenerating && reply.text.isNotEmpty && _writing.value != true;
+    final actions = showsActions
+        ? builders.replyActions?.call(context, AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply))
+        : null;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      spacing: 4,
       children: [
         builders.assistantMessage?.call(context, assistant) ??
             AIAssistantMessageView(
@@ -529,13 +552,11 @@ class _EntryViewState extends State<_EntryView> {
             ),
         AnimatedSwitcher(
           duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
-          child: showsActions
-              ? builders.replyActions?.call(
-                      context,
-                      AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply),
-                    ) ??
-                    const SizedBox.shrink()
-              : const SizedBox.shrink(),
+          // The gap above the actions comes and goes with them, so an answer
+          // without any leaves no space under it.
+          child: actions == null
+              ? const SizedBox.shrink()
+              : Padding(padding: const EdgeInsets.only(top: 8), child: actions),
         ),
       ],
     );
@@ -545,7 +566,8 @@ class _EntryViewState extends State<_EntryView> {
 /// A spinner at the start of the list that loads older messages once it has
 /// stayed in view a moment, rather than for the frame a list opening at its end
 /// can show its start, and again whenever the first turn changes while it is in
-/// view.
+/// view. A load that brings nothing, or fails, isn't retried until the first
+/// turn changes or the spinner leaves and comes back into view.
 class _OlderMessagesLoader extends StatefulWidget {
   const _OlderMessagesLoader({required this.firstTurn, required this.load, required this.color});
 
@@ -560,13 +582,15 @@ class _OlderMessagesLoader extends StatefulWidget {
 class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
   Timer? _timer;
   bool _loading = false;
+  bool _wasInView = false;
+  bool _checkingView = false;
   ScrollPosition? _position;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _position?.removeListener(_schedule);
-    _position = Scrollable.maybeOf(context)?.position?..addListener(_schedule);
+    _position?.removeListener(_onScroll);
+    _position = Scrollable.maybeOf(context)?.position?..addListener(_onScroll);
     _schedule();
   }
 
@@ -579,8 +603,23 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
   @override
   void dispose() {
     _timer?.cancel();
-    _position?.removeListener(_schedule);
+    _position?.removeListener(_onScroll);
     super.dispose();
+  }
+
+  // Scrolling loads only when it brings the spinner into view, not on every
+  // movement while it stays there. The position changes before the list lays
+  // out, so where the spinner is gets checked after the frame.
+  void _onScroll() {
+    if (_checkingView) return;
+    _checkingView = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _checkingView = false;
+      if (!mounted) return;
+      final inView = _inView;
+      if (inView && !_wasInView) _schedule();
+      _wasInView = inView;
+    });
   }
 
   void _schedule() {
@@ -597,7 +636,10 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
   }
 
   Future<void> _loadIfInView() async {
-    if (!mounted || _loading || !_inView) return;
+    if (!mounted || _loading) return;
+    _wasInView = _inView;
+    if (!_wasInView) return;
+    final firstTurn = widget.firstTurn;
     _loading = true;
     try {
       await widget.load();
@@ -613,18 +655,20 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
     } finally {
       _loading = false;
     }
-    // Still in view, such as after a short page: load the next one.
-    if (mounted) _schedule();
+    // The first turn changed while loading, such as a short page arriving:
+    // load the next one if the spinner is still in view.
+    if (mounted && widget.firstTurn != firstTurn) _schedule();
   }
 
   @override
   Widget build(BuildContext context) {
+    // 8 under it, as between turns.
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Center(
         child: SizedBox.square(
-          dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5, color: widget.color),
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: widget.color),
         ),
       ),
     );
@@ -640,14 +684,42 @@ class _ScrollToLatestButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ConversationTheme.of(context);
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: theme.scrollButtonBackgroundColor ?? scheme.surface,
-      shape: CircleBorder(side: BorderSide(color: theme.scrollButtonBorderColor ?? scheme.outlineVariant)),
-      elevation: 2,
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: AITranslations.of(context).scrollToLatest,
-        icon: Icon(Icons.arrow_downward, size: 20, color: theme.scrollButtonIconColor ?? scheme.onSurface),
+    final shadow = Theme.of(context).shadowColor;
+    // A 40 dp circle with a light shadow. Taps just around it reach it too, in
+    // a 48 dp target.
+    return GestureDetector(
+      onTap: onPressed,
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: shadow.withValues(alpha: shadow.a * 0.14),
+                offset: const Offset(0, 2),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Material(
+            color: theme.scrollButtonBackgroundColor ?? scheme.surface,
+            shape: CircleBorder(side: BorderSide(color: theme.scrollButtonBorderColor ?? scheme.outlineVariant)),
+            child: IconButton(
+              onPressed: onPressed,
+              tooltip: AITranslations.of(context).scrollToLatest,
+              icon: Icon(Icons.arrow_downward, size: 20, color: theme.scrollButtonIconColor ?? scheme.onSurface),
+              // Set on the button rather than in `style`, which Material 2
+              // ignores.
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
+              splashRadius: 20,
+              style: IconButton.styleFrom(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            ),
+          ),
+        ),
       ),
     );
   }

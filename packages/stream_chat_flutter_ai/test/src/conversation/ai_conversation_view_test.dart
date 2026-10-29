@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:alchemist/alchemist.dart';
@@ -60,7 +61,9 @@ Future<void> _pump(
   AIComponentBuilders builders = _withActions,
   Widget? footer,
   Widget? empty,
+  ThemeData? theme,
   bool settle = true,
+  bool reduceMotion = true,
 }) async {
   tester.view.physicalSize = const Size(400, 600);
   tester.view.devicePixelRatio = 1;
@@ -69,9 +72,10 @@ Future<void> _pump(
     AIComponentFactory(
       builders: builders,
       child: MaterialApp(
+        theme: theme,
         home: MediaQuery(
-          // No typewriter, so a reply is on screen at once.
-          data: const MediaQueryData(size: Size(400, 600), disableAnimations: true),
+          // By default no typewriter, so a reply is on screen at once.
+          data: MediaQueryData(size: const Size(400, 600), disableAnimations: reduceMotion),
           child: Scaffold(
             body: AIConversationView(
               messages: messages,
@@ -94,6 +98,19 @@ Future<void> _pump(
       await tester.pump(const Duration(milliseconds: 16));
     }
   }
+}
+
+final _olderMessagesLoader = find.byWidgetPredicate((widget) => '${widget.runtimeType}' == '_OlderMessagesLoader');
+
+/// Holds the list pulled past its start, so the spinner stays in view until
+/// the returned gesture is lifted.
+Future<TestGesture> _holdPastStart(WidgetTester tester) async {
+  final gesture = await tester.startGesture(tester.getCenter(find.byType(Scrollable)));
+  for (var i = 0; i < 10; i++) {
+    await gesture.moveBy(const Offset(0, 60));
+    await tester.pump();
+  }
+  return gesture;
 }
 
 Finder _text(String text) => find.textContaining(text, findRichText: true);
@@ -239,15 +256,114 @@ void main() {
       expect(ignoring, isFalse, reason: 'the person scrolled away and stays there');
     });
 
-    testWidgets('loads again while the spinner stays in view', (tester) async {
+    testWidgets(
+      'loads again when the first turn changes while the spinner stays in view',
+      (tester) async {
+        var loads = 0;
+        Future<void> loadOlder() async => loads++;
+        await _pump(tester, [_user('u1', 'Short')], loadOlder: loadOlder, settle: false);
+        final gesture = await _holdPastStart(tester);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(loads, 1);
+
+        // A load that brings nothing isn't repeated.
+        await tester.pump(const Duration(seconds: 2));
+        expect(loads, 1);
+
+        // A short page arrives above and the spinner is still in view: load the next.
+        await _pump(tester, [_user('u0', 'Shorter'), _user('u1', 'Short')], loadOlder: loadOlder, settle: false);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(loads, 2);
+        await gesture.up();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+
+    // A page that only fills in the first turn, such as the question of a
+    // reply that opened the list, keeps the number of turns above the anchor,
+    // so the spinner keeps its State while the first turn changes.
+    testWidgets(
+      'loads again when a page fills in the first turn after the load',
+      (tester) async {
+        var loads = 0;
+        Future<void> loadOlder() async => loads++;
+        final messages = [_reply('r0', text: 'Short'), _user('u1', 'Short')];
+        await _pump(tester, messages, loadOlder: loadOlder, settle: false);
+        final gesture = await _holdPastStart(tester);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(loads, 1);
+        final spinner = tester.state(_olderMessagesLoader);
+
+        await _pump(tester, [_user('u0', 'Shorter'), ...messages], loadOlder: loadOlder, settle: false);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.state(_olderMessagesLoader), same(spinner));
+        expect(loads, 2);
+        await gesture.up();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+
+    testWidgets(
+      'loads again when a page fills in the first turn during the load',
+      (tester) async {
+        var loads = 0;
+        late Completer<void> load;
+        Future<void> loadOlder() {
+          loads++;
+          return (load = Completer<void>()).future;
+        }
+
+        final messages = [_reply('r0', text: 'Short'), _user('u1', 'Short')];
+        await _pump(tester, messages, loadOlder: loadOlder, settle: false);
+        final gesture = await _holdPastStart(tester);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(loads, 1);
+        final spinner = tester.state(_olderMessagesLoader);
+
+        // The page is on screen before the load completes, such as when the app
+        // awaits a cache write after inserting it.
+        await _pump(tester, [_user('u0', 'Shorter'), ...messages], loadOlder: loadOlder, settle: false);
+        load.complete();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.state(_olderMessagesLoader), same(spinner));
+        expect(loads, 2);
+        await gesture.up();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+
+    testWidgets('a failed load is retried only once the spinner comes back into view', (tester) async {
       var loads = 0;
-      await _pump(tester, const [], loadOlder: () async => loads++, settle: false);
-      await _pump(tester, [_user('u1', 'Short')], loadOlder: () async => loads++, settle: false);
-      await tester.drag(find.byType(Scrollable), const Offset(0, 300));
+      Future<void> loadOlder() async {
+        loads++;
+        throw StateError('offline');
+      }
+
+      await _pump(tester, _history(3), loadOlder: loadOlder, settle: false);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 3000));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, 1);
+      expect(tester.takeException(), isA<StateError>());
+
+      // Waiting or scrolling while the spinner stays in view doesn't retry.
+      await tester.pump(const Duration(seconds: 2));
+      await tester.drag(find.byType(Scrollable), const Offset(0, -10));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(loads, greaterThanOrEqualTo(2));
+      expect(loads, 1);
+
+      // Scrolling it out of view and back does.
+      await tester.drag(find.byType(Scrollable), const Offset(0, -600));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, 1);
+      await tester.drag(find.byType(Scrollable), const Offset(0, 3000));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(loads, 2);
+      expect(tester.takeException(), isA<StateError>());
     });
 
     testWidgets('reports a failed load', (tester) async {
@@ -340,6 +456,144 @@ void main() {
       expect(builds, first, reason: 'an equal payload decoded again');
       await _pump(tester, conversation('Table'), builders: counting);
       expect(builds, first + 1);
+    });
+
+    group('layout', () {
+      Rect turnOf(WidgetTester tester, String text) =>
+          tester.getRect(find.ancestor(of: find.text(text), matching: find.byType(ConstrainedBox)).first);
+
+      testWidgets('leaves 8 between turns', (tester) async {
+        await _pump(tester, [_user('u1', 'Q1'), _reply('r1'), _user('u2', 'Q2'), _reply('r2')]);
+        await tester.drag(find.byType(Scrollable), const Offset(0, 200));
+        await tester.pumpAndSettle();
+        expect(turnOf(tester, 'Q2').top - turnOf(tester, 'Q1').bottom, 8);
+      });
+
+      testWidgets("sets the person's bubble 40 in, padded 16 by 12, 8 under its attachments", (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                child: AIUserMessageView(
+                  text: List.filled(20, 'A long question').join(' '),
+                  attachments: [AIMessageAttachment.file(Uri.parse('https://x.io/receipt.pdf'))],
+                ),
+              ),
+            ),
+          ),
+        );
+        final bubble = find.ancestor(of: find.textContaining('A long question'), matching: find.byType(DecoratedBox));
+        final rect = tester.getRect(bubble.first);
+        final text = tester.getRect(find.textContaining('A long question'));
+        expect(rect.left, 40);
+        expect(text.left - rect.left, 16);
+        expect(text.top - rect.top, 12);
+        expect(rect.bottom - text.bottom, 12);
+        final decoration = tester.widget<DecoratedBox>(bubble.first).decoration as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(20));
+        expect(rect.top - tester.getRect(find.byType(AIMessageAttachmentView)).bottom, 8);
+      });
+
+      testWidgets('leaves 8 between an answer and its actions', (tester) async {
+        await _pump(tester, [_user('u1'), _reply('r1')]);
+        final answer = tester.getRect(find.byType(AIAssistantMessageView));
+        expect(tester.getTopLeft(find.text('actions for r1 (latest)')).dy - answer.bottom, 8);
+      });
+
+      testWidgets('leaves no room under an answer without actions', (tester) async {
+        await _pump(
+          tester,
+          [_user('u1', 'Q1'), _reply('r1'), _user('u2', 'Q2'), _reply('r2')],
+          builders: const AIComponentBuilders(),
+        );
+        await tester.drag(find.byType(Scrollable), const Offset(0, 200));
+        await tester.pumpAndSettle();
+
+        final answer = tester.getRect(find.byType(AIAssistantMessageView).first);
+        final question = tester.getRect(find.byType(AIUserMessageView).at(1));
+        expect(question.top - answer.bottom, 24, reason: '8 between turns and 16 above the question');
+      });
+
+      testWidgets('shows a 20 dp spinner while older messages load', (tester) async {
+        await _pump(tester, _history(1), loadOlder: () => Completer<void>().future, settle: false);
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await _frames(tester, const Duration(milliseconds: 16), 5);
+        expect(tester.getSize(find.byType(CircularProgressIndicator)), const Size.square(20));
+        expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).strokeWidth, 2);
+      });
+
+      testWidgets('gives the scroll-to-latest button a 40 dp circle in a 48 dp tap target', (tester) async {
+        await _pump(tester, _history(6));
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await tester.pumpAndSettle();
+        final button = find.byTooltip('Scroll to latest');
+        final circle = find.ancestor(
+          of: button,
+          matching: find.byWidgetPredicate((w) => w is Material && w.shape is CircleBorder),
+        );
+        expect(tester.getSize(circle), const Size.square(40));
+      });
+
+      testWidgets('scrolls to the latest on a tap just outside the circle', (tester) async {
+        await _pump(tester, _history(6));
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await tester.pumpAndSettle();
+
+        // Just outside the 40 dp circle, inside the 48 dp target.
+        await tester.tapAt(tester.getCenter(find.byTooltip('Scroll to latest')) + const Offset(23, 0));
+        await tester.pumpAndSettle();
+        expect(find.text('Question 5'), findsOneWidget);
+      });
+
+      testWidgets("casts the scroll-to-latest button's shadow in the theme's shadow color", (tester) async {
+        await _pump(tester, _history(6), theme: ThemeData(shadowColor: const Color(0xFF112233)));
+        final box = tester.widget<DecoratedBox>(
+          find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(DecoratedBox)).at(0),
+        );
+        final shadow = (box.decoration as BoxDecoration).boxShadow!.single;
+        expect(shadow.color, const Color(0xFF112233).withValues(alpha: 0.14));
+        expect(shadow.offset, const Offset(0, 2));
+        expect(shadow.blurRadius, 6);
+      });
+
+      testWidgets('shows the scroll-to-latest button once the end is more than 24 out of view', (tester) async {
+        await _pump(tester, _history(6));
+        final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+        final button = find.byTooltip('Scroll to latest');
+        double scale() =>
+            tester.widget<AnimatedScale>(find.ancestor(of: button, matching: find.byType(AnimatedScale))).scale;
+        expect(scale(), 0.8);
+
+        position.jumpTo(position.maxScrollExtent - 24);
+        await tester.pumpAndSettle();
+        expect(scale(), 0.8);
+
+        position.jumpTo(position.maxScrollExtent - 25);
+        await tester.pumpAndSettle();
+        expect(scale(), 1);
+      });
+
+      for (final (description, reduceMotion, duration) in [
+        ('shows the scroll-to-latest button at once with reduced motion', true, Duration.zero),
+        ('fades and scales the scroll-to-latest button in over 200 ms', false, const Duration(milliseconds: 200)),
+      ]) {
+        testWidgets(description, (tester) async {
+          await _pump(tester, _history(6), reduceMotion: reduceMotion);
+          final button = find.byTooltip('Scroll to latest');
+          final scale = tester.widget<AnimatedScale>(find.ancestor(of: button, matching: find.byType(AnimatedScale)));
+          final fade = tester.widget<AnimatedOpacity>(
+            find.ancestor(of: button, matching: find.byType(AnimatedOpacity)),
+          );
+
+          expect(scale.duration, duration);
+          expect(fade.duration, duration);
+          if (!reduceMotion) {
+            expect(scale.curve, Curves.easeInOut);
+            expect(fade.curve, Curves.easeInOut);
+          }
+        });
+      }
     });
 
     group('goldens', () {

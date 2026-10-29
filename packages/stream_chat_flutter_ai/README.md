@@ -75,7 +75,9 @@ dependencies:
 ### `StreamingMessageView`
 
 Renders markdown text with a character-by-character typewriter animation — ideal for
-displaying streaming AI responses as they arrive. Markdown is fully parsed: code fences
+displaying streaming AI responses as they arrive. Text is typed out while `expectMoreText` is
+`true` (the reply is still being generated); otherwise it is shown in full at once, as for a
+reply loaded from history. Markdown is fully parsed: code fences
 get a `CodeBlockView` (with copy button, and syntax highlighting when you supply a
 `codeHighlighter`), and JSON/chart fences are rendered as interactive charts via
 `ChartView`. A code fence is styled from its opening line onwards, so a block still
@@ -84,7 +86,8 @@ being streamed doesn't show raw ` ``` ` markers while it arrives.
 ```dart
 StreamingMessageView(
   text: markdownText,          // updated in real time as chunks arrive
-  typingSpeed: Duration(milliseconds: 10),
+  expectMoreText: isGenerating, // true while the backend may still send text
+  typingSpeed: Duration(milliseconds: 5),
   onTypewriterStateChanged: (state) {
     // TypewriterState.typing | idle | paused | stopped
   },
@@ -93,7 +96,7 @@ StreamingMessageView(
 
 The typewriter usually falls behind the backend, so the reply is still being revealed after
 generation ends. To know when it is completely on screen — to swap a stop button back to send,
-say — pass `expectMoreText` and listen to `onFinished`:
+say — listen to `onFinished`:
 
 ```dart
 StreamingMessageView(
@@ -1001,7 +1004,10 @@ StreamBuilder<String>(
   stream: _answers,
   builder: (context, snapshot) => snapshot.hasError
       ? const Text('The on-device model could not answer.')
-      : StreamingMessageView(text: snapshot.data ?? ''),
+      : StreamingMessageView(
+          text: snapshot.data ?? '',
+          expectMoreText: snapshot.connectionState != ConnectionState.done,
+        ),
 );
 ```
 
@@ -1028,25 +1034,53 @@ AIConversationView(
 )
 ```
 
+An `AIMessage` has an `id`, a `role`, its `text`, and optionally `isGenerating`, `parts`
+(the agent's steps), `attachments` and `reasoningText(step)` (a reasoning step's whole thinking,
+when you have it). `AIMessageRole` is an open set: each `AIMessageRole.user` message starts a turn,
+and a message of any other role (`AIMessageRole.assistant`, or your own such
+as `AIMessageRole('system')`) shows as the agent's. `pendingMessage` takes an `AIPendingMessage`, a
+message the person sent that isn't in `messages` yet, such as while its attachments upload: it shows
+as theirs at once, and the first message of theirs that arrives replaces it without the list moving.
+While `isThinking` is set, an `AIThinkingView` ("Thinking… 4s") counts under the latest question
+until the reply's first reasoning step takes over the count. It works on its own too, counting from
+its `since`.
+
 The rows are `AIUserMessageView` and `AIAssistantMessageView`, with attachments as
 `AIMessageAttachmentView`. Under each finished reply there is room for actions, empty until you
 set `AIComponentBuilders.replyActions`, typically to an `AIReplyActionsView` (copy, share,
-regenerate, rate):
+regenerate, rate).
+
+The conversation caches its rows: a row is built again only when what its message says changes, or
+the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
+show state of your own, such as a reply's rating:
+
+- Read that state through a `Listenable` (a `ListenableBuilder` or `ValueListenableBuilder` in what
+  the builder returns). A value captured directly isn't read again when it changes, so a tapped 👍
+  wouldn't fill.
+- Create the builders once, such as in a `late final` field, not in `build`: new builders rebuild
+  every row whenever your widget rebuilds, such as on every chunk of a streaming reply. The same goes
+  for the `onAttachmentTap` and `approver` you give `AIConversationView`.
 
 ```dart
-AIComponentFactory(
-  builders: AIComponentBuilders(
-    replyActions: (context, props) => AIReplyActionsView(
+// In your State:
+final ratings = ValueNotifier<Map<String, AIMessageRating>>({});
+
+late final builders = AIComponentBuilders(
+  replyActions: (context, props) => ValueListenableBuilder(
+    valueListenable: ratings,
+    builder: (context, rated, _) => AIReplyActionsView(
       text: props.text,
       actions: AIReplyActions(
-        rating: ratings[props.message.id],
-        onRate: (rating) => rate(props.message, rating),
+        rating: rated[props.message.id],
+        onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
         onShare: (text, origin) => SharePlus.instance.share(ShareParams(text: text, sharePositionOrigin: origin)),
       ),
     ),
   ),
-  child: conversation,
-)
+);
+
+// In build:
+AIComponentFactory(builders: builders, child: conversation)
 ```
 
 Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
@@ -1128,12 +1162,27 @@ Per-widget builders (`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.build
 `ChatComposer.factory`) still win where given. Keep the builders stable, ideally `const` with
 top-level functions: a new instance rebuilds every widget that reads it.
 
+Four slots belong to `AIConversationView`:
+
+- `userMessage` replaces the person's bubble, `AIUserMessageView`. `AIUserMessageProps` has the
+  `message` (`null` while it is still an `AIPendingMessage`), its `text`, `attachments` and
+  `onAttachmentTap`.
+- `assistantMessage` replaces a reply, `AIAssistantMessageView`. `AIAssistantMessageProps` has the
+  `message` (with its `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`), the
+  `approver` and `onAttachmentTap`.
+- `replyActions` adds what the person can do under a finished reply. It's empty by default; return
+  an `AIReplyActionsView` to get copy, share, regenerate and rate (see the example under
+  [Conversations](#conversations-aiconversationview)). `AIReplyActionsProps` has the reply's
+  `message`, its `text` and `isLatestReply`.
+- `messageAttachment` replaces one attachment's `AIMessageAttachmentView`, in either kind of message.
+  `AIMessageAttachmentProps` has the `attachment`, `isFromUser` and `onTap`.
+
 ### Theming
 
 Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
 data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData`,
-`ReasoningThemeData`, `SuggestionsThemeData`, `ToolApprovalThemeData`, `ToolCallThemeData` and
-`TypingIndicatorThemeData`:
+`ConversationThemeData`, `ReasoningThemeData`, `ReplyActionsThemeData`, `SuggestionsThemeData`,
+`ToolApprovalThemeData`, `ToolCallThemeData` and `TypingIndicatorThemeData`:
 
 ```dart
 MaterialApp(
@@ -1165,10 +1214,17 @@ grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceho
 with the surface it is drawn on, so overriding one pair never leaves an icon on a surface it wasn't
 chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
 `TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize`, `dotCount` and `dotSpacing`.
+`ConversationThemeData` covers `AIConversationView` and its message views:
+`userMessageBackgroundColor` and `userMessageTextStyle` (the person's bubble),
+`attachmentBackgroundColor`, `attachmentTitleStyle` and `attachmentDetailsStyle` (a file
+attachment's card; the background also fills an image while it loads), and
+`scrollButtonBackgroundColor`, `scrollButtonIconColor` (also the spinner
+shown while older messages load) and `scrollButtonBorderColor`. `ReplyActionsThemeData` covers
+`AIReplyActionsView`: `iconColor`, `selectedIconColor` (the rating given) and `iconSize`.
 
 Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme`, `ComposerTheme`,
-`ReasoningTheme`, `SuggestionsTheme`, `ToolApprovalTheme`, `ToolCallTheme` or
-`TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
+`ConversationTheme`, `ReasoningTheme`, `ReplyActionsTheme`, `SuggestionsTheme`, `ToolApprovalTheme`,
+`ToolCallTheme` or `TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
 `HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView`,
 `AIToolApprovalView` or `AIToolApprovalCard`:
 
@@ -1191,7 +1247,7 @@ Four things worth knowing:
   `recordingButtonColor` applies only while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
   each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
-  enclosing scope instead of shadowing it. All eight are `InheritedTheme`s, so they carry across a
+  enclosing scope instead of shadowing it. All ten are `InheritedTheme`s, so they carry across a
   `Navigator` — a scope above the composer still reaches the attachment sheet that
   `showModalBottomSheet` pushes.
 
