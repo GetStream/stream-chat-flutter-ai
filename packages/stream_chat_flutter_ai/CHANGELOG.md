@@ -39,8 +39,8 @@
 - `AIToolCallPart` — the typed view of an `ai_tool_call` step, with `AIToolCallStatus` and
   `AIToolExecutor` (server or client).
 - `AIToolApproval` — what a tool call asks before it runs, with `AIToolApprovalDecision`.
-- `AIMessagePartsView` — shows a reply's steps in order, keyed by id. `AIMessagePartWidgetBuilder`
-  builds parts your own way.
+- `AIMessagePartsView` — shows a reply's steps in order, keyed by id, filling its width.
+  `AIMessagePartWidgetBuilder` builds parts your own way.
 - `AIUnsupportedPartView` — the placeholder for a step this app version can't show.
 - `AITranslations.unsupportedMessagePart` — that placeholder's text.
 - `StreamingReasoningView` — a collapsible "Thinking… 7s / Thought for 12s" panel for the model's
@@ -50,10 +50,11 @@
   translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
   `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
   `DefaultAITranslations.reasoningDuration` spells the durations.
-- `AIToolCallView` — a one-line row for a tool-call step: a status icon, the title, a detail line
-  (the summary, or the status in words) and the duration once the call has finished. Screen readers
-  hear it as one node, announced as a live call finishes or starts waiting. `AIMessagePartsView`
-  shows tool calls with it.
+- `AIToolCallView` — a one-line row for a tool-call step: a status icon that follows the call's
+  status (a shimmering hand while it waits for approval, a cross once declined), the title, a detail
+  line (the summary, or the status in words) and the duration once the call has finished, declined
+  included. Screen readers hear it as one node, announced as a live call finishes or starts
+  waiting. `AIMessagePartsView` shows tool calls with it.
 - `ToolCallThemeData` and `ToolCallTheme`, and `AITheme.toolCallTheme`, for styling tool-call rows.
 - `AIMessagePartsView.toolCallBuilder` (an `AIToolCallWidgetBuilder`) — builds some tools your own
   way and leaves the rest to `AIToolCallView`.
