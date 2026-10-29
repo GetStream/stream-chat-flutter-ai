@@ -925,7 +925,8 @@ show state of your own, such as a reply's rating:
   the builder returns). A value captured directly isn't read again when it changes, so a tapped 👍
   wouldn't fill.
 - Create the builders once, such as in a `late final` field, not in `build`: new builders rebuild
-  every row whenever your widget rebuilds, such as on every chunk of a streaming reply.
+  every row whenever your widget rebuilds, such as on every chunk of a streaming reply. The same goes
+  for the `onAttachmentTap` and `approver` you give `AIConversationView`.
 
 ```dart
 // In your State:
@@ -938,7 +939,7 @@ late final builders = AIComponentBuilders(
       text: props.text,
       actions: AIReplyActions(
         rating: rated[props.message.id],
-        onRate: (rating) => rate(props.message, rating), // updates `ratings`
+        onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
         onShare: (text, origin) => SharePlus.instance.share(ShareParams(text: text, sharePositionOrigin: origin)),
       ),
     ),

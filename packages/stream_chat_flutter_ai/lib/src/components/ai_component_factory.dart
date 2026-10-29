@@ -156,7 +156,7 @@ class AIComponentBuilders with Diagnosticable {
   ///       text: props.text,
   ///       actions: AIReplyActions(
   ///         rating: rated[props.message.id],
-  ///         onRate: (rating) => rate(props.message, rating), // updates `ratings`
+  ///         onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
   ///         onRegenerate: props.isLatestReply ? chat.regenerate : null,
   ///       ),
   ///     ),
