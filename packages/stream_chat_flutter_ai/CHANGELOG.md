@@ -176,6 +176,9 @@
   docs and the README say that the conversation caches its rows, so a builder must read state that
   changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
   The README's `replyActions` example now does that; before, its 👍 never filled.
+- The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
+  fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
+  and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
 
 🐞 Fixed
 
