@@ -129,7 +129,8 @@
   and `rateReplyNegative` — the buttons' tooltips and labels.
 - `AIConversationView` — an AI conversation laid out in turns. A question the person sends scrolls
   to the top and its reply types out below it without the list moving; a conversation opens at its
-  end, `loadOlderMessages` loads older messages at its start without moving what is on screen, and a
+  end, `loadOlderMessages` loads older messages at its start, without moving what is on screen, when
+  its spinner comes into view and again each time the first turn changes while it stays there, and a
   button scrolls back to the latest. `isThinking` shows the agent thinking, and the reply's first
   reasoning step carries on its count. `footer` sits under the latest turn, such as for an error
   with a way to retry.
