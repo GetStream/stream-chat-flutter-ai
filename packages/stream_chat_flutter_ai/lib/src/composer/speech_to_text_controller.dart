@@ -16,35 +16,51 @@ class SpeechToTextConfig {
   /// Creates a [SpeechToTextConfig].
   const SpeechToTextConfig({
     this.localeId,
-    this.listenFor = const Duration(seconds: 30),
+    this.listenFor = const Duration(minutes: 5),
     this.pauseFor,
     this.onError,
     this.onStatus,
   });
+
+  /// The silence timeout used when [pauseFor] is `null` — the one iOS uses.
+  static const _defaultPauseFor = Duration(seconds: 3);
 
   /// BCP-47 locale identifier (e.g. `'en-US'`).
   ///
   /// Defaults to the device's current locale when `null`.
   final String? localeId;
 
-  /// Maximum duration of a single recognition session.
+  /// Maximum duration of a single recognition session. Defaults to 5 minutes.
+  ///
+  /// A backstop rather than a limit anyone should reach: a session normally
+  /// ends when [pauseFor] passes without new words, or when the user stops
+  /// it, as on iOS, which has no cap at all. This only bounds a session that
+  /// never goes quiet — a recognizer left transcribing background noise, say.
+  ///
+  /// The platforms end a session sooner on their own. Android's recognizer
+  /// stops after a single utterance, once its own endpointing decides the
+  /// user has finished speaking, and Apple's server-based recognition is
+  /// limited to about a minute of audio.
   final Duration listenFor;
 
-  /// How long the session may go without producing a *recognition result*
-  /// before `speech_to_text` ends it, or `null` for the platform default.
+  /// How long the session may go without a new transcript before it ends, or
+  /// `null` for the default of 3 seconds on every platform — the silence
+  /// timeout iOS uses.
   ///
-  /// Worth understanding before setting: despite the name, this timer never
-  /// looks at the audio — it counts the gap between recognition results. On
-  /// Apple's recognizer that is a decent proxy for silence, because it streams
-  /// partial results continuously while the user talks. Plenty of Android
-  /// engines instead deliver nothing until the utterance is over (on a Galaxy
-  /// A05s the first partial takes ~3.3s), so a fixed pause always fires
-  /// mid-sentence and dictation looks like it cuts off after three seconds.
+  /// Worth understanding before setting: this timer never looks at the audio
+  /// — it counts the time since the recognized words last changed. On Apple's
+  /// recognizer that is a decent proxy for silence, because it streams partial
+  /// results continuously while the user talks. Plenty of Android engines
+  /// instead deliver nothing until the utterance is over (on a Galaxy A05s the
+  /// first partial takes ~3.3s), so a pause timed from the start of the
+  /// session always fires mid-sentence and dictation looks like it cuts off
+  /// after three seconds.
   ///
-  /// Hence the default: 3 seconds on iOS and macOS, and *no* Dart-side pause on
-  /// Android, where the engine's own audio-based endpointing decides when the
-  /// utterance ends and [listenFor] remains the backstop. Set this explicitly
-  /// to override that on every platform.
+  /// Hence the default is armed differently there: on Android the 3 seconds
+  /// only start counting once the first words arrive, and until then the
+  /// engine's own audio-based endpointing decides when the utterance ends.
+  /// Elsewhere it counts from the start of the session. An explicit value
+  /// counts from the start on every platform.
   final Duration? pauseFor;
 
   /// Called when speech recognition encounters an error.
@@ -55,14 +71,12 @@ class SpeechToTextConfig {
   /// Common status strings: `'listening'`, `'notListening'`, `'done'`.
   final void Function(String status)? onStatus;
 
-  /// [pauseFor] if set, otherwise the per-platform default described on it.
-  Duration? get effectivePauseFor {
-    if (pauseFor != null) return pauseFor;
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.iOS || TargetPlatform.macOS => const Duration(seconds: 3),
-      _ => null,
-    };
-  }
+  /// [pauseFor] if set, otherwise the 3-second default described on it.
+  Duration? get effectivePauseFor => pauseFor ?? _defaultPauseFor;
+
+  /// Whether the default [pauseFor] waits for the first words before it
+  /// starts counting, as described on [pauseFor].
+  bool get _defersPause => pauseFor == null && defaultTargetPlatform == TargetPlatform.android;
 }
 
 /// Owns the app's speech recognition session.
@@ -113,6 +127,20 @@ class SpeechToTextController extends ChangeNotifier {
   /// away. See [_detachTimer].
   void Function(String words)? _onWords;
   SpeechToTextConfig? _config;
+
+  /// Ends the session once [SpeechToTextConfig.pauseFor] passes without new
+  /// words.
+  ///
+  /// Kept here rather than handed to `speech_to_text` as its own `pauseFor`.
+  /// The plugin stores what is *left* of the pause each time its timer
+  /// re-arms and re-arms from that, so the window shrinks while the user
+  /// talks: with a word a second it ended dictation after about six seconds,
+  /// and combined with a `listenFor` it does the same to that cap.
+  Timer? _pauseTimer;
+
+  /// The current session's pause, and the transcript that last restarted it.
+  Duration? _pauseFor;
+  String? _lastWords;
 
   /// Detaches [_onWords] and [_config] once nothing more can arrive for their
   /// session.
@@ -206,6 +234,8 @@ class SpeechToTextController extends ChangeNotifier {
       _detachSession();
       _onWords = onWords;
       _config = config;
+      _pauseFor = config.effectivePauseFor;
+      _lastWords = null;
       // Set here rather than waiting for the engine's `listening` status: the
       // trailing control is held in its stop state by this flag, and a status
       // that arrives late (or not at all) would leave a running session with no
@@ -220,9 +250,11 @@ class SpeechToTextController extends ChangeNotifier {
             cancelOnError: true,
             localeId: config.localeId,
             listenFor: config.listenFor,
-            pauseFor: config.effectivePauseFor,
           ),
         );
+        // Unless a result has already started it, or the session ended while
+        // the platform call was in flight.
+        if (_isListening && _pauseTimer == null && !config._defersPause) _restartPause();
       } catch (error) {
         _setListening(false);
         // Reported rather than rethrown. `speech_to_text` throws from `listen`
@@ -303,12 +335,33 @@ class SpeechToTextController extends ChangeNotifier {
     config?.onError?.call(SpeechRecognitionError(error.toString(), false));
   }
 
-  void _onResult(SpeechRecognitionResult result) => _onWords?.call(result.recognizedWords);
+  void _onResult(SpeechRecognitionResult result) {
+    final words = result.recognizedWords;
+    if (_isListening && words.isNotEmpty && words != _lastWords) {
+      _lastWords = words;
+      _restartPause();
+    }
+    _onWords?.call(words);
+  }
+
+  void _restartPause() {
+    final pauseFor = _pauseFor;
+    if (pauseFor == null) return;
+    _pauseTimer?.cancel();
+    _pauseTimer = Timer(pauseFor, () {
+      _pauseTimer = null;
+      unawaited(stop());
+    });
+  }
 
   void _setListening(bool listening) {
     if (listening == _isListening) return;
     _isListening = listening;
-    if (!listening) _scheduleDetach();
+    if (!listening) {
+      _pauseTimer?.cancel();
+      _pauseTimer = null;
+      _scheduleDetach();
+    }
     notifyListeners();
   }
 
@@ -334,6 +387,8 @@ class SpeechToTextController extends ChangeNotifier {
     _initializing = null;
     _starting = false;
     _isListening = false;
+    _pauseTimer?.cancel();
+    _pauseTimer = null;
     _detachSession();
   }
 

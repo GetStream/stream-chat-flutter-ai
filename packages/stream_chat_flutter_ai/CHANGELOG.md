@@ -170,6 +170,11 @@
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
+- Dictation ends after 3 seconds without new words, as on iOS, on every platform; the pause used to
+  apply only on iOS and macOS. On Android it starts counting once the first words arrive, so engines
+  that report nothing until the end of an utterance aren't cut off. `SpeechToTextConfig.listenFor`
+  now defaults to 5 minutes instead of 30 seconds, as a backstop for a session that never goes
+  quiet. Both still take an explicit value.
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the client tool runner, `AILocalModel` and chart legends — and its `SpeechToTextButton` snippet now uses `SpeechToTextConfig`.
 - The `AIConversationView`, `AIComponentBuilders.userMessage`, `assistantMessage` and `replyActions`
   docs and the README say that the conversation caches its rows, so a builder must read state that
@@ -187,6 +192,13 @@
   drawn and counted.
 - A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
   line breaks at the gap and a bar chart leaves the bar out.
+- Sending from `ChatComposer` while dictating — with the keyboard's send action or a slot's
+  `onSend` — ends the dictation. Before, it kept running and its next result wrote the sent text
+  back into the cleared field. Emptying the field during dictation ends it too, as on iOS.
+- Dictation no longer stops while the user is still talking. `speech_to_text`'s own pause timer
+  shrank a little with every new word, so continuous speech was cut off after a few seconds, and
+  after about 11 seconds with the old 30-second limit. The pause is now timed by
+  `SpeechToTextController` itself.
 
 ## 0.1.0
 

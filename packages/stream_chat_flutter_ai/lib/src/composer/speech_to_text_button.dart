@@ -182,6 +182,10 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
     // writes into may already be gone, taking the controller with it. Writing
     // anyway threw "A TextEditingController was used after being disposed".
     if (!mounted) return;
+    // An empty transcript has nothing to add, and writing one would empty the
+    // field, which [ChatComposer] takes as the user clearing it and ends the
+    // session.
+    if (words.isEmpty) return;
     final text = _baseText.isEmpty ? words : '$_baseText $words';
     widget.controller.textEditingController
       ..text = text

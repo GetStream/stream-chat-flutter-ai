@@ -147,6 +147,9 @@ class ChatComposer extends StatefulWidget {
   /// put, showing its stop state, until the session ends. Otherwise the first
   /// recognised word — which is content — would replace the control the user
   /// needs in order to stop talking.
+  ///
+  /// Sending, or emptying the field, ends a dictation in progress and
+  /// discards whatever it had yet to deliver.
   final bool enableSpeechToText;
 
   /// Locale, timeouts and callbacks for voice input.
@@ -191,6 +194,10 @@ class _ChatComposerState extends State<ChatComposer> {
   /// on every parent rebuild.
   late Listenable _listenable;
 
+  /// Whether the field had text at the last change, so [_onControllerChanged]
+  /// can tell the field being emptied from it merely staying empty.
+  bool _hadText = false;
+
   @override
   void initState() {
     super.initState();
@@ -206,7 +213,27 @@ class _ChatComposerState extends State<ChatComposer> {
     } else {
       _focusNode = widget.focusNode!;
     }
+    _listenToController();
     _rebuildListenable();
+  }
+
+  void _listenToController() {
+    _hadText = _controller.text.isNotEmpty;
+    _controller.addListener(_onControllerChanged);
+  }
+
+  /// Ends dictation when the field is emptied, as iOS does.
+  ///
+  /// The recognizer reports the whole transcript so far with every result, so
+  /// a session left running would write it straight back into the field the
+  /// user just cleared. Cancelled rather than stopped: stopping still delivers
+  /// the session's final transcript, which would do the same.
+  ///
+  /// Not gated on `enableSpeechToText`, for the reason given in [dispose].
+  void _onControllerChanged() {
+    final hasText = _controller.text.isNotEmpty;
+    if (_hadText && !hasText) unawaited(SpeechToTextController.instance.cancel());
+    _hadText = hasText;
   }
 
   /// The speech controller is merged in so the trailing control can hold its
@@ -222,6 +249,7 @@ class _ChatComposerState extends State<ChatComposer> {
   void didUpdateWidget(covariant ChatComposer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.controller != oldWidget.controller) {
+      _controller.removeListener(_onControllerChanged);
       if (_ownsController) {
         _controller.dispose();
         _ownsController = false;
@@ -232,6 +260,7 @@ class _ChatComposerState extends State<ChatComposer> {
       } else {
         _controller = widget.controller!;
       }
+      _listenToController();
     }
     if (widget.focusNode != oldWidget.focusNode) {
       if (_ownsFocusNode) {
@@ -261,6 +290,7 @@ class _ChatComposerState extends State<ChatComposer> {
     // recommends. Skipping the cancel there left a live session writing into the
     // controller disposed on the next line.
     unawaited(SpeechToTextController.instance.cancel());
+    _controller.removeListener(_onControllerChanged);
     if (_ownsController) _controller.dispose();
     if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
@@ -291,6 +321,17 @@ class _ChatComposerState extends State<ChatComposer> {
       _controller.selectedChatOption,
       _controller.attachments,
     );
+    // The text just sent includes whatever dictation had recognised so far.
+    // Left running, the session wrote it back into the field the clear below
+    // empties: its next result, or the final one a stop delivers, carries the
+    // whole transcript again. Cancelling also drops the final result still owed
+    // to a session the user stopped just before sending. iOS ends dictation on
+    // send too.
+    //
+    // Clearing a field with text would trigger this through
+    // [_onControllerChanged] anyway; called here so a send never depends on
+    // what the field held.
+    unawaited(SpeechToTextController.instance.cancel());
     // Optimistic, and documented as such on `ChatComposerSlotProps.onSend`:
     // the field empties on invocation, not on completion. Awaiting first would
     // leave the composer looking unresponsive for the length of a round trip.
