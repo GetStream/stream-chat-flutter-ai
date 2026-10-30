@@ -62,6 +62,7 @@ Future<void> _pump(
   Widget? footer,
   Widget? empty,
   ThemeData? theme,
+  EdgeInsets padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
   bool settle = true,
   bool reduceMotion = true,
 }) async {
@@ -84,6 +85,7 @@ Future<void> _pump(
               loadOlderMessages: loadOlder,
               footer: footer,
               emptyContent: empty,
+              padding: padding,
             ),
           ),
         ),
@@ -114,6 +116,10 @@ Future<TestGesture> _holdPastStart(WidgetTester tester) async {
 }
 
 Finder _text(String text) => find.textContaining(text, findRichText: true);
+
+/// How far below the top of the list [text] is.
+double _below(WidgetTester tester, String text) =>
+    tester.getTopLeft(find.text(text)).dy - tester.getTopLeft(find.byType(AIConversationView)).dy;
 
 /// Pumps [frames] frames of [step], for views that never settle.
 Future<void> _frames(WidgetTester tester, Duration step, int frames) async {
@@ -173,13 +179,58 @@ void main() {
       expect(find.text('actions for r1'), findsOneWidget);
     });
 
-    testWidgets('makes the latest turn at least as tall as the list', (tester) async {
-      await _pump(tester, [_user('u1'), _reply('r1')]);
-      final list = tester.getSize(find.byType(AIConversationView));
-      final turn = tester.getRect(
-        find.ancestor(of: find.byType(AIUserMessageView), matching: find.byType(ConstrainedBox)).first,
-      );
-      expect(turn.height, greaterThanOrEqualTo(list.height));
+    testWidgets('makes the latest turn and the padding under it at least as tall as the list', (tester) async {
+      for (final bottom in [16.0, 200.0]) {
+        await _pump(tester, [_user('u1'), _reply('r1')], padding: EdgeInsets.fromLTRB(16, 0, 16, bottom));
+        final list = tester.getSize(find.byType(AIConversationView));
+        final turn = tester.getRect(
+          find.ancestor(of: find.byType(AIUserMessageView), matching: find.byType(ConstrainedBox)).first,
+        );
+        expect(turn.height + bottom, greaterThanOrEqualTo(list.height));
+      }
+    });
+
+    testWidgets("shows a new conversation's first question where it shows every later one", (tester) async {
+      for (final bottom in [16.0, 200.0]) {
+        final padding = EdgeInsets.fromLTRB(16, 0, 16, bottom);
+        await _pump(tester, const [], padding: padding);
+        final first = [_user('u1', 'A first question')];
+        await _pump(tester, first, padding: padding);
+        final firstTop = _below(tester, 'A first question');
+        await _pump(tester, [...first, _reply('r1')], padding: padding);
+        expect(_below(tester, 'A first question'), firstTop, reason: 'its reply leaves it in place');
+
+        await _pump(tester, [...first, _reply('r1'), _user('u2', 'A second question')], padding: padding);
+        expect(_below(tester, 'A second question'), firstTop, reason: 'with $bottom under the turns');
+        expect(firstTop, greaterThanOrEqualTo(0));
+      }
+    });
+
+    testWidgets(
+      'opens a conversation, and scrolls back to its end, with a short latest turn at the top',
+      (tester) async {
+        const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+        final history = [..._history(2), _user('u2', 'The latest question'), _reply('r2', text: 'Short')];
+        await _pump(tester, history, padding: padding);
+        final opened = _below(tester, 'The latest question');
+
+        await _pump(tester, [...history, _user('u3', 'A new question')], padding: padding);
+        expect(_below(tester, 'A new question'), opened, reason: 'where a question sent goes');
+
+        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Scroll to latest'));
+        await tester.pumpAndSettle();
+        expect(_below(tester, 'A new question'), opened);
+      },
+    );
+
+    testWidgets('keeps the bottom padding under a long latest reply at its end', (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      await _pump(tester, _history(2), padding: padding);
+      final list = tester.getRect(find.byType(AIConversationView));
+      final lastLine = tester.getBottomLeft(_text('Line of answer 1.').last).dy;
+      expect(lastLine, lessThanOrEqualTo(list.bottom - padding.bottom));
     });
 
     testWidgets('opens a long conversation at its end', (tester) async {

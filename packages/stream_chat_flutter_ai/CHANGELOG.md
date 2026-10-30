@@ -239,6 +239,10 @@
 
 🐞 Fixed
 
+- `AIConversationView` shows the latest question at the top when it opens at its end: the first
+  message of a new conversation, a conversation that loads, and the scroll-to-latest button. They
+  showed it `padding.bottom` higher instead, which took it out of view with a large bottom padding,
+  such as one that makes room for a floating composer.
 - `AITypingIndicatorView`'s and `AnimatedDots`' dots were black by default, which made them invisible
   in dark mode. They now default to the themed caption color.
 - A generating reply's first chunk is typed out from its first character in `StreamingMessageView`
