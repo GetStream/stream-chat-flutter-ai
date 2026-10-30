@@ -49,6 +49,7 @@ AIToolApprover _approver({List<AIToolApprovalDecision>? answers}) => AIToolAppro
 AIComponentBuilders _custom([String tag = 'custom']) => AIComponentBuilders(
   codeBlock: (context, props) => Text('$tag code ${props.language}: ${props.code}'),
   chart: (context, props) => Text('$tag chart ${props.spec.kind.name}'),
+  math: (context, props) => Text('$tag math ${props.inline ? 'inline' : 'block'}: ${props.tex}'),
   reasoning: (context, props) => Text('$tag reasoning'),
   toolCall: (context, props) => Text('$tag tool ${props.call.name}'),
   toolApproval: (context, props) => TextButton(
@@ -112,6 +113,7 @@ void main() {
       const builders = AIComponentBuilders();
       expect(builders.codeBlock, isNull);
       expect(builders.chart, isNull);
+      expect(builders.math, isNull);
       expect(builders.reasoning, isNull);
       expect(builders.toolCall, isNull);
       expect(builders.toolApproval, isNull);
@@ -127,6 +129,10 @@ void main() {
       expect(merged.chart, same(custom.chart));
       expect(merged.codeBlock, isNull);
       expect(merged.copyWith(codeBlock: custom.codeBlock).codeBlock, same(custom.codeBlock));
+      final withMath = merged.merge(AIComponentBuilders(math: custom.math));
+      expect(withMath.math, same(custom.math));
+      expect(withMath.chart, same(custom.chart));
+      expect(withMath, isNot(merged));
       final signIn = merged.merge(const AIComponentBuilders(toolAuthorization: _hidden));
       expect(signIn.toolAuthorization, _hidden);
       expect(signIn.reasoning, _hidden);
@@ -212,6 +218,35 @@ void main() {
       await tester.pumpWidget(_wrap(body, builders: _custom('second')));
       expect(find.text('second code dart: void main() {}'), findsOneWidget);
       expect(find.text('second chart bar'), findsOneWidget);
+    });
+
+    testWidgets('AIMarkdownBody renders LaTeX through the factory when it has no mathBuilder', (tester) async {
+      const body = AIMarkdownBody(data: 'Inline \\(x^2\\) here.\n\n\\[\\sum_i i\\]');
+      await tester.pumpWidget(_wrap(body));
+      expect(find.text('x^2'), findsOneWidget);
+
+      await tester.pumpWidget(_wrap(body, builders: _custom('first')));
+      expect(find.text('first math inline: x^2'), findsOneWidget);
+      expect(find.text(r'first math block: \sum_i i'), findsOneWidget);
+
+      // Swapping the builders reaches LaTeX already on screen, without new text.
+      await tester.pumpWidget(_wrap(body, builders: _custom('second')));
+      expect(find.text('second math inline: x^2'), findsOneWidget);
+    });
+
+    testWidgets("an AIMarkdownBody's own mathBuilder wins over the factory", (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AIMarkdownBody(
+            data: r'Inline \(x^2\) here.',
+            mathBuilder: (context, tex, style, {required inline}) => Text('own $tex'),
+          ),
+          builders: _custom(),
+        ),
+      );
+
+      expect(find.text('own x^2'), findsOneWidget);
+      expect(find.textContaining('custom math'), findsNothing);
     });
 
     testWidgets('AIMessagePartsView builds reasoning, tool calls and unsupported parts through the factory', (
