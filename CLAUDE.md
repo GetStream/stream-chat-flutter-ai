@@ -102,13 +102,11 @@ Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter
 3. `release_tag.yml` reads `v<version>` from that commit, checks it matches the pubspec and isn't
    tagged yet, and pushes the tag with `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger
    the next workflow).
-4. `release_publish.yml` runs on the tag in the `pub.dev` environment, waits for a required reviewer
-   to approve, then publishes over pub.dev OIDC and creates the GitHub Release.
+4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on the package's pub.dev admin page (repository
-`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, environment `pub.dev`), the
-`BOT_GITHUB_API_TOKEN` repo secret, and the `pub.dev` environment with required reviewers.
+`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`) and the `BOT_GITHUB_API_TOKEN` repo secret.
 
 Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates the package but
 skips the publish and the GitHub Release. Below `1.0.0` a breaking release bumps the minor version

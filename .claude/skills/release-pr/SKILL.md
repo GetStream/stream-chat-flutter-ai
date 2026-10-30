@@ -25,9 +25,8 @@ Opens a release PR for stream_chat_flutter_ai. Branch `release/v<X.Y.Z>` → bas
 
 **This skill only opens the PR.** After merge, tagging and pub.dev publishing are automatic:
 [`release_tag.yml`](../../../.github/workflows/release_tag.yml) extracts `vX.Y.Z` from the commit message and
-pushes the tag; [`release_publish.yml`](../../../.github/workflows/release_publish.yml) waits for approval in the
-`pub.dev` environment, publishes over OIDC and creates the GitHub Release. See the "Releasing" section of
-`CLAUDE.md`.
+pushes the tag; [`release_publish.yml`](../../../.github/workflows/release_publish.yml) publishes over OIDC and
+creates the GitHub Release. See the "Releasing" section of `CLAUDE.md`.
 
 If `$version` is provided (e.g. `/release-pr 0.2.0`), use it. Strip any leading `v`. Otherwise derive and confirm
 per [Choosing the version](#choosing-the-version).
@@ -273,10 +272,9 @@ Return the PR URL. **Tell the user to squash-merge it**, without editing the tit
 ## After merge (FYI)
 
 `release_tag.yml` checks that `v<version>` matches the pubspec and isn't tagged yet, then pushes the tag with the
-bot PAT. `release_publish.yml` fires on that tag push, waits for a required reviewer to approve the `pub.dev`
-environment, runs a dry run, then `melos run release:pub` (OIDC), and creates the GitHub Release. `lint:pub` and
-`release:pub` skip versions already on pub.dev, so a re-run after a failure is a clean no-op for anything already
-live.
+bot PAT. `release_publish.yml` fires on that tag push, runs a dry run, then `melos run release:pub` (OIDC), and
+creates the GitHub Release. `lint:pub` and `release:pub` skip versions already on pub.dev, so a re-run after a
+failure is a clean no-op for anything already live.
 
 ## Don't
 
