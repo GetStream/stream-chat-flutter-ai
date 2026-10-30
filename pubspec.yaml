@@ -44,6 +44,8 @@ melos:
         flutter_math_fork: ^0.7.4
         image_picker: ^1.2.2
         markdown: ^7.3.1
+        objective_c: ^9.3.0
+        path_provider: ^2.1.5
         photo_manager: ^3.9.0
         # Used only by the example, which supplies the grammars that
         # `CodeBlockView.highlighter` needs. See
@@ -51,11 +53,17 @@ melos:
         re_highlight: ^0.0.3
         share_plus: ^13.3.1
         speech_to_text: ^7.0.0
+        uuid: ^4.5.1
+        web: ^1.1.0
 
       # List of all the dev_dependencies used in the project.
       dev_dependencies:
         alchemist: ^0.14.0
         mocktail: ^1.0.5
+        # Direct because the install id tests substitute a fake
+        # `PathProviderPlatform`.
+        path_provider_platform_interface: ^2.1.0
+        plugin_platform_interface: ^2.1.0
         # Direct because the reply actions tests substitute their own
         # `SharePlatform`; it arrives transitively via `share_plus`.
         share_plus_platform_interface: ^7.2.0

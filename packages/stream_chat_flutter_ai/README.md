@@ -678,6 +678,54 @@ once it has finished. Style it with `ToolCallThemeData` (see its API docs for th
 AIToolCallView(call: part.toolCall!);
 ```
 
+### This install: `AIClientIdentity.installId`
+
+An agent can aim a tool call at one install of your app, through its `target_client_id`, so a
+person signed in on two devices doesn't get the call twice. `AIClientIdentity.installId()` gives
+each install an id, created on first use and kept in a file on the device (in `localStorage` on the
+web):
+
+```dart
+final installId = await AIClientIdentity.installId();
+final identity = AIClientIdentity(userId: currentUser.id, clientId: installId);
+```
+
+Treat the id as opaque. Clearing the app's data (on the web, the site's data) removes it, as does
+uninstalling the app on Android and iOS, and the next call creates a new one. Read it once per
+sign-in, and pass that same value both to the `AIClientIdentity` of your runner and approver and as
+`client_id` on every message, so the two always agree.
+
+The id isn't included in backups on Android, iOS or macOS, with no setup on your side, so a device
+restored from a backup gets an id of its own rather than sharing the old device's and running the
+calls meant for it.
+
+**Widget tests** — prefer a fixed id, such as
+`AIClientIdentity(userId: 'user', clientId: 'test-install')`, over calling `installId()`: it reads
+and writes a real file, which never completes inside `testWidgets`' fake clock. If the code under
+test does call it, run that code through `tester.runAsync`, and point `path_provider`, which has no
+platform implementation in tests, at a temporary directory, with `path_provider_platform_interface`
+and `plugin_platform_interface` as dev dependencies:
+
+```dart
+class FakePathProvider extends Fake with MockPlatformInterfaceMixin implements PathProviderPlatform {
+  FakePathProvider(this.applicationSupportPath);
+
+  final String applicationSupportPath;
+
+  @override
+  Future<String?> getApplicationSupportPath() async => applicationSupportPath;
+}
+
+final original = PathProviderPlatform.instance;
+final directory = Directory.systemTemp.createTempSync();
+addTearDown(() {
+  PathProviderPlatform.instance = original;
+  directory.deleteSync(recursive: true);
+});
+PathProviderPlatform.instance = FakePathProvider(directory.path);
+final installId = await tester.runAsync(AIClientIdentity.installId);
+```
+
 ### Tool approvals: `AIToolApprover`
 
 An agent can ask the user before running a tool: the call waits with status `awaiting_approval`, and
