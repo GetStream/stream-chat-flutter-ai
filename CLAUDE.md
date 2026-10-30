@@ -89,9 +89,6 @@ Other workflows: `legacy_version_analyze` / `beta_version_analyze` (N-1 stable a
 sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enforcement),
 `update_goldens` (manual), and the two release workflows below.
 
-There is no pana score check yet (`stream-chat-flutter` runs `pana.yml` with `min_score: 100`); add
-one now that releases are automated.
-
 ## Releasing
 
 Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`:
@@ -106,11 +103,14 @@ Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on the package's pub.dev admin page (repository
-`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`) and the `BOT_GITHUB_API_TOKEN` repo secret.
+`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, "Require GitHub Actions environment" left empty) and the
+`BOT_GITHUB_API_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
+`refs/tags/v*` to the bot is worth adding too.
 
 Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates the package but
 skips the publish and the GitHub Release. Below `1.0.0` a breaking release bumps the minor version
-(`0.1.0` → `0.2.0`) and a feature release the patch.
+(`0.1.0` → `0.2.0`), and a feature or fix release the patch. Versions are always `X.Y.Z` — the
+workflows can't tag or publish a `+build` version.
 
 ## Code style
 
