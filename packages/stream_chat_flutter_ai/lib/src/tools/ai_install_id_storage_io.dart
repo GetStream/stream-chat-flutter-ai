@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:objective_c/objective_c.dart' as objc;
 import 'package:path_provider/path_provider.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_storage.dart';
@@ -7,6 +8,7 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_storage.dart';
 /// The install id storage for this platform.
 ///
 /// The id is kept in a file, out of backups on Android, iOS and macOS.
+@internal
 AIInstallIdStorage createPlatformInstallIdStorage() {
   return AIFileInstallIdStorage(
     directory: Platform.isAndroid ? _androidNoBackupDirectory : getApplicationSupportDirectory,
@@ -24,6 +26,7 @@ Future<Directory> _androidNoBackupDirectory() async {
 /// On Android the application support directory is `filesDir`, and
 /// `noBackupFilesDir` is its sibling: `<dataDir>/no_backup`. path_provider has
 /// no getter for the latter.
+@internal
 Directory androidNoBackupDirectory(Directory applicationSupportDirectory) {
   return Directory('${applicationSupportDirectory.parent.path}/no_backup');
 }
@@ -37,10 +40,19 @@ Future<void> _excludeFromAppleBackup(File file) async {
   url.setResourceValue(objc.NSNumberCreation.numberWithBool(true), forKey: key);
 }
 
+// Another engine writes the id right after creating the file; ten checks
+// 20 ms apart cover that write without delaying a launch noticeably. If they
+// run out, the file is treated as abandoned and overwritten.
+const _otherWriteCheckInterval = Duration(milliseconds: 20);
+const _defaultOtherWriteChecks = 10;
+
 // Gives another engine time to write the id to the file it has created.
-Future<void> _waitForOtherWrite() => Future<void>.delayed(const Duration(milliseconds: 20));
+Future<void> _waitForOtherWrite() => Future<void>.delayed(_otherWriteCheckInterval);
 
 /// Keeps the install id in a file named [AIInstallIdStorage.key].
+///
+/// Internal to the package.
+@internal
 final class AIFileInstallIdStorage implements AIInstallIdStorage {
   /// Creates an [AIFileInstallIdStorage] in [directory].
   ///
@@ -49,7 +61,7 @@ final class AIFileInstallIdStorage implements AIInstallIdStorage {
     required this.directory,
     this.excludeFromBackup,
     this.waitForOtherWrite = _waitForOtherWrite,
-    this.otherWriteChecks = 10,
+    this.otherWriteChecks = _defaultOtherWriteChecks,
   });
 
   /// The directory the file is in.
@@ -58,7 +70,8 @@ final class AIFileInstallIdStorage implements AIInstallIdStorage {
   /// Keeps the file out of the platform's backups, if given.
   ///
   /// It runs after the id is written and again on every read, so a launch
-  /// that stopped in between is repaired by the next one.
+  /// that stopped in between, or where it failed, is repaired by the next one.
+  /// A failure doesn't fail the read or create: the id is stored either way.
   final Future<void> Function(File file)? excludeFromBackup;
 
   /// Waits between two reads of a file that another engine has created but
@@ -77,7 +90,7 @@ final class AIFileInstallIdStorage implements AIInstallIdStorage {
     } on PathNotFoundException {
       return null;
     }
-    if (storedId.trim().isNotEmpty) await excludeFromBackup?.call(file);
+    if (storedId.trim().isNotEmpty) await _tryExcludeFromBackup(file);
     return storedId;
   }
 
@@ -93,8 +106,16 @@ final class AIFileInstallIdStorage implements AIInstallIdStorage {
       // Still empty: whoever created it stopped before writing the id.
     }
     await file.writeAsString(id, flush: true);
-    await excludeFromBackup?.call(file);
+    await _tryExcludeFromBackup(file);
     return id;
+  }
+
+  Future<void> _tryExcludeFromBackup(File file) async {
+    try {
+      await excludeFromBackup?.call(file);
+    } on Exception {
+      // The id is stored either way; the next read tries the exclusion again.
+    }
   }
 
   Future<File> _file() async {

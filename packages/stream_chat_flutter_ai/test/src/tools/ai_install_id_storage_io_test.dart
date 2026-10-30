@@ -67,6 +67,28 @@ void main() {
     expect(excluded, [_idFile(directory).path]);
   });
 
+  test('read completes with the stored id when the backup exclusion fails', () async {
+    final directory = _tempDirectory();
+    _idFile(directory).writeAsStringSync('flutter-KEPT');
+    final storage = AIFileInstallIdStorage(
+      directory: () async => directory,
+      excludeFromBackup: (_) async => throw const FileSystemException('exclusion failed'),
+    );
+
+    expect(await storage.read(), 'flutter-KEPT');
+  });
+
+  test('create completes with the stored id when the backup exclusion fails', () async {
+    final directory = _tempDirectory();
+    final storage = AIFileInstallIdStorage(
+      directory: () async => directory,
+      excludeFromBackup: (_) async => throw const FileSystemException('exclusion failed'),
+    );
+
+    expect(await storage.create('flutter-NEW'), 'flutter-NEW');
+    expect(_idFile(directory).readAsStringSync(), 'flutter-NEW');
+  });
+
   test('create keeps the id another engine stored first', () async {
     final directory = _tempDirectory();
     _idFile(directory).writeAsStringSync('flutter-FIRST');
@@ -115,7 +137,7 @@ void main() {
 
       await expectLater(storage.create('flutter-NEW'), throwsA(isA<PathAccessException>()));
     },
-    skip: Platform.isWindows,
+    skip: Platform.isWindows ? 'chmod has no effect on Windows.' : false,
   );
 
   test('on Android the id is kept in no_backup, next to filesDir', () {
@@ -144,7 +166,7 @@ void main() {
       final attributes = Process.runSync('xattr', [_idFile(directory).path]).stdout as String;
       expect(attributes, contains('com.apple.metadata:com_apple_backup_excludeItem'));
     },
-    skip: !Platform.isMacOS,
+    skip: Platform.isMacOS ? false : 'Needs macOS: the exclusion uses Foundation and xattr.',
   );
 }
 

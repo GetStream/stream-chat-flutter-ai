@@ -49,8 +49,9 @@ class AIClientIdentity {
   ///
   /// The first call creates the id and stores it on the device. Later calls,
   /// including concurrent ones and those in later launches, complete with the
-  /// same id. Uninstalling the app or clearing its data (on the web, the
-  /// site's data) removes the id, and the next call creates a new one.
+  /// same id. Clearing the app's data (on the web, the site's data) removes the
+  /// id, as does uninstalling the app on Android and iOS; the next call then
+  /// creates a new one.
   ///
   /// On Android, iOS and macOS the id is kept out of backups, so a device
   /// restored from one gets an id of its own instead of sharing the old

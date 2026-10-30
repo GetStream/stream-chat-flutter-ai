@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
+
 /// Where `AIInstallIdStore` keeps the install id.
 ///
 /// Internal to the package.
+@internal
 abstract interface class AIInstallIdStorage {
   /// The name the install id is kept under.
   ///
@@ -15,6 +18,8 @@ abstract interface class AIInstallIdStorage {
 
   /// Stores [id] and completes with the id that ends up stored.
   ///
-  /// That is [id], or the id that another engine or tab stored first.
+  /// That is [id], or the id that another engine or tab stored first. An id
+  /// that another engine is slow to write after creating the file, or that
+  /// another tab stores between this one's check and write, can be replaced.
   Future<String> create(String id);
 }

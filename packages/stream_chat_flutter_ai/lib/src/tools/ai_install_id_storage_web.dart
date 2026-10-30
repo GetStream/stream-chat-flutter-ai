@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_storage.dart';
 import 'package:web/web.dart' as web;
 
 /// The install id storage for the web: `localStorage`.
+@internal
 AIInstallIdStorage createPlatformInstallIdStorage() => const AILocalStorageInstallIdStorage();
 
 /// Keeps the install id in the browser's `localStorage`.
 ///
-/// Clearing the site's data removes it.
+/// Clearing the site's data removes it. Internal to the package.
+@internal
 final class AILocalStorageInstallIdStorage implements AIInstallIdStorage {
   /// Creates an [AILocalStorageInstallIdStorage].
   const AILocalStorageInstallIdStorage();

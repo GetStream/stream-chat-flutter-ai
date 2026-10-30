@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_storage.dart';
 // dart:io isn't available on the web, which keeps the id in localStorage
 // instead of a file.
@@ -10,6 +11,7 @@ import 'package:uuid/uuid.dart';
 ///
 /// Internal to the package, and kept apart from `AIClientIdentity` so that
 /// another Stream SDK can share it later.
+@internal
 abstract final class AIInstallIdStore {
   /// Where the id is kept: a file, or `localStorage` on the web. Only tests
   /// replace it.
