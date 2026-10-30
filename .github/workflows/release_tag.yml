@@ -1,0 +1,88 @@
+name: release_tag
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    # Only run this job for release commits, i.e. a squash-merged
+    # `chore(repo): release vX.Y.Z` PR opened by the `release-pr` skill.
+    if: "${{ startsWith(github.event.head_commit.message, 'chore(repo): release v') }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create and push tags
+
+    steps:
+      - name: 📚 Checkout branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # A tag pushed with the default GITHUB_TOKEN does not trigger other
+          # workflows, so `release_publish` would never run.
+          token: ${{ secrets.BOT_GITHUB_API_TOKEN }}
+
+      - name: 🏷️ Extract Version Tag
+        id: extract_tag
+        shell: bash
+        # Via env, not inline `${{ }}` — a commit message is untrusted input.
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+
+          commit_msg="$COMMIT_MSG"
+          echo "📦 Commit message: $commit_msg"
+
+          # Match vX.Y.Z or vX.Y.Z-suffix (case-insensitive)
+          version_regex='[vV][0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.\-]+)?'
+
+          if [[ "$commit_msg" =~ $version_regex ]]; then
+            version="${BASH_REMATCH[0]}"
+            echo "✅ Found version tag: $version"
+            echo "tag=$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error ::❌ No SemVer tag found in commit message."
+            echo "::error ::Expected something like: 'chore(repo): release v1.2.3'"
+            exit 1
+          fi
+
+      - name: 🔍 Verify Tag
+        shell: bash
+        env:
+          TAG: ${{ steps.extract_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          # pub.dev rejects a tag that doesn't match the pubspec version, but
+          # only after the tag is pushed — catch the mismatch before that.
+          version=$(sed -n 's/^version: *//p' packages/stream_chat_flutter_ai/pubspec.yaml)
+          if [[ "$TAG" != "v$version" ]]; then
+            echo "::error ::❌ Tag $TAG does not match pubspec version $version."
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error ::❌ Tag $TAG already exists."
+            exit 1
+          fi
+
+          echo "✅ $TAG matches the pubspec and is not tagged yet."
+
+      - name: 🚀 Create and Push Tag
+        shell: bash
+        env:
+          TAG: ${{ steps.extract_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "Stream SDK Bot"
+          git config user.email "60655709+Stream-SDK-Bot@users.noreply.github.com"
+
+          echo "Creating and pushing tag: $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"

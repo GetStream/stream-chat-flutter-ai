@@ -51,6 +51,7 @@ melos run lint:all       # analyze + format
 melos run test:all       # flutter test --coverage
 melos run lint:pub       # flutter pub publish -n (skips the example, which is private)
 melos run update:goldens # regenerate golden files
+melos run release:pub    # flutter pub publish -f — CI only (release_publish), never run locally
 ```
 
 `melos run analyze` is a single root `dart analyze`, not a per-package loop — that works because
@@ -86,7 +87,30 @@ branch protection.
 
 Other workflows: `legacy_version_analyze` / `beta_version_analyze` (N-1 stable and beta Flutter,
 sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enforcement),
-`update_goldens` (manual). There are deliberately **no release/publish workflows yet**.
+`update_goldens` (manual), and the two release workflows below.
+
+There is no pana score check yet (`stream-chat-flutter` runs `pana.yml` with `min_score: 100`); add
+one now that releases are automated.
+
+## Releasing
+
+Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`:
+
+1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps the version, promotes
+   `## Upcoming` to `## <version>` in the CHANGELOG and opens a `chore(repo): release v<version>` PR.
+2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
+3. `release_tag.yml` reads `v<version>` from that commit, checks it matches the pubspec and isn't
+   tagged yet, and pushes the tag with `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger
+   the next workflow).
+4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC and creates the GitHub Release.
+
+Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
+setup outside git: automated publishing enabled on the package's pub.dev admin page (repository
+`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`) and the `BOT_GITHUB_API_TOKEN` repo secret.
+
+Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates the package but
+skips the publish and the GitHub Release. Below `1.0.0` a breaking release bumps the minor version
+(`0.1.0` → `0.2.0`) and a feature release the patch.
 
 ## Code style
 
