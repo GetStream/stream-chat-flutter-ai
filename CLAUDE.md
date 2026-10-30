@@ -110,7 +110,8 @@ setup outside git: automated publishing enabled on the package's pub.dev admin p
 
 Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates the package but
 skips the publish and the GitHub Release. Below `1.0.0` a breaking release bumps the minor version
-(`0.1.0` → `0.2.0`) and a feature release the patch.
+(`0.1.0` → `0.2.0`), and a feature release or one with no public API change the patch: the release
+workflows only take `vX.Y.Z` and `vX.Y.Z-suffix` tags, so a build number (`+1`) can't be released.
 
 ## Code style
 

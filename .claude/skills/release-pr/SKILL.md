@@ -84,8 +84,9 @@ The sub-headings are plain emoji lines, not markdown headings: `💥 Breaking`, 
 Adding a string to `AITranslations` is not breaking either (see `CLAUDE.md`).
 
 **2. Map onto the current version.** Per the Dart community convention in
-[Package versioning](https://dart.dev/tools/pub/versioning#semantic-versions), below `1.0.0` every slot shifts down
-one:
+[Package versioning](https://dart.dev/tools/pub/versioning#semantic-versions), below `1.0.0` a breaking release and a
+feature release each shift down one slot. A release with no public API change still bumps the patch: the release
+workflows only take `vX.Y.Z` and `vX.Y.Z-suffix` tags, so a build number (`+1`) can't be released.
 
 ```bash
 grep '^version:' packages/stream_chat_flutter_ai/pubspec.yaml
@@ -95,7 +96,7 @@ grep '^version:' packages/stream_chat_flutter_ai/pubspec.yaml
 | --- | --- | --- |
 | breaking | major | minor |
 | compatible, adds API | minor | patch |
-| no public API change | patch | build (`+1`) |
+| no public API change | patch | patch |
 
 A caret constraint stops at the leading significant digit: `^0.1.0` means `>=0.1.0 <0.2.0`. Bumping that slot
 strands every consumer on the old caret until they hand-edit their pubspec — so bump it only for a genuinely

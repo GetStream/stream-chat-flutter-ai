@@ -128,3 +128,6 @@ gradle-wrapper.jar
 # Exceptions to the above rules
 # The workspace root holds the single shared lockfile for every member package.
 !/pubspec.lock
+
+# Claude Code worktrees (.claude/skills is committed)
+.claude/worktrees/

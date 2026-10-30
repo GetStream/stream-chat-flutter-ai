@@ -140,7 +140,7 @@ CI=true melos run test:all
 
 `stream_chat_flutter_ai` follows [semantic versioning](https://semver.org/).
 
-Below `1.0.0` we follow the [Dart convention](https://dart.dev/tools/pub/versioning#semantic-versions) of shifting each slot down one: a breaking change bumps the minor version (`0.1.2` → `0.2.0`), a new feature bumps the patch (`0.1.2` → `0.1.3`), and a change that doesn't touch the public API bumps the build number (`0.1.2+1`).
+Below `1.0.0` we follow the [Dart convention](https://dart.dev/tools/pub/versioning#semantic-versions) of shifting breaking changes and features down one slot: a breaking change bumps the minor version (`0.1.2` → `0.2.0`), and a new feature bumps the patch (`0.1.2` → `0.1.3`). A change that doesn't touch the public API bumps the patch too: releases are tagged `vX.Y.Z`, so a build number (`0.1.2+1`) can't be released.
 
 Releases are cut by maintainers with the `/release-pr` Claude Code skill and published to pub.dev by GitHub Actions — see the "Releasing" section of `CLAUDE.md`.
 
