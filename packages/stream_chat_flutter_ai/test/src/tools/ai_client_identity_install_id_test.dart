@@ -1,15 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences_android/shared_preferences_android.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:shared_preferences_platform_interface/types.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
+import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_storage.dart';
+import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_store.dart';
 
 void main() {
   test('installId creates an id around a random UUID', () async {
-    _usePreferences(InMemorySharedPreferencesAsync.empty());
+    _useStorage(_MemoryStorage());
 
     final id = await AIClientIdentity.installId();
 
@@ -17,7 +15,7 @@ void main() {
   });
 
   test('installId returns the same id on later calls', () async {
-    _usePreferences(InMemorySharedPreferencesAsync.empty());
+    _useStorage(_MemoryStorage());
 
     final first = await AIClientIdentity.installId();
     final second = await AIClientIdentity.installId();
@@ -26,26 +24,34 @@ void main() {
   });
 
   test('installId returns the same id to calls racing the first one', () async {
-    _usePreferences(InMemorySharedPreferencesAsync.empty());
+    final storage = _MemoryStorage();
+    _useStorage(storage);
 
     final ids = await Future.wait([AIClientIdentity.installId(), AIClientIdentity.installId()]);
 
     expect(ids[1], ids[0]);
+    expect(storage.creates, 1);
   });
 
   test('installId returns the id kept by an earlier launch', () async {
-    _usePreferences(
-      InMemorySharedPreferencesAsync.withData({'io.getstream.ai.client-id': 'flutter-0B8A1D5E-KEPT'}),
-    );
+    _useStorage(_MemoryStorage('flutter-0B8A1D5E-KEPT'));
 
     final id = await AIClientIdentity.installId();
 
     expect(id, 'flutter-0B8A1D5E-KEPT');
   });
 
+  test('installId returns the id another engine stored first', () async {
+    _useStorage(_MemoryStorage(null, 'ios-OTHER-ENGINE'));
+
+    final id = await AIClientIdentity.installId();
+
+    expect(id, 'ios-OTHER-ENGINE');
+  });
+
   for (final blank in ['', '  ']) {
     test('installId replaces a blank stored id (${jsonEncode(blank)})', () async {
-      _usePreferences(InMemorySharedPreferencesAsync.withData({'io.getstream.ai.client-id': blank}));
+      _useStorage(_MemoryStorage(blank));
 
       final id = await AIClientIdentity.installId();
 
@@ -54,40 +60,20 @@ void main() {
     });
   }
 
-  test('installId keeps the id in its own Android preferences file', () async {
-    final preferences = _RecordingPreferences();
-    _usePreferences(preferences);
-
-    await AIClientIdentity.installId();
-
-    expect(
-      preferences.options,
-      everyElement(
-        isA<SharedPreferencesAsyncAndroidOptions>()
-            .having((it) => it.backend, 'backend', SharedPreferencesAndroidBackendLibrary.SharedPreferences)
-            .having(
-              (it) => it.originalSharedPreferencesOptions?.fileName,
-              'fileName',
-              'io.getstream.ai.client-id',
-            ),
-      ),
-    );
-  });
-
   test('installId completes with the error when the id cannot be read', () async {
-    _usePreferences(_FailingReadOncePreferences());
+    _useStorage(_MemoryStorage()..failReads = 1);
 
     await expectLater(AIClientIdentity.installId(), throwsA(isA<StateError>()));
   });
 
   test('installId completes with the error when the id cannot be stored', () async {
-    _usePreferences(_FailingWriteOncePreferences());
+    _useStorage(_MemoryStorage()..failCreates = 1);
 
     await expectLater(AIClientIdentity.installId(), throwsA(isA<StateError>()));
   });
 
   test('installId tries again after a failed read', () async {
-    _usePreferences(_FailingReadOncePreferences());
+    _useStorage(_MemoryStorage()..failReads = 1);
     await expectLater(AIClientIdentity.installId(), throwsStateError);
 
     final id = await AIClientIdentity.installId();
@@ -96,7 +82,7 @@ void main() {
   });
 
   test('installId tries again after a failed write', () async {
-    _usePreferences(_FailingWriteOncePreferences());
+    _useStorage(_MemoryStorage()..failCreates = 1);
     await expectLater(AIClientIdentity.installId(), throwsStateError);
 
     final id = await AIClientIdentity.installId();
@@ -105,59 +91,41 @@ void main() {
   });
 }
 
-void _usePreferences(SharedPreferencesAsyncPlatform preferences) {
-  final original = SharedPreferencesAsyncPlatform.instance;
-  SharedPreferencesAsyncPlatform.instance = preferences;
-  addTearDown(() => SharedPreferencesAsyncPlatform.instance = original);
+void _useStorage(AIInstallIdStorage storage) {
+  final original = AIInstallIdStore.debugStorage;
+  AIInstallIdStore.debugStorage = storage;
+  addTearDown(() => AIInstallIdStore.debugStorage = original);
 }
 
-// Records the options of every read and write, to check where the id lands.
-final class _RecordingPreferences extends InMemorySharedPreferencesAsync {
-  _RecordingPreferences() : super.empty();
+// Keeps the id in memory. [_otherEngineId], if given, is what another engine
+// stores between this one's read and create.
+final class _MemoryStorage implements AIInstallIdStorage {
+  _MemoryStorage([this._id, this._otherEngineId]);
 
-  final options = <SharedPreferencesOptions>[];
-
-  @override
-  Future<String?> getString(String key, SharedPreferencesOptions options) {
-    this.options.add(options);
-    return super.getString(key, options);
-  }
-
-  @override
-  Future<bool> setString(String key, String value, SharedPreferencesOptions options) {
-    this.options.add(options);
-    return super.setString(key, value, options);
-  }
-}
-
-// Fails the first read, as a platform error would, then behaves normally.
-final class _FailingReadOncePreferences extends InMemorySharedPreferencesAsync {
-  _FailingReadOncePreferences() : super.empty();
-
-  var _failed = false;
+  String? _id;
+  final String? _otherEngineId;
+  int failReads = 0;
+  int failCreates = 0;
+  int creates = 0;
 
   @override
-  Future<String?> getString(String key, SharedPreferencesOptions options) async {
-    if (!_failed) {
-      _failed = true;
+  Future<String?> read() async {
+    await Future<void>.delayed(Duration.zero);
+    if (failReads > 0) {
+      failReads--;
       throw StateError('storage unavailable');
     }
-    return super.getString(key, options);
+    return _id;
   }
-}
-
-// Fails the first write, as a platform error would, then behaves normally.
-final class _FailingWriteOncePreferences extends InMemorySharedPreferencesAsync {
-  _FailingWriteOncePreferences() : super.empty();
-
-  var _failed = false;
 
   @override
-  Future<bool> setString(String key, String value, SharedPreferencesOptions options) async {
-    if (!_failed) {
-      _failed = true;
+  Future<String> create(String id) async {
+    await Future<void>.delayed(Duration.zero);
+    if (failCreates > 0) {
+      failCreates--;
       throw StateError('storage unavailable');
     }
-    return super.setString(key, value, options);
+    creates++;
+    return _id = _otherEngineId ?? id;
   }
 }

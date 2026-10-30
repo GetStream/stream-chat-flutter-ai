@@ -682,63 +682,42 @@ AIToolCallView(call: part.toolCall!);
 
 An agent can aim a tool call at one install of your app, through its `target_client_id`, so a
 person signed in on two devices doesn't get the call twice. `AIClientIdentity.installId()` gives
-each install an id, created on first use and kept in shared preferences:
+each install an id, created on first use and kept in a file on the device (in `localStorage` on the
+web):
 
 ```dart
 final installId = await AIClientIdentity.installId();
 final identity = AIClientIdentity(userId: currentUser.id, clientId: installId);
 ```
 
-Treat the id as opaque. Uninstalling the app or clearing its data removes it, and so does
-`SharedPreferencesAsync().clear()` without an `allowList` on iOS, macOS, web and desktop; the next
-call then creates a new one.
+Treat the id as opaque. Uninstalling the app or clearing its data removes it, and the next call
+creates a new one. Read it once per sign-in, and pass that same value both to the
+`AIClientIdentity` of your runner and approver and as `client_id` on every message, so the two
+always agree.
 
-**iOS** — backups and Quick Start copy the id to a new device, as they do the native iOS SDK's.
+The id is kept out of backups, with no setup on your side: in Android's `no_backup` directory, and
+in a file marked excluded from backup on iOS and macOS. A device restored from a backup gets an id
+of its own, rather than sharing the old device's and running the calls meant for it.
 
-**Android** — exclude the id from backups. Android backs up app data and copies it to a new device,
-and a restored id makes both devices the same install: both would run a call meant for one. The id
-is kept in a preferences file of its own, `io.getstream.ai.client-id.xml`, so exclude that file.
-
-`android/app/src/main/res/xml/data_extraction_rules.xml` (Android 12 and later):
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<data-extraction-rules>
-    <cloud-backup>
-        <exclude domain="sharedpref" path="io.getstream.ai.client-id.xml"/>
-    </cloud-backup>
-    <device-transfer>
-        <exclude domain="sharedpref" path="io.getstream.ai.client-id.xml"/>
-    </device-transfer>
-</data-extraction-rules>
-```
-
-`android/app/src/main/res/xml/backup_rules.xml` (Android 11 and earlier):
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <exclude domain="sharedpref" path="io.getstream.ai.client-id.xml"/>
-</full-backup-content>
-```
-
-Then point the `<application>` in `android/app/src/main/AndroidManifest.xml` at both:
-```xml
-<application
-    android:dataExtractionRules="@xml/data_extraction_rules"
-    android:fullBackupContent="@xml/backup_rules"
-    ...>
-```
-
-If your app already has these files, add the `<exclude>` lines to them. Rules that only exclude
-leave the rest of your app's data backed up as before. Keep the `<device-transfer>` rule even with
-`android:allowBackup="false"`: in apps targeting Android 12 or later, that flag stops cloud backups
-but not transfers to a new device.
-
-**Widget tests** — `installId()` needs a shared preferences store. Without one, it throws
-`StateError('The SharedPreferencesAsyncPlatform instance must be set.')`. Set an in-memory store
-first, from `shared_preferences_platform_interface`:
+**Widget tests** — prefer a fixed id, such as
+`AIClientIdentity(userId: 'user', clientId: 'test-install')`, over calling `installId()`: it reads
+and writes a real file, which never completes inside `testWidgets`' fake clock. If the code under
+test does call it, run that code through `tester.runAsync`, and point `path_provider`, which has no
+platform implementation in tests, at a temporary directory, with `path_provider_platform_interface`
+and `plugin_platform_interface` as dev dependencies:
 
 ```dart
-SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
+class FakePathProvider extends Fake with MockPlatformInterfaceMixin implements PathProviderPlatform {
+  FakePathProvider(this.applicationSupportPath);
+
+  final String applicationSupportPath;
+
+  @override
+  Future<String?> getApplicationSupportPath() async => applicationSupportPath;
+}
+
+PathProviderPlatform.instance = FakePathProvider(Directory.systemTemp.createTempSync().path);
+final installId = await tester.runAsync(AIClientIdentity.installId);
 ```
 
 ### Tool approvals: `AIToolApprover`

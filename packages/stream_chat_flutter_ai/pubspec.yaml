@@ -44,23 +44,25 @@ dependencies:
   # builder and the LaTeX syntaxes in `src/markdown/` work against `md.Element`,
   # `md.BlockSyntax` and `md.InlineSyntax`.
   markdown: ^7.3.1
+  # Marks the install id's file as excluded from backups on iOS and macOS.
+  objective_c: ^9.3.0
+  # Finds the directory the install id's file is kept in.
+  path_provider: ^2.1.5
   photo_manager: ^3.9.0
   share_plus: ^13.3.1
-  shared_preferences: ^2.5.3
-  # Depended on directly, not just via shared_preferences: the install id is
-  # kept in a preferences file of its own on Android, set through
-  # `SharedPreferencesAsyncAndroidOptions`, which only this package exports.
-  shared_preferences_android: ^2.4.0
   speech_to_text: ^7.0.0
   uuid: ^4.5.1
+  # Keeps the install id in `localStorage` on the web.
+  web: ^1.1.0
 
 dev_dependencies:
   alchemist: ^0.14.0
   flutter_test:
     sdk: flutter
   mocktail: ^1.0.5
+  path_provider_platform_interface: ^2.1.0
+  plugin_platform_interface: ^2.1.0
   share_plus_platform_interface: ^7.2.0
-  shared_preferences_platform_interface: ^2.4.1
   speech_to_text_platform_interface: ^2.4.0
 
 # This package supports all platforms listed below.

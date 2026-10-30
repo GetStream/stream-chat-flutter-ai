@@ -79,7 +79,7 @@
 - `AIClientIdentity` — the signed-in user and install id that a tool call's `target_user_id` and
   `target_client_id` are matched against, through `canApprove` and `canRun`.
 - `AIClientIdentity.installId()` — an id for this install, created on first use and kept across
-  launches. On Android, exclude it from backups with the rules in the README.
+  launches. It isn't backed up on Android, iOS or macOS, so a restored device gets its own.
 - `AIToolApprovalView` and `AIToolApprovalCard` — ask the person a tool call waits for whether it
   may run, with Allow / Don't Allow buttons. An `AIToolApprovalContentBuilder`, given an
   `AIToolApprovalAnswer` callback, replaces the card.

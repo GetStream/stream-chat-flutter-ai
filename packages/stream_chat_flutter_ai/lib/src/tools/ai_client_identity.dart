@@ -1,14 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 // Not doc-only: the matchers below call into it.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_tool_runner.dart';
-import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_preferences.dart'
-    if (dart.library.js_interop) 'package:stream_chat_flutter_ai/src/tools/ai_install_id_preferences_web.dart';
-import 'package:uuid/uuid.dart';
+import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_store.dart';
 
 /// Who is signed in on this device, and which install this is — what a tool
 /// call's `target_user_id` and `target_client_id` are matched against.
@@ -52,36 +49,20 @@ class AIClientIdentity {
   ///
   /// The first call creates the id and stores it on the device. Later calls,
   /// including concurrent ones and those in later launches, complete with the
-  /// same id. Uninstalling the app or clearing its data removes the id, and the
-  /// next call creates a new one. On iOS, macOS, web and desktop the id is kept
-  /// in shared preferences, so `SharedPreferencesAsync().clear()` without an
-  /// allowList removes it too.
+  /// same id. Uninstalling the app or clearing its data (on the web, the
+  /// site's data) removes the id, and the next call creates a new one.
   ///
-  /// On Android, exclude the id from the app's backups so that a restore
-  /// doesn't give two devices the same id; the package README lists the rules.
-  /// On iOS, backups and Quick Start copy the id, as they do the native SDK's.
+  /// On Android, iOS and macOS the id is kept out of backups, so a device
+  /// restored from one gets an id of its own instead of sharing the old
+  /// device's.
+  ///
+  /// Consider reading the id once per sign-in and passing that same value both
+  /// to the [AIClientIdentity] of the runner and approver and as `client_id`
+  /// on every message, so that the two always agree.
   ///
   /// If the id can't be read or stored, the returned future completes with
   /// that error, and the next call tries again.
-  static Future<String> installId() {
-    return _pendingInstallId ??= _readOrCreateInstallId().whenComplete(() => _pendingInstallId = null);
-  }
-
-  static const _installIdKey = 'io.getstream.ai.client-id';
-
-  // The lookup in flight, shared so that calls racing the first one don't
-  // each create an id of their own.
-  static Future<String>? _pendingInstallId;
-
-  static Future<String> _readOrCreateInstallId() async {
-    final preferences = SharedPreferencesAsync(options: kAIInstallIdPreferencesOptions);
-    final storedId = await preferences.getString(_installIdKey);
-    if (storedId != null && storedId.trim().isNotEmpty) return storedId;
-
-    final newId = 'flutter-${const Uuid().v4().toUpperCase()}';
-    await preferences.setString(_installIdKey, newId);
-    return newId;
-  }
+  static Future<String> installId() => AIInstallIdStore.installId();
 
   /// Whether [call] waits for this person to answer its question, on this
   /// device. See [AIToolCallPart.isAwaitingApproval].
