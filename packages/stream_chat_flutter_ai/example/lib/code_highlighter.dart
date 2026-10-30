@@ -40,7 +40,8 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 ///
 /// `stream_chat_flutter_ai` recognises code fences and renders their chrome,
 /// but ships no grammars — they dwarf the package itself — so this is the seam
-/// where a host supplies them, exactly as `mathBuilder` supplies a math engine.
+/// where a host supplies them, exactly as `StreamingMessageView.mathBuilder`
+/// supplies a math engine.
 /// Copy this file to get highlighting in your own app.
 ///
 /// Returning null is how a fence declines to be highlighted; [CodeBlockView]

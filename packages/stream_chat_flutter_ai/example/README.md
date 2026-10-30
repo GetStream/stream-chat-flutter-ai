@@ -9,9 +9,11 @@ backend, no API key and no LLM provider involved:
   `enableSpeechToText: true`) — try the **+** button for the attachment sheet
   and the mic for dictation.
 - `AISuggestionsView` — the quick-reply chips on the empty "new chat" screen.
-- `AITypingIndicatorView` — shown while the fake assistant is "thinking".
-- `StreamingMessageView` — types the reply out, rendering markdown, a fenced
-  code block (`CodeBlockView`) and a chart fence (`ChartView`).
+- `AIConversationView` — lays out the conversation, scrolling each question to
+  the top and leaving the list alone while you scroll. It shows when the fake
+  assistant is "thinking", its reasoning and tool calls as steps, and types the
+  reply out through `StreamingMessageView`, rendering markdown, a fenced code
+  block (`CodeBlockView`) and a chart fence (`ChartView`).
 
 ## Running it
 
