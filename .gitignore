@@ -120,6 +120,9 @@ gradlew
 gradlew.bat
 gradle-wrapper.jar
 
+# Claude Code worktrees (`.claude/skills/` is committed)
+.claude/worktrees/
+
 # Non-CI golden files and failures
 **/test/**/goldens/**/*.*
 **/test/**/failures/**/*.*
