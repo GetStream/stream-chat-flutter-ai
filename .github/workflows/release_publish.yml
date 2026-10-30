@@ -14,12 +14,13 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A re-run of the same tag must not cancel a publish part-way through.
+  cancel-in-progress: false
 
 jobs:
   release:
     permissions:
-      contents: write  # Required to creating release
+      contents: read  # The release is created with BOT_GITHUB_API_TOKEN
       id-token: write # Required for authentication using OIDC
     runs-on: ubuntu-latest
     steps:

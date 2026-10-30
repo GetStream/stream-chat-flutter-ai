@@ -13,6 +13,8 @@ allowed-tools:
   - Bash(which *)
   - Bash(grep *)
   - Bash(sed *)
+  - Bash(sort *)
+  - Bash(tail *)
   - Read
   - Edit
   - Write
@@ -84,8 +86,9 @@ The sub-headings are plain emoji lines, not markdown headings: `💥 Breaking`, 
 Adding a string to `AITranslations` is not breaking either (see `CLAUDE.md`).
 
 **2. Map onto the current version.** Per the Dart community convention in
-[Package versioning](https://dart.dev/tools/pub/versioning#semantic-versions), below `1.0.0` every slot shifts down
-one:
+[Package versioning](https://dart.dev/tools/pub/versioning#semantic-versions), below `1.0.0` breaking and feature
+releases shift down one slot. A release with no public API change still bumps the patch rather than the build
+number: the release workflows only handle `X.Y.Z` versions, so a `+1` version can't be tagged or published.
 
 ```bash
 grep '^version:' packages/stream_chat_flutter_ai/pubspec.yaml
@@ -95,7 +98,7 @@ grep '^version:' packages/stream_chat_flutter_ai/pubspec.yaml
 | --- | --- | --- |
 | breaking | major | minor |
 | compatible, adds API | minor | patch |
-| no public API change | patch | build (`+1`) |
+| no public API change | patch | patch |
 
 A caret constraint stops at the leading significant digit: `^0.1.0` means `>=0.1.0 <0.2.0`. Bumping that slot
 strands every consumer on the old caret until they hand-edit their pubspec — so bump it only for a genuinely
@@ -273,8 +276,8 @@ Return the PR URL. **Tell the user to squash-merge it**, without editing the tit
 
 `release_tag.yml` checks that `v<version>` matches the pubspec and isn't tagged yet, then pushes the tag with the
 bot PAT. `release_publish.yml` fires on that tag push, runs a dry run, then `melos run release:pub` (OIDC), and
-creates the GitHub Release. `lint:pub` and `release:pub` skip versions already on pub.dev, so a re-run after a
-failure is a clean no-op for anything already live.
+creates the GitHub Release. The dry run passes on a version that's already live and `release:pub` skips it, so a
+re-run after a failure is a clean no-op for anything already published.
 
 ## Don't
 

@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+# No `concurrency` group: this runs on every push to `main`, so a group would let
+# the next merge cancel a release run before it tags. Overlapping runs are safe —
+# only a release commit gets past the job's `if`, and the tag check refuses to
+# tag twice.
 
 jobs:
   release:
@@ -15,7 +16,7 @@ jobs:
     if: "${{ startsWith(github.event.head_commit.message, 'chore(repo): release v') }}"
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Required to create and push tags
+      contents: read  # The tag is pushed with BOT_GITHUB_API_TOKEN
 
     steps:
       - name: 📚 Checkout branch
@@ -35,19 +36,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          commit_msg="$COMMIT_MSG"
-          echo "📦 Commit message: $commit_msg"
+          # Only the squash title, such as `chore(repo): release v0.2.0 (#47)` —
+          # the body can mention other versions.
+          title="${COMMIT_MSG%%$'\n'*}"
+          echo "📦 Commit title: $title"
 
-          # Match vX.Y.Z or vX.Y.Z-suffix (case-insensitive)
-          version_regex='[vV][0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.\-]+)?'
+          version_regex='^chore\(repo\): release (v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?)( \(#[0-9]+\))?$'
 
-          if [[ "$commit_msg" =~ $version_regex ]]; then
-            version="${BASH_REMATCH[0]}"
+          if [[ "$title" =~ $version_regex ]]; then
+            version="${BASH_REMATCH[1]}"
             echo "✅ Found version tag: $version"
             echo "tag=$version" >> "$GITHUB_OUTPUT"
           else
-            echo "::error ::❌ No SemVer tag found in commit message."
-            echo "::error ::Expected something like: 'chore(repo): release v1.2.3'"
+            echo "::error ::❌ The commit title is not a release title."
+            echo "::error ::Expected something like: 'chore(repo): release v1.2.3 (#123)'"
             exit 1
           fi
 
