@@ -117,7 +117,7 @@ Future<TestGesture> _holdPastStart(WidgetTester tester) async {
 
 Finder _text(String text) => find.textContaining(text, findRichText: true);
 
-/// How far below the top of the list [text] is.
+/// Returns how far [text] is below the top of the list.
 double _below(WidgetTester tester, String text) =>
     tester.getTopLeft(find.text(text)).dy - tester.getTopLeft(find.byType(AIConversationView)).dy;
 
@@ -179,15 +179,20 @@ void main() {
       expect(find.text('actions for r1'), findsOneWidget);
     });
 
-    testWidgets('makes the latest turn and the padding under it at least as tall as the list', (tester) async {
+    testWidgets('makes a short latest turn fill the list above its bottom padding', (tester) async {
       for (final bottom in [16.0, 200.0]) {
         await _pump(tester, [_user('u1'), _reply('r1')], padding: EdgeInsets.fromLTRB(16, 0, 16, bottom));
         final list = tester.getSize(find.byType(AIConversationView));
         final turn = tester.getRect(
           find.ancestor(of: find.byType(AIUserMessageView), matching: find.byType(ConstrainedBox)).first,
         );
-        expect(turn.height + bottom, greaterThanOrEqualTo(list.height));
+        expect(turn.height + bottom, list.height);
       }
+    });
+
+    testWidgets('lays out under a bottom padding taller than the list', (tester) async {
+      await _pump(tester, [_user('u1'), _reply('r1')], padding: const EdgeInsets.fromLTRB(16, 0, 16, 700));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets("shows a new conversation's first question where it shows every later one", (tester) async {
@@ -206,24 +211,40 @@ void main() {
       }
     });
 
-    testWidgets(
-      'opens a conversation, and scrolls back to its end, with a short latest turn at the top',
-      (tester) async {
-        const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
-        final history = [..._history(2), _user('u2', 'The latest question'), _reply('r2', text: 'Short')];
-        await _pump(tester, history, padding: padding);
-        final opened = _below(tester, 'The latest question');
+    testWidgets('opens a conversation with a short latest turn where a question sent goes', (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      final history = [..._history(2), _user('u2', 'The latest question'), _reply('r2', text: 'Short')];
+      await _pump(tester, history, padding: padding);
+      final opened = _below(tester, 'The latest question');
 
-        await _pump(tester, [...history, _user('u3', 'A new question')], padding: padding);
-        expect(_below(tester, 'A new question'), opened, reason: 'where a question sent goes');
+      await _pump(tester, [...history, _user('u3', 'A new question')], padding: padding);
+      expect(_below(tester, 'A new question'), opened);
+    });
 
-        await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Scroll to latest'));
-        await tester.pumpAndSettle();
-        expect(_below(tester, 'A new question'), opened);
-      },
-    );
+    testWidgets("scrolls back to a short latest turn's top from the scroll-to-latest button", (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      final history = _history(2);
+      await _pump(tester, history, padding: padding);
+      await _pump(tester, [...history, _user('u2', 'A new question')], padding: padding);
+      final sent = _below(tester, 'A new question');
+
+      await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Scroll to latest'));
+      await tester.pumpAndSettle();
+      expect(_below(tester, 'A new question'), sent);
+    });
+
+    testWidgets('keeps the scroll-to-latest button hidden once a question is sent', (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      final history = _history(2);
+      await _pump(tester, history, padding: padding);
+      await _pump(tester, [...history, _user('u2', 'A new question')], padding: padding);
+      final button = tester.widget<IgnorePointer>(
+        find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(IgnorePointer)).first,
+      );
+      expect(button.ignoring, isTrue, reason: 'the end is in view');
+    });
 
     testWidgets('keeps the bottom padding under a long latest reply at its end', (tester) async {
       const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
