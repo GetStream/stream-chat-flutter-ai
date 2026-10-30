@@ -241,6 +241,10 @@
 
 🐞 Fixed
 
+- `AIConversationView` showed the latest message too high when it scrolled to the end: for the
+  first message of a new conversation, a conversation that loads, and the scroll-to-latest button.
+  It was off by `padding.bottom`, so with a large bottom padding the message went out of view, and
+  the scroll-to-latest button showed right after a message was sent.
 - `AITypingIndicatorView`'s and `AnimatedDots`' dots were black by default, which made them invisible
   in dark mode. They now default to the themed caption color.
 - A generating reply's first chunk is typed out from its first character in `StreamingMessageView`
