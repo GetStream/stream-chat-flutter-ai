@@ -1,0 +1,102 @@
+name: release_publish
+
+env:
+  flutter_version: "3.x"
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+' # tag-pattern for regular releases
+      - 'v[0-9]+.[0-9]+.[0-9]+-*' # tag-pattern for pre-releases
+  # A manual run is a dry run: it checks the package is publishable but skips
+  # the publish and the GitHub Release, which only run on a tag push.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    # Publishing waits for a required reviewer to approve this environment,
+    # and pub.dev only accepts OIDC tokens issued to jobs running in it.
+    environment: pub.dev
+    permissions:
+      contents: write  # Required to creating release
+      id-token: write # Required for authentication using OIDC
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📚 Checkout branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Set up the Dart SDK and provision the OIDC token used for publishing.
+      - name: 🎯 Setup Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: 🐦 Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+
+      - name: 📦 Install Tools
+        run: flutter pub global activate melos
+
+      - name: 🔧 Bootstrap Workspace
+        run: melos bootstrap --verbose
+
+      - name: 🔍 Verify Tag
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          version=$(sed -n 's/^version: *//p' packages/stream_chat_flutter_ai/pubspec.yaml)
+          if [[ "$TAG" != "v$version" ]]; then
+            echo "::error ::❌ Tag $TAG does not match pubspec version $version."
+            exit 1
+          fi
+
+          echo "✅ $TAG matches the pubspec."
+
+      # Not `melos run lint:pub`: that skips versions already on pub.dev, so a
+      # manual run before the version bump would validate nothing.
+      - name: 🌵 Dry Run
+        working-directory: packages/stream_chat_flutter_ai
+        run: flutter pub publish --dry-run
+
+      - name: 📢 Release to pub.dev
+        if: github.event_name == 'push'
+        run: melos run release:pub
+
+      - name: 🏷️ Extract Version Info
+        if: github.event_name == 'push'
+        id: extract_version
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          echo "📦 Tag: $TAG"
+
+          # Check if this is a pre-release (contains hyphen after version)
+          is_prerelease=$([[ $TAG == *-* ]] && echo true || echo false)
+          echo "ℹ️ Pre-release: $is_prerelease"
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$is_prerelease" >> "$GITHUB_OUTPUT"
+
+      - name: 🚀 Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          tag_name: ${{ steps.extract_version.outputs.tag }}
+          prerelease: ${{ steps.extract_version.outputs.prerelease }}
+          token: ${{ secrets.BOT_GITHUB_API_TOKEN }}

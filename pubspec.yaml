@@ -91,6 +91,18 @@ melos:
         published: false
         private: false
 
+    release:pub:
+      exec:
+        command: flutter pub publish -f
+        concurrency: 1
+        orderDependents: true
+      description: |
+        Publish all publishable packages to pub.dev.
+         - Note: run by `release_publish.yml` on a release tag. Never run it locally.
+      packageFilters:
+        published: false
+        private: false
+
     test:all:
       run: melos run test:flutter --no-select
       description: Run all tests in this project.
