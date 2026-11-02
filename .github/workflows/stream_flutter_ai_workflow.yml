@@ -70,6 +70,18 @@ jobs:
       - name: "Dart Analyze"
         run: |
           melos run analyze
+      # SwiftPM can't share a source file between two packages, so the iOS and
+      # macOS packages of a plugin each keep a copy that must stay identical.
+      - name: "Apple Sources Match"
+        run: |
+          for package in packages/*/; do
+            name=$(basename "$package")
+            ios="$package/ios/$name/Sources/$name"
+            macos="$package/macos/$name/Sources/$name"
+            if [ -d "$ios" ] && [ -d "$macos" ]; then
+              diff -r "$ios" "$macos"
+            fi
+          done
       - name: "Pub Check"
         if: github.base_ref == 'main'
         run: |
@@ -133,3 +145,62 @@ jobs:
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           files: packages/*/coverage/lcov.info
+
+  # Compiles the on-device plugin's Kotlin through the example app, and runs
+  # its JVM unit tests. ML Kit can't run here: the model needs a device.
+  android:
+    needs: gate
+    runs-on: ubuntu-latest
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 30
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v7
+      - name: "Install Java"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: flutter pub global activate melos
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap
+      - name: "Build The Example"
+        working-directory: packages/stream_chat_flutter_ai/example
+        run: flutter build apk --debug
+      - name: "Kotlin Unit Tests"
+        working-directory: packages/stream_chat_flutter_ai/example/android
+        run: ./gradlew :stream_chat_flutter_ai_ondevice:testDebugUnitTest
+
+  # Compiles the on-device plugin's Swift for iOS and macOS through the example
+  # app. Foundation Models can't answer here: it needs Apple Intelligence.
+  apple:
+    needs: gate
+    runs-on: macos-latest
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 30
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v7
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: flutter pub global activate melos
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap
+      - name: "Build The Example For iOS"
+        working-directory: packages/stream_chat_flutter_ai/example
+        run: flutter build ios --simulator --debug
+      - name: "Build The Example For macOS"
+        working-directory: packages/stream_chat_flutter_ai/example
+        run: flutter build macos --debug

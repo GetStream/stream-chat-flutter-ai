@@ -32,6 +32,9 @@ dependencies:
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace, so it needs no update when the package version is bumped.
   stream_chat_flutter_ai: any
+  # The on-device fallback: Gemini Nano on Android, Apple's model on iOS and
+  # macOS. Also a workspace member, resolved locally.
+  stream_chat_flutter_ai_ondevice: any
 
 dev_dependencies:
   flutter_test:
