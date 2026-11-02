@@ -80,14 +80,16 @@ flutter:
 In the root `pubspec.yaml`:
 - add the package to `workspace:`;
 - add `plugin_platform_interface` and `pigeon` to `melos.command.bootstrap`;
+- add `stream_chat_flutter_ai: ^<core version>` to that list too. Bootstrap copies it into the
+  plugin's and the example's pubspecs, and `/release-pr` bumps it with both packages' versions,
+  since they are released in lockstep;
 - add the `generate:pigeon` script, copied from stream-core-flutter's `melos.yaml`. It runs Pigeon
   once per Apple platform with `--swift_out`, then formats the Dart output.
 
 Then run `melos bootstrap`.
 
-Don't add `stream_chat_flutter_ai` to the root bootstrap list. Melos would then rewrite the
-example's `stream_chat_flutter_ai: any`. The packages are released in lockstep, so bump the
-constraint by hand with each release.
+The first version of the plugin must be uploaded to pub.dev by hand. Automated publishing can only be
+turned on for a package that already exists there.
 
 ## 4. Define the platform channel with Pigeon
 

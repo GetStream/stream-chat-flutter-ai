@@ -58,6 +58,9 @@ melos:
         re_highlight: ^0.0.3
         share_plus: ^13.3.1
         speech_to_text: ^7.0.0
+        # The core package, as the ondevice plugin and the example depend on it.
+        # Lockstep: release-pr sets it to the version being released.
+        stream_chat_flutter_ai: ^0.1.0
         uuid: ^4.5.1
         web: ^1.1.0
 

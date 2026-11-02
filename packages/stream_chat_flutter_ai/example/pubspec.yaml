@@ -30,8 +30,9 @@ dependencies:
   # `lib/code_highlighter.dart`.
   re_highlight: ^0.0.3
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
-  # workspace, so it needs no update when the package version is bumped.
-  stream_chat_flutter_ai: any
+  # workspace. The constraint comes from the root bootstrap list, which
+  # release-pr bumps with each release.
+  stream_chat_flutter_ai: ^0.1.0
   # The on-device fallback: Gemini Nano on Android, Apple's model on iOS and
   # macOS. Also a workspace member, resolved locally.
   stream_chat_flutter_ai_ondevice: any
