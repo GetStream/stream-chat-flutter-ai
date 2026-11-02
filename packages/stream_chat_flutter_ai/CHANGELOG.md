@@ -238,6 +238,13 @@
   rest, instead of starting over from the first character.
 - The default typing speed of `StreamingMessageView` and `TypewriterController` is 5 ms per
   character instead of 10 ms.
+- The README matches the package code: the tool approval snippet passes the `AIToolApprovalDecision`
+  as is, the Stream Chat section hides the widgets `stream_chat_flutter` also exports and reads the
+  reply's id from `event.messageId`, a call waiting for a sign-in reads "Waiting for sign-in" for
+  everyone when the approver has no authorizer, `SpeechToTextButton` no longer claims to hide itself,
+  and the attachment sheet's platform permissions and speech recognition's Android `<queries>` entry
+  are documented. The example app's Android manifest also asks for `READ_MEDIA_VIDEO` and
+  `READ_MEDIA_VISUAL_USER_SELECTED`.
 
 🐞 Fixed
 
