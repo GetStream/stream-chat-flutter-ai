@@ -376,8 +376,10 @@ class ReplyDone extends ReplyEvent {
   }
 }
 
-/// The model couldn't answer. [reason] is an `AILocalModelErrorReason` name;
-/// [code] is the platform's own error, for logs.
+/// The model couldn't answer.
+///
+/// The `reason` is an `AILocalModelErrorReason` name, and the `code` the
+/// platform's own error, for logs.
 class ReplyFailed extends ReplyEvent {
   ReplyFailed({
     required this.requestId,
@@ -448,10 +450,10 @@ sealed class DownloadEvent {}
 /// The download started.
 class DownloadStarted extends DownloadEvent {
   DownloadStarted({
-    this.bytesToDownload,
+    required this.bytesToDownload,
   });
 
-  int? bytesToDownload;
+  int bytesToDownload;
 
   List<Object?> _toList() {
     return <Object?>[
@@ -466,7 +468,7 @@ class DownloadStarted extends DownloadEvent {
   static DownloadStarted decode(Object result) {
     result as List<Object?>;
     return DownloadStarted(
-      bytesToDownload: result[0] as int?,
+      bytesToDownload: result[0]! as int,
     );
   }
 
@@ -495,18 +497,14 @@ class DownloadStarted extends DownloadEvent {
 /// The download is under way.
 class DownloadProgress extends DownloadEvent {
   DownloadProgress({
-    this.bytesDownloaded,
-    this.fraction,
+    required this.bytesDownloaded,
   });
 
-  int? bytesDownloaded;
-
-  double? fraction;
+  int bytesDownloaded;
 
   List<Object?> _toList() {
     return <Object?>[
       bytesDownloaded,
-      fraction,
     ];
   }
 
@@ -517,8 +515,7 @@ class DownloadProgress extends DownloadEvent {
   static DownloadProgress decode(Object result) {
     result as List<Object?>;
     return DownloadProgress(
-      bytesDownloaded: result[0] as int?,
-      fraction: result[1] as double?,
+      bytesDownloaded: result[0]! as int,
     );
   }
 
@@ -531,7 +528,7 @@ class DownloadProgress extends DownloadEvent {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(bytesDownloaded, other.bytesDownloaded) && _deepEquals(fraction, other.fraction);
+    return _deepEquals(bytesDownloaded, other.bytesDownloaded);
   }
 
   @override
@@ -540,7 +537,7 @@ class DownloadProgress extends DownloadEvent {
 
   @override
   String toString() {
-    return 'DownloadProgress(bytesDownloaded: $bytesDownloaded, fraction: $fraction)';
+    return 'DownloadProgress(bytesDownloaded: $bytesDownloaded)';
   }
 }
 
@@ -591,7 +588,9 @@ class DownloadCompleted extends DownloadEvent {
   }
 }
 
-/// The download failed. [reason] is an `AILocalModelErrorReason` name.
+/// The download failed.
+///
+/// The `reason` is an `AILocalModelErrorReason` name.
 class DownloadFailed extends DownloadEvent {
   DownloadFailed({
     required this.reason,
@@ -770,6 +769,10 @@ class OnDeviceModelHostApi {
 
   /// Starts answering [request]. Returns at once; the answer arrives on
   /// [OnDeviceModelEventApi.replyEvents] under [requestId].
+  ///
+  /// A [requestId] is `<session>-<count>`, the session new each time the Dart
+  /// side starts. A reply still running from another session is left over
+  /// from before a hot restart, and is stopped.
   Future<void> startReply(String requestId, ReplyRequestMessage request) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.stream_chat_flutter_ai_ondevice.OnDeviceModelHostApi.startReply$pigeonVar_messageChannelSuffix';

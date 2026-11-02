@@ -425,8 +425,10 @@ struct ReplyDone: ReplyEvent, Hashable, CustomStringConvertible {
   }
 }
 
-/// The model couldn't answer. [reason] is an `AILocalModelErrorReason` name;
-/// [code] is the platform's own error, for logs.
+/// The model couldn't answer.
+///
+/// The `reason` is an `AILocalModelErrorReason` name, and the `code` the
+/// platform's own error, for logs.
 ///
 /// Generated class from Pigeon that represents data sent in messages.
 struct ReplyFailed: ReplyEvent, Hashable, CustomStringConvertible {
@@ -490,12 +492,12 @@ protocol DownloadEvent {
 ///
 /// Generated class from Pigeon that represents data sent in messages.
 struct DownloadStarted: DownloadEvent, Hashable, CustomStringConvertible {
-  var bytesToDownload: Int64? = nil
+  var bytesToDownload: Int64
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> DownloadStarted? {
-    let bytesToDownload: Int64? = nilOrValue(pigeonVar_list[0])
+    let bytesToDownload = pigeonVar_list[0] as! Int64
 
     return DownloadStarted(
       bytesToDownload: bytesToDownload
@@ -527,41 +529,36 @@ struct DownloadStarted: DownloadEvent, Hashable, CustomStringConvertible {
 ///
 /// Generated class from Pigeon that represents data sent in messages.
 struct DownloadProgress: DownloadEvent, Hashable, CustomStringConvertible {
-  var bytesDownloaded: Int64? = nil
-  var fraction: Double? = nil
+  var bytesDownloaded: Int64
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> DownloadProgress? {
-    let bytesDownloaded: Int64? = nilOrValue(pigeonVar_list[0])
-    let fraction: Double? = nilOrValue(pigeonVar_list[1])
+    let bytesDownloaded = pigeonVar_list[0] as! Int64
 
     return DownloadProgress(
-      bytesDownloaded: bytesDownloaded,
-      fraction: fraction
+      bytesDownloaded: bytesDownloaded
     )
   }
   func toList() -> [Any?] {
     return [
-      bytesDownloaded,
-      fraction,
+      bytesDownloaded
     ]
   }
   static func == (lhs: DownloadProgress, rhs: DownloadProgress) -> Bool {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return MessagesPigeonInternal.deepEquals(lhs.bytesDownloaded, rhs.bytesDownloaded) && MessagesPigeonInternal.deepEquals(lhs.fraction, rhs.fraction)
+    return MessagesPigeonInternal.deepEquals(lhs.bytesDownloaded, rhs.bytesDownloaded)
   }
 
   func hash(into hasher: inout Hasher) {
     hasher.combine("DownloadProgress")
     MessagesPigeonInternal.deepHash(value: bytesDownloaded, hasher: &hasher)
-    MessagesPigeonInternal.deepHash(value: fraction, hasher: &hasher)
   }
 
   public var description: String {
-    return "DownloadProgress(bytesDownloaded: \(String(describing: bytesDownloaded)), fraction: \(String(describing: fraction)))"
+    return "DownloadProgress(bytesDownloaded: \(String(describing: bytesDownloaded)))"
   }
 }
 
@@ -602,7 +599,9 @@ struct DownloadCompleted: DownloadEvent, Hashable, CustomStringConvertible {
   }
 }
 
-/// The download failed. [reason] is an `AILocalModelErrorReason` name.
+/// The download failed.
+///
+/// The `reason` is an `AILocalModelErrorReason` name.
 ///
 /// Generated class from Pigeon that represents data sent in messages.
 struct DownloadFailed: DownloadEvent, Hashable, CustomStringConvertible {
@@ -757,6 +756,10 @@ protocol OnDeviceModelHostApi {
   func modelInfo() async throws -> ModelInfoMessage
   /// Starts answering [request]. Returns at once; the answer arrives on
   /// [OnDeviceModelEventApi.replyEvents] under [requestId].
+  ///
+  /// A [requestId] is `<session>-<count>`, the session new each time the Dart
+  /// side starts. A reply still running from another session is left over
+  /// from before a hot restart, and is stopped.
   func startReply(requestId: String, request: ReplyRequestMessage) throws
   /// Stops the reply [requestId]. Nothing more is sent for it.
   func cancelReply(requestId: String) throws
@@ -791,6 +794,10 @@ class OnDeviceModelHostApiSetup {
     }
     /// Starts answering [request]. Returns at once; the answer arrives on
     /// [OnDeviceModelEventApi.replyEvents] under [requestId].
+    ///
+    /// A [requestId] is `<session>-<count>`, the session new each time the Dart
+    /// side starts. A reply still running from another session is left over
+    /// from before a hot restart, and is stopped.
     let startReplyChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.stream_chat_flutter_ai_ondevice.OnDeviceModelHostApi.startReply\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       startReplyChannel.setMessageHandler { message, reply in

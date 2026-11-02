@@ -22,8 +22,8 @@ import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_status.dart';
 /// It answers without a network connection, and the conversation never leaves
 /// the device. It is a small model, good for short answers and for working
 /// with what is in the conversation. Its context holds a few thousand tokens,
-/// so the oldest turns of a long conversation are left out, and it has none of
-/// your agent's tools: say so in the instructions.
+/// so the oldest turns of a long conversation are left out. It has none of
+/// your agent's tools, so the instructions should say so.
 ///
 /// ```dart
 /// const model = AIOnDeviceModel();
@@ -54,8 +54,8 @@ class AIOnDeviceModel extends AILocalModel {
   /// values are capped.
   final int maximumResponseTokens;
 
-  /// Room for the role markers and separators the platform frames the
-  /// conversation with, on top of [AIConversationTurn.tokensPerTurn].
+  // Room for the role markers and separators the platform frames the
+  // conversation with, on top of `AIConversationTurn.tokensPerTurn`.
   static const _promptFramingTokens = 50;
 
   static AIOnDeviceModelPlatform get _platform => AIOnDeviceModelPlatform.instance;
@@ -79,8 +79,8 @@ class AIOnDeviceModel extends AILocalModel {
   ///
   /// Listening starts the download and cancelling the subscription stops it.
   /// The stream closes after an [AIOnDeviceDownloadCompleted] or an
-  /// [AIOnDeviceDownloadFailed]. Start it from something the person did, such
-  /// as a tap, since the download can be large.
+  /// [AIOnDeviceDownloadFailed]. The download can be large, so consider
+  /// starting it from something the person did, such as a tap.
   ///
   /// - On Android, AICore may wait until the device is idle and on Wi-Fi, so
   ///   the download can take hours. Until it starts, [status] may still read
@@ -100,8 +100,9 @@ class AIOnDeviceModel extends AILocalModel {
   /// question; see [AIConversationTurn.fitToBudget]. Each event is the whole
   /// answer so far. Cancelling the subscription stops the model.
   ///
-  /// Failures arrive as an [AILocalModelException] error event, whose `cause`
-  /// is the platform's [AIOnDeviceError] when it reported one. A model that
+  /// Failures arrive as an [AILocalModelException] error event, whose
+  /// [AILocalModelException.cause] is the platform's [AIOnDeviceError] when it
+  /// reported one. A model that
   /// reports itself available can still fail, such as Apple's in the iOS
   /// Simulator.
   @override
@@ -140,7 +141,7 @@ class AIOnDeviceModel extends AILocalModel {
         );
       }
 
-      final fitted = AIConversationTurn.fitToBudget(turns, maxTokens: budget, instructions: instructions);
+      var fitted = AIConversationTurn.fitToBudget(turns, maxTokens: budget, instructions: instructions);
       if (fitted.lastOrNull?.role != AIConversationRole.user) {
         return fail(
           const AILocalModelException(
@@ -149,6 +150,10 @@ class AIOnDeviceModel extends AILocalModel {
           ),
         );
       }
+
+      // A transcript starts with the person speaking: an answer left first by
+      // the fitting has lost its question.
+      if (fitted.first.role == AIConversationRole.assistant) fitted = fitted.sublist(1);
 
       answer = _platform
           .reply(instructions: instructions, turns: fitted, maximumResponseTokens: responseTokens)

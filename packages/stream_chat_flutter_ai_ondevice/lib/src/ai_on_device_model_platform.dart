@@ -10,8 +10,6 @@ import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_model_method_ch
 
 /// The interface that platform-specific implementations of the on-device
 /// model must implement.
-///
-/// Internal to the package.
 @internal
 abstract class AIOnDeviceModelPlatform extends PlatformInterface {
   /// Constructs an [AIOnDeviceModelPlatform].
@@ -23,12 +21,11 @@ abstract class AIOnDeviceModelPlatform extends PlatformInterface {
 
   /// The default instance of [AIOnDeviceModelPlatform] to use.
   ///
-  /// Defaults to [MethodChannelAIOnDeviceModel].
+  /// Defaults to [MethodChannelAIOnDeviceModel]. Platform-specific
+  /// implementations set it to their own class, extending
+  /// [AIOnDeviceModelPlatform], when they register themselves.
   static AIOnDeviceModelPlatform get instance => _instance;
 
-  /// Platform-specific implementations should set this with their own
-  /// platform-specific class that extends [AIOnDeviceModelPlatform] when they
-  /// register themselves.
   static set instance(AIOnDeviceModelPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
@@ -52,8 +49,10 @@ abstract class AIOnDeviceModelPlatform extends PlatformInterface {
     throw UnimplementedError('reply() has not been implemented.');
   }
 
-  /// Downloads the model. Listening starts the download and cancelling stops
-  /// it; the stream closes after a completed or failed event.
+  /// Downloads the model.
+  ///
+  /// Listening starts the download and cancelling stops it; the stream closes
+  /// after a completed or failed event.
   Stream<AIOnDeviceDownload> download() {
     throw UnimplementedError('download() has not been implemented.');
   }

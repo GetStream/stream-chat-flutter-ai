@@ -23,14 +23,12 @@ import 'package:stream_chat_flutter_ai_ondevice/src/messages.g.dart' as wire;
 ///
 /// On platforms without the plugin (web, Windows, Linux) the model is
 /// unavailable and the channels are never used.
-///
-/// Internal to the package.
 @internal
 class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
-  /// Constructs a [MethodChannelAIOnDeviceModel].
+  /// Creates the platform over the generated channels.
   ///
-  /// [hostApi], [replyEvents], [downloadEvents] and [isSupported] are exposed
-  /// for tests to substitute the generated channels and the platform check.
+  /// The `hostApi`, `replyEvents`, `downloadEvents` and `isSupported`
+  /// arguments substitute the channels and the platform check in tests.
   MethodChannelAIOnDeviceModel({
     wire.OnDeviceModelHostApi? hostApi,
     Stream<wire.ReplyEvent> Function()? replyEvents,
@@ -47,20 +45,26 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
   final bool _isSupported;
 
   // The platforms with a native side: anywhere else a channel call would fail.
-  static bool get _hasPlugin =>
-      !kIsWeb &&
-      const {TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.macOS}.contains(defaultTargetPlatform);
+  static bool get _hasPlugin {
+    if (kIsWeb) return false;
+    return const {TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.macOS}.contains(defaultTargetPlatform);
+  }
 
   final _replies = <String, StreamController<String>>{};
   StreamSubscription<wire.ReplyEvent>? _replySubscription;
   var _nextReplyId = 0;
 
   // Native replies outlive a hot restart, which starts this count again: the
-  // prefix keeps a new reply's id from matching one still running.
-  final _replyIdPrefix = Random().nextInt(1 << 32).toRadixString(36);
+  // session keeps a new reply's id from matching one still running, and lets
+  // the platform stop those. A 31-bit bound, since `1 << 32` is 0 on the web.
+  final _replySession = Random().nextInt(0x7fffffff).toRadixString(36);
 
   final _downloads = <StreamController<AIOnDeviceDownload>>{};
   StreamSubscription<wire.DownloadEvent>? _downloadSubscription;
+
+  // The download's latest start and progress, for a stream that joins it.
+  AIOnDeviceDownloadStarted? _downloadStarted;
+  AIOnDeviceDownloadProgress? _downloadProgress;
 
   static const _unsupported = AILocalModelException(
     AILocalModelErrorReason.unavailable,
@@ -85,7 +89,7 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
     required int maximumResponseTokens,
   }) {
     if (!_isSupported) return Stream.error(_unsupported);
-    final id = '$_replyIdPrefix-${_nextReplyId++}';
+    final id = '$_replySession-${_nextReplyId++}';
     // Closed when the reply ends: by `_end` on done, failure or cancel.
     // ignore: close_sinks
     late final StreamController<String> controller;
@@ -95,7 +99,7 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
         // Listened to before the reply starts, so its first event isn't missed:
         // the listen and `startReply` travel on different channels, but the
         // platform handles both in the order they were sent, on its main thread.
-        _replySubscription ??= _replyEvents().listen(_onReplyEvent, onError: _onReplyChannelError);
+        _replySubscription ??= _replyEvents().listen(_handleReplyEvent, onError: _handleReplyChannelError);
         final request = wire.ReplyRequestMessage(
           instructions: instructions,
           turns: [
@@ -120,36 +124,49 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
     controller = StreamController<AIOnDeviceDownload>(
       onListen: () {
         _downloads.add(controller);
-        if (_downloadSubscription != null) return; // Joins the download in progress.
+        if (_downloadSubscription != null) {
+          // Joins the download in progress, from where it is.
+          if (_downloadStarted case final started?) controller.add(started);
+          if (_downloadProgress case final progress?) controller.add(progress);
+          return;
+        }
         _downloadSubscription = _downloadEvents().listen(
-          (event) => switch (event) {
-            wire.DownloadStarted(:final bytesToDownload) => _broadcastDownload(
-              AIOnDeviceDownloadStarted(bytesToDownload: bytesToDownload),
-            ),
-            wire.DownloadProgress(:final bytesDownloaded, :final fraction) => _broadcastDownload(
-              AIOnDeviceDownloadProgress(bytesDownloaded: bytesDownloaded, fraction: fraction),
-            ),
-            wire.DownloadCompleted() => _finishDownload(const AIOnDeviceDownloadCompleted()),
-            wire.DownloadFailed(:final reason, :final code, :final message) => _finishDownload(
-              AIOnDeviceDownloadFailed(_failure(reason, code, message)),
-            ),
-          },
+          _handleDownloadEvent,
           onError: (Object error) => _finishDownload(AIOnDeviceDownloadFailed(_exception(error))),
         );
         _hostApi.startDownload().catchError(
           (Object error) => _finishDownload(AIOnDeviceDownloadFailed(_exception(error))),
         );
       },
-      onCancel: () async {
+      onCancel: () {
         // Already gone when the download finished.
-        if (!_downloads.remove(controller) || _downloads.isNotEmpty) return;
+        if (!_downloads.remove(controller) || _downloads.isNotEmpty) return null;
         final cancelled = _downloadSubscription?.cancel();
-        _downloadSubscription = null;
-        await cancelled;
-        await _hostApi.cancelDownload().catchError((Object _) {});
+        _resetDownload();
+        // Sent before anything awaits, so a download started right after this
+        // reaches the platform after the cancel, not before it.
+        final stopped = _hostApi.cancelDownload().catchError((Object _) {});
+        return Future.wait([?cancelled, stopped]);
       },
     );
     return controller.stream;
+  }
+
+  void _handleDownloadEvent(wire.DownloadEvent event) {
+    switch (event) {
+      case wire.DownloadStarted(:final bytesToDownload):
+        final started = AIOnDeviceDownloadStarted(bytesToDownload: bytesToDownload);
+        _downloadStarted = started;
+        _broadcastDownload(started);
+      case wire.DownloadProgress(:final bytesDownloaded):
+        final progress = AIOnDeviceDownloadProgress(bytesDownloaded: bytesDownloaded);
+        _downloadProgress = progress;
+        _broadcastDownload(progress);
+      case wire.DownloadCompleted():
+        _finishDownload(const AIOnDeviceDownloadCompleted());
+      case wire.DownloadFailed(:final reason, :final code, :final message):
+        _finishDownload(AIOnDeviceDownloadFailed(_failure(reason, code, message)));
+    }
   }
 
   void _broadcastDownload(AIOnDeviceDownload event) {
@@ -162,7 +179,7 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
   void _finishDownload(AIOnDeviceDownload last) {
     if (_downloadSubscription == null) return;
     unawaited(_downloadSubscription?.cancel());
-    _downloadSubscription = null;
+    _resetDownload();
     final controllers = _downloads.toList();
     _downloads.clear();
     for (final controller in controllers) {
@@ -171,7 +188,13 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
     }
   }
 
-  void _onReplyEvent(wire.ReplyEvent event) {
+  void _resetDownload() {
+    _downloadSubscription = null;
+    _downloadStarted = null;
+    _downloadProgress = null;
+  }
+
+  void _handleReplyEvent(wire.ReplyEvent event) {
     switch (event) {
       case wire.ReplyText(:final requestId, :final text):
         _replies[requestId]?.add(text);
@@ -183,7 +206,7 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
   }
 
   // The channel itself failed: no reply in progress can finish.
-  void _onReplyChannelError(Object error) {
+  void _handleReplyChannelError(Object error) {
     for (final id in _replies.keys.toList()) {
       _fail(id, _exception(error));
     }

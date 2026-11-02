@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_status.dart';
 
 /// What the on-device model is and can take, read before every reply.
-///
-/// Internal to the package.
 @internal
 @immutable
 final class AIOnDeviceModelInfo {
@@ -14,7 +12,7 @@ final class AIOnDeviceModelInfo {
   /// Where the model is on this device.
   final AIOnDeviceStatus status;
 
-  /// The tokens the model reads and writes in one reply.
+  /// The number of tokens the model reads and writes in one reply.
   final int contextSize;
 
   /// The longest answer the model writes, or `null` when it has no cap of its

@@ -5,8 +5,9 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 /// The platform's own error behind an [AILocalModelException], set as its
 /// [AILocalModelException.cause].
 ///
-/// For logs and bug reports. Branch on [AILocalModelException.reason] instead:
-/// the codes differ between Android and Apple's platforms, and may change.
+/// For logs and bug reports. Consider branching on
+/// [AILocalModelException.reason] instead: the codes differ between Android and
+/// Apple's platforms, and may change.
 @immutable
 final class AIOnDeviceError {
   /// An error with the platform's [code], described by [message].

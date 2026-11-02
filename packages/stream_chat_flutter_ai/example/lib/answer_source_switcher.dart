@@ -15,14 +15,14 @@ class AnswerSourceSwitcher extends StatefulWidget {
   const AnswerSourceSwitcher({
     super.key,
     required this.model,
-    required this.onDevice,
+    required this.useDevice,
     required this.onChanged,
   });
 
   final AIOnDeviceModel model;
 
   /// Whether answers come from [model] rather than the cloud.
-  final bool onDevice;
+  final bool useDevice;
 
   /// Called with the source the person picked: `true` for the device.
   final ValueChanged<bool> onChanged;
@@ -62,7 +62,7 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
     if (_download != null && status == AIOnDeviceStatus.downloadable) return;
     setState(() => _status = status);
     // The model went away while answering on the device: back to the cloud.
-    if (widget.onDevice && status != AIOnDeviceStatus.available) widget.onChanged(false);
+    if (widget.useDevice && status != AIOnDeviceStatus.available) widget.onChanged(false);
   }
 
   Future<void> _confirmDownload() async {
@@ -92,12 +92,8 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
         switch (event) {
           case AIOnDeviceDownloadStarted(:final bytesToDownload):
             total = bytesToDownload;
-          case AIOnDeviceDownloadProgress(:final bytesDownloaded, :final fraction):
-            final size = total;
-            setState(() {
-              _progress =
-                  fraction ?? (size != null && size > 0 && bytesDownloaded != null ? bytesDownloaded / size : null);
-            });
+          case AIOnDeviceDownloadProgress(:final bytesDownloaded):
+            setState(() => _progress = _fractionOf(bytesDownloaded, total));
           case AIOnDeviceDownloadCompleted():
             _show('The on-device model is ready.');
           case AIOnDeviceDownloadFailed(:final error):
@@ -115,13 +111,20 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
     );
   }
 
+  // How much of a download of [total] bytes is done, or null while the size
+  // isn't known.
+  static double? _fractionOf(int done, int? total) {
+    if (total == null || total <= 0) return null;
+    return done / total;
+  }
+
   void _show(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _onDevicePressed() {
+  void _handleDevicePressed() {
     switch (_status) {
       case AIOnDeviceStatus.available:
         widget.onChanged(true);
@@ -168,14 +171,14 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
             children: [
               _Segment(
                 tooltip: 'Answer in the cloud',
-                selected: !widget.onDevice,
+                selected: !widget.useDevice,
                 onPressed: () => widget.onChanged(false),
                 icon: Icons.cloud_outlined,
               ),
               _Segment(
                 tooltip: tooltip,
-                selected: widget.onDevice,
-                onPressed: enabled ? _onDevicePressed : null,
+                selected: widget.useDevice,
+                onPressed: enabled ? _handleDevicePressed : null,
                 icon: deviceIcon,
                 badge: badge,
                 progress: status == AIOnDeviceStatus.downloading ? (_progress ?? -1) : null,
@@ -190,8 +193,8 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
 
 enum _Badge { ready, download, unavailable }
 
-/// One half of the switcher: an icon, raised when [selected], with an
-/// optional status [badge] or download [progress] (-1 while it is unknown).
+// One half of the switcher: an icon, raised when `selected`, with an optional
+// status `badge` or download `progress` (-1 while it is unknown).
 class _Segment extends StatelessWidget {
   const _Segment({
     required this.tooltip,

@@ -65,8 +65,10 @@ class ReplyDone extends ReplyEvent {
   final String requestId;
 }
 
-/// The model couldn't answer. [reason] is an `AILocalModelErrorReason` name;
-/// [code] is the platform's own error, for logs.
+/// The model couldn't answer.
+///
+/// The `reason` is an `AILocalModelErrorReason` name, and the `code` the
+/// platform's own error, for logs.
 class ReplyFailed extends ReplyEvent {
   ReplyFailed({required this.requestId, required this.reason, required this.code, required this.message});
 
@@ -83,15 +85,14 @@ sealed class DownloadEvent {}
 class DownloadStarted extends DownloadEvent {
   DownloadStarted({required this.bytesToDownload});
 
-  final int? bytesToDownload;
+  final int bytesToDownload;
 }
 
 /// The download is under way.
 class DownloadProgress extends DownloadEvent {
-  DownloadProgress({required this.bytesDownloaded, required this.fraction});
+  DownloadProgress({required this.bytesDownloaded});
 
-  final int? bytesDownloaded;
-  final double? fraction;
+  final int bytesDownloaded;
 }
 
 /// The model is on the device.
@@ -102,7 +103,9 @@ class DownloadCompleted extends DownloadEvent {
   final bool done;
 }
 
-/// The download failed. [reason] is an `AILocalModelErrorReason` name.
+/// The download failed.
+///
+/// The `reason` is an `AILocalModelErrorReason` name.
 class DownloadFailed extends DownloadEvent {
   DownloadFailed({required this.reason, required this.code, required this.message});
 
@@ -119,6 +122,10 @@ abstract class OnDeviceModelHostApi {
 
   /// Starts answering [request]. Returns at once; the answer arrives on
   /// [OnDeviceModelEventApi.replyEvents] under [requestId].
+  ///
+  /// A [requestId] is `<session>-<count>`, the session new each time the Dart
+  /// side starts. A reply still running from another session is left over
+  /// from before a hot restart, and is stopped.
   void startReply(String requestId, ReplyRequestMessage request);
 
   /// Stops the reply [requestId]. Nothing more is sent for it.

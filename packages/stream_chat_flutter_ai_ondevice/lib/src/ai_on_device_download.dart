@@ -3,7 +3,7 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_model.dart';
 
-/// How a download of the on-device model is going, as
+/// An event in a download of the on-device model, as
 /// [AIOnDeviceModel.download] reports it.
 ///
 /// More kinds of event may be added, so a `switch` over them needs a default
@@ -13,19 +13,21 @@ abstract final class AIOnDeviceDownload {
   const AIOnDeviceDownload._();
 }
 
-/// The download started.
+/// An event reporting that the download started.
+///
+/// iOS and macOS never send it: the system downloads Apple's model by itself.
 final class AIOnDeviceDownloadStarted extends AIOnDeviceDownload {
-  /// A download of [bytesToDownload] bytes started.
-  const AIOnDeviceDownloadStarted({this.bytesToDownload}) : super._();
+  /// Creates an event for a download of [bytesToDownload] bytes.
+  const AIOnDeviceDownloadStarted({required this.bytesToDownload}) : super._();
 
-  /// The size of the download, or `null` when the platform doesn't say.
-  ///
-  /// iOS and macOS never send this event: the system downloads Apple's model.
-  final int? bytesToDownload;
+  /// The size of the download, in bytes.
+  final int bytesToDownload;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || other is AIOnDeviceDownloadStarted && other.bytesToDownload == bytesToDownload;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AIOnDeviceDownloadStarted && other.bytesToDownload == bytesToDownload;
+  }
 
   @override
   int get hashCode => bytesToDownload.hashCode;
@@ -34,38 +36,32 @@ final class AIOnDeviceDownloadStarted extends AIOnDeviceDownload {
   String toString() => 'AIOnDeviceDownloadStarted(bytesToDownload: $bytesToDownload)';
 }
 
-/// The download is under way.
+/// An event reporting how far the download is.
 final class AIOnDeviceDownloadProgress extends AIOnDeviceDownload {
-  /// [bytesDownloaded] bytes of the download, or [fraction] of it, are done.
-  const AIOnDeviceDownloadProgress({this.bytesDownloaded, this.fraction}) : super._();
+  /// Creates an event for a download with [bytesDownloaded] bytes done.
+  const AIOnDeviceDownloadProgress({required this.bytesDownloaded}) : super._();
 
-  /// The bytes downloaded so far, or `null` when the platform reports only a
-  /// [fraction].
-  final int? bytesDownloaded;
-
-  /// How much of the download is done, from 0 to 1, or `null` when the
-  /// platform reports only [bytesDownloaded].
-  ///
-  /// None of the platforms reports it yet: Android reports bytes, and iOS and
-  /// macOS report no progress. It is there for a platform that reports only
-  /// a fraction, such as a browser's built-in model.
-  final double? fraction;
+  /// The bytes downloaded so far.
+  final int bytesDownloaded;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AIOnDeviceDownloadProgress && other.bytesDownloaded == bytesDownloaded && other.fraction == fraction;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AIOnDeviceDownloadProgress && other.bytesDownloaded == bytesDownloaded;
+  }
 
   @override
-  int get hashCode => Object.hash(bytesDownloaded, fraction);
+  int get hashCode => bytesDownloaded.hashCode;
 
   @override
-  String toString() => 'AIOnDeviceDownloadProgress(bytesDownloaded: $bytesDownloaded, fraction: $fraction)';
+  String toString() => 'AIOnDeviceDownloadProgress(bytesDownloaded: $bytesDownloaded)';
 }
 
-/// The model is on the device and can answer. The stream closes after it.
+/// An event reporting that the model is on the device and can answer.
+///
+/// The stream closes after it.
 final class AIOnDeviceDownloadCompleted extends AIOnDeviceDownload {
-  /// The download completed.
+  /// Creates an event for a completed download.
   const AIOnDeviceDownloadCompleted() : super._();
 
   @override
@@ -78,19 +74,22 @@ final class AIOnDeviceDownloadCompleted extends AIOnDeviceDownload {
   String toString() => 'AIOnDeviceDownloadCompleted()';
 }
 
-/// The download failed. The stream closes after it; the model is still
-/// downloadable, so the person can try again.
+/// An event reporting that the download failed.
+///
+/// The stream closes after it. The model is still downloadable, so the person
+/// can try again.
 final class AIOnDeviceDownloadFailed extends AIOnDeviceDownload {
-  /// The download failed with [error].
+  /// Creates an event for a download that failed with [error].
   const AIOnDeviceDownloadFailed(this.error) : super._();
 
   /// Why the download failed.
   final AILocalModelException error;
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AIOnDeviceDownloadFailed && other.error.reason == error.reason && other.error.cause == error.cause;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AIOnDeviceDownloadFailed && other.error.reason == error.reason && other.error.cause == error.cause;
+  }
 
   @override
   int get hashCode => Object.hash(error.reason, error.cause);

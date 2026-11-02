@@ -54,7 +54,12 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
   }
 
   func startReply(requestId: String, request: ReplyRequestMessage) throws {
-    // An id still running is one from before a hot restart: the new reply replaces it.
+    // Replies from another session were started before a hot restart, and nobody waits for them.
+    let session = requestId.prefix(while: { $0 != "-" })
+    for (id, reply) in replies where id.prefix(while: { $0 != "-" }) != session {
+      reply.task.cancel()
+      replies[id] = nil
+    }
     replies.removeValue(forKey: requestId)?.task.cancel()
     let token = UUID()
     let task = Task { @MainActor [weak self] in

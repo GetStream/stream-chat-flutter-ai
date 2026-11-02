@@ -868,8 +868,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
         actions: [
           AnswerSourceSwitcher(
             model: _localModel,
-            onDevice: _offline,
-            onChanged: (onDevice) => setState(() => _offline = onDevice),
+            useDevice: _offline,
+            onChanged: (useDevice) => setState(() => _offline = useDevice),
           ),
         ],
       ),

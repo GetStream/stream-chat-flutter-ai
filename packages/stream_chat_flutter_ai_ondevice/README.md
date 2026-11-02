@@ -110,5 +110,8 @@ switch (await model.status()) {
 
 - Gemini Nano writes at most 256 tokens per answer; `maximumResponseTokens` is capped to it on
   Android.
-- The context is a few thousand tokens: Gemini Nano reports its own, Apple's model 4096.
+- The context is a few thousand tokens, as each model reports it. Apple's is 4096 when the app is
+  built with an SDK older than iOS 26.4, which can't ask the model.
+- The plugin keeps one native model per Flutter engine and frees it when the engine goes away;
+  `AIOnDeviceModel` itself holds nothing, so there is nothing to close.
 - ML Kit's Prompt API is in beta (`com.google.mlkit:genai-prompt:1.0.0-beta4`).

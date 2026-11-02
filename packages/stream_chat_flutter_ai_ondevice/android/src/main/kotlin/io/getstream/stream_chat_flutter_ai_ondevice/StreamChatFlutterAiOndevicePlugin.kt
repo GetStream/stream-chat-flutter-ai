@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
@@ -105,7 +106,9 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
     }
 
     override fun startReply(requestId: String, request: ReplyRequestMessage) {
-        // An id still running is one from before a hot restart: the new reply replaces it.
+        // Replies from another session were started before a hot restart, and nobody waits for them.
+        val session = requestId.substringBefore('-')
+        replies.keys.filter { it.substringBefore('-') != session }.forEach { replies.remove(it)?.cancel() }
         replies.remove(requestId)?.cancel()
         // Started once it is in `replies`, so it can't finish, and remove itself, before that.
         val job = scope.launch(start = CoroutineStart.LAZY) {
@@ -180,11 +183,14 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: GenAiException) {
-                downloadSink?.success(downloadFailed(error))
+                // A download replaced by a newer one may fail as it stops: that one isn't listened to.
+                if (isActive) downloadSink?.success(downloadFailed(error))
             } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-                downloadSink?.success(
-                    DownloadFailed(GenAiErrors.FAILED, error.javaClass.simpleName, error.message ?: "$error"),
-                )
+                if (isActive) {
+                    downloadSink?.success(
+                        DownloadFailed(GenAiErrors.FAILED, error.javaClass.simpleName, error.message ?: "$error"),
+                    )
+                }
             }
         }
     }
@@ -224,6 +230,7 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
                 question = question,
             ),
         )
+        // Blank instructions add nothing, so no empty system prompt is sent.
         return if (systemPrompt && request.instructions.isNotBlank()) {
             generateContentRequest(SystemInstruction(request.instructions), prompt) { maxOutputTokens = responseTokens }
         } else {

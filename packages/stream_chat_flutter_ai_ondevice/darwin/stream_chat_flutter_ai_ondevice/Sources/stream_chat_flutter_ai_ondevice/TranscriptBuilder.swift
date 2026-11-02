@@ -7,6 +7,7 @@
     static func transcript(instructions: String, history: ArraySlice<TurnMessage>) -> Transcript {
       func text(_ content: String) -> [Transcript.Segment] { [.text(Transcript.TextSegment(content: content))] }
       var entries: [Transcript.Entry] = []
+      // Blank instructions add nothing, so the transcript gets no empty instructions entry.
       if !instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         entries.append(.instructions(Transcript.Instructions(segments: text(instructions), toolDefinitions: [])))
       }

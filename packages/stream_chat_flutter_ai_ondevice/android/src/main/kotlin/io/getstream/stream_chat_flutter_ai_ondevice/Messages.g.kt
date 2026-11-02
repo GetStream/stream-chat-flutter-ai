@@ -467,8 +467,10 @@ data class ReplyDone (
 }
 
 /**
- * The model couldn't answer. [reason] is an `AILocalModelErrorReason` name;
- * [code] is the platform's own error, for logs.
+ * The model couldn't answer.
+ *
+ * The `reason` is an `AILocalModelErrorReason` name, and the `code` the
+ * platform's own error, for logs.
  *
  * Generated class from Pigeon that represents data sent in messages.
  */
@@ -533,12 +535,12 @@ sealed class DownloadEvent
  * Generated class from Pigeon that represents data sent in messages.
  */
 data class DownloadStarted (
-  val bytesToDownload: Long? = null
+  val bytesToDownload: Long
 ) : DownloadEvent()
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): DownloadStarted {
-      val bytesToDownload = pigeonVar_list[0] as Long?
+      val bytesToDownload = pigeonVar_list[0] as Long
       return DownloadStarted(bytesToDownload)
     }
   }
@@ -574,21 +576,18 @@ data class DownloadStarted (
  * Generated class from Pigeon that represents data sent in messages.
  */
 data class DownloadProgress (
-  val bytesDownloaded: Long? = null,
-  val fraction: Double? = null
+  val bytesDownloaded: Long
 ) : DownloadEvent()
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): DownloadProgress {
-      val bytesDownloaded = pigeonVar_list[0] as Long?
-      val fraction = pigeonVar_list[1] as Double?
-      return DownloadProgress(bytesDownloaded, fraction)
+      val bytesDownloaded = pigeonVar_list[0] as Long
+      return DownloadProgress(bytesDownloaded)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
       bytesDownloaded,
-      fraction,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -599,17 +598,16 @@ data class DownloadProgress (
       return true
     }
     val other = other as DownloadProgress
-    return MessagesPigeonUtils.deepEquals(this.bytesDownloaded, other.bytesDownloaded) && MessagesPigeonUtils.deepEquals(this.fraction, other.fraction)
+    return MessagesPigeonUtils.deepEquals(this.bytesDownloaded, other.bytesDownloaded)
   }
 
   override fun hashCode(): Int {
     var result = javaClass.hashCode()
     result = 31 * result + MessagesPigeonUtils.deepHash(this.bytesDownloaded)
-    result = 31 * result + MessagesPigeonUtils.deepHash(this.fraction)
     return result
   }
   override fun toString(): String {
-    return "DownloadProgress(bytesDownloaded=$bytesDownloaded, fraction=$fraction)"
+    return "DownloadProgress(bytesDownloaded=$bytesDownloaded)"
   }
 }
 
@@ -655,7 +653,9 @@ data class DownloadCompleted (
 }
 
 /**
- * The download failed. [reason] is an `AILocalModelErrorReason` name.
+ * The download failed.
+ *
+ * The `reason` is an `AILocalModelErrorReason` name.
  *
  * Generated class from Pigeon that represents data sent in messages.
  */
@@ -833,6 +833,10 @@ interface OnDeviceModelHostApi {
   /**
    * Starts answering [request]. Returns at once; the answer arrives on
    * [OnDeviceModelEventApi.replyEvents] under [requestId].
+   *
+   * A [requestId] is `<session>-<count>`, the session new each time the Dart
+   * side starts. A reply still running from another session is left over
+   * from before a hot restart, and is stopped.
    */
   fun startReply(requestId: String, request: ReplyRequestMessage)
   /** Stops the reply [requestId]. Nothing more is sent for it. */
