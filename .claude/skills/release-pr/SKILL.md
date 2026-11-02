@@ -1,8 +1,9 @@
 ---
 name: release-pr
 description: >
-  Open a release PR for stream_chat_flutter_ai: bump the package version and the README install snippets, finalise
-  the CHANGELOG, and open a PR against main with auto-generated release notes.
+  Open a release PR for stream_chat_flutter_ai and stream_chat_flutter_ai_ondevice, released in lockstep: bump both
+  package versions, the lockstep constraint and the README install snippets, finalise both CHANGELOGs, and open a PR
+  against main with auto-generated release notes.
 disable-model-invocation: true
 argument-hint: "[version]"
 arguments: [version]
@@ -22,7 +23,7 @@ allowed-tools:
 
 # release-pr
 
-Opens a release PR for stream_chat_flutter_ai. Branch `release/v<X.Y.Z>` → base `main` → title
+Opens a release PR for the repo's publishable packages. Branch `release/v<X.Y.Z>` → base `main` → title
 `chore(repo): release v<X.Y.Z>`.
 
 **This skill only opens the PR.** After merge, tagging and pub.dev publishing are automatic:
@@ -35,11 +36,16 @@ per [Choosing the version](#choosing-the-version).
 
 ## Key facts for this repo
 
-- **One publishable package:** `packages/stream_chat_flutter_ai`. The example app is `publish_to: none`, and the
-  workspace root is private. Nothing depends on the package inside the repo except the example, which uses
-  `any`, so there are no intra-repo constraints to bump.
+- **Two publishable packages, released in lockstep:** `packages/stream_chat_flutter_ai` (core) and
+  `packages/stream_chat_flutter_ai_ondevice`. They always share one `version:`, and one `v<X.Y.Z>` tag publishes
+  both — so both are bumped even when only one has changes. The ondevice package depends on
+  `stream_chat_flutter_ai: ^<version>`; that constraint lives in the root `melos.command.bootstrap.dependencies`
+  list, and bootstrap copies it into every member that declares it. The example apps and the workspace root are
+  `publish_to: none`. **If `packages/stream_chat_flutter_ai_ondevice` doesn't exist yet, skip every ondevice step
+  below** — the workflows skip it too.
 - **The title is load-bearing.** `release_tag.yml` only fires on a tip commit starting with
-  `chore(repo): release v`, and refuses to tag unless the version in it matches the pubspec. `repo` is also the
+  `chore(repo): release v`, and refuses to tag unless the version in it matches every publishable pubspec (and the
+  lockstep constraint is `^<version>`). `repo` is also the
   scope `pr_title.yml` doesn't map to a CHANGELOG, so the changelog check doesn't apply — this skill edits the
   CHANGELOG anyway.
 - **The CHANGELOG is hand-curated.** Never run `melos version` — it regenerates entries from commit messages and
@@ -60,18 +66,20 @@ per [Choosing the version](#choosing-the-version).
    Tags, not `gh release list`: a tag can exist without a GitHub Release. Empty output means there is no previous
    tag (true for the first automated release — 0.1.0 was published by hand and never tagged).
 
-A release is warranted when `packages/stream_chat_flutter_ai/CHANGELOG.md` has a non-empty `## Upcoming` section.
-If it doesn't, say so and stop — there is nothing to release.
+A release is warranted when either package's `CHANGELOG.md` has a non-empty `## Upcoming` section. If neither
+does, say so and stop — there is nothing to release.
 
 ## Choosing the version
 
 Two steps: classify the release from the CHANGELOG, then map that onto the current version.
 
-**1. Classify.** Read the curated `## Upcoming` section — the same bullets that become the release notes, so they
-are the authority on what the release contains:
+**1. Classify.** Read both curated `## Upcoming` sections — the same bullets that become the release notes, so
+they are the authority on what the release contains. The packages share one version, so the release is classified
+by the more severe of the two:
 
 ```bash
 sed -n '/^## Upcoming/,/^## [0-9]/p' packages/stream_chat_flutter_ai/CHANGELOG.md
+sed -n '/^## Upcoming/,/^## [0-9]/p' packages/stream_chat_flutter_ai_ondevice/CHANGELOG.md
 ```
 
 The sub-headings are plain emoji lines, not markdown headings: `💥 Breaking`, `✅ Added`, `🔄 Changed`,
@@ -91,8 +99,10 @@ releases shift down one slot. A release with no public API change still bumps th
 number: the release workflows only handle `X.Y.Z` versions, so a `+1` version can't be tagged or published.
 
 ```bash
-grep '^version:' packages/stream_chat_flutter_ai/pubspec.yaml
+grep '^version:' packages/*/pubspec.yaml
 ```
+
+Both lines must show the same version. If they don't, the lockstep is already broken — surface it and stop.
 
 | Release | at/above `1.0.0` | below `1.0.0` |
 | --- | --- | --- |
@@ -123,12 +133,12 @@ stashing uncommitted work, no force-pulling, no killing processes).
 - **No `git:` or `path:` entry under `dependencies`** — pub.dev rejects both:
 
   ```bash
-  grep -n -B2 -A4 -E '^\s+(git|path):' pubspec.yaml packages/stream_chat_flutter_ai/pubspec.yaml
+  grep -n -B2 -A4 -E '^\s+(git|path):' pubspec.yaml packages/*/pubspec.yaml
   ```
 
   An entry under `dev_dependencies` is fine — pub ignores those when publishing. Only a real `dependencies`
-  entry (in the package, or in the root `melos.command.bootstrap.dependencies` block that bootstrap copies into
-  it) blocks. Surface it and stop — don't pick the constraint yourself. Once the user gives you one, set it in
+  entry (in a package, or in the root `melos.command.bootstrap.dependencies` block that bootstrap copies into
+  them) blocks. Surface it and stop — don't pick the constraint yourself. Once the user gives you one, set it in
   the root `pubspec.yaml` block only and let bootstrap propagate it in step 2.
 
 ## Steps
@@ -145,15 +155,19 @@ git checkout -b release/v<version>
 
 Edit by hand:
 
-- **`packages/stream_chat_flutter_ai/pubspec.yaml`** — set `version: <version>`. This is the package's own
-  version, the one thing in it bootstrap doesn't manage. Change nothing else.
-- **The install snippets** — `stream_chat_flutter_ai: ^<version>` in `README.md` and
-  `packages/stream_chat_flutter_ai/README.md` (find them with
-  `grep -n 'stream_chat_flutter_ai: \^' README.md packages/stream_chat_flutter_ai/README.md`). The package README
-  is what pub.dev shows, so a stale caret there tells new users to install the old version.
+- **Both package pubspecs** — set `version: <version>` in `packages/stream_chat_flutter_ai/pubspec.yaml` and
+  `packages/stream_chat_flutter_ai_ondevice/pubspec.yaml`. This is each package's own version, the one thing in
+  it bootstrap doesn't manage. Change nothing else in them.
+- **The lockstep constraint** — set `stream_chat_flutter_ai: ^<version>` in the root `pubspec.yaml`, under
+  `melos.command.bootstrap.dependencies`. Don't hand-edit it in the ondevice pubspec; bootstrap copies it there.
+- **The install snippets** — `stream_chat_flutter_ai: ^<version>` and `stream_chat_flutter_ai_ondevice: ^<version>`
+  in the root and both package READMEs:
 
-Leave `packages/stream_chat_flutter_ai/example/pubspec.yaml` alone — it depends on `any` and resolves through the
-workspace.
+  ```bash
+  grep -n -E 'stream_chat_flutter_ai(_ondevice)?: \^' README.md packages/*/README.md
+  ```
+
+  The package READMEs are what pub.dev shows, so a stale caret there tells new users to install the old version.
 
 Then run:
 
@@ -167,7 +181,10 @@ Check the diff shape:
 git diff --stat
 ```
 
-Only `packages/stream_chat_flutter_ai/pubspec.yaml` and the two READMEs should appear (the CHANGELOG comes next).
+Only these should appear (the CHANGELOGs come next): the root `pubspec.yaml`, the two package pubspecs, the
+READMEs you edited, and any other member bootstrap copied the constraint into — every pubspec that declares
+`stream_chat_flutter_ai` gets it, so an example's constraint can move too. That's fine: examples are private and
+resolve through the workspace.
 
 `pubspec.lock` may show up too, but the bump itself never changes it — workspace members aren't listed in it. A
 lockfile diff means the local Flutter SDK resolved transitive packages differently from the one that wrote it (it
@@ -177,8 +194,13 @@ something unexpected — surface it and stop.
 
 ### 3. Finalise the CHANGELOG
 
-Rename `## Upcoming` to `## <version>` in `packages/stream_chat_flutter_ai/CHANGELOG.md`. Keep the curated bullets
-and sub-headings exactly as they are — don't add, rewrite, reorder or regenerate them.
+Rename `## Upcoming` to `## <version>` in both `packages/stream_chat_flutter_ai/CHANGELOG.md` and
+`packages/stream_chat_flutter_ai_ondevice/CHANGELOG.md`. Keep the curated bullets and sub-headings exactly as they
+are — don't add, rewrite, reorder or regenerate them.
+
+A package with no `## Upcoming` (or an empty one) still ships `<version>` in lockstep, and pub.dev warns when the
+CHANGELOG doesn't mention the published version. Give it a `## <version>` section with the single line
+`- No changes; released in lockstep with <other package> <version>.`
 
 Don't write fresh bullets from `git log`. An unreleased user-facing change that never got an `## Upcoming` bullet
 is a gap to raise with the user, not one for this step to fill in.
@@ -193,7 +215,7 @@ If it fails, surface to the user and stop.
 
 ```bash
 git checkout pubspec.lock   # drop local re-resolution churn (see step 2)
-git status --short          # exactly the pubspec, CHANGELOG and two READMEs; nothing untracked is release material
+git status --short          # exactly the step 2 files and both CHANGELOGs; nothing untracked is release material
 git add -u                  # tracked modifications only
 git commit -m "chore(repo): release v<version>"
 ```
@@ -218,9 +240,10 @@ PR title as the tip commit; the title must therefore stay exactly `chore(repo): 
 melos run lint:pub
 ```
 
-This is the real publish gate, and it now covers the package: `lint:pub` skips versions already on pub.dev, and
-`<version>` isn't. Confirm the output shows `stream_chat_flutter_ai` being validated — if melos reports no
-packages, the version bump didn't take. Read failures carefully — pub reports two severities and only one blocks:
+This is the real publish gate, and it now covers both packages: `lint:pub` skips versions already on pub.dev, and
+`<version>` isn't. Confirm the output shows both `stream_chat_flutter_ai` and `stream_chat_flutter_ai_ondevice`
+being validated — if melos reports no packages, or only one, a version bump didn't take. The ondevice dry run
+resolves core through the workspace, so it passes although core `<version>` isn't on pub.dev yet. Read failures carefully — pub reports two severities and only one blocks:
 
 - **"Package validation found the following error"** — blocks. `release_publish.yml` runs `pub publish -f`, and
   `-f` does **not** bypass errors. Must be fixed before merge.
@@ -274,10 +297,12 @@ Return the PR URL. **Tell the user to squash-merge it**, without editing the tit
 
 ## After merge (FYI)
 
-`release_tag.yml` checks that `v<version>` matches the pubspec and isn't tagged yet, then pushes the tag with the
-bot PAT. `release_publish.yml` fires on that tag push, runs a dry run, then `melos run release:pub` (OIDC), and
-creates the GitHub Release. The dry run passes on a version that's already live and `release:pub` skips it, so a
-re-run after a failure is a clean no-op for anything already published.
+`release_tag.yml` checks that `v<version>` matches every publishable pubspec and isn't tagged yet, then pushes the
+tag with the bot PAT. `release_publish.yml` fires on that tag push, runs a dry run of each package, then
+`melos run release:pub` (OIDC), and creates the GitHub Release. `release:pub` publishes core first, because the
+ondevice package needs core `<version>` on pub.dev, and retries a failed upload once after a minute. The dry run
+passes on a version that's already live and `release:pub` skips it, so a re-run after a failure (say, core published
+but ondevice didn't) publishes only what's missing.
 
 ## Don't
 
