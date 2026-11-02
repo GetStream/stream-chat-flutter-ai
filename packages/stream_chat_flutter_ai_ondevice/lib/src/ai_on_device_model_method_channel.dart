@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -17,31 +18,58 @@ import 'package:stream_chat_flutter_ai_ondevice/src/messages.g.dart' as wire;
 /// each reply has an id and its events are routed by it. The channel is
 /// listened to while a reply is in progress.
 ///
+/// There is one download at a time: every [download] stream shares it, and it
+/// stops once none of them is listened to.
+///
+/// On platforms without the plugin (web, Windows, Linux) the model is
+/// unavailable and the channels are never used.
+///
 /// Internal to the package.
 @internal
 class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
   /// Constructs a [MethodChannelAIOnDeviceModel].
   ///
-  /// [hostApi], [replyEvents] and [downloadEvents] are exposed for tests to
-  /// substitute the generated channels.
+  /// [hostApi], [replyEvents], [downloadEvents] and [isSupported] are exposed
+  /// for tests to substitute the generated channels and the platform check.
   MethodChannelAIOnDeviceModel({
     wire.OnDeviceModelHostApi? hostApi,
     Stream<wire.ReplyEvent> Function()? replyEvents,
     Stream<wire.DownloadEvent> Function()? downloadEvents,
+    bool? isSupported,
   }) : _hostApi = hostApi ?? wire.OnDeviceModelHostApi(),
        _replyEvents = replyEvents ?? wire.replyEvents,
-       _downloadEvents = downloadEvents ?? wire.downloadEvents;
+       _downloadEvents = downloadEvents ?? wire.downloadEvents,
+       _isSupported = isSupported ?? _hasPlugin;
 
   final wire.OnDeviceModelHostApi _hostApi;
   final Stream<wire.ReplyEvent> Function() _replyEvents;
   final Stream<wire.DownloadEvent> Function() _downloadEvents;
+  final bool _isSupported;
+
+  // The platforms with a native side: anywhere else a channel call would fail.
+  static bool get _hasPlugin =>
+      !kIsWeb &&
+      const {TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.macOS}.contains(defaultTargetPlatform);
 
   final _replies = <String, StreamController<String>>{};
   StreamSubscription<wire.ReplyEvent>? _replySubscription;
   var _nextReplyId = 0;
 
+  // Native replies outlive a hot restart, which starts this count again: the
+  // prefix keeps a new reply's id from matching one still running.
+  final _replyIdPrefix = Random().nextInt(1 << 32).toRadixString(36);
+
+  final _downloads = <StreamController<AIOnDeviceDownload>>{};
+  StreamSubscription<wire.DownloadEvent>? _downloadSubscription;
+
+  static const _unsupported = AILocalModelException(
+    AILocalModelErrorReason.unavailable,
+    'There is no on-device model on this platform.',
+  );
+
   @override
   Future<AIOnDeviceModelInfo> modelInfo() async {
+    if (!_isSupported) return const AIOnDeviceModelInfo(status: AIOnDeviceStatus.unavailable, contextSize: 0);
     final info = await _hostApi.modelInfo();
     return AIOnDeviceModelInfo(
       status: _status(info.status),
@@ -56,7 +84,8 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
     required List<AIConversationTurn> turns,
     required int maximumResponseTokens,
   }) {
-    final id = '${_nextReplyId++}';
+    if (!_isSupported) return Stream.error(_unsupported);
+    final id = '$_replyIdPrefix-${_nextReplyId++}';
     // Closed when the reply ends: by `_end` on done, failure or cancel.
     // ignore: close_sinks
     late final StreamController<String> controller;
@@ -64,7 +93,8 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
       onListen: () {
         _replies[id] = controller;
         // Listened to before the reply starts, so its first event isn't missed:
-        // messages on one channel reach the platform in the order they're sent.
+        // the listen and `startReply` travel on different channels, but the
+        // platform handles both in the order they were sent, on its main thread.
         _replySubscription ??= _replyEvents().listen(_onReplyEvent, onError: _onReplyChannelError);
         final request = wire.ReplyRequestMessage(
           instructions: instructions,
@@ -85,45 +115,60 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
 
   @override
   Stream<AIOnDeviceDownload> download() {
-    StreamSubscription<wire.DownloadEvent>? subscription;
+    if (!_isSupported) return Stream.value(const AIOnDeviceDownloadFailed(_unsupported));
     late final StreamController<AIOnDeviceDownload> controller;
-    var finished = false;
-
-    void finish(AIOnDeviceDownload last) {
-      if (finished) return;
-      finished = true;
-      controller.add(last);
-      unawaited(subscription?.cancel());
-      unawaited(controller.close());
-    }
-
     controller = StreamController<AIOnDeviceDownload>(
       onListen: () {
-        subscription = _downloadEvents().listen(
-          (event) {
-            switch (event) {
-              case wire.DownloadStarted(:final bytesToDownload):
-                controller.add(AIOnDeviceDownloadStarted(bytesToDownload: bytesToDownload));
-              case wire.DownloadProgress(:final bytesDownloaded, :final fraction):
-                controller.add(AIOnDeviceDownloadProgress(bytesDownloaded: bytesDownloaded, fraction: fraction));
-              case wire.DownloadCompleted():
-                finish(const AIOnDeviceDownloadCompleted());
-              case wire.DownloadFailed(:final reason, :final code, :final message):
-                finish(AIOnDeviceDownloadFailed(_failure(reason, code, message)));
-            }
+        _downloads.add(controller);
+        if (_downloadSubscription != null) return; // Joins the download in progress.
+        _downloadSubscription = _downloadEvents().listen(
+          (event) => switch (event) {
+            wire.DownloadStarted(:final bytesToDownload) => _broadcastDownload(
+              AIOnDeviceDownloadStarted(bytesToDownload: bytesToDownload),
+            ),
+            wire.DownloadProgress(:final bytesDownloaded, :final fraction) => _broadcastDownload(
+              AIOnDeviceDownloadProgress(bytesDownloaded: bytesDownloaded, fraction: fraction),
+            ),
+            wire.DownloadCompleted() => _finishDownload(const AIOnDeviceDownloadCompleted()),
+            wire.DownloadFailed(:final reason, :final code, :final message) => _finishDownload(
+              AIOnDeviceDownloadFailed(_failure(reason, code, message)),
+            ),
           },
-          onError: (Object error) => finish(AIOnDeviceDownloadFailed(_exception(error))),
+          onError: (Object error) => _finishDownload(AIOnDeviceDownloadFailed(_exception(error))),
         );
-        _hostApi.startDownload().catchError((Object error) => finish(AIOnDeviceDownloadFailed(_exception(error))));
+        _hostApi.startDownload().catchError(
+          (Object error) => _finishDownload(AIOnDeviceDownloadFailed(_exception(error))),
+        );
       },
       onCancel: () async {
-        await subscription?.cancel();
-        if (finished) return;
-        finished = true;
+        // Already gone when the download finished.
+        if (!_downloads.remove(controller) || _downloads.isNotEmpty) return;
+        final cancelled = _downloadSubscription?.cancel();
+        _downloadSubscription = null;
+        await cancelled;
         await _hostApi.cancelDownload().catchError((Object _) {});
       },
     );
     return controller.stream;
+  }
+
+  void _broadcastDownload(AIOnDeviceDownload event) {
+    for (final controller in _downloads) {
+      controller.add(event);
+    }
+  }
+
+  // Ends the download for everyone listening to it.
+  void _finishDownload(AIOnDeviceDownload last) {
+    if (_downloadSubscription == null) return;
+    unawaited(_downloadSubscription?.cancel());
+    _downloadSubscription = null;
+    final controllers = _downloads.toList();
+    _downloads.clear();
+    for (final controller in controllers) {
+      controller.add(last);
+      unawaited(controller.close());
+    }
   }
 
   void _onReplyEvent(wire.ReplyEvent event) {
@@ -182,10 +227,12 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
     );
   }
 
-  // A channel error: no plugin on this platform means no model here.
+  // A channel error. No plugin listening on the channel means no model here:
+  // Pigeon reports that as a `channel-error`, an event channel as a
+  // MissingPluginException.
   static AILocalModelException _exception(Object error) {
     return switch (error) {
-      MissingPluginException() => AILocalModelException(
+      PlatformException(code: 'channel-error') || MissingPluginException() => AILocalModelException(
         AILocalModelErrorReason.unavailable,
         'There is no on-device model on this platform.',
         cause: error,

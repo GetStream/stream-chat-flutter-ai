@@ -24,7 +24,8 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
 
   private let replyEvents = EventSinkHolder<ReplyEvent>()
   private let downloadEvents = EventSinkHolder<DownloadEvent>()
-  private var replies: [String: Task<Void, Never>] = [:]
+  /// The replies in progress. The token tells a reply apart from a later one under the same id.
+  private var replies: [String: (token: UUID, task: Task<Void, Never>)] = [:]
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     #if os(iOS)
@@ -33,13 +34,15 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
       let messenger = registrar.messenger
     #endif
     let instance = StreamChatFlutterAiOndevicePlugin()
+    // Flutter calls `detachFromEngine(for:)` only on a published plugin (on iOS; macOS never does).
+    registrar.publish(instance)
     OnDeviceModelHostApiSetup.setUp(binaryMessenger: messenger, api: instance)
     ReplyEventsStreamHandler.register(with: messenger, streamHandler: ReplyEventsListener(instance.replyEvents))
     DownloadEventsStreamHandler.register(with: messenger, streamHandler: DownloadEventsListener(instance.downloadEvents))
   }
 
   public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
-    replies.values.forEach { $0.cancel() }
+    replies.values.forEach { $0.task.cancel() }
     replies = [:]
   }
 
@@ -54,14 +57,18 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
   }
 
   func startReply(requestId: String, request: ReplyRequestMessage) throws {
-    replies[requestId] = Task { @MainActor [weak self] in
+    // An id still running is one from before a hot restart: the new reply replaces it.
+    replies.removeValue(forKey: requestId)?.task.cancel()
+    let token = UUID()
+    let task = Task { @MainActor [weak self] in
       await self?.reply(requestId, request)
-      self?.replies[requestId] = nil
+      if self?.replies[requestId]?.token == token { self?.replies[requestId] = nil }
     }
+    replies[requestId] = (token, task)
   }
 
   func cancelReply(requestId: String) throws {
-    replies.removeValue(forKey: requestId)?.cancel()
+    replies.removeValue(forKey: requestId)?.task.cancel()
   }
 
   func startDownload() throws {

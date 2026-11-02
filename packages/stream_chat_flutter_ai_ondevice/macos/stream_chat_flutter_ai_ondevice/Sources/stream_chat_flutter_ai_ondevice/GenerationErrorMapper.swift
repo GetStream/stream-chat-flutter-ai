@@ -34,8 +34,12 @@
           if let error = error as? LanguageModelSession.Error, error == .concurrentRequests {
             return Failure(reason: "unavailable", code: "concurrentRequests")
           }
+          if error is GeneratedContent.ParsingError {
+            return Failure(reason: "failed", code: "parsingError")
+          }
         }
       #endif
+      // An app built with an older SDK can't name iOS 27's errors: they read as `failed`.
       guard let error = error as? LanguageModelSession.GenerationError else {
         return Failure(reason: "failed", code: "unknown")
       }

@@ -19,6 +19,8 @@ final class AIOnDeviceDownloadStarted extends AIOnDeviceDownload {
   const AIOnDeviceDownloadStarted({this.bytesToDownload}) : super._();
 
   /// The size of the download, or `null` when the platform doesn't say.
+  ///
+  /// iOS and macOS never send this event: the system downloads Apple's model.
   final int? bytesToDownload;
 
   @override
@@ -43,6 +45,10 @@ final class AIOnDeviceDownloadProgress extends AIOnDeviceDownload {
 
   /// How much of the download is done, from 0 to 1, or `null` when the
   /// platform reports only [bytesDownloaded].
+  ///
+  /// None of the platforms reports it yet: Android reports bytes, and iOS and
+  /// macOS report no progress. It is there for a platform that reports only
+  /// a fraction, such as a browser's built-in model.
   final double? fraction;
 
   @override

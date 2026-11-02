@@ -766,6 +766,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
         return _endLocalReply('This device has no on-device model.');
     }
 
+    // A failed reply is ended by its error; its stream closing after that changes nothing.
+    var failed = false;
     _localReply = _localModel
         .reply(instructions: _localInstructions, turns: turns)
         .listen(
@@ -775,6 +777,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
             _scrollToEnd();
           },
           onError: (Object error) {
+            failed = true;
             debugPrint('The on-device model failed: $error');
             _endLocalReply(switch (error) {
               AILocalModelException(reason: AILocalModelErrorReason.unavailable) =>
@@ -787,6 +790,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
             });
           },
           onDone: () {
+            if (failed) return;
             _localReply = null;
             _finishWhenTyped();
           },

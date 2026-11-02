@@ -23,6 +23,9 @@ class FakePlatform extends AIOnDeviceModelPlatform {
   StreamController<String> answer = StreamController<String>();
   bool replyCancelled = false;
 
+  /// Makes [reply] throw an [Error], as a broken implementation might.
+  bool replyThrows = false;
+
   // Closed by the download test.
   // ignore: close_sinks
   final downloads = StreamController<AIOnDeviceDownload>();
@@ -40,6 +43,7 @@ class FakePlatform extends AIOnDeviceModelPlatform {
     required List<AIConversationTurn> turns,
     required int maximumResponseTokens,
   }) {
+    if (replyThrows) throw UnimplementedError('reply');
     requests.add((instructions: instructions, turns: turns, maximumResponseTokens: maximumResponseTokens));
     answer = StreamController<String>(onCancel: () => replyCancelled = true);
     return answer.stream;
@@ -224,6 +228,14 @@ void main() {
       platform.infoGate!.complete();
       await pumpEventQueue();
       expect(platform.requests, isEmpty);
+    });
+
+    test('fails, and closes, when the platform throws an Error', () async {
+      platform.replyThrows = true;
+      await expectLater(
+        const AIOnDeviceModel().reply(instructions: '', turns: [const AIConversationTurn.user('Hi?')]),
+        emitsInOrder([emitsError(failsWith(AILocalModelErrorReason.failed)), emitsDone]),
+      );
     });
 
     test('starts nothing until listened to', () async {

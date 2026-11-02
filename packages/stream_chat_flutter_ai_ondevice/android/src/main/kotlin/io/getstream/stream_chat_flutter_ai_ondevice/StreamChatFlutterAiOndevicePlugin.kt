@@ -12,12 +12,14 @@ import com.google.mlkit.genai.prompt.SystemInstruction
 import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.EventChannel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
 /**
@@ -70,24 +72,43 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         OnDeviceModelHostApi.setUp(binding.binaryMessenger, null)
-        scope.cancel()
+        EventChannel(binding.binaryMessenger, REPLY_EVENTS_CHANNEL).setStreamHandler(null)
+        EventChannel(binding.binaryMessenger, DOWNLOAD_EVENTS_CHANNEL).setStreamHandler(null)
+        replySink = null
+        downloadSink = null
         replies.clear()
         download = null
-        model?.close()
-        model = null
+        // With no context, `status()` reads unavailable and never makes a new model.
         context = null
+        // Closes the model once the cancelled replies and download have let go of it.
+        val closing = model
+        model = null
+        val job = scope.coroutineContext.job
+        job.invokeOnCompletion { closing?.close() }
+        job.cancel()
     }
 
-    private fun model(): GenerativeModel = model ?: Generation.getClient().also { model = it }
+    private fun model(): GenerativeModel {
+        checkNotNull(context) { "The plugin is detached from the engine." }
+        return model ?: Generation.getClient().also { model = it }
+    }
 
-    override suspend fun modelInfo(): ModelInfoMessage = ModelInfoMessage(
-        status = status(),
-        contextSize = contextTokens().toLong(),
-        maxResponseTokens = MODEL_MAXIMUM_RESPONSE_TOKENS.toLong(),
-    )
+    override suspend fun modelInfo(): ModelInfoMessage {
+        val status = status()
+        // Only an available model is asked for its context: it isn't used otherwise.
+        val contextTokens = if (status == ModelStatusMessage.AVAILABLE) contextTokens() else DEFAULT_CONTEXT_TOKENS
+        return ModelInfoMessage(
+            status = status,
+            contextSize = contextTokens.toLong(),
+            maxResponseTokens = MODEL_MAXIMUM_RESPONSE_TOKENS.toLong(),
+        )
+    }
 
     override fun startReply(requestId: String, request: ReplyRequestMessage) {
-        replies[requestId] = scope.launch {
+        // An id still running is one from before a hot restart: the new reply replaces it.
+        replies.remove(requestId)?.cancel()
+        // Started once it is in `replies`, so it can't finish, and remove itself, before that.
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
                 if (status() != ModelStatusMessage.AVAILABLE) {
                     fail(requestId, GenAiErrors.UNAVAILABLE, "NOT_AVAILABLE", "The on-device model is unavailable.")
@@ -125,9 +146,11 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
             } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
                 fail(requestId, GenAiErrors.FAILED, error.javaClass.simpleName, error.message ?: "$error")
             } finally {
-                replies.remove(requestId)
+                replies.remove(requestId, coroutineContext.job)
             }
         }
+        replies[requestId] = job
+        job.start()
     }
 
     override fun cancelReply(requestId: String) {
@@ -135,9 +158,11 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
     }
 
     override fun startDownload() {
+        // Dart runs one download at a time; one still running is from before a hot restart.
         download?.cancel()
         download = scope.launch {
             try {
+                var finished = false
                 model().download().collect { status ->
                     val event = when (status) {
                         is DownloadStatus.DownloadStarted -> DownloadStarted(bytesToDownload = status.bytesToDownload)
@@ -146,8 +171,12 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
                         is DownloadStatus.DownloadFailed -> downloadFailed(status.e)
                         else -> null
                     }
+                    if (event is DownloadCompleted || event is DownloadFailed) finished = true
                     if (event != null) downloadSink?.success(event)
                 }
+                // The flow can end without saying how, such as when the model was already there:
+                // the stream in Dart still needs its last event.
+                if (!finished) downloadSink?.success(downloadEnded())
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: GenAiException) {
@@ -167,6 +196,12 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
 
     private fun fail(requestId: String, reason: String, code: String, message: String) {
         replySink?.success(ReplyFailed(requestId, reason, code, message))
+    }
+
+    private suspend fun downloadEnded(): DownloadEvent = if (status() == ModelStatusMessage.AVAILABLE) {
+        DownloadCompleted(done = true)
+    } else {
+        DownloadFailed(GenAiErrors.UNAVAILABLE, "DOWNLOAD_ENDED", "The download ended before the model was ready.")
     }
 
     private fun downloadFailed(error: GenAiException): DownloadFailed = DownloadFailed(
@@ -246,5 +281,11 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
 
         /** Gemini Nano's context through ML Kit, when the model doesn't say. */
         const val DEFAULT_CONTEXT_TOKENS = 4000
+
+        // The channels the generated stream handlers register on, unregistered on detach.
+        const val REPLY_EVENTS_CHANNEL =
+            "dev.flutter.pigeon.stream_chat_flutter_ai_ondevice.OnDeviceModelEventApi.replyEvents"
+        const val DOWNLOAD_EVENTS_CHANNEL =
+            "dev.flutter.pigeon.stream_chat_flutter_ai_ondevice.OnDeviceModelEventApi.downloadEvents"
     }
 }

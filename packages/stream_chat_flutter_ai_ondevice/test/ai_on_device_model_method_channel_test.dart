@@ -62,6 +62,7 @@ void main() {
       hostApi: hostApi,
       replyEvents: () => replyEvents.stream,
       downloadEvents: () => downloadEvents.stream,
+      isSupported: true,
     );
   });
 
@@ -191,7 +192,8 @@ void main() {
     });
 
     test('fails as unavailable when the platform has no plugin', () async {
-      hostApi.startReplyError = MissingPluginException();
+      // What Pigeon throws when nothing handles the channel.
+      hostApi.startReplyError = PlatformException(code: 'channel-error');
       await expectLater(
         reply(),
         emitsInOrder([emitsError(failsWith(AILocalModelErrorReason.unavailable)), emitsDone]),
@@ -215,8 +217,23 @@ void main() {
         emitsInOrder([emitsError(failsWith(AILocalModelErrorReason.failed)), emitsDone]),
       );
       await pumpEventQueue();
-      replyEvents.addError(PlatformException(code: 'channel-error'));
+      replyEvents.addError(PlatformException(code: 'boom'));
       await events;
+    });
+
+    test('ids differ between instances, so a reply from before a hot restart never matches', () async {
+      final other = MethodChannelAIOnDeviceModel(
+        hostApi: hostApi,
+        replyEvents: () => replyEvents.stream,
+        downloadEvents: () => downloadEvents.stream,
+        isSupported: true,
+      );
+      reply().listen(null);
+      other
+          .reply(instructions: '', turns: [const AIConversationTurn.user('Hi?')], maximumResponseTokens: 1)
+          .listen(null);
+      await pumpEventQueue();
+      expect(hostApi.started, hasLength(2));
     });
   });
 
@@ -266,7 +283,7 @@ void main() {
     });
 
     test('reports the platform refusing to start as a failure', () async {
-      hostApi.startDownloadError = MissingPluginException();
+      hostApi.startDownloadError = PlatformException(code: 'channel-error');
       await expectLater(
         platform.download(),
         emitsInOrder([
@@ -280,11 +297,94 @@ void main() {
       );
     });
 
+    test('a second download joins the first, and both hear how it ends', () async {
+      final first = expectLater(
+        platform.download(),
+        emitsInOrder([
+          const AIOnDeviceDownloadProgress(bytesDownloaded: 10),
+          const AIOnDeviceDownloadCompleted(),
+          emitsDone,
+        ]),
+      );
+      final second = expectLater(
+        platform.download(),
+        emitsInOrder([
+          const AIOnDeviceDownloadProgress(bytesDownloaded: 10),
+          const AIOnDeviceDownloadCompleted(),
+          emitsDone,
+        ]),
+      );
+      await pumpEventQueue();
+      expect(hostApi.downloadsStarted, 1);
+
+      downloadEvents
+        ..add(wire.DownloadProgress(bytesDownloaded: 10))
+        ..add(wire.DownloadCompleted(done: true));
+      await Future.wait([first, second]);
+      expect(hostApi.downloadsCancelled, 0);
+    });
+
+    test('the download stops only once no stream listens to it', () async {
+      final first = platform.download().listen(null);
+      final events = <AIOnDeviceDownload>[];
+      final second = platform.download().listen(events.add);
+      await pumpEventQueue();
+
+      await first.cancel();
+      expect(hostApi.downloadsCancelled, 0);
+      downloadEvents.add(wire.DownloadProgress(bytesDownloaded: 5));
+      await pumpEventQueue();
+      expect(events, [const AIOnDeviceDownloadProgress(bytesDownloaded: 5)]);
+
+      await second.cancel();
+      expect(hostApi.downloadsCancelled, 1);
+      expect(downloadEvents.hasListener, isFalse);
+
+      // A new download starts afresh.
+      platform.download().listen(null);
+      await pumpEventQueue();
+      expect(hostApi.downloadsStarted, 2);
+    });
+
     test('cancelling stops the download on the platform', () async {
       final subscription = platform.download().listen(null);
       await pumpEventQueue();
       await subscription.cancel();
       expect(hostApi.downloadsCancelled, 1);
+      expect(downloadEvents.hasListener, isFalse);
+    });
+  });
+
+  group('on a platform without the plugin', () {
+    setUp(() {
+      platform = MethodChannelAIOnDeviceModel(
+        hostApi: hostApi,
+        replyEvents: () => replyEvents.stream,
+        downloadEvents: () => downloadEvents.stream,
+        isSupported: false,
+      );
+    });
+
+    test('the model is unavailable and the channels are never used', () async {
+      expect((await platform.modelInfo()).status, AIOnDeviceStatus.unavailable);
+      await expectLater(
+        reply(),
+        emitsInOrder([emitsError(failsWith(AILocalModelErrorReason.unavailable)), emitsDone]),
+      );
+      await expectLater(
+        platform.download(),
+        emitsInOrder([
+          isA<AIOnDeviceDownloadFailed>().having(
+            (failed) => failed.error,
+            'error',
+            failsWith(AILocalModelErrorReason.unavailable),
+          ),
+          emitsDone,
+        ]),
+      );
+      expect(hostApi.started, isEmpty);
+      expect(hostApi.downloadsStarted, 0);
+      expect(replyEvents.hasListener, isFalse);
       expect(downloadEvents.hasListener, isFalse);
     });
   });

@@ -120,13 +120,19 @@ To generate the bindings, run `melos run generate:pigeon`. That writes:
     errors with `AILocalModelException`
   - `download()`
 - `MethodChannelAIOnDeviceModel` is the default implementation:
-  - It numbers each reply and keeps a `StreamController` per id.
+  - It numbers each reply and keeps a `StreamController` per id. The ids carry a random prefix per
+    instance: native replies outlive a hot restart, which starts the count again, so a new reply
+    must never share an id with one still running.
   - It listens to `replyEvents()` only while a reply is in progress. It subscribes before calling
-    `startReply`, so the first chunk isn't missed: messages on one channel reach the platform in
-    order.
+    `startReply`, so the first chunk isn't missed. The listen and `startReply` travel on different
+    channels, but the platform handles both on its main thread in the order they were sent.
   - It routes `ReplyText`, `ReplyDone` and `ReplyFailed` to their reply by id. Cancelling a reply
     calls `cancelReply`.
-  - It turns `MissingPluginException` (no plugin on this platform) into `unavailable`.
+  - There is one download at a time. Every `download()` stream joins it and hears how it ends,
+    and it is cancelled on the platform only once no stream listens to it.
+  - On web, Windows and Linux there is no native side: the model reads as unavailable and the
+    channels are never used. Elsewhere, Pigeon's `channel-error` (nothing handles the channel)
+    also reads as `unavailable`.
 - `AIOnDeviceModel extends AILocalModel` replies in four steps:
   1. Read `modelInfo()`. If the model isn't `available`, fail with `unavailable`.
   2. Work out the answer length: `min(maximumResponseTokens, info.maxResponseTokens)`.
@@ -161,16 +167,21 @@ The files:
   - everything else → `failed`
 - **`StreamChatFlutterAiOndevicePlugin.kt`** — a `FlutterPlugin` and `OnDeviceModelHostApi`:
   - In `onAttachedToEngine`, call `OnDeviceModelHostApi.setUp(...)` and register the reply and
-    download stream handlers, keeping each sink.
-  - `modelInfo`: check the AICore package (`getPackageInfo`), then `checkStatus()`,
-    `getTokenLimit()` (falling back to 4000) and `maxResponseTokens = 256`.
-  - `startReply`: launch a job, kept per id. It re-checks the status and calls
-    `isSystemPromptAvailable()` to choose between a `SystemInstruction` and inlining the
-    instructions. It then runs `generateContentStream`, appends each chunk's text and sends the
-    accumulated text, then `ReplyDone`. A `GenAiException` becomes `ReplyFailed`.
+    download stream handlers, keeping each sink. `onDetachedFromEngine` unregisters them, cancels
+    every job, and closes the model once the cancelled jobs have let go of it.
+  - `modelInfo`: check the AICore package (`getPackageInfo`), then `checkStatus()`. Only an
+    available model is asked for `getTokenLimit()` (falling back to 4000). `maxResponseTokens` is
+    256.
+  - `startReply`: a lazily started job, put in the map before it starts so it can't remove itself
+    first. An id already running (from before a hot restart) is cancelled, and a job only removes
+    its own entry. The job re-checks the status and calls `isSystemPromptAvailable()` to choose
+    between a `SystemInstruction` and inlining the instructions. It then runs
+    `generateContentStream`, appends each chunk's text and sends the accumulated text, then
+    `ReplyDone`. A `GenAiException` becomes `ReplyFailed`.
   - `cancelReply` cancels the job.
   - `startDownload` collects `model.download()` and maps each status to an event, catching errors
-    (the Android SDK doesn't).
+    (the Android SDK doesn't). If the flow ends without a final status, it sends
+    `DownloadCompleted` when the model is now available, else `DownloadFailed`.
 
 Test with:
 
@@ -195,9 +206,10 @@ like this:
 #endif
 ```
 
-Wrap every use of Foundation Models in `if #available(iOS 26.0, macOS 26.0, *)`. The podspecs set
-`s.weak_frameworks = 'FoundationModels'`, so the app still runs on iOS 13–25, where the model reads
-as unavailable.
+Wrap every use of Foundation Models in `if #available(iOS 26.0, macOS 26.0, *)`. FoundationModels
+must be weak-linked so the app still runs on iOS 13–25, where the model reads as unavailable. With
+Swift Package Manager the linker does that by itself, because the deployment target is older than
+the framework. With CocoaPods the podspecs' `s.weak_frameworks = 'FoundationModels'` does it.
 
 The files:
 - **`TranscriptBuilder.swift`** — a port of the iOS SDK's transcript:
@@ -211,10 +223,14 @@ The files:
   | --- | --- |
   | context exceeded | `contextExceeded` |
   | assets unavailable, rate limited, concurrent requests, timeout | `unavailable` |
-  | anything else | `failed` |
+  | anything else, including iOS 27's `GeneratedContent.ParsingError` | `failed` |
+
+  An app built with Xcode 26 can't name iOS 27's errors, so on iOS 27 they all read as `failed`.
 - **`StreamChatFlutterAiOndevicePlugin.swift`**:
   - `register(with:)` sets up the host API and both stream handlers. The messenger is
-    `registrar.messenger()` on iOS and `registrar.messenger` on macOS.
+    `registrar.messenger()` on iOS and `registrar.messenger` on macOS. It also calls
+    `registrar.publish(instance)`: Flutter on iOS calls `detachFromEngine(for:)`, which cancels the
+    replies, only on a published plugin.
   - `modelInfo` maps `availability`: `.available` → available, `.unavailable(.modelNotReady)` →
     downloading, anything else → unavailable. It reads `contextSize` under `#if compiler(>=6.3)`
     and falls back to 4096 otherwise.
@@ -222,7 +238,8 @@ The files:
     `LanguageModelSession(model:transcript:)` and iterates
     `streamResponse(to: question, options: GenerationOptions(maximumResponseTokens:))`, sending
     each snapshot's `content` (already the whole answer) and then `ReplyDone`. `cancelReply`
-    cancels the task.
+    cancels the task. As on Android, an id already running is cancelled, and a task only removes
+    its own entry (each carries a token).
   - `startDownload` emits `DownloadCompleted` when the model is available and otherwise
     `DownloadFailed(unavailable, systemManaged)`. Apple downloads its model by itself.
 
@@ -248,11 +265,22 @@ In `packages/stream_chat_flutter_ai_ondevice/test/`:
   - routing replies by id
   - failure mapping
   - listening only while a reply is in progress
-  - download events
+  - download events, including two `download()` streams sharing one download
+  - per-instance reply ids
+  - `channel-error`, and platforms without the plugin
   - one round trip through the real generated channels, using
     `TestDefaultBinaryMessengerBinding` and `pigeonMethodCodec`
 
 Run them with `flutter test` in the package, or `melos run test:all`.
+
+The Swift tests (`TranscriptBuilder` and `GenerationErrorMapper`) are in the example's
+`macos/RunnerTests`, since the iOS and macOS sources are identical. Run them on a Mac on macOS 26:
+
+```bash
+cd packages/stream_chat_flutter_ai/example && flutter build macos --debug
+cd macos && xcodebuild test -workspace Runner.xcworkspace -scheme Runner \
+  -destination 'platform=macOS' -only-testing:RunnerTests CODE_SIGNING_ALLOWED=NO
+```
 
 ## 9. Wire it into an app
 

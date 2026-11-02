@@ -60,13 +60,18 @@ class _OnDeviceStatusButtonState extends State<OnDeviceStatusButton> {
               _progress =
                   fraction ?? (size != null && size > 0 && bytesDownloaded != null ? bytesDownloaded / size : null);
             });
+          case AIOnDeviceDownloadCompleted():
+            _show('The on-device model is ready: turn the cloud off to answer on this device.');
           case AIOnDeviceDownloadFailed(:final error):
             _show('The download failed: ${error.message}');
         }
       },
       onDone: () {
-        _download = null;
-        _progress = null;
+        if (!mounted) return;
+        setState(() {
+          _download = null;
+          _progress = null;
+        });
         unawaited(_refresh());
       },
     );

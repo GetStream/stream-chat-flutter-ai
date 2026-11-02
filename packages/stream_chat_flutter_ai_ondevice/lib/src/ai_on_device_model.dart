@@ -67,7 +67,7 @@ class AIOnDeviceModel extends AILocalModel {
   Future<AIOnDeviceStatus> status() async {
     try {
       return (await _platform.modelInfo()).status;
-    } on Exception {
+    } catch (_) {
       return AIOnDeviceStatus.unavailable;
     }
   }
@@ -86,7 +86,11 @@ class AIOnDeviceModel extends AILocalModel {
   ///   the download can take hours. Until it starts, [status] may still read
   ///   [AIOnDeviceStatus.downloadable].
   /// - On iOS and macOS the system downloads Apple's model by itself: this
-  ///   completes at once when the model is available and fails otherwise.
+  ///   completes at once when the model is available and fails otherwise,
+  ///   with no [AIOnDeviceDownloadStarted] or progress before.
+  ///
+  /// There is one download at a time: calling this again while one is in
+  /// progress joins it, and it stops when no stream is listened to.
   Stream<AIOnDeviceDownload> download() => _platform.download();
 
   /// Streams the answer to the last of [turns], the person's question, with
@@ -111,7 +115,7 @@ class AIOnDeviceModel extends AILocalModel {
       unawaited(controller.close());
     }
 
-    Future<void> start() async {
+    Future<void> run() async {
       final AIOnDeviceModelInfo info;
       try {
         info = await _platform.modelInfo();
@@ -149,6 +153,17 @@ class AIOnDeviceModel extends AILocalModel {
       answer = _platform
           .reply(instructions: instructions, turns: fitted, maximumResponseTokens: responseTokens)
           .listen(controller.add, onError: controller.addError, onDone: controller.close);
+    }
+
+    // Anything else going wrong, even an Error from a platform implementation,
+    // still ends the reply, so the app doesn't wait for it forever.
+    Future<void> start() async {
+      try {
+        await run();
+      } catch (error) {
+        if (cancelled || controller.isClosed) return;
+        fail(AILocalModelException(AILocalModelErrorReason.failed, '$error', cause: error));
+      }
     }
 
     controller = StreamController<String>(

@@ -109,3 +109,20 @@ switch (await model.status()) {
   Android.
 - The context is a few thousand tokens: Gemini Nano reports its own, Apple's model 4096.
 - ML Kit's Prompt API is in beta (`com.google.mlkit:genai-prompt:1.0.0-beta4`).
+
+## Compared with the native SDKs
+
+`AIOnDeviceModel` matches the one in Stream's iOS and Android SDKs: the same models, defaults,
+prompt and streaming. Where it differs:
+
+- Errors are typed: an `AILocalModelException` whose `reason` says whether trying again later can
+  work, with the platform's code in `cause`. The native SDKs pass the platform's errors on.
+- `status()` and `download()` work on iOS and macOS too. On Android they match the native SDK.
+- A conversation that doesn't end with the person's question fails as `invalidConversation`, not
+  as unavailable.
+- Turns are counted a little more generously: about 3 bytes per token rounded up, plus 4 tokens a
+  turn and 50 for the prompt's framing. On iOS that keeps a few fewer turns than the iOS SDK.
+- When even the answer doesn't fit the context, the reply fails as `contextExceeded` instead of
+  sending the question alone.
+- Blank instructions are left out: no empty instructions entry on iOS, and no empty system
+  instruction on Android.
