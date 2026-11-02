@@ -121,6 +121,7 @@
 - `AILocalModel` — an interface over an on-device model that streams a fallback reply when the person is offline or the agent hit its usage limit. Each event is the whole answer so far, which is what `StreamingMessageView.text` takes, and cancelling the subscription stops the model.
 - `AIConversationTurn` and `AIConversationRole` — one turn of the conversation handed to an `AILocalModel`. `AIConversationTurn.fitToBudget` trims the history to a small context, keeping the newest unbroken run of turns and always the question; `estimateTokens` and `tokensPerTurn` set what a turn costs.
 - `AILocalModelException` and `AILocalModelErrorReason` (`unavailable`, `invalidConversation`, `contextExceeded`, `failed`) — the error an `AILocalModel.reply` stream emits when the model can't answer.
+- `stream_chat_flutter_ai_ondevice`, a companion package: `AIOnDeviceModel`, an `AILocalModel` over Gemini Nano on Android and Apple's Foundation Models on iOS and macOS 26, with its status and download.
 - `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) — one place to swap
   the components the package builds inside its own widgets for your own: code blocks, charts, agent
   steps, the approval card, a conversation's messages and the composer's slots.

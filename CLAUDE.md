@@ -4,11 +4,16 @@ Guidance for Claude Code when working in this repository.
 
 ## Overview
 
-This repository holds a single published package, `stream_chat_flutter_ai` — Flutter UI components
-for LLM-driven chat: streaming markdown text, typing indicators, code blocks, charts, an AI
-composer, and speech-to-text input.
+This repository holds two published packages:
 
-**The package has no dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
+- `stream_chat_flutter_ai` — Flutter UI components for LLM-driven chat: streaming markdown text,
+  typing indicators, code blocks, charts, an AI composer, and speech-to-text input.
+- `stream_chat_flutter_ai_ondevice` — a Flutter plugin (Kotlin + Swift, Pigeon channels) whose
+  `AIOnDeviceModel` implements core's `AILocalModel` with Gemini Nano (Android) and Apple's
+  Foundation Models (iOS/macOS 26). Released in lockstep with core. How it is built:
+  `docs/ondevice-plugin-guide.md`.
+
+**Neither package has a dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 package, by design.** Every widget operates on plain strings, callbacks and controllers. Do not add
 a Stream Chat dependency — that would change the package's core premise. If a task seems to need
 one, raise it rather than doing it.
@@ -44,6 +49,9 @@ Consequences worth remembering:
   root. A lockfile inside a package directory is stale; delete it.
 - Adding a package means adding its path to the root `workspace:` list (pub requires explicit
   paths — globs don't work there).
+- The ondevice plugin's Swift lives twice, in `ios/<pkg>/Sources/<pkg>/` and
+  `macos/<pkg>/Sources/<pkg>/` (SwiftPM can't share a folder between packages). Edit both; CI diffs
+  them. Generated `*.g.*` files come from `melos run generate:pigeon` — never edit them by hand.
 
 ## Common commands
 
@@ -55,6 +63,7 @@ melos run lint:all       # analyze + format
 melos run test:all       # flutter test --coverage
 melos run lint:pub       # flutter pub publish -n (skips the example, which is private)
 melos run update:goldens # regenerate golden files
+melos run generate:pigeon # regenerate the ondevice plugin's channels from pigeons/messages.dart
 melos run release:pub    # flutter pub publish -f — CI only (release_publish), never run locally
 ```
 
