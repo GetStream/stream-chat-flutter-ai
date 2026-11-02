@@ -5,8 +5,7 @@ import com.google.mlkit.genai.common.GenAiException.ErrorCode
 /**
  * ML Kit's error codes, as the `AILocalModelErrorReason` names the Dart side understands.
  *
- * stream-chat-android wraps every `GenAiException` as one `Failure`; telling them apart lets the
- * app say whether trying again later can work.
+ * Telling them apart lets the app say whether trying again later can work.
  */
 internal object GenAiErrors {
 

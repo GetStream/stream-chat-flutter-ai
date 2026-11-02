@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_example/answer_source_switcher.dart';
 import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
-import 'package:stream_chat_flutter_ai_example/on_device_status.dart';
 import 'package:stream_chat_flutter_ai_ondevice/stream_chat_flutter_ai_ondevice.dart';
 
 void main() => runApp(const ExampleApp());
@@ -416,7 +416,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// emulators and older devices have none, so the offline mode says so.
   static const _localModel = AIOnDeviceModel();
 
-  /// What the on-device model is told, as in the Android SDK's sample.
+  /// What the on-device model is told: it answers on the device, with none of
+  /// the agent's tools.
   static const _localInstructions =
       "You are a helpful assistant answering on the person's device, without a connection to the server. "
       'Answer briefly. You have no tools.';
@@ -762,7 +763,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
         return _endLocalReply("The on-device model isn't on this device yet: download it from the app bar.");
       case AIOnDeviceStatus.downloading:
         return _endLocalReply('The on-device model is still downloading. Try again once it is ready.');
-      case AIOnDeviceStatus.unavailable:
+      default:
         return _endLocalReply('This device has no on-device model.');
     }
 
@@ -865,14 +866,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
       appBar: AppBar(
         title: const Text('AI Assistant'),
         actions: [
-          IconButton(
-            tooltip: _offline ? 'Offline: answering on device' : 'Online',
-            isSelected: _offline,
-            icon: const Icon(Icons.cloud_outlined),
-            selectedIcon: const Icon(Icons.cloud_off_outlined),
-            onPressed: () => setState(() => _offline = !_offline),
+          AnswerSourceSwitcher(
+            model: _localModel,
+            onDevice: _offline,
+            onChanged: (onDevice) => setState(() => _offline = onDevice),
           ),
-          const OnDeviceStatusButton(model: _localModel),
         ],
       ),
       body: SafeArea(

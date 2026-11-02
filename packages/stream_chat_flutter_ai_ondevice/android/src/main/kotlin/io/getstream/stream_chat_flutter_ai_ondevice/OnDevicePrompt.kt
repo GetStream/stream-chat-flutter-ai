@@ -2,8 +2,6 @@ package io.getstream.stream_chat_flutter_ai_ondevice
 
 /**
  * How a conversation is written as one prompt: the Prompt API takes text, not a transcript.
- *
- * Ported from `OnDevicePrompt` in stream-chat-android's `AIOnDeviceModel.kt`; keep the two in step.
  */
 internal object OnDevicePrompt {
 

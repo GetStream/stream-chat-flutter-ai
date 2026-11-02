@@ -7,8 +7,7 @@ import XCTest
   @testable import stream_chat_flutter_ai_ondevice
 #endif
 
-// Tests for the on-device model plugin's Swift. The iOS and macOS copies of its sources are
-// identical, so they run here, on the Mac.
+// Tests for the on-device model plugin's Swift, shared by iOS and macOS, so they run here on the Mac.
 class RunnerTests: XCTestCase {
 
   #if canImport(FoundationModels)

@@ -13,11 +13,8 @@ import Foundation
 /// Apple's on-device model (Foundation Models), on iOS 26 and macOS 26 and later with Apple
 /// Intelligence turned on.
 ///
-/// Ported from stream-chat-swift's `AIOnDeviceModel`. The Dart side fits the conversation to the
-/// context this reports, so this only checks the model, builds the transcript and streams the
+/// The Dart side fits the conversation to the context this reports, so this only checks the model, builds the transcript and streams the
 /// answer. Each reply runs in its own task, stopped by `cancelReply`.
-///
-/// This file is shared by the iOS and macOS packages: edit both copies together.
 public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDeviceModelHostApi {
   /// The context Apple's model had before `contextSize` arrived in the iOS 26.4 SDK.
   static let defaultContextSize = 4096

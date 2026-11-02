@@ -10,8 +10,7 @@ This repository holds two published packages:
   typing indicators, code blocks, charts, an AI composer, and speech-to-text input.
 - `stream_chat_flutter_ai_ondevice` — a Flutter plugin (Kotlin + Swift, Pigeon channels) whose
   `AIOnDeviceModel` implements core's `AILocalModel` with Gemini Nano (Android) and Apple's
-  Foundation Models (iOS/macOS 26). Released in lockstep with core. How it is built:
-  `docs/ondevice-plugin-guide.md`.
+  Foundation Models (iOS/macOS 26). Released in lockstep with core.
 
 **Neither package has a dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 package, by design.** Every widget operates on plain strings, callbacks and controllers. Do not add
@@ -49,9 +48,8 @@ Consequences worth remembering:
   root. A lockfile inside a package directory is stale; delete it.
 - Adding a package means adding its path to the root `workspace:` list (pub requires explicit
   paths — globs don't work there).
-- The ondevice plugin's Swift lives twice, in `ios/<pkg>/Sources/<pkg>/` and
-  `macos/<pkg>/Sources/<pkg>/` (SwiftPM can't share a folder between packages). Edit both; CI diffs
-  them. Generated `*.g.*` files come from `melos run generate:pigeon` — never edit them by hand.
+- The ondevice plugin's Swift is shared by iOS and macOS (`darwin/`, `sharedDarwinSource: true`).
+  Generated `*.g.*` files come from `melos run generate:pigeon` — never edit them by hand.
 
 ## Common commands
 

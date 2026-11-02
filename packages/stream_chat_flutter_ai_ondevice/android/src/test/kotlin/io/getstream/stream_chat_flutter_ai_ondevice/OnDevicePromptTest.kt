@@ -4,7 +4,6 @@ import com.google.mlkit.genai.common.GenAiException.ErrorCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Ported from stream-chat-android's `OnDevicePromptTest`. */
 class OnDevicePromptTest {
 
     private fun user(text: String) = TurnMessage(TurnRoleMessage.USER, text)

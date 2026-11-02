@@ -3,9 +3,7 @@
 
   /// Foundation Models' errors, as the `AILocalModelErrorReason` names the Dart side understands.
   ///
-  /// stream-chat-swift passes them on unmapped; telling them apart lets the app say whether
-  /// trying again later can work. This file is shared by the iOS and macOS packages: edit both
-  /// copies together.
+  /// Telling them apart lets the app say whether trying again later can work.
   @available(iOS 26.0, macOS 26.0, *)
   enum GenerationErrorMapper {
     struct Failure: Equatable {

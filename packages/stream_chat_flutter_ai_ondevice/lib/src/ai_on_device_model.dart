@@ -37,8 +37,8 @@ import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_status.dart';
 ///   case AIOnDeviceStatus.downloadable:
 ///     // From a tap: the person asked for the model.
 ///     model.download().listen(showProgress);
-///   case AIOnDeviceStatus.downloading || AIOnDeviceStatus.unavailable:
-///     // This device can't answer yet; keep the retry.
+///   default:
+///     // Downloading or unavailable: this device can't answer yet.
 /// }
 /// ```
 ///

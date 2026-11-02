@@ -1,13 +1,9 @@
 import 'package:pigeon/pigeon.dart';
 
-// `swiftOut` is intentionally omitted here: iOS and macOS each need their own
-// physical copy under their own SwiftPM package root (SPM rejects a target
-// `path:` that escapes its package root), so it's passed explicitly via
-// `--swift_out` for each platform in the root pubspec's `generate:pigeon`
-// script instead of being fixed to a single path here.
 @ConfigurePigeon(
   PigeonOptions(
     dartOut: 'lib/src/messages.g.dart',
+    swiftOut: 'darwin/stream_chat_flutter_ai_ondevice/Sources/stream_chat_flutter_ai_ondevice/Messages.g.swift',
     kotlinOut: 'android/src/main/kotlin/io/getstream/stream_chat_flutter_ai_ondevice/Messages.g.kt',
     kotlinOptions: KotlinOptions(package: 'io.getstream.stream_chat_flutter_ai_ondevice'),
     dartPackageName: 'stream_chat_flutter_ai_ondevice',

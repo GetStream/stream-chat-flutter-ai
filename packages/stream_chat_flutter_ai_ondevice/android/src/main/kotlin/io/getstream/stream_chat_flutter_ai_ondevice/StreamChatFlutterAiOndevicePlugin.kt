@@ -25,14 +25,14 @@ import kotlinx.coroutines.launch
 /**
  * Gemini Nano, the model in Android's AICore, through ML Kit's GenAI Prompt API.
  *
- * Ported from stream-chat-android's `AIOnDeviceModel`. The Dart side fits the conversation to
- * the context this reports, so this only checks the model, writes the prompt and streams the
+ * The Dart side fits the conversation to the context this reports, so this only checks the model, writes the prompt and streams the
  * answer. Each reply runs in its own job, stopped by `cancelReply`.
  */
 class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
 
     private var context: Context? = null
-    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /** Made on attach, since detaching cancels it and an engine can attach the plugin again. */
+    private lateinit var scope: CoroutineScope
     private var model: GenerativeModel? = null
 
     private var replySink: PigeonEventSink<ReplyEvent>? = null

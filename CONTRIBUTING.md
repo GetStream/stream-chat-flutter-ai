@@ -24,7 +24,7 @@ You can include the output of `flutter doctor --verbose` when filing an issue.
 
 `packages/stream_chat_flutter_ai` — the UI components package.
 
-`packages/stream_chat_flutter_ai_ondevice` — the on-device model plugin (`AIOnDeviceModel`), with Kotlin code for Android and Swift code for iOS and macOS. It is released together with `stream_chat_flutter_ai`, with the same version. [`docs/ondevice-plugin-guide.md`](docs/ondevice-plugin-guide.md) explains how it is built.
+`packages/stream_chat_flutter_ai_ondevice` — the on-device model plugin (`AIOnDeviceModel`), with Kotlin code for Android and Swift code for iOS and macOS. It is released together with `stream_chat_flutter_ai`, with the same version.
 
 `packages/stream_chat_flutter_ai/example` — a minimal showcase app for the components. It needs no API key and no backend. For a backend-connected sample, see [GetStream/chat-ai-samples](https://github.com/GetStream/chat-ai-samples).
 

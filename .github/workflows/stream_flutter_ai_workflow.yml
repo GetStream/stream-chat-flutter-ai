@@ -70,18 +70,6 @@ jobs:
       - name: "Dart Analyze"
         run: |
           melos run analyze
-      # SwiftPM can't share a source file between two packages, so the iOS and
-      # macOS packages of a plugin each keep a copy that must stay identical.
-      - name: "Apple Sources Match"
-        run: |
-          for package in packages/*/; do
-            name=$(basename "$package")
-            ios="$package/ios/$name/Sources/$name"
-            macos="$package/macos/$name/Sources/$name"
-            if [ -d "$ios" ] && [ -d "$macos" ]; then
-              diff -r "$ios" "$macos"
-            fi
-          done
       - name: "Pub Check"
         if: github.base_ref == 'main'
         run: |

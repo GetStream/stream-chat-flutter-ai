@@ -91,9 +91,6 @@ melos run update:goldens         # regenerate golden files
 melos run generate:pigeon        # regenerate the on-device plugin's platform channels
 ```
 
-How the on-device plugin is put together — the Pigeon channel, the Kotlin and Swift sides, and how
-to test it — is written up in [`docs/ondevice-plugin-guide.md`](docs/ondevice-plugin-guide.md).
-
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).

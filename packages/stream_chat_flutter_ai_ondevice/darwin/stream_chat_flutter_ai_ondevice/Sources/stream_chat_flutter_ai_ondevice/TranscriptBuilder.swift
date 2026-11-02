@@ -2,9 +2,6 @@
   import FoundationModels
 
   /// The conversation before the question, as the transcript a `LanguageModelSession` starts from.
-  ///
-  /// Ported from stream-chat-swift's `AIOnDeviceModel.transcript`. This file is shared by the iOS
-  /// and macOS packages: edit both copies together.
   @available(iOS 26.0, macOS 26.0, *)
   enum TranscriptBuilder {
     static func transcript(instructions: String, history: ArraySlice<TurnMessage>) -> Transcript {

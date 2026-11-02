@@ -12,11 +12,12 @@ backend, no API key and no LLM provider involved:
 - `AITypingIndicatorView` — shown while the fake assistant is "thinking".
 - `StreamingMessageView` — types the reply out, rendering markdown, a fenced
   code block (`CodeBlockView`) and a chart fence (`ChartView`).
-- `AIOnDeviceModel` (from `stream_chat_flutter_ai_ondevice`) — turn the cloud
-  off in the app bar to answer from the model built into the device; the
-  button next to it shows whether this device has one, and downloads Gemini
-  Nano when it can. Simulators, emulators and older devices have none, so the
-  reply then says the on-device model isn't available.
+- `AIOnDeviceModel` (from `stream_chat_flutter_ai_ondevice`) — the switcher in
+  the app bar picks between the cloud and the model built into the device. Its
+  device half shows where the model is: ready, downloadable (tap to download
+  Gemini Nano, after a confirmation), downloading, or not on this device.
+  Simulators, emulators and older devices have none, so it stays disabled
+  there.
 
 ## Running it
 

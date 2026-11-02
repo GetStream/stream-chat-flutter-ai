@@ -48,5 +48,7 @@ flutter:
         pluginClass: StreamChatFlutterAiOndevicePlugin
       ios:
         pluginClass: StreamChatFlutterAiOndevicePlugin
+        sharedDarwinSource: true
       macos:
         pluginClass: StreamChatFlutterAiOndevicePlugin
+        sharedDarwinSource: true
