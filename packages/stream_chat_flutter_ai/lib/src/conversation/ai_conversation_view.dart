@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,8 +24,8 @@ import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.d
 /// back into view whenever it is out of it.
 ///
 /// Each message the person sends starts a turn: that message and the replies
-/// after it. The latest turn is at least as tall as the list, so its message
-/// can always reach the top.
+/// after it. The latest turn, with the bottom [padding] under it, is at least as
+/// tall as the list, so its message can always reach the top.
 ///
 /// ```dart
 /// AIConversationView(
@@ -181,8 +182,8 @@ class _AIConversationViewState extends State<AIConversationView> {
       ..ensureVisualUpdate();
   }
 
-  // Brings [turn] to the top, which a turn the person just started can reach,
-  // being at least as tall as the list.
+  // Brings [turn] to the top, which a turn the person just started can reach:
+  // with the bottom padding under it, it is at least as tall as the list.
   void _scrollToTop(String turn, {required bool animate, int attempts = 3}) {
     final generation = _scrollGeneration;
     _afterFrame(() {
@@ -284,7 +285,10 @@ class _AIConversationViewState extends State<AIConversationView> {
           clock: _clock,
           isLatest: turn.id == turns.last.id,
           isThinking: _thinking,
-          minHeight: height,
+          // Leave room for the bottom padding, so scrolling to the end puts the
+          // latest message at the top, just like sending one does. A list
+          // shorter than its bottom padding has nothing to leave.
+          minHeight: max(0, height - padding.bottom),
           footer: widget.footer,
           approver: widget.approver,
           onAttachmentTap: widget.onAttachmentTap,
