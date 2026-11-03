@@ -448,6 +448,28 @@ void main() {
   });
 
   group('ComposerAttachmentSheet', () {
+    testWidgets('asks the platform for image access only', (tester) async {
+      Object? requested;
+      const channel = MethodChannel('com.fluttercandies/photo_manager');
+      final messenger = tester.binding.defaultBinaryMessenger
+        ..setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'requestPermissionExtend') {
+            requested = (call.arguments as Map)['androidPermission'];
+            return PermissionState.denied.index;
+          }
+          return null;
+        });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(_wrap(ComposerAttachmentSheet(controller: controller)));
+      await tester.pump();
+
+      expect(requested, {'type': RequestType.image.value, 'mediaLocation': false});
+    });
+
     testWidgets('tapping "+" opens the sheet with chat options listed', (tester) async {
       const option = ChatOption(
         id: 'research',
