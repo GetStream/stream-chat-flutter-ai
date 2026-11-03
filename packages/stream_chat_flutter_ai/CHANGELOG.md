@@ -13,6 +13,11 @@
 
 ✅ Added
 
+- `AIUIDocument`, `AIUIAction` and `AIUIFormat` — the generated UI an agent's reply carries in its
+  `ai_ui` custom field, and what the person did in it, sent back as their next message.
+- `AIUIComponentDefinition`, `AIUIParameter` and `AIUIParameterType` — a portable description of an
+  app's component that the agent can place in a reply's generated UI, read from and written to the
+  same JSON as the other platforms.
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.

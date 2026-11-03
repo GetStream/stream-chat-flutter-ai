@@ -1,0 +1,7 @@
+{
+  "ai_ui": {
+    "format": "a2ui",
+    "status": "complete",
+    "content": [{ "deleteSurface": { "surfaceId": "s1" } }]
+  }
+}

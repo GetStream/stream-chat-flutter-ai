@@ -1,0 +1,36 @@
+{
+  "name": "trip_map",
+  "description": "A map of a plan.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "places": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" }
+          },
+          "required": ["name", "latitude", "longitude"],
+          "x-order": ["name", "latitude", "longitude"]
+        }
+      }
+    },
+    "required": ["places"],
+    "x-order": ["places"]
+  },
+  "events": [
+    {
+      "name": "select_place",
+      "description": "The person taps a pin.",
+      "parameters": {
+        "type": "object",
+        "properties": { "name": { "type": "string" }, "day": { "type": "string", "format": "date" } },
+        "required": ["name"],
+        "x-order": ["name", "day"]
+      }
+    }
+  ]
+}
