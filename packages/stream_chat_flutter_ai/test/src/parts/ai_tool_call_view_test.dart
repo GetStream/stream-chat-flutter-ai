@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
 
 const _icons = StreamIcons();
 
@@ -78,6 +79,41 @@ List<String> _texts(WidgetTester tester) =>
 
 void main() {
   group('AIToolCallView', () {
+    testWidgets("reads the app's StreamTheme, not Stream's light defaults", (tester) async {
+      const textPrimary = Color(0xFF123456);
+      final stream = StreamTheme.light();
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(call: _call()),
+          theme: ThemeData(
+            extensions: [StreamTheme(colorScheme: stream.colorScheme.copyWith(textPrimary: textPrimary))],
+          ),
+        ),
+      );
+
+      expect(tester.widget<Text>(find.text('get weather')).style!.color, textPrimary);
+    });
+
+    testWidgets("an AITheme field wins over the app's StreamTheme", (tester) async {
+      const themed = Color(0xFF654321);
+      final stream = StreamTheme.light();
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(call: _call()),
+          theme: ThemeData(
+            extensions: [
+              StreamTheme(colorScheme: stream.colorScheme.copyWith(textPrimary: const Color(0xFF123456))),
+              const AITheme(
+                toolCallTheme: ToolCallThemeData(titleStyle: TextStyle(color: themed)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(tester.widget<Text>(find.text('get weather')).style!.color, themed);
+    });
+
     testWidgets('leaves 8 between the icon and the title', (tester) async {
       _reduceMotion(tester);
       await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.completed))));

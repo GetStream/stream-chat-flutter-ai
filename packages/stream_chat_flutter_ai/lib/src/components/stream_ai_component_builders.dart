@@ -31,7 +31,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// The builders that replace the components this package builds inside its
 /// own widgets: code blocks and charts in markdown, agent steps, the tool
@@ -164,12 +164,13 @@ Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
   return builders;
 }
 
-/// [child] under the [StreamComponentFactory] at [context], for a route pushed
-/// from [context]. The factory is a plain inherited widget, so a route on a
-/// [Navigator] above it would otherwise not see its builders.
+/// [child] under a [StreamComponentFactory] with [builders], for a route pushed
+/// from where [builders] were read. The factory is a plain inherited widget, so
+/// a route on a [Navigator] above it would otherwise not see its builders. Read
+/// [builders] before pushing, as the route can outlive the widget it came from.
 @internal
-Widget withStreamComponents(BuildContext context, Widget child) =>
-    StreamComponentFactory(builders: StreamComponentFactory.of(context), child: child);
+Widget withStreamComponents(StreamComponentBuilders builders, Widget child) =>
+    StreamComponentFactory(builders: builders, child: child);
 
 /// Reads the builders [streamAIComponentBuilders] registered.
 extension StreamAIComponentBuildersExtension on BuildContext {

@@ -8,7 +8,7 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart'
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A microphone button that feeds speech-to-text results directly into an
 /// [ChatComposerController]'s text field.

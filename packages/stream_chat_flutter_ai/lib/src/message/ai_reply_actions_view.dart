@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reply_actions_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// How the person rated a reply.
 enum AIMessageRating {

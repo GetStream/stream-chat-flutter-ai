@@ -6,7 +6,7 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/resolved_code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds the highlighted span tree for a fenced code block.
 ///

@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: [ReasoningTheme.of] supplies the themed fields.
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 const _kDefaultMaxExpandedHeight = 260.0;
 

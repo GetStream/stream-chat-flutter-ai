@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A [TypingIndicatorThemeData] with every field resolved.
 ///

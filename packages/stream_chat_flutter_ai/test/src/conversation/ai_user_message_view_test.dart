@@ -2,9 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
 
 void main() {
   group('AIUserMessageView context menu', () {
+    testWidgets('sees the component factory set around the message', (tester) async {
+      final builders = StreamComponentBuilders();
+      await tester.pumpWidget(
+        _wrap(
+          StreamComponentFactory(
+            builders: builders,
+            child: const AIUserMessageView(text: 'Hello'),
+          ),
+        ),
+      );
+
+      await tester.longPress(find.text('Hello'));
+      await tester.pumpAndSettle();
+
+      expect(StreamComponentFactory.of(tester.element(find.byType(StreamContextMenu))), same(builders));
+    });
+
     testWidgets('copies the message', (tester) async {
       String? copied;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {

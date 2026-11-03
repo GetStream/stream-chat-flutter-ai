@@ -6,7 +6,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 // Imported for the doc links below only.
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Overrides for how [AIToolCallView] is drawn: the title and detail text, the
 /// status icon's colors and its size.

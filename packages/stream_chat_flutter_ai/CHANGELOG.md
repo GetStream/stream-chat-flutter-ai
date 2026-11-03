@@ -11,16 +11,25 @@
 - `AITypingIndicatorView.dotSize` is now nullable; unset, it comes from the theme.
 - `AITypingIndicatorView.dotCount` and `AnimatedDots` are removed; the dots are core's `StreamTypingIndicatorDots`.
 - `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`. A `StreamComponentFactory` replaces its parent's builders rather than adding to them, so a per-composer override means a nested factory with all the builders that subtree needs.
-- `ComposerThemeData.borderColor`, `attachmentPlaceholderColor` and `attachmentPlaceholderIconColor` no longer style an attachment thumbnail's remove badge, which is core's `StreamRemoveControl`.
+- `ComposerThemeData.fillColor` and `SuggestionsThemeData.backgroundColor` default to transparent, so the composer's pill, "+" button and camera tile, and the suggestion chips, are outlined rather than filled.
+- `ComposerThemeData.sendButtonColor` no longer colors the idle microphone, which is a ghost button in `iconColor`, or the disabled send button, which takes the Stream theme's disabled colors.
+- `ComposerThemeData.fillColor` no longer fills a sheet photo while it loads; `attachmentPlaceholderColor` does.
+- `ComposerThemeData.borderColor`, `attachmentPlaceholderColor` and `attachmentPlaceholderForegroundColor` no longer style an attachment thumbnail's remove badge, which is core's `StreamRemoveControl`.
 - `StreamingMessageView` types only while `expectMoreText` is `true`; given only `text`, it shows each new text in full. Pass `expectMoreText: isGenerating` while a reply streams.
 
 ✅ Added
 
-- The package re-exports `package:stream_core_flutter/chat.dart` (Stream's design system), hiding the
-  same names `stream_chat_flutter` hides, so both packages can be imported together.
+- The package re-exports what its API uses from `stream_core_flutter` (Stream's design system):
+  `StreamTheme` and its tokens (`StreamColorScheme`, `StreamTextTheme`, `StreamSpacing`,
+  `StreamRadius`, `StreamIcons`, `StreamColors`, and `context.streamColorScheme` and the like) and
+  the component factory (`StreamComponentFactory`, `StreamComponentBuilders`, `StreamComponentBuilder`,
+  `StreamComponentBuilderExtension`). Core's widgets come from `stream_core_flutter` itself.
+- `ChatComposer.hidden` — returned from the `composerLeading` or `composerTrailing` builder, leaves
+  that slot out, gap and all.
 - `ComposerAttachmentButton` — the "+" button a `ChatComposer` leads with by default.
 - `ComposerAttachmentSheet.scrollController` and `ChatComposerAttachmentSheetProps.scrollController`
-  — the sheet's scroll controller, for a sheet that scrolls with its drag.
+  — the sheet's scroll controller. A custom sheet passes it to its scrollable so the sheet scrolls
+  with its drag.
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.
@@ -223,15 +232,6 @@
   `showLegend: false` to keep the previous look.
 - `AITypingIndicatorView`'s caption defaults to the Stream theme's `bodyDefault` in `textSecondary`
   instead of inheriting `DefaultTextStyle`.
-- `ChatComposer`'s input pill, "+" button and camera tile, and `AISuggestionsView`'s chips, are
-  outlined by default: `ComposerThemeData.fillColor` and `SuggestionsThemeData.backgroundColor`
-  default to transparent.
-- The idle microphone is a ghost button in `ComposerThemeData.iconColor` instead of a filled one in
-  `sendButtonColor`.
-- A disabled send button takes the Stream theme's disabled colors instead of `sendButtonColor` at
-  30%.
-- `ComposerThemeData.attachmentPlaceholderColor`, not `fillColor`, fills a sheet photo while it
-  loads.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.

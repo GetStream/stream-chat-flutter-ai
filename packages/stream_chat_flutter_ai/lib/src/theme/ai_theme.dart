@@ -10,7 +10,7 @@ import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
 // Imported for the doc links below only.
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// The package's overrides on top of the Stream theme ([StreamTheme]),
 /// registered as a [ThemeExtension] on the app's [ThemeData].

@@ -14,7 +14,7 @@ import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_approval_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: [ToolApprovalThemeData] is a parameter type.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiToolAuthorizationView}
 /// Asks the person a tool call waits for to sign in at the provider it needs
@@ -299,8 +299,9 @@ class AIToolAuthorizationCard extends StatelessWidget {
                   children: [
                     StreamButton(
                       onPressed: state.canConnect ? onConnect : null,
-                      size: .small,
+                      size: .medium,
                       themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
                         backgroundColor: .resolveWith(
                           (states) =>
                               states.contains(WidgetState.disabled) ? colors.backgroundDisabled : theme.accentColor,
@@ -319,8 +320,9 @@ class AIToolAuthorizationCard extends StatelessWidget {
                       onPressed: state.isDeclining ? null : onDecline,
                       style: .secondary,
                       type: .outline,
-                      size: .small,
+                      size: .medium,
                       themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
                         foregroundColor: .resolveWith(
                           (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.accentColor,
                         ),
@@ -377,7 +379,12 @@ class _Busy extends StatelessWidget {
       // A spinner never stops, so reduced motion gets a still "in progress".
       child: reduceMotion
           ? Icon(context.streamIcons.moreHorizontal, size: 16, color: color)
-          : StreamLoadingSpinner(size: .xs, color: color),
+          : StreamLoadingSpinner(
+              size: .xs,
+              color: color,
+              backgroundColor: StreamColors.transparent,
+              trackColor: StreamColors.transparent,
+            ),
     );
     final label = this.label;
     if (label == null) return indicator;

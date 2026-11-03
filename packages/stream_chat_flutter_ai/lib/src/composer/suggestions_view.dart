@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/suggestions_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Padding inside each suggestion chip — matched when measuring text (see
 /// [_SuggestionChip._measureContentWidth]) so the computed width leaves

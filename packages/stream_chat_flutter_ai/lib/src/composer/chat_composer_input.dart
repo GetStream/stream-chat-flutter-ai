@@ -148,6 +148,8 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
                   minLines: props.minLines,
                   maxLines: props.maxLines,
                   textInputAction: props.textInputAction,
+                  style: context.streamTextTheme.bodyDefault.copyWith(color: context.streamColorScheme.textPrimary),
+                  cursorColor: context.streamColorScheme.accentPrimary,
                   decoration: InputDecoration(
                     hintText: props.hintText ?? AITranslations.of(context).composerHint,
                     hintStyle: theme.hintStyle,
@@ -273,7 +275,8 @@ class _AttachmentThumbnails extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: SizedBox(
-        height: _size,
+        // Core's attachment pads its tile by 4 on each side.
+        height: _size + 8,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: attachments.length,

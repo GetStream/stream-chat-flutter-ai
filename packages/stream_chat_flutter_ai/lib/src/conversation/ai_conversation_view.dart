@@ -14,7 +14,7 @@ import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart'
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// The messages of an AI conversation, oldest first.
 ///
@@ -672,7 +672,12 @@ class _OlderMessagesLoaderState extends State<_OlderMessagesLoader> {
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: Center(
-        child: StreamLoadingSpinner(size: .sm, color: widget.color),
+        child: StreamLoadingSpinner(
+          size: .sm,
+          color: widget.color,
+          backgroundColor: StreamColors.transparent,
+          trackColor: StreamColors.transparent,
+        ),
       ),
     );
   }

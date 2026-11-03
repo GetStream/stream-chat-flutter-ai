@@ -13,7 +13,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiToolApprovalView}
 /// Asks the person a tool call waits for whether it may run — the question on
@@ -280,8 +280,9 @@ class AIToolApprovalCard extends StatelessWidget {
                   children: [
                     StreamButton(
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.allowed),
-                      size: .small,
+                      size: .medium,
                       themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
                         backgroundColor: .resolveWith(
                           (states) =>
                               states.contains(WidgetState.disabled) ? colors.backgroundDisabled : theme.accentColor,
@@ -296,8 +297,9 @@ class AIToolApprovalCard extends StatelessWidget {
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.declined),
                       style: .secondary,
                       type: .outline,
-                      size: .small,
+                      size: .medium,
                       themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
                         foregroundColor: .resolveWith(
                           (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.accentColor,
                         ),
@@ -353,7 +355,12 @@ class _SendingIndicator extends StatelessWidget {
       // A spinner never stops, so reduced motion gets a still "in progress".
       child: reduceMotion
           ? Icon(context.streamIcons.moreHorizontal, size: 16, color: color)
-          : StreamLoadingSpinner(size: .xs, color: color),
+          : StreamLoadingSpinner(
+              size: .xs,
+              color: color,
+              backgroundColor: StreamColors.transparent,
+              trackColor: StreamColors.transparent,
+            ),
     );
   }
 }

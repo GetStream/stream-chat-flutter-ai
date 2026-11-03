@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/voice/ai_voice_agent_state.dart';
 import 'package:stream_chat_flutter_ai/src/voice/voice_visualization_driver.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A soft, airy globe of drifting color that shows what a voice agent is
 /// doing.

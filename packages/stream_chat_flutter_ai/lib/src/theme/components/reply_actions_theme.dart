@@ -6,7 +6,7 @@ import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 // Imported for the doc links below only.
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Overrides for how [AIReplyActionsView] is drawn: the color and size of its
 /// icons.

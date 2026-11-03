@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: the `theme` parameter is a [ToolCallThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiToolCallView}
 /// One tool call an agent made: what it is doing, how it went, and how long it
@@ -282,11 +282,19 @@ class _StatusIcon extends StatelessWidget {
     return switch (state) {
       // A spinner never stops, so reduced motion gets a still "in progress".
       _ToolCallState.running when reduceMotion => icon(icons.moreHorizontal, theme.accentColor),
-      _ToolCallState.running => scaled(StreamLoadingSpinner(size: .xs, color: theme.accentColor)),
+      _ToolCallState.running => scaled(
+        StreamLoadingSpinner(
+          size: .xs,
+          color: theme.accentColor,
+          backgroundColor: StreamColors.transparent,
+          trackColor: StreamColors.transparent,
+        ),
+      ),
       _ToolCallState.awaitingApproval => waiting(icons.raiseHandFill),
       // Core has no key glyph.
       _ToolCallState.awaitingAuthorization => waiting(Icons.key_outlined),
-      // Core has no plain phone outline; its closest is a screen-share glyph.
+      // Core's only phone glyph is a screen-share icon, so a Material phone
+      // stands in.
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
       _ToolCallState.completed => icon(icons.checkmark, theme.successColor),
       _ToolCallState.failed => scaled(

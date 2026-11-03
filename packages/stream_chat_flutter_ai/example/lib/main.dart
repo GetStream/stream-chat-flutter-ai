@@ -8,14 +8,15 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
 import 'package:stream_chat_flutter_ai_example/fake_local_model.dart';
+import 'package:stream_core_flutter/core.dart';
 
 void main() => runApp(const ExampleApp());
 
 /// Charts follow the host app rather than the package's own constants.
 ///
 /// One instance covers light and dark: everything this leaves unset — the grid
-/// line, the axis labels, the heatmap ramp — still derives from the ambient
-/// `ColorScheme`. Delete the `extensions:` lines below to get the defaults back.
+/// line, the axis labels, the heatmap ramp — still derives from the Stream
+/// theme. Delete the `extensions:` lines below to get the defaults back.
 const _chartTheme = ChartThemeData(seriesColors: _brandChartPalette);
 
 /// A light code frame for the light theme: pinning the brightness picks the
@@ -24,7 +25,7 @@ const _chartTheme = ChartThemeData(seriesColors: _brandChartPalette);
 /// frame; pin `Brightness.dark` in both to keep code dark in either mode.
 const _lightCodeBlockTheme = CodeBlockThemeData(brightness: Brightness.light);
 
-/// A six-hue palette seeded on the same blue as the color scheme.
+/// A six-hue palette seeded on Stream's accent blue.
 const _brandChartPalette = [
   Color(0xFF005FFF),
   Color(0xFF00C1FF),
@@ -45,8 +46,11 @@ class ExampleApp extends StatelessWidget {
     final dark = StreamTheme.dark();
     return MaterialApp(
       title: 'Stream Chat Flutter AI',
+      // Seeded on Stream's accent too, so the Material parts the app uses
+      // itself (its dialog, snackbar and the text cursor) match.
       theme: ThemeData(
         brightness: Brightness.light,
+        colorSchemeSeed: light.colorScheme.accentPrimary,
         scaffoldBackgroundColor: light.colorScheme.backgroundApp,
         extensions: [
           light,
@@ -55,6 +59,7 @@ class ExampleApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
+        colorSchemeSeed: dark.colorScheme.accentPrimary,
         scaffoldBackgroundColor: dark.colorScheme.backgroundApp,
         extensions: [
           dark,

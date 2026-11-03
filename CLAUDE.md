@@ -21,7 +21,9 @@ not Material's `ColorScheme`/`TextTheme`; buttons, sheets, list tiles, spinners 
 components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadingSpinner`,
 `StreamIcons`, …) rather than Material ones; and replaceable components register with core's
 `StreamComponentFactory` through `streamAIComponentBuilders(...)`, keyed by props type. Import
-`package:stream_core_flutter/chat.dart`. Its constraint must overlap the one `stream_chat_flutter`
+`package:stream_core_flutter/core.dart` (`chat.dart` only where a chat-only component such as
+`StreamMessageComposerMediaAttachment` is used). The barrel re-exports a `show` allowlist from core
+(theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
 uses, so a core minor bump is released in step with chat.
 
 The Stream Chat SDK itself lives in the separate
@@ -96,7 +98,7 @@ filter + draft-PR check) feeding `analyze`, `format` and `test`. Jobs are skippe
 `if: needs.gate.outputs.should_run` rather than `on.paths`, so skipped jobs still report success to
 branch protection.
 
-Other workflows: `legacy_version_analyze` / `beta_version_analyze` (N-1 stable and beta Flutter,
+Other workflows: `legacy_version_analyze` / `beta_version_analyze` (the minimum supported Flutter, 3.44.0, and beta,
 sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enforcement),
 `update_goldens` (manual), and the two release workflows below.
 

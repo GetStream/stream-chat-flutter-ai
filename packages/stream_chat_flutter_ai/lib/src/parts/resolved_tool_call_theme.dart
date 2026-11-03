@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: [ToolCallTheme.of] supplies the themed fields.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 const _kDefaultIconSize = 16.0;
 

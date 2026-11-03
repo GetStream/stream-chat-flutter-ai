@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.da
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A message the person sent: its attachments, then its text in a bubble, at
 /// the trailing edge. A long press offers to copy the text, and to edit it given
@@ -45,6 +45,7 @@ class AIUserMessageView extends StatelessWidget {
     // over to it.
     final themes = InheritedTheme.capture(from: context, to: Navigator.of(context, rootNavigator: true).context);
     final direction = Directionality.of(context);
+    final components = StreamComponentFactory.of(context);
     final choice = await showGeneralDialog<VoidCallback>(
       context: context,
       barrierDismissible: true,
@@ -53,7 +54,7 @@ class AIUserMessageView extends StatelessWidget {
       transitionDuration: Duration.zero,
       pageBuilder: (dialogContext, _, _) => themes.wrap(
         withStreamComponents(
-          context,
+          components,
           Directionality(
             textDirection: direction,
             child: CustomSingleChildLayout(

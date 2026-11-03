@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A fixed-size, circular filled icon button.
 ///

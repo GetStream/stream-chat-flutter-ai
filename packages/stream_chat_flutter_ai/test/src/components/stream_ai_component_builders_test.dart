@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
 
 const _icons = StreamIcons();
 
@@ -350,6 +351,38 @@ void main() {
       );
 
       expect(find.byKey(const Key('stream_chat_flutter_ai.composer.slot_gap.leading')), findsOneWidget);
+    });
+
+    testWidgets('ChatComposer.hidden leaves the trailing slot out, gap and all', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(onSendPressed: (_, __, ___) {}),
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(composerTrailing: (context, props) => ChatComposer.hidden),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('stream_chat_flutter_ai.composer.slot_gap.trailing')), findsNothing);
+    });
+
+    testWidgets("a factory around one composer wins over the app's", (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          StreamComponentFactory(
+            builders: StreamComponentBuilders(
+              extensions: streamAIComponentBuilders(composerTrailing: (context, props) => const Text('inner')),
+            ),
+            child: ChatComposer(onSendPressed: (_, __, ___) {}),
+          ),
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(composerTrailing: (context, props) => const Text('outer')),
+          ),
+        ),
+      );
+
+      expect(find.text('inner'), findsOneWidget);
+      expect(find.text('outer'), findsNothing);
     });
 
     testWidgets('lays the "+" button out at 40 dp', (tester) async {

@@ -10,15 +10,25 @@ export 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownS
 // react to a dictation failure would otherwise have to depend on
 // `speech_to_text` directly just to name the parameter's type.
 export 'package:speech_to_text/speech_recognition_error.dart' show SpeechRecognitionError;
-// Hidden as `stream_chat_flutter` hides them, which declares its own classes
-// with these names, so an app importing both packages gets no ambiguous import.
-export 'package:stream_core_flutter/chat.dart'
-    hide
-        StreamMessageComposerAttachment,
-        StreamMessageComposerAttachmentProps,
-        StreamMessageContent,
-        StreamMessageContentProps,
-        StreamSvgIconData;
+// Only what this package's own API needs from Stream's design system: the
+// theme with its tokens, and the component factory the builders register with.
+// Core's widgets (`StreamButton`, `showStreamSheet`, …) come from
+// `stream_core_flutter` itself, so its API doesn't become part of this one.
+export 'package:stream_core_flutter/core.dart'
+    show
+        StreamColorScheme,
+        StreamColors,
+        StreamComponentBuilder,
+        StreamComponentBuilderExtension,
+        StreamComponentBuilders,
+        StreamComponentFactory,
+        StreamComponentFactoryExtension,
+        StreamIcons,
+        StreamRadius,
+        StreamSpacing,
+        StreamTextTheme,
+        StreamTheme,
+        StreamThemeExtension;
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';

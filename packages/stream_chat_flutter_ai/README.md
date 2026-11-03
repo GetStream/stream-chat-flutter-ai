@@ -1154,7 +1154,14 @@ component keeps its default. A part builder may return `AIMessagePartsView.hidde
 step out.
 
 Put one `StreamComponentFactory` above your `MaterialApp`, with Stream Chat's builders and the AI
-ones in the same list:
+ones in the same list. With Stream Chat, give the same list to `StreamChat(componentBuilders:)`
+instead: `StreamChat` puts a factory of its own below yours, and a nested factory replaces its
+parent's builders, so AI builders given only to an outer factory never reach the widgets under
+`StreamChat`.
+
+This package exports the factory types and `StreamTheme` with its tokens. Core's widgets, such as
+`StreamButton` or `showStreamSheet` in the snippets below, come from `stream_core_flutter`: add it
+to your app and import `package:stream_core_flutter/core.dart`.
 
 ```dart
 Widget codeBlock(BuildContext context, AICodeBlockProps props) =>
@@ -1240,6 +1247,15 @@ MaterialApp(
       StreamTheme(colorScheme: StreamColorScheme.fromSeed(brand: brandBlue)),
     ],
   ),
+  darkTheme: ThemeData(
+    brightness: Brightness.dark,
+    extensions: [
+      StreamTheme(
+        brightness: Brightness.dark,
+        colorScheme: StreamColorScheme.fromSeed(brand: brandBlue, brightness: Brightness.dark),
+      ),
+    ],
+  ),
   ...
 )
 ```
@@ -1273,8 +1289,8 @@ Every field on every one of them is nullable, and leaving one unset means "deriv
 attachment sheet following your app, in light and dark alike. Theming is opt-in.
 
 `ComposerThemeData` covers `ChatComposer` and `ComposerAttachmentSheet`: `fillColor` and
-`borderColor` (the pill, the leading "+" button and the sheet's tiles — the surfaces meant to read
-as one control), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
+`borderColor` (the pill, the leading "+" button and the sheet's camera tile — the surfaces meant to
+read as one control; transparent with an outline by default), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
 `stopButtonColor`, `recordingButtonColor`, `actionButtonForegroundColor` (the glyph on that filled
 circle), `selectedOptionColor` and `selectedOptionForegroundColor`, `photoSelectionColor` (the photo
 grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceholderForegroundColor`
@@ -1456,7 +1472,19 @@ The components in this package are provider-agnostic: they take plain text, call
 and controllers, so you decide how to source and stream AI responses. If you're building
 on top of [Stream Chat](https://getstream.io/chat/sdk/flutter/), here's how the pieces
 typically connect to a `Channel` from `stream_chat_flutter`. This requires adding
-`stream_chat_flutter` as a dependency of your app (not of this package):
+`stream_chat_flutter` as a dependency of your app (not of this package).
+
+`stream_chat_flutter` 10.x exports its own `AITypingIndicatorView`, `StreamingMessageView`,
+`TypewriterController`, `TypewriterValue` and `TypewriterWidgetBuilder`, so hide them when importing
+it next to this package:
+
+```dart
+import 'package:stream_chat_flutter/stream_chat_flutter.dart'
+    hide AITypingIndicatorView, StreamingMessageView, TypewriterController, TypewriterValue, TypewriterWidgetBuilder;
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+```
+
+Connect the pieces like this:
 
 ```dart
 channel.on(EventType.aiIndicatorUpdate).listen((event) {

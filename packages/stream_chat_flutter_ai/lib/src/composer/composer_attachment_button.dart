@@ -6,7 +6,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// The "+" button a [ChatComposer] leads with by default. It opens the
 /// attachment sheet: the `composerAttachmentSheet` builder of
@@ -27,6 +27,7 @@ class ComposerAttachmentButton extends StatelessWidget {
     // the push, AITranslationsScope among them, so the sheet's strings resolve
     // without anything being provided again here.
     final builder = context.aiComponentBuilder<ChatComposerAttachmentSheetProps>();
+    final components = StreamComponentFactory.of(context);
     return showStreamSheet<void>(
       context: context,
       isDismissible: true,
@@ -35,7 +36,7 @@ class ComposerAttachmentButton extends StatelessWidget {
         // Built under the factory carried over, so the sheet and what it
         // builds see the same builders as the composer.
         return withStreamComponents(
-          context,
+          components,
           Builder(
             builder: (context) =>
                 builder?.call(context, sheetProps) ??

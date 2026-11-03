@@ -13,7 +13,7 @@ import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds the widget for one [AIMessagePart], or returns `null` to fall back to
 /// [AIMessagePartsView]'s default for it, or [AIMessagePartsView.hidden] to

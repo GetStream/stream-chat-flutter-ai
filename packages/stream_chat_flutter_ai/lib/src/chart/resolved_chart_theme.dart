@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// The heatmap ramp on a light [Brightness]: higher values darker.
 const _kLightScale = (low: Color(0xFFEAF2FB), mid: Color(0xFF4A90D9), high: Color(0xFF1B4F8A));

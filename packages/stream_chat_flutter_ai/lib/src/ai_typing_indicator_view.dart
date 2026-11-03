@@ -3,7 +3,7 @@ import 'package:stream_chat_flutter_ai/src/resolved_typing_indicator_theme.dart'
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/typing_indicator_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiTypingIndicatorView}
 /// A widget that displays a typing indicator for the AI.

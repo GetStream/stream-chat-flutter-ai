@@ -14,7 +14,7 @@ import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: the `theme` parameter is a [ReasoningThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Live text shorter than this many characters, arriving as the panel first
 /// appears, is

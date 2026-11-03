@@ -11,7 +11,7 @@ import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builde
 import 'package:stream_chat_flutter_ai/src/markdown/math_syntax.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Callback fired when the user taps a hyperlink in the rendered markdown.
 ///

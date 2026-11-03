@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 // Imported for the doc links below only.
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Overrides for how [ChatComposer] and [ComposerAttachmentSheet] are drawn.
 ///
@@ -134,7 +134,7 @@ class ComposerThemeData with Diagnosticable {
   final Color? photoSelectionColor;
 
   /// The placeholder behind an attachment thumbnail that is still decoding or
-  /// failed to. Falls back to the Stream theme's `backgroundElevation1`. The
+  /// failed to. Falls back to the Stream theme's `backgroundSurfaceStrong`. The
   /// thumbnail's remove badge is core's `StreamRemoveControl`, with its own
   /// colors.
   final Color? attachmentPlaceholderColor;

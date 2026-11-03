@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A [ComposerThemeData] with every field resolved.
 ///
@@ -58,7 +58,7 @@ class ResolvedComposerTheme {
       selectedOptionColor: theme.selectedOptionColor ?? colors.backgroundSelected,
       selectedOptionForegroundColor: theme.selectedOptionForegroundColor ?? colors.textPrimary,
       photoSelectionColor: theme.photoSelectionColor ?? colors.accentPrimary,
-      attachmentPlaceholderColor: theme.attachmentPlaceholderColor ?? colors.backgroundElevation1,
+      attachmentPlaceholderColor: theme.attachmentPlaceholderColor ?? colors.backgroundSurfaceStrong,
       brokenAttachmentIconColor: theme.attachmentPlaceholderForegroundColor ?? colors.textSecondary,
       chatOptionIconColor: colors.textPrimary,
     );

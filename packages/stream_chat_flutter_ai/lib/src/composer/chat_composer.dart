@@ -14,7 +14,7 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 // Doc links only.
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
-import 'package:stream_core_flutter/chat.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Callback fired when the user taps the send button.
 ///

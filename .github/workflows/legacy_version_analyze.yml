@@ -45,8 +45,9 @@ jobs:
               - 'pubspec.yaml'
               - '.github/workflows/legacy_version_analyze.yml'
 
-  # Does a sanity check that the package at least passes analysis on the N-1
-  # version of Flutter stable if it claims to support that version.
+  # Does a sanity check that the package at least passes analysis on the
+  # minimum Flutter version it claims to support (3.44.0, the floor
+  # `stream_core_flutter` sets).
   # This is to minimize accidentally making changes that break old versions
   # (which we don't commit to supporting, but don't want to actively break)
   # without updating the constraints.
