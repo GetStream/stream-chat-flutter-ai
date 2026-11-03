@@ -80,7 +80,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 dependencies {
     // The same version as stream-chat-android's `stream-chat-android-ai-ondevice`.
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
-    // The generated platform channel dispatches `@async` calls on a coroutine.
+    // The ML Kit calls are suspending; each reply and the download run in a coroutine.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")

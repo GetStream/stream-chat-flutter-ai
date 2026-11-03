@@ -94,7 +94,20 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
         return model ?: Generation.getClient().also { model = it }
     }
 
-    override suspend fun modelInfo(): ModelInfoMessage {
+    override fun modelInfo(callback: (Result<ModelInfoMessage>) -> Unit) {
+        scope.launch {
+            val info = try {
+                Result.success(currentModelInfo())
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+                Result.failure(error)
+            }
+            callback(info)
+        }
+    }
+
+    private suspend fun currentModelInfo(): ModelInfoMessage {
         val status = status()
         // Only an available model is asked for its context: it isn't used otherwise.
         val contextTokens = if (status == ModelStatusMessage.AVAILABLE) contextTokens() else DEFAULT_CONTEXT_TOKENS

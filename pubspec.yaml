@@ -73,8 +73,10 @@ melos:
         path_provider_platform_interface: ^2.1.0
         # Generates the on-device model's platform channel from
         # `packages/stream_chat_flutter_ai_ondevice/pigeons/messages.dart`;
-        # see the `generate:pigeon` script.
-        pigeon: ^29.0.11
+        # see the `generate:pigeon` script. Pinned to the newest version that
+        # resolves on Flutter 3.41, the oldest Flutter supported; bump it with
+        # that minimum (28 turns `@async` methods into suspend/async ones).
+        pigeon: 27.3.0
         plugin_platform_interface: ^2.1.0
         # Direct because the reply actions tests substitute their own
         # `SharePlatform`; it arrives transitively via `share_plus`.

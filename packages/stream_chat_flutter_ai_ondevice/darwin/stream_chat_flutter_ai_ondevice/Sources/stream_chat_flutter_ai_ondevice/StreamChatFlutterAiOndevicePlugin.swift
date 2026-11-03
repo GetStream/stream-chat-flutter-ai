@@ -43,7 +43,11 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
     replies = [:]
   }
 
-  func modelInfo() async throws -> ModelInfoMessage {
+  func modelInfo(completion: @escaping (Result<ModelInfoMessage, Error>) -> Void) {
+    completion(.success(currentModelInfo()))
+  }
+
+  private func currentModelInfo() -> ModelInfoMessage {
     #if canImport(FoundationModels)
       if #available(iOS 26.0, macOS 26.0, *) {
         let model = SystemLanguageModel.default
@@ -77,8 +81,8 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
     // Apple downloads its model by itself: there is nothing to start.
     Task { @MainActor [weak self] in
       guard let self else { return }
-      let info = try? await self.modelInfo()
-      if info?.status == .available {
+      let info = self.currentModelInfo()
+      if info.status == .available {
         self.downloadEvents.send(DownloadCompleted(done: true))
       } else {
         self.downloadEvents.send(

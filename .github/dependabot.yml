@@ -38,3 +38,8 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Pigeon 27.3.1 and later need a newer `meta` than Flutter 3.41, the
+      # oldest Flutter supported, pins. Lift this when that minimum moves.
+      - dependency-name: "pigeon"
+        versions: [">=27.3.1"]
