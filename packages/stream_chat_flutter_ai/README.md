@@ -125,8 +125,8 @@ AITypingIndicatorView(
 ```
 
 Style it app-wide with `AITheme(typingIndicatorTheme: TypingIndicatorThemeData(...))` or for a
-subtree with `TypingIndicatorTheme`; by default the caption is `bodyMedium` in `onSurfaceVariant`
-and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
+subtree with `TypingIndicatorTheme`; by default the caption is the Stream theme's `bodyDefault` in
+`textSecondary` and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
 it mounted and change `text` to have each new state announced. With reduced motion on, the dots
 are static, and `StreamingMessageView` shows each update in full instead of typing it out.
 

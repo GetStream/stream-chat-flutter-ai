@@ -27,12 +27,11 @@
   usually falls behind the backend, so this fires later than the end of generation, which
   `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
 - `TypingIndicatorThemeData`, `TypingIndicatorTheme` and `AITheme.typingIndicatorTheme` — theme the
-  typing indicator's caption style and the dots' color, size, count and spacing.
+  typing indicator's caption style and the dots' color, size and spacing.
 - `AITypingIndicatorView.dotSpacing`.
 - `AITypingIndicatorView` is a polite live region labelled with its `text`, so a screen reader
   announces each new state; the dots are hidden from assistive technology.
-- Reduced motion (`MediaQueryData.disableAnimations`): `AITypingIndicatorView` and `AnimatedDots`
-  draw static dots, and `StreamingMessageView` shows each new text in full instead of typing it out,
+- Reduced motion (`MediaQueryData.disableAnimations`): `AITypingIndicatorView` draws static dots, and `StreamingMessageView` shows each new text in full instead of typing it out,
   finishing any reveal in progress.
 - `AIMessagePart` — one step an AI agent took while replying, decoded from an `ai_*` attachment.
   `AIMessagePart.parseAll` turns a message's `AIMessagePartAttachment`s (`type` + payload) into
@@ -123,10 +122,11 @@
 - `AILocalModel` — an interface over an on-device model that streams a fallback reply when the person is offline or the agent hit its usage limit. Each event is the whole answer so far, which is what `StreamingMessageView.text` takes, and cancelling the subscription stops the model.
 - `AIConversationTurn` and `AIConversationRole` — one turn of the conversation handed to an `AILocalModel`. `AIConversationTurn.fitToBudget` trims the history to a small context, keeping the newest unbroken run of turns and always the question; `estimateTokens` and `tokensPerTurn` set what a turn costs.
 - `AILocalModelException` and `AILocalModelErrorReason` (`unavailable`, `invalidConversation`, `contextExceeded`, `failed`) — the error an `AILocalModel.reply` stream emits when the model can't answer.
-- `AIComponentFactory` and `AIComponentBuilders` (+ `AIComponentBuilder<T>`) — one place to swap
-  the components the package builds inside its own widgets for your own: code blocks, charts, agent
-  steps, the approval card, a conversation's messages and the composer's slots.
-- `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each `AIComponentBuilders` slot gets.
+- `streamAIComponentBuilders` — registers your own components in place of the ones the package
+  builds inside its own widgets (code blocks, charts, agent steps, the approval and sign-in cards, a
+  conversation's messages, reply actions and the composer's slots) with `stream_core_flutter`'s
+  `StreamComponentFactory`, next to Stream Chat's. `context.aiComponentBuilder<Props>()` reads one.
+- `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each builder gets.
 - `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
   "Copied!" for a moment, and share, which opens the platform share sheet (or an email draft on
   Linux and in browsers without the Web Share API), then regenerate and 👍 / 👎 when the app
@@ -159,9 +159,9 @@
 - `AIUserMessageView`, `AIAssistantMessageView` and `AIThinkingView` — a conversation's rows and its
   "Thinking… 4s".
 - `AIMessageAttachmentView` — an image as a thumbnail and anything else as a file card;
-  `AIComponentBuilders.messageAttachment` shows kinds of your own.
-- `AIComponentBuilders.userMessage`, `assistantMessage`, `replyActions` (empty by default) and
-  `messageAttachment`, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
+  the `messageAttachment` builder shows kinds of your own.
+- The `userMessage`, `assistantMessage`, `replyActions` (empty by default) and `messageAttachment`
+  builders, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
   and `AIMessageAttachmentProps`.
 - `AIReasoningProps.text` and `duration` — a step's full reasoning, and the duration the
   conversation measured for its first step.
@@ -174,7 +174,7 @@
   ripple where they are tapped and barely move with reduced motion on.
 - `AIVoiceAgentState` — what the agent is doing: `idle`, `connecting`, `listening`, `thinking` or
   `speaking`.
-- `colors` (one to five, `ColorScheme.primary` by default), `expressivity` (0 to 2) and
+- `colors` (one to five, the Stream theme's `accentPrimary` by default), `expressivity` (0 to 2) and
   `audioLevel` (0 to 1, a live voice level such as a call participant's) on both views.
 - `AITranslations.voiceAgent`, `voiceIdle`, `voiceConnecting`, `voiceListening`, `voiceThinking`
   and `voiceSpeaking` — what screen readers hear: the view, and the state as its value.
@@ -198,7 +198,7 @@
   and Not now, styled by the approval card's theme. Once the sign-in expires, the card says so and
   stops offering Connect. `AIMessagePartsView` shows the view under each
   call waiting for this person's sign-in when its approver has an authorizer.
-- `AIComponentBuilders.toolAuthorization` and `AIToolAuthorizationProps` — replace the sign-in card.
+- The `toolAuthorization` builder and `AIToolAuthorizationProps` — replace the sign-in card.
 - `AIToolCallView` shows a call waiting for a sign-in with a key and "Waiting for sign-in", where it
   used to read as running until the backend gave up on it. Given the viewer's `userId`, which
   `AIMessagePartsView` passes when its approver offers the sign-in, it tells the person the call
@@ -222,11 +222,11 @@
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - A chart's screen-reader summary names at most eight series or slices, then says "and N more".
 - The README documents the new components — agent steps, reasoning, tool calls, approvals, the
-  client tool runner, `AILocalModel`, chart legends, `AIComponentFactory`, `AIReplyActionsView`,
+  client tool runner, `AILocalModel`, chart legends, `streamAIComponentBuilders`, `AIReplyActionsView`,
   `AIConversationView` and the voice views — and its `SpeechToTextButton` snippet now uses
   `SpeechToTextConfig`.
-- The `AIConversationView`, `AIComponentBuilders.userMessage`, `assistantMessage` and `replyActions`
-  docs and the README say that the conversation caches its rows, so a builder must read state that
+- The `AIConversationView` docs, those of the `userMessage`, `assistantMessage` and `replyActions`
+  builders, and the README say that the conversation caches its rows, so a builder must read state that
   changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
   The README's `replyActions` example now does that; before, its 👍 never filled.
 - The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
@@ -247,7 +247,7 @@
   first message of a new conversation, a conversation that loads, and the scroll-to-latest button.
   It was off by `padding.bottom`, so with a large bottom padding the message went out of view, and
   the scroll-to-latest button showed right after a message was sent.
-- `AITypingIndicatorView`'s and `AnimatedDots`' dots were black by default, which made them invisible
+- `AITypingIndicatorView`'s dots were black by default, which made them invisible
   in dark mode. They now default to the themed caption color.
 - A generating reply's first chunk is typed out from its first character in `StreamingMessageView`
   and `AIAssistantMessageView`, instead of appearing at once.
@@ -264,7 +264,7 @@
   line breaks at the gap and a bar chart leaves the bar out.
 - A tool call whose row `AIMessagePartsView.toolCallBuilder` or `partBuilder` hides with
   `AIMessagePartsView.hidden` now still asks its approval question, as a row hidden by the
-  `AIComponentFactory` already did. Before, the question never showed and the call waited until the
+  component factory already did. Before, the question never showed and the call waited until the
   backend timed it out.
 - An `AIToolApprover` now forgets an answer given for a call that `AIMessagePartsView`'s builders
   draw their own way once the call stops waiting, instead of keeping it and failing it at its
