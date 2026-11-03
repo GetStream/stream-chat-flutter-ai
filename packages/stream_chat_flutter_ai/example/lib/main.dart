@@ -39,17 +39,27 @@ class ExampleApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Stream's design system, which the AI components are built on: its
+    // colors, text styles and icons, in light and dark.
+    final light = StreamTheme.light();
+    final dark = StreamTheme.dark();
     return MaterialApp(
       title: 'Stream Chat Flutter AI',
       theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.light,
-        extensions: const [AITheme(chartTheme: _chartTheme, codeBlockTheme: _lightCodeBlockTheme)],
+        scaffoldBackgroundColor: light.colorScheme.backgroundApp,
+        extensions: [
+          light,
+          const AITheme(chartTheme: _chartTheme, codeBlockTheme: _lightCodeBlockTheme),
+        ],
       ),
       darkTheme: ThemeData(
-        colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.dark,
-        extensions: const [AITheme(chartTheme: _chartTheme)],
+        scaffoldBackgroundColor: dark.colorScheme.backgroundApp,
+        extensions: [
+          dark,
+          const AITheme(chartTheme: _chartTheme),
+        ],
       ),
       // English needs no entry: a locale the delegate has nothing for falls
       // back to DefaultAITranslations.
@@ -480,18 +490,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
   @override
   void initState() {
     super.initState();
+    const icons = StreamIcons();
     _composerController = ChatComposerController(
-      chatOptions: const [
+      chatOptions: [
         ChatOption(
           id: 'image',
           text: 'Create image',
-          icon: Icons.image_outlined,
+          icon: icons.image,
           description: 'Visualize anything',
         ),
         ChatOption(
           id: 'summarize',
           text: 'Summarize',
-          icon: Icons.summarize_outlined,
+          icon: icons.file,
           description: 'Condense a long text',
         ),
       ],
@@ -702,8 +713,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
         title: Text(call.authorization?.title ?? 'Sign in'),
         content: Text("Pretend you're at Linear's sign-in page.\n\n$url"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Back without connecting')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Connect')),
+          StreamButton(
+            style: .secondary,
+            type: .ghost,
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Back without connecting'),
+          ),
+          StreamButton(onPressed: () => Navigator.pop(context, true), child: const Text('Connect')),
         ],
       ),
     );
@@ -894,17 +910,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
         (last.isUser || (last.text.isEmpty && !last.isThinking && last.toolCalls.every((c) => c.status.isFinished)));
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: StreamAppBar(
         title: const Text('AI Assistant'),
-        actions: [
-          IconButton(
-            tooltip: _offline ? 'Offline: answering on device' : 'Online',
-            isSelected: _offline,
-            icon: const Icon(Icons.cloud_outlined),
-            selectedIcon: const Icon(Icons.cloud_off_outlined),
-            onPressed: () => setState(() => _offline = !_offline),
-          ),
-        ],
+        trailing: StreamButton.icon(
+          style: .secondary,
+          type: .ghost,
+          tooltip: _offline ? 'Offline: answering on device' : 'Online',
+          isSelected: _offline,
+          // Core has no cloud glyph.
+          icon: Icon(_offline ? Icons.cloud_off_outlined : Icons.cloud_outlined),
+          onPressed: () => setState(() => _offline = !_offline),
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -951,25 +967,27 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
+    final spacing = context.streamSpacing;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: EdgeInsets.symmetric(horizontal: spacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome, size: 48, color: theme.colorScheme.primary),
-            const SizedBox(height: 16),
+            Icon(context.streamIcons.messageBubbles, size: 48, color: colors.accentPrimary),
+            SizedBox(height: spacing.md),
             Text(
               'How can I help?',
-              style: theme.textTheme.headlineSmall,
+              style: text.headingMd.copyWith(color: colors.textPrimary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing.xs),
             Text(
               'Pick a suggestion below, or type a message to see the '
               'streaming, code-block and chart renderers.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: text.bodyDefault.copyWith(color: colors.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1011,7 +1029,10 @@ class _Note extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      style: context.streamTextTheme.captionDefault.copyWith(
+        fontStyle: FontStyle.italic,
+        color: context.streamColorScheme.textSecondary,
+      ),
     );
   }
 }
