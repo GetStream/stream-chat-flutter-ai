@@ -413,6 +413,15 @@ void main() {
     });
 
     group('default style sheet', () {
+      testWidgets('a link keeps the size and weight of the heading it is in', (tester) async {
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: '# Head [link](https://x.io)')));
+        final sheet = tester.widget<MarkdownBody>(find.byType(MarkdownBody)).styleSheet!;
+
+        expect(sheet.a!.fontSize, isNull);
+        expect(sheet.a!.fontWeight, isNull);
+        expect(sheet.a!.color, StreamTheme.of(tester.element(find.byType(AIMarkdownBody))).colorScheme.textLink);
+      });
+
       for (final brightness in Brightness.values) {
         testWidgets('draws inline code, quotes, rules and tables in Stream colors (${brightness.name})', (
           tester,

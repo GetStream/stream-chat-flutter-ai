@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
@@ -105,8 +105,8 @@ class ChatComposer extends StatefulWidget {
   /// What the `composerLeading` or `composerTrailing` builder of
   /// [streamAIComponentBuilders] returns to leave its slot out, gap and all,
   /// such as a composer without the "+" button. Compared by identity, so
-  /// return this very instance.
-  static const Widget hidden = SizedBox.shrink();
+  /// return this very instance: an empty widget of your own keeps the gap.
+  static const Widget hidden = _HiddenSlot();
 
   /// Called when the user taps the send button.
   final ChatComposerSendCallback onSendPressed;
@@ -405,4 +405,13 @@ class _ChatComposerState extends State<ChatComposer> {
       },
     );
   }
+}
+
+/// [ChatComposer.hidden]: a class of its own, so no other widget is identical
+/// to it.
+class _HiddenSlot extends StatelessWidget {
+  const _HiddenSlot();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

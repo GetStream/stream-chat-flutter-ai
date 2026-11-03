@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';

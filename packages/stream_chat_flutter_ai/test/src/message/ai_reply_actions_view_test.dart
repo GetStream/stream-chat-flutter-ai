@@ -245,7 +245,12 @@ void main() {
         expect(
           tester.getSize(find.byTooltip('Good response')),
           const Size.square(48),
-          reason: '40 dp in its 48 dp target',
+          reason: 'its tap target',
+        );
+        expect(
+          tester.getSize(find.descendant(of: find.byTooltip('Good response'), matching: find.byType(Material)).first),
+          const Size.square(40),
+          reason: 'the button',
         );
         semantics.dispose();
       });

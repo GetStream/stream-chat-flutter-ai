@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 import 'package:photo_manager/photo_manager.dart';
 // Imported for the [streamAIComponentBuilders] doc links only.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';

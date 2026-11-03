@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
@@ -162,6 +163,13 @@ Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
 
   return builders;
 }
+
+/// [child] under the [StreamComponentFactory] at [context], for a route pushed
+/// from [context]. The factory is a plain inherited widget, so a route on a
+/// [Navigator] above it would otherwise not see its builders.
+@internal
+Widget withStreamComponents(BuildContext context, Widget child) =>
+    StreamComponentFactory(builders: StreamComponentFactory.of(context), child: child);
 
 /// Reads the builders [streamAIComponentBuilders] registered.
 extension StreamAIComponentBuildersExtension on BuildContext {

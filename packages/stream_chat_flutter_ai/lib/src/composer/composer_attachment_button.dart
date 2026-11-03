@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 // Here for the [ChatComposer] doc link below only.
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
@@ -32,8 +32,16 @@ class ComposerAttachmentButton extends StatelessWidget {
       isDismissible: true,
       builder: (sheetContext, scrollController) {
         final sheetProps = ChatComposerAttachmentSheetProps.from(props, scrollController: scrollController);
-        return builder?.call(sheetContext, sheetProps) ??
-            ComposerAttachmentSheet(controller: props.controller, scrollController: scrollController);
+        // Built under the factory carried over, so the sheet and what it
+        // builds see the same builders as the composer.
+        return withStreamComponents(
+          context,
+          Builder(
+            builder: (context) =>
+                builder?.call(context, sheetProps) ??
+                ComposerAttachmentSheet(controller: props.controller, scrollController: scrollController),
+          ),
+        );
       },
     );
   }
@@ -47,10 +55,13 @@ class ComposerAttachmentButton extends StatelessWidget {
       style: .secondary,
       type: .outline,
       tooltip: AITranslations.of(context).addPhotos,
+      // 40 dp, as the input pill is tall, with no padding around it.
+      size: .medium,
       onPressed: enabled ? () => _openSheet(context) : null,
       // The same fill and border as the input pill, so the two read as one
       // connected surface.
       themeStyle: StreamButtonThemeStyle(
+        tapTargetSize: .shrinkWrap,
         backgroundColor: WidgetStatePropertyAll(theme.fillColor),
         borderColor: WidgetStatePropertyAll(theme.borderColor),
         foregroundColor: .resolveWith(

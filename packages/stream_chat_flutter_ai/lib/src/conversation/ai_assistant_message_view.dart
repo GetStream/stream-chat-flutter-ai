@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';

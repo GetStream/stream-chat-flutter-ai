@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:flutter/widgets.dart';
 // Imported for the doc links below only.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';

@@ -10,7 +10,15 @@ export 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownS
 // react to a dictation failure would otherwise have to depend on
 // `speech_to_text` directly just to name the parameter's type.
 export 'package:speech_to_text/speech_recognition_error.dart' show SpeechRecognitionError;
-export 'package:stream_core_flutter/chat.dart';
+// Hidden as `stream_chat_flutter` hides them, which declares its own classes
+// with these names, so an app importing both packages gets no ambiguous import.
+export 'package:stream_core_flutter/chat.dart'
+    hide
+        StreamMessageComposerAttachment,
+        StreamMessageComposerAttachmentProps,
+        StreamMessageContent,
+        StreamMessageContentProps,
+        StreamSvgIconData;
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';
@@ -19,7 +27,7 @@ export 'src/chart/chart_view.dart';
 export 'src/chart/heatmap_chart_view.dart';
 export 'src/chart/uspec.dart';
 export 'src/code_block_view.dart';
-export 'src/components/ai_component_factory.dart';
+export 'src/components/stream_ai_component_builders.dart' hide withStreamComponents;
 export 'src/composer/chat_composer.dart';
 export 'src/composer/chat_composer_controller.dart';
 export 'src/composer/chat_composer_input.dart';

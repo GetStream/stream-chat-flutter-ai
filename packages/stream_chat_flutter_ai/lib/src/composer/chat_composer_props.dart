@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // and [SpeechToTextButton] references below are doc links only; nothing in this
 // file's code uses them.
 // Imported for the [streamAIComponentBuilders] doc links only.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';

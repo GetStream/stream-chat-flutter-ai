@@ -545,12 +545,16 @@ class _Header extends StatelessWidget {
     );
     Widget icon = Icon(Icons.psychology_outlined, size: iconSize, color: theme.iconColor);
     if (activity case final activity?) {
-      titleText = StreamSkeletonLoading(
-        // The resolved style carries a color or a `foreground` paint.
-        baseColor: titleStyle.color ?? titleStyle.foreground?.color ?? theme.iconColor,
-        highlightColor: theme.shimmerColor,
-        period: const Duration(milliseconds: 1400),
-        child: titleText,
+      // The default shimmer itself, not the factory's `skeletonLoading`
+      // builder, which an app sets for its loading placeholders.
+      titleText = DefaultStreamSkeletonLoading(
+        props: StreamSkeletonLoadingProps(
+          // The resolved style carries a color or a `foreground` paint.
+          baseColor: titleStyle.color ?? titleStyle.foreground?.color ?? theme.iconColor,
+          highlightColor: theme.shimmerColor,
+          period: const Duration(milliseconds: 1400),
+          child: titleText,
+        ),
       );
       icon = _Pulse(animation: activity, child: icon);
     }

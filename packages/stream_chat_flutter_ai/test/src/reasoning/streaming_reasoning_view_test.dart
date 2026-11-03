@@ -727,7 +727,7 @@ void main() {
         await tester.pumpWidget(build('Weighing', thinking: true));
         expect(find.text('Weighing'), findsOneWidget, reason: 'open at once');
         expect(tester.hasRunningAnimations, isFalse);
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing, reason: 'no shimmer');
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing, reason: 'no shimmer');
         expect(
           find.descendant(of: _view, matching: find.byType(Opacity)),
           findsNothing,
@@ -746,7 +746,7 @@ void main() {
       testWidgets('shimmers and pulses while thinking with motion on', (tester) async {
         await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: true)));
         await tester.pump(StreamingReasoningView.foldDuration);
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsOneWidget, reason: 'the title shimmers');
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget, reason: 'the title shimmers');
         expect(tester.hasRunningAnimations, isTrue);
 
         await tester.pumpWidget(_wrap(const StreamingReasoningView(text: 'Weighing', isThinking: false)));

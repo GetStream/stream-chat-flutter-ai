@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
@@ -40,28 +40,46 @@ class AIUserMessageView extends StatelessWidget {
     final translations = AITranslations.of(context);
     final icons = context.streamIcons;
     final edit = onEdit;
+    // The dialog is pushed on the root navigator, above any theme, direction
+    // or component factory set around the conversation, so they are carried
+    // over to it.
+    final themes = InheritedTheme.capture(from: context, to: Navigator.of(context, rootNavigator: true).context);
+    final direction = Directionality.of(context);
     final choice = await showGeneralDialog<VoidCallback>(
       context: context,
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: const Color(0x00000000),
       transitionDuration: Duration.zero,
-      pageBuilder: (context, _, _) => CustomSingleChildLayout(
-        delegate: _MenuLayout(position),
-        child: StreamContextMenu(
-          children: [
-            StreamContextMenuAction<VoidCallback>(
-              value: () => Clipboard.setData(ClipboardData(text: text)),
-              label: Text(translations.copyMessage),
-              leading: Icon(icons.copy),
-            ),
-            if (edit != null)
-              StreamContextMenuAction<VoidCallback>(
-                value: edit,
-                label: Text(translations.editMessage),
-                leading: Icon(icons.edit),
+      pageBuilder: (dialogContext, _, _) => themes.wrap(
+        withStreamComponents(
+          context,
+          Directionality(
+            textDirection: direction,
+            child: CustomSingleChildLayout(
+              delegate: _MenuLayout(
+                position,
+                direction: direction,
+                // Clear of the notch, the home indicator and the keyboard.
+                padding: MediaQuery.paddingOf(dialogContext) + MediaQuery.viewInsetsOf(dialogContext),
               ),
-          ],
+              child: StreamContextMenu(
+                children: [
+                  StreamContextMenuAction<VoidCallback>(
+                    value: () => Clipboard.setData(ClipboardData(text: text)),
+                    label: Text(translations.copyMessage),
+                    leading: Icon(icons.copy),
+                  ),
+                  if (edit != null)
+                    StreamContextMenuAction<VoidCallback>(
+                      value: edit,
+                      label: Text(translations.editMessage),
+                      leading: Icon(icons.edit),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -114,21 +132,28 @@ class AIUserMessageView extends StatelessWidget {
   }
 }
 
-/// Places the menu at the press, kept on screen.
+/// Places the menu at the press, opening towards the reading direction's end,
+/// kept inside [padding].
 class _MenuLayout extends SingleChildLayoutDelegate {
-  const _MenuLayout(this.position);
+  const _MenuLayout(this.position, {required this.direction, required this.padding});
 
   final Offset position;
+  final TextDirection direction;
+  final EdgeInsets padding;
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) => constraints.loosen();
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) => constraints.deflate(padding).loosen();
 
   @override
-  Offset getPositionForChild(Size size, Size childSize) => Offset(
-    position.dx.clamp(0, math.max(0, size.width - childSize.width)),
-    position.dy.clamp(0, math.max(0, size.height - childSize.height)),
-  );
+  Offset getPositionForChild(Size size, Size childSize) {
+    final x = direction == TextDirection.rtl ? position.dx - childSize.width : position.dx;
+    return Offset(
+      x.clamp(padding.left, math.max(padding.left, size.width - padding.right - childSize.width)),
+      position.dy.clamp(padding.top, math.max(padding.top, size.height - padding.bottom - childSize.height)),
+    );
+  }
 
   @override
-  bool shouldRelayout(_MenuLayout oldDelegate) => position != oldDelegate.position;
+  bool shouldRelayout(_MenuLayout oldDelegate) =>
+      position != oldDelegate.position || direction != oldDelegate.direction || padding != oldDelegate.padding;
 }

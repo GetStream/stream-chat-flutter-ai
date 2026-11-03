@@ -2,7 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 // Imported for the doc links below only.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 

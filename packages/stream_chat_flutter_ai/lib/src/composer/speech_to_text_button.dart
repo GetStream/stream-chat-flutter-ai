@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-// `ai_component_factory` and `chat_composer` are here for the doc links below
+// `stream_ai_component_builders` and `chat_composer` are here for the doc links below
 // only; nothing in this file's code uses either.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart';
@@ -189,8 +189,8 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
     final listening = _speech.isListening;
-    // Idle, the mic is a quiet ghost button in the composer's icon color, as in
-    // Stream's voice agent demo; listening, it is the filled stop button.
+    // Idle, the mic is a quiet ghost button in the composer's icon color;
+    // listening, it is the filled stop button.
     final color = listening ? theme.recordingButtonColor : theme.iconColor;
 
     // Rendered even before the recognizer has been initialized, and even when it

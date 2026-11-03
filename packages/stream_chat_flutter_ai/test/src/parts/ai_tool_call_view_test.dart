@@ -78,6 +78,16 @@ List<String> _texts(WidgetTester tester) =>
 
 void main() {
   group('AIToolCallView', () {
+    testWidgets('leaves 8 between the icon and the title', (tester) async {
+      _reduceMotion(tester);
+      await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.completed))));
+
+      expect(
+        tester.getTopLeft(find.text('get weather')).dx - tester.getTopRight(_inView(find.byType(Icon))).dx,
+        8,
+      );
+    });
+
     testWidgets("a declined call's icon follows its status", (tester) async {
       await tester.pumpWidget(
         _wrap(
@@ -407,12 +417,12 @@ void main() {
           AIToolCallStatus.awaitingClient,
         ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(StreamSkeletonLoading)), findsOneWidget, reason: status);
+          expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget, reason: status);
           expect(tester.hasRunningAnimations, isTrue);
         }
 
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.completed))));
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
       });
 
@@ -429,7 +439,7 @@ void main() {
           AIToolCallStatus.awaitingClient,
         ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing, reason: status);
+          expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing, reason: status);
           expect(tester.hasRunningAnimations, isFalse, reason: status);
         }
       });
@@ -439,18 +449,18 @@ void main() {
             tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
 
         await pump(AIToolCallStatus.running);
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
 
         await pump(AIToolCallStatus.awaitingApproval);
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsOneWidget);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget);
         expect(tester.hasRunningAnimations, isTrue);
 
         await pump(AIToolCallStatus.completed);
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
 
         await pump(AIToolCallStatus.awaitingClient);
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsOneWidget);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget);
         expect(tester.hasRunningAnimations, isTrue, reason: 'the stopped shimmer starts again');
       });
 
@@ -468,7 +478,7 @@ void main() {
             ),
           ),
         );
-        final shimmer = tester.widget<StreamSkeletonLoading>(_inView(find.byType(StreamSkeletonLoading)));
+        final shimmer = tester.widget<DefaultStreamSkeletonLoading>(_inView(find.byType(DefaultStreamSkeletonLoading)));
         expect(shimmer.props.baseColor, const Color(0xFF0000D1));
         expect(shimmer.props.highlightColor, const Color(0xFF0000D3));
         expect(_iconColor(tester), const Color(0xFF0000D1));
@@ -496,11 +506,11 @@ void main() {
       testWidgets('shimmers again when reduced motion turns off', (tester) async {
         _reduceMotion(tester);
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.awaitingApproval))));
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
 
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
         await tester.pump();
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsOneWidget);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget);
         expect(tester.hasRunningAnimations, isTrue);
       });
 
@@ -510,7 +520,7 @@ void main() {
 
         _reduceMotion(tester);
         await tester.pump();
-        expect(_inView(find.byType(StreamSkeletonLoading)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
       });
     });

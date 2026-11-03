@@ -268,11 +268,15 @@ class _StatusIcon extends StatelessWidget {
     // Drawn in the accent; moving, a band of the title's color sweeps over it.
     Widget waiting(IconData data) => reduceMotion
         ? icon(data, theme.accentColor)
-        : StreamSkeletonLoading(
-            baseColor: theme.accentColor,
-            highlightColor: theme.titleStyle.color ?? theme.titleStyle.foreground?.color ?? theme.accentColor,
-            period: const Duration(milliseconds: 1400),
-            child: icon(data, theme.accentColor),
+        // The default shimmer itself, not the factory's `skeletonLoading`
+        // builder, which an app sets for its loading placeholders.
+        : DefaultStreamSkeletonLoading(
+            props: StreamSkeletonLoadingProps(
+              baseColor: theme.accentColor,
+              highlightColor: theme.titleStyle.color ?? theme.titleStyle.foreground?.color ?? theme.accentColor,
+              period: const Duration(milliseconds: 1400),
+              child: icon(data, theme.accentColor),
+            ),
           );
 
     return switch (state) {

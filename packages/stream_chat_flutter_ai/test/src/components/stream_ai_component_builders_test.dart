@@ -110,6 +110,44 @@ void main() {
       expect(builders.map((b) => b.type), [AIChartProps]);
     });
 
+    test('registers every builder under its own props type', () {
+      Widget build(BuildContext context, Object props) => const SizedBox();
+      final builders = streamAIComponentBuilders(
+        codeBlock: build,
+        chart: build,
+        reasoning: build,
+        toolCall: build,
+        toolApproval: build,
+        toolAuthorization: build,
+        unsupportedPart: build,
+        userMessage: build,
+        assistantMessage: build,
+        replyActions: build,
+        messageAttachment: build,
+        composerLeading: build,
+        composerTrailing: build,
+        composerInput: build,
+        composerAttachmentSheet: build,
+      );
+      expect(builders.map((b) => b.type).toSet(), {
+        AICodeBlockProps,
+        AIChartProps,
+        AIReasoningProps,
+        AIToolCallProps,
+        AIToolApprovalProps,
+        AIToolAuthorizationProps,
+        AIUnsupportedPartProps,
+        AIUserMessageProps,
+        AIAssistantMessageProps,
+        AIReplyActionsProps,
+        AIMessageAttachmentProps,
+        ChatComposerLeadingProps,
+        ChatComposerTrailingProps,
+        ChatComposerInputProps,
+        ChatComposerAttachmentSheetProps,
+      });
+    });
+
     testWidgets('a slot no factory sets has no builder', (tester) async {
       StreamComponentBuilder<AIChartProps>? found;
       await tester.pumpWidget(
@@ -268,6 +306,74 @@ void main() {
       await tester.tap(find.byIcon(_icons.plus));
       await tester.pumpAndSettle();
       expect(find.text('sheet sees custom'), findsOneWidget);
+    });
+
+    testWidgets('a factory below the Navigator reaches the attachment sheet route', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamComponentFactory(
+              builders: _custom(),
+              child: ChatComposer(onSendPressed: (_, __, ___) {}),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(_icons.plus));
+      await tester.pumpAndSettle();
+      expect(find.text('sheet sees custom'), findsOneWidget);
+    });
+
+    testWidgets('ChatComposer.hidden leaves the leading slot out, gap and all', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(onSendPressed: (_, __, ___) {}),
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(composerLeading: (context, props) => ChatComposer.hidden),
+          ),
+        ),
+      );
+
+      expect(find.byType(ComposerAttachmentButton), findsNothing);
+      expect(find.byKey(const Key('stream_chat_flutter_ai.composer.slot_gap.leading')), findsNothing);
+    });
+
+    testWidgets('an empty widget of your own keeps the leading slot and its gap', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ChatComposer(onSendPressed: (_, __, ___) {}),
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(composerLeading: (context, props) => const SizedBox.shrink()),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('stream_chat_flutter_ai.composer.slot_gap.leading')), findsOneWidget);
+    });
+
+    testWidgets('lays the "+" button out at 40 dp', (tester) async {
+      await tester.pumpWidget(_wrap(ChatComposer(onSendPressed: (_, __, ___) {})));
+
+      expect(tester.getSize(find.byType(ComposerAttachmentButton)), const Size.square(40));
+    });
+
+    testWidgets("an app's skeleton builder leaves the tool call's shimmer alone", (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          const AIToolCallView(
+            call: AIToolCallPart(
+              id: 'c1',
+              name: 'send_email',
+              status: AIToolCallStatus.awaitingApproval,
+            ),
+          ),
+          builders: StreamComponentBuilders(skeletonLoading: (context, props) => const Text('placeholder')),
+        ),
+      );
+
+      expect(find.text('placeholder'), findsNothing);
+      expect(find.byType(DefaultStreamSkeletonLoading), findsOneWidget);
     });
 
     testWidgets('AIMarkdownBody passes its theme, highlighter and language to the code block', (tester) async {

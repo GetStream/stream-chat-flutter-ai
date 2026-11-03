@@ -65,8 +65,8 @@ class ResolvedToolApprovalTheme {
       onAccentColor: accentColor == colors.accentPrimary
           ? colors.textOnAccent
           : switch (ThemeData.estimateBrightnessForColor(accentColor)) {
-              Brightness.dark => const Color(0xFFFFFFFF),
-              Brightness.light => const Color(0xFF000000),
+              Brightness.dark => StreamColors.white,
+              Brightness.light => StreamColors.black,
             },
       failureStyle: resolveStyle(text.captionDefault, colors.accentError, data.failureStyle, override?.failureStyle),
     );

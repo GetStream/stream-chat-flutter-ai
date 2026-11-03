@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 // The rest are used in code.
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/markdown/math_syntax.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/code_block_theme.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
@@ -320,7 +320,9 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
     TextStyle heading(TextStyle style) => style.copyWith(color: colors.textPrimary);
     return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
       p: body,
-      a: text.bodyLink.copyWith(color: colors.textLink),
+      // Color and decoration only: a link takes the size and weight of the
+      // text around it, such as a heading or bold text.
+      a: TextStyle(color: colors.textLink, decoration: text.bodyLink.decoration),
       code: body.copyWith(
         fontFamily: 'monospace',
         fontSize: (body.fontSize ?? 14) * 0.85,
