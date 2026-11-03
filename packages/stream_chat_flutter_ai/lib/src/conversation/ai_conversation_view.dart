@@ -315,7 +315,7 @@ class _AIConversationViewState extends State<AIConversationView> {
                           : _OlderMessagesLoader(
                               firstTurn: turns.first.id,
                               load: loadOlder!,
-                              color: theme.scrollButtonIconColor,
+                              color: theme.scrollButtonIconColor ?? context.streamColorScheme.textPrimary,
                             ),
                     ),
                     // Turns from the anchor on, which the list grows down from.

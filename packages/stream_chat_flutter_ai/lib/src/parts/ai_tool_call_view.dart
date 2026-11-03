@@ -268,8 +268,7 @@ class _StatusIcon extends StatelessWidget {
     // Drawn in the accent; moving, a band of the title's color sweeps over it.
     Widget waiting(IconData data) => reduceMotion
         ? icon(data, theme.accentColor)
-        // The default shimmer itself, not the factory's `skeletonLoading`
-        // builder, which an app sets for its loading placeholders.
+        // Core's default shimmer, not the factory's `skeletonLoading` placeholders.
         : DefaultStreamSkeletonLoading(
             props: StreamSkeletonLoadingProps(
               baseColor: theme.accentColor,
@@ -293,8 +292,7 @@ class _StatusIcon extends StatelessWidget {
       _ToolCallState.awaitingApproval => waiting(icons.raiseHandFill),
       // Core has no key glyph.
       _ToolCallState.awaitingAuthorization => waiting(Icons.key_outlined),
-      // Core's only phone glyph is a screen-share icon, so a Material phone
-      // stands in.
+      // Core's phone icons are handsets, which read as a call.
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
       _ToolCallState.completed => icon(icons.checkmark, theme.successColor),
       _ToolCallState.failed => scaled(

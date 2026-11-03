@@ -2,7 +2,7 @@
 
 💥 Breaking
 
-- Built on `stream_core_flutter`: defaults come from `StreamTheme` instead of Material's `ColorScheme`/`TextTheme`, and buttons, sheets, spinners and icons are core components.
+- Built on `stream_core_flutter`: defaults come from `StreamTheme` instead of Material's `ColorScheme`/`TextTheme`, and buttons, sheets, spinners and most icons are core components.
 - Flutter 3.44 / Dart 3.12 are the minimum, matching `stream_core_flutter`.
 - `CodeHighlighter` now takes a single `CodeHighlightRequest` instead of `(code, language, baseStyle)`.
 - `CodeBlockView.backgroundColor` and `CodeBlockView.foregroundColor` are replaced by `CodeBlockView.theme`.

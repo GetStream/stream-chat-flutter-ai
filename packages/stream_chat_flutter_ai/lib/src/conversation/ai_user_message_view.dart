@@ -40,9 +40,8 @@ class AIUserMessageView extends StatelessWidget {
     final translations = AITranslations.of(context);
     final icons = context.streamIcons;
     final edit = onEdit;
-    // The dialog is pushed on the root navigator, above any theme, direction
-    // or component factory set around the conversation, so they are carried
-    // over to it.
+    // The dialog is on the root navigator, so the themes, direction and
+    // component factory around the message are carried over.
     final themes = InheritedTheme.capture(from: context, to: Navigator.of(context, rootNavigator: true).context);
     final direction = Directionality.of(context);
     final components = StreamComponentFactory.of(context);

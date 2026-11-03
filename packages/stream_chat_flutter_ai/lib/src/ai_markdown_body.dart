@@ -310,8 +310,7 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
   }
 
   /// The Material sheet with Stream's text styles and colors laid over it,
-  /// down to inline code, quotes, rules and table borders, so nothing keeps
-  /// Material's colors.
+  /// down to inline code, quotes, rules and table borders.
   static MarkdownStyleSheet _streamStyleSheet(BuildContext context) {
     final text = context.streamTextTheme;
     final colors = context.streamColorScheme;

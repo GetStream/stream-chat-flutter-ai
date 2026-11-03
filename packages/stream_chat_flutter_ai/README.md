@@ -440,6 +440,9 @@ the text-field configuration (`hintText`, `minLines`, `maxLines`, `textInputActi
 `enableSpeechToText`, `speechToTextConfig`) on top, and `ChatComposerAttachmentSheetProps` the
 sheet's `scrollController`.
 
+The samples below use core's `StreamButton` and `showStreamSheet`, which come from
+`package:stream_core_flutter/core.dart`.
+
 ```dart
 streamAIComponentBuilders(
   // Replace the leading "+" button.
@@ -1154,10 +1157,9 @@ component keeps its default. A part builder may return `AIMessagePartsView.hidde
 step out.
 
 Put one `StreamComponentFactory` above your `MaterialApp`, with Stream Chat's builders and the AI
-ones in the same list. With Stream Chat, give the same list to `StreamChat(componentBuilders:)`
-instead: `StreamChat` puts a factory of its own below yours, and a nested factory replaces its
-parent's builders, so AI builders given only to an outer factory never reach the widgets under
-`StreamChat`.
+ones in the same list. If you also pass `componentBuilders` to `StreamChat`, put the AI builders in
+that list too: `StreamChat` then adds a factory of its own below yours, and a nested factory
+replaces its parent's builders rather than adding to them.
 
 This package exports the factory types and `StreamTheme` with its tokens. Core's widgets, such as
 `StreamButton` or `showStreamSheet` in the snippets below, come from `stream_core_flutter`: add it

@@ -21,11 +21,8 @@ class ComposerAttachmentButton extends StatelessWidget {
   final ChatComposerLeadingProps props;
 
   Future<void> _openSheet(BuildContext context) {
-    // Read here rather than in the sheet: the sheet is its own route, under
-    // the Navigator, which a factory placed below the app doesn't reach.
-    // showStreamSheet does carry the InheritedThemes above the button across
-    // the push, AITranslationsScope among them, so the sheet's strings resolve
-    // without anything being provided again here.
+    // Read before the push: the sheet is a route of its own, which a factory
+    // below the Navigator doesn't reach.
     final builder = context.aiComponentBuilder<ChatComposerAttachmentSheetProps>();
     final components = StreamComponentFactory.of(context);
     return showStreamSheet<void>(
@@ -33,8 +30,6 @@ class ComposerAttachmentButton extends StatelessWidget {
       isDismissible: true,
       builder: (sheetContext, scrollController) {
         final sheetProps = ChatComposerAttachmentSheetProps.from(props, scrollController: scrollController);
-        // Built under the factory carried over, so the sheet and what it
-        // builds see the same builders as the composer.
         return withStreamComponents(
           components,
           Builder(
@@ -56,7 +51,7 @@ class ComposerAttachmentButton extends StatelessWidget {
       style: .secondary,
       type: .outline,
       tooltip: AITranslations.of(context).addPhotos,
-      // 40 dp, as the input pill is tall, with no padding around it.
+      // 40 dp, the input pill's height.
       size: .medium,
       onPressed: enabled ? () => _openSheet(context) : null,
       // The same fill and border as the input pill, so the two read as one

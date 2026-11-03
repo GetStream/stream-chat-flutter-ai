@@ -98,7 +98,8 @@ abstract class ChatComposerSlotProps {
 
   /// Whether calling [onSend] right now would actually send.
   ///
-  /// The condition a slot's send control should be enabled on:
+  /// The condition a slot's send control should be enabled on, with core's
+  /// `StreamButton` from `package:stream_core_flutter/core.dart`:
   ///
   /// ```dart
   /// StreamButton.icon(

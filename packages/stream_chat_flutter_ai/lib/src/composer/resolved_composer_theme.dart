@@ -47,7 +47,7 @@ class ResolvedComposerTheme {
       iconColor: iconColor,
       // Derived from the *resolved* icon color, not the scheme's: a host that
       // sets only `iconColor` gets a matching disabled shade for free, rather
-      // than a dimmed `textPrimary` that no longer relates to it. Scaled rather
+      // than a dimmed `textPrimary` unrelated to it. Scaled rather
       // than replaced, so a translucent `iconColor` never gets a disabled shade
       // more opaque than itself.
       disabledIconColor: theme.disabledIconColor ?? iconColor.withValues(alpha: iconColor.a * 0.3),

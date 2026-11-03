@@ -545,8 +545,7 @@ class _Header extends StatelessWidget {
     );
     Widget icon = Icon(Icons.psychology_outlined, size: iconSize, color: theme.iconColor);
     if (activity case final activity?) {
-      // The default shimmer itself, not the factory's `skeletonLoading`
-      // builder, which an app sets for its loading placeholders.
+      // Core's default shimmer, not the factory's `skeletonLoading` placeholders.
       titleText = DefaultStreamSkeletonLoading(
         props: StreamSkeletonLoadingProps(
           // The resolved style carries a color or a `foreground` paint.

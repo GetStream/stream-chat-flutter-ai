@@ -256,10 +256,9 @@ class _ChatComposerState extends State<ChatComposer> {
     // composer that offered it — nothing would be left to stop it.
     //
     // Not gated on `enableSpeechToText`: a host can place a [SpeechToTextButton]
-    // itself through `composerTrailing` and leave that flag false, which is
-    // exactly the arrangement [SpeechToTextButton]'s own documentation
-    // recommends. Skipping the cancel there left a live session writing into the
-    // controller disposed on the next line.
+    // itself through `composerTrailing` with that flag false, as
+    // [SpeechToTextButton]'s documentation recommends, and its session must
+    // stop here too.
     unawaited(SpeechToTextController.instance.cancel());
     if (_ownsController) _controller.dispose();
     if (_ownsFocusNode) _focusNode.dispose();
