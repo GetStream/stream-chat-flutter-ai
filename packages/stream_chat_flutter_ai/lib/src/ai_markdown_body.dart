@@ -310,7 +310,9 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
     ];
   }
 
-  /// The Material sheet with Stream's text styles and colors laid over it.
+  /// The Material sheet with Stream's text styles and colors laid over it,
+  /// down to inline code, quotes, rules and table borders, so nothing keeps
+  /// Material's colors.
   static MarkdownStyleSheet _streamStyleSheet(BuildContext context) {
     final text = context.streamTextTheme;
     final colors = context.streamColorScheme;
@@ -319,16 +321,31 @@ class _AIMarkdownBodyState extends State<AIMarkdownBody> {
     return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
       p: body,
       a: text.bodyLink.copyWith(color: colors.textLink),
+      code: body.copyWith(
+        fontFamily: 'monospace',
+        fontSize: (body.fontSize ?? 14) * 0.85,
+        backgroundColor: colors.backgroundSurfaceSubtle,
+      ),
       h1: heading(text.headingLg),
       h2: heading(text.headingMd),
       h3: heading(text.headingSm),
       h4: heading(text.headingXs),
       h5: heading(text.headingXs),
       h6: heading(text.headingXs),
+      img: body,
+      checkbox: body.copyWith(color: colors.accentPrimary),
       listBullet: body,
       tableHead: text.bodyEmphasis.copyWith(color: colors.textPrimary),
       tableBody: body,
+      tableBorder: TableBorder.all(color: colors.borderDefault),
       blockquote: body.copyWith(color: colors.textSecondary),
+      blockquoteDecoration: BoxDecoration(
+        color: colors.backgroundSurfaceSubtle,
+        border: BorderDirectional(start: BorderSide(color: colors.borderStrong, width: 3)),
+      ),
+      horizontalRuleDecoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.borderDefault)),
+      ),
     );
   }
 

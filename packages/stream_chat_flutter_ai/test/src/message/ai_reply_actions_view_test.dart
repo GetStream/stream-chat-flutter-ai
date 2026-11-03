@@ -242,7 +242,11 @@ void main() {
         expect(_iconOf(tester, 'Bad response'), Icons.thumb_down_outlined);
         expect(tester.getSemantics(find.byTooltip('Good response')).flagsCollection.isSelected, Tristate.isTrue);
         expect(tester.getSemantics(find.byTooltip('Bad response')).flagsCollection.isSelected, Tristate.isFalse);
-        expect(tester.getSize(find.byTooltip('Good response')), const Size.square(48), reason: '40 dp in its 48 dp target');
+        expect(
+          tester.getSize(find.byTooltip('Good response')),
+          const Size.square(48),
+          reason: '40 dp in its 48 dp target',
+        );
         semantics.dispose();
       });
     });
