@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
@@ -89,6 +90,7 @@ class AIComponentBuilders with Diagnosticable {
   const AIComponentBuilders({
     this.codeBlock,
     this.chart,
+    this.math,
     this.reasoning,
     this.toolCall,
     this.toolApproval,
@@ -107,6 +109,22 @@ class AIComponentBuilders with Diagnosticable {
   /// A code fence in markdown that parsed as chart data. Defaults to
   /// [ChartView].
   final AIComponentBuilder<AIChartProps>? chart;
+
+  /// A LaTeX expression in markdown, used by an [AIMarkdownBody] given no
+  /// `mathBuilder` of its own. Nothing typesets it by default: this package
+  /// ships no math engine, so the TeX source shows as text. Set it to reach
+  /// every reply, such as in an [AIConversationView]:
+  ///
+  /// ```dart
+  /// AIComponentBuilders(
+  ///   math: (context, props) => Math.tex(
+  ///     props.tex,
+  ///     textStyle: props.style,
+  ///     mathStyle: props.inline ? MathStyle.text : MathStyle.display,
+  ///   ),
+  /// )
+  /// ```
+  final AIComponentBuilder<AIMathProps>? math;
 
   /// A round of reasoning in [AIMessagePartsView]. Defaults to
   /// [StreamingReasoningView.part].
@@ -191,6 +209,7 @@ class AIComponentBuilders with Diagnosticable {
   AIComponentBuilders copyWith({
     AIComponentBuilder<AICodeBlockProps>? codeBlock,
     AIComponentBuilder<AIChartProps>? chart,
+    AIComponentBuilder<AIMathProps>? math,
     AIComponentBuilder<AIReasoningProps>? reasoning,
     AIComponentBuilder<AIToolCallProps>? toolCall,
     AIComponentBuilder<AIToolApprovalProps>? toolApproval,
@@ -204,6 +223,7 @@ class AIComponentBuilders with Diagnosticable {
   }) => AIComponentBuilders(
     codeBlock: codeBlock ?? this.codeBlock,
     chart: chart ?? this.chart,
+    math: math ?? this.math,
     reasoning: reasoning ?? this.reasoning,
     toolCall: toolCall ?? this.toolCall,
     toolApproval: toolApproval ?? this.toolApproval,
@@ -223,6 +243,7 @@ class AIComponentBuilders with Diagnosticable {
     return copyWith(
       codeBlock: other.codeBlock,
       chart: other.chart,
+      math: other.math,
       reasoning: other.reasoning,
       toolCall: other.toolCall,
       toolApproval: other.toolApproval,
@@ -242,6 +263,7 @@ class AIComponentBuilders with Diagnosticable {
     properties
       ..add(FlagProperty('codeBlock', value: codeBlock != null, ifTrue: 'custom codeBlock'))
       ..add(FlagProperty('chart', value: chart != null, ifTrue: 'custom chart'))
+      ..add(FlagProperty('math', value: math != null, ifTrue: 'custom math'))
       ..add(FlagProperty('reasoning', value: reasoning != null, ifTrue: 'custom reasoning'))
       ..add(FlagProperty('toolCall', value: toolCall != null, ifTrue: 'custom toolCall'))
       ..add(FlagProperty('toolApproval', value: toolApproval != null, ifTrue: 'custom toolApproval'))
@@ -260,6 +282,7 @@ class AIComponentBuilders with Diagnosticable {
       other is AIComponentBuilders &&
           other.codeBlock == codeBlock &&
           other.chart == chart &&
+          other.math == math &&
           other.reasoning == reasoning &&
           other.toolCall == toolCall &&
           other.toolApproval == toolApproval &&
@@ -275,6 +298,7 @@ class AIComponentBuilders with Diagnosticable {
   int get hashCode => Object.hash(
     codeBlock,
     chart,
+    math,
     reasoning,
     toolCall,
     toolApproval,
@@ -315,6 +339,23 @@ final class AIChartProps {
 
   /// The parsed chart.
   final USpec spec;
+}
+
+/// What [AIComponentBuilders.math] gets.
+@immutable
+final class AIMathProps {
+  /// Creates an [AIMathProps].
+  const AIMathProps({required this.tex, this.style, required this.inline});
+
+  /// The LaTeX source, without its delimiters.
+  final String tex;
+
+  /// The style of the text around it.
+  final TextStyle? style;
+
+  /// Whether it sits in a line of text, from `\(…\)`, rather than in a block
+  /// of its own, from `\[…\]`.
+  final bool inline;
 }
 
 /// What [AIComponentBuilders.reasoning] gets.
