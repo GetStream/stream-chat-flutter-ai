@@ -1,0 +1,23 @@
+{
+  "title": "A weekend in Ohrid",
+  "budget_whole": 420,
+  "nights": 3,
+  "nights_written_whole": 3.0,
+  "nights_with_fraction": 2.5,
+  "is_flexible": true,
+  "photo": "https://upload.wikimedia.org/ohrid.jpg",
+  "stay": { "name": "Villa Mal Sveti Kliment", "check_in": "2026-11-14" },
+  "tags": ["sight", "food"],
+  "tags_mixed": ["sight", 3],
+  "places": [{ "name": "Ohrid" }, { "name": "St. Naum" }],
+  "places_mixed": [{ "name": "Ohrid" }, "St. Naum"],
+  "note": null,
+  "nights_far_too_many": 1e300,
+  "no_photo": "",
+  "coordinates": [41, 20.8016],
+  "nights_per_stay": [2, 3.0],
+  "nights_per_stay_mixed": [2, 2.5],
+  "flags": [true, false],
+  "days": ["2026-11-14", "2026-11-15T09:30:00Z"],
+  "photos": ["https://upload.wikimedia.org/ohrid.jpg"]
+}

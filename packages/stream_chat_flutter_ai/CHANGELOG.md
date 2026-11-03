@@ -13,11 +13,26 @@
 
 ✅ Added
 
-- `AIUIDocument`, `AIUIAction` and `AIUIFormat` — the generated UI an agent's reply carries in its
-  `ai_ui` custom field, and what the person did in it, sent back as their next message.
-- `AIUIComponentDefinition`, `AIUIParameter` and `AIUIParameterType` — a portable description of an
-  app's component that the agent can place in a reply's generated UI, read from and written to the
-  same JSON as the other platforms.
+- Generative UI: an agent's reply can carry interactive UI, such as a trip plan with a map and a
+  form, which `AIConversationView` shows instead of the reply's text. What the person does in it is
+  sent as their next message. Formats such as A2UI and OpenUI come as separate renderer packages.
+- `AIConversationView.ui` — takes an `AIUIHost`, which shows replies' generated UI.
+- `AIUIHost` and `AIUIHosting` — manage a conversation's generated UI: its renderers, the app's
+  components and tools, where the person's actions are sent, and per-reply UI state. By default only
+  web and email links open, in the browser or mail app. `AIUIToolException` is thrown when a tool
+  the UI runs is missing or fails.
+- `AIUIRenderer` and `AIUIEngine` — what a renderer package implements to show one format.
+- `AIUIComponent`, `AIUIComponentContext` and `AIUIArguments` — let the agent use the app's own
+  widgets, such as a map or a calendar, in any format.
+- `AIUIView` — shows one reply's generated UI outside `AIConversationView`.
+- `AIUIEntrance` — animates parts of generated UI in as they appear.
+- `AIUIDocument`, `AIUIAction` and `AIUIFormat` — the `ai_ui` and `ai_ui_action` custom fields that
+  carry a reply's UI and the person's actions.
+- `AIUIComponentDefinition`, `AIUIComponentEvent`, `AIUIParameter` and `AIUIParameterType` —
+  describe an app component to the agent, in JSON shared with the other platforms and the backend.
+- `AIMessage.uiDocument` — a reply's generated UI, `null` by default.
+- `AIAssistantMessageProps(text:)` — the text the assistant message builder shows, empty when the
+  reply's generated UI is shown instead.
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.
