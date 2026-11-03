@@ -30,7 +30,7 @@ class ResolvedTypingIndicatorTheme {
   /// theme's rather than replacing it, so a widget passing only a font size
   /// keeps the themed color.
   ///
-  /// Negative sizes and counts are rejected by the constructors' asserts; here
+  /// Negative sizes are rejected by the constructors' asserts; here
   /// they are clamped to zero, so a release build draws nothing rather than
   /// throwing at layout.
   factory ResolvedTypingIndicatorTheme.resolve(BuildContext context, {TypingIndicatorThemeData? override}) {

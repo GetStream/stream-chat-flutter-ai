@@ -156,9 +156,8 @@ class _Fence extends StatelessWidget {
 /// - **LaTeX** (`\(…\)` and `\[…\]`) is handed to [mathBuilder], when one is
 ///   supplied.
 ///
-/// To replace the code block or chart widgets, set
-/// the `codeBlock` builder of [streamAIComponentBuilders] or the `chart` builder of [streamAIComponentBuilders] on an
-/// [StreamComponentFactory].
+/// To replace the code block or chart widgets, register a `codeBlock` or
+/// `chart` builder with [streamAIComponentBuilders].
 ///
 /// Letting `package:markdown` find the fences — rather than pre-splitting the
 /// string with a regex and stitching several [MarkdownBody] widgets together —

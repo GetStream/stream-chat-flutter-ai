@@ -160,9 +160,9 @@ class ChatComposer extends StatefulWidget {
   /// The default matches what the composer renders: while a response streams
   /// the trailing control is a stop button, so there is no send button to
   /// press. The flag applies that same rule to [ChatComposerSlotProps.onSend]
-  /// itself, so a slot supplying its own send control — through
-  /// the `composerInput` builder of [streamAIComponentBuilders] or the `composerTrailing` builder of [streamAIComponentBuilders] —
-  /// cannot sidestep it.
+  /// itself, so a slot supplying its own send control — through the
+  /// `composerInput` or `composerTrailing` builder of
+  /// [streamAIComponentBuilders] — cannot sidestep it.
   ///
   /// Set `true` if your backend accepts a follow-up while it is still
   /// answering — queuing the next turn, interrupting, or anything else that

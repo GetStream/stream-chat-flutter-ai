@@ -95,8 +95,9 @@ class ComposerThemeData with Diagnosticable {
   /// The fill of the send button. Falls back to the Stream theme's
   /// `accentPrimary`.
   ///
-  /// Dimmed to 30% by the button itself when there is nothing to send, so an
-  /// override does not need a second, disabled shade.
+  /// When there is nothing to send, the button takes the Stream theme's
+  /// disabled colors (`backgroundDisabled`, `textDisabled`), so an override
+  /// does not need a second, disabled shade.
   final Color? sendButtonColor;
 
   /// The fill of the stop button shown while the AI is generating. Falls back
@@ -305,7 +306,7 @@ class ComposerThemeData with Diagnosticable {
 /// ```
 ///
 /// Being an [InheritedTheme] it reaches the attachment sheet too, which
-/// `showModalBottomSheet` pushes on its own route — the same way a [Theme]
+/// `showStreamSheet` pushes on its own route — the same way a [Theme]
 /// carries across a [Navigator]. Nesting one inside another replaces rather
 /// than layers, the way [IconTheme] does; use [ComposerTheme.merge] to add to
 /// an enclosing scope instead.

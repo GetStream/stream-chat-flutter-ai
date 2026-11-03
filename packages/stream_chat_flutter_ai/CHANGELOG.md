@@ -9,12 +9,18 @@
 - `AIMarkdownBody.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `AITypingIndicatorView.dotSize` is now nullable; unset, it comes from the theme.
-- `AITypingIndicatorView.dotCount`, `TypingIndicatorThemeData.dotCount` and `AnimatedDots` are removed; the dots are core's `StreamTypingIndicatorDots`.
-- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`.
+- `AITypingIndicatorView.dotCount` and `AnimatedDots` are removed; the dots are core's `StreamTypingIndicatorDots`.
+- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`. A `StreamComponentFactory` replaces its parent's builders rather than adding to them, so a per-composer override means a nested factory with all the builders that subtree needs.
+- `ComposerThemeData.borderColor`, `attachmentPlaceholderColor` and `attachmentPlaceholderIconColor` no longer style an attachment thumbnail's remove badge, which is core's `StreamRemoveControl`.
 - `StreamingMessageView` types only while `expectMoreText` is `true`; given only `text`, it shows each new text in full. Pass `expectMoreText: isGenerating` while a reply streams.
 
 ✅ Added
 
+- The package re-exports `package:stream_core_flutter/chat.dart` (Stream's design system), hiding the
+  same names `stream_chat_flutter` hides, so both packages can be imported together.
+- `ComposerAttachmentButton` — the "+" button a `ChatComposer` leads with by default.
+- `ComposerAttachmentSheet.scrollController` and `ChatComposerAttachmentSheetProps.scrollController`
+  — the sheet's scroll controller, for a sheet that scrolls with its drag.
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.
@@ -215,8 +221,17 @@
   working.
 - Charts show a legend by default (`ChartThemeData.showLegend` defaults to `true`). Set
   `showLegend: false` to keep the previous look.
-- `AITypingIndicatorView`'s caption defaults to `bodyMedium` in `onSurfaceVariant` instead of
-  inheriting `DefaultTextStyle`.
+- `AITypingIndicatorView`'s caption defaults to the Stream theme's `bodyDefault` in `textSecondary`
+  instead of inheriting `DefaultTextStyle`.
+- `ChatComposer`'s input pill, "+" button and camera tile, and `AISuggestionsView`'s chips, are
+  outlined by default: `ComposerThemeData.fillColor` and `SuggestionsThemeData.backgroundColor`
+  default to transparent.
+- The idle microphone is a ghost button in `ComposerThemeData.iconColor` instead of a filled one in
+  `sendButtonColor`.
+- A disabled send button takes the Stream theme's disabled colors instead of `sendButtonColor` at
+  30%.
+- `ComposerThemeData.attachmentPlaceholderColor`, not `fillColor`, fills a sheet photo while it
+  loads.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.

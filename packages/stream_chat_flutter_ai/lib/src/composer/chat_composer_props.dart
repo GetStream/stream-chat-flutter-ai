@@ -101,8 +101,8 @@ abstract class ChatComposerSlotProps {
   /// The condition a slot's send control should be enabled on:
   ///
   /// ```dart
-  /// IconButton(
-  ///   icon: const Icon(Icons.send),
+  /// StreamButton.icon(
+  ///   icon: Icon(context.streamIcons.send),
   ///   onPressed: props.canSend ? props.onSend : null,
   /// )
   /// ```

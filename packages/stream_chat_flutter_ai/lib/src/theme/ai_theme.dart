@@ -37,7 +37,7 @@ import 'package:stream_core_flutter/chat.dart';
 /// field from the Stream theme, which falls back to Stream's defaults for the
 /// app's brightness when the app sets none (or, for [codeBlockTheme], from the
 /// package's fixed dark code frame) — registering no extension at all gets the
-/// appearance the package always had.
+/// package's default look.
 ///
 /// See also:
 ///
@@ -129,8 +129,8 @@ class AITheme extends ThemeExtension<AITheme> {
 
   /// The [AITheme] on the ambient [ThemeData], or a default one.
   ///
-  /// Never null and never throws — registering no extension gets the appearance
-  /// the package always had, which is what makes theming opt-in.
+  /// Never null and never throws — registering no extension gets the
+  /// package's default look, which is what makes theming opt-in.
   static AITheme of(BuildContext context) => Theme.of(context).extension<AITheme>() ?? const AITheme();
 
   @override

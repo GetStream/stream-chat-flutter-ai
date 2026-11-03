@@ -47,10 +47,10 @@ class TypingIndicatorThemeData with Diagnosticable {
   /// always match the caption.
   final Color? dotColor;
 
-  /// The diameter of each dot. Defaults to [StreamTypingIndicatorDots]'.
+  /// The diameter of each dot. Defaults to [StreamTypingIndicatorDots]'s own.
   final double? dotSize;
 
-  /// The gap between two dots. Defaults to [StreamTypingIndicatorDots]'.
+  /// The gap between two dots. Defaults to [StreamTypingIndicatorDots]'s own.
   final double? dotSpacing;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the

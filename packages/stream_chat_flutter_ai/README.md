@@ -66,7 +66,7 @@ it 😎.
 ## 📦 Installation
 
 `stream_chat_flutter_ai` has no dependency on Stream Chat — install it on its own (it needs Flutter
-3.44 or later):
+3.44 / Dart 3.12 or later):
 
 ```yaml
 dependencies:
@@ -316,7 +316,6 @@ package's `AITheme` extension:
 ```dart
 MaterialApp(
   theme: ThemeData(
-    colorSchemeSeed: brandBlue,
     extensions: const [
       AITheme(chartTheme: ChartThemeData(seriesColors: [Color(0xFF005FFF), Color(0xFF00C1FF)])),
     ],
@@ -325,7 +324,7 @@ MaterialApp(
 )
 ```
 
-Every field is nullable, and leaving one unset means "derive it from the ambient `ThemeData`" — so
+Every field is nullable, and leaving one unset means "derive it from the Stream theme (`StreamTheme`)" — so
 overriding the palette leaves the grid lines, axis labels and heatmap ramp following your app, in
 light and dark alike. The sizing fields (`height`, the scatter and bubble radii, `histogramBinCount`)
 have no theme to derive from, so they fall back to fixed defaults instead. Override it for a
@@ -1178,6 +1177,40 @@ A nested factory replaces its parent's builders rather than adding to them. Per-
 still win where given. Keep the builders stable, ideally top-level functions: new ones rebuild every
 widget that reads them.
 
+The factory can also sit lower, such as around one screen: the routes the package pushes (the
+attachment sheet and the message's context menu) carry it over.
+
+Every builder, the default it replaces and what it gets:
+
+| Builder | Default | Props |
+| --- | --- | --- |
+| `codeBlock` | `CodeBlockView` | `AICodeBlockProps`: `code`, `language`, `highlighter`, `theme` |
+| `chart` | `ChartView` | `AIChartProps`: `spec` |
+| `reasoning` | `StreamingReasoningView.part` | `AIReasoningProps`: `reasoning`, `text`, `duration` |
+| `toolCall` | `AIToolCallView` | `AIToolCallProps`: `call` |
+| `toolApproval` | `AIToolApprovalCard` | `AIToolApprovalProps`: `call`, `toolName`, `state`, `onAnswer`, `theme` |
+| `toolAuthorization` | `AIToolAuthorizationCard` | `AIToolAuthorizationProps`: `call`, `authorization`, `state`, `onConnect`, `onDecline`, `theme` |
+| `unsupportedPart` | `AIUnsupportedPartView` | `AIUnsupportedPartProps`: `part` |
+| `userMessage` | `AIUserMessageView` | `AIUserMessageProps` |
+| `assistantMessage` | `AIAssistantMessageView` | `AIAssistantMessageProps` |
+| `replyActions` | nothing | `AIReplyActionsProps` |
+| `messageAttachment` | `AIMessageAttachmentView` | `AIMessageAttachmentProps` |
+| `composerLeading` | `ComposerAttachmentButton` (the "+") | `ChatComposerLeadingProps` |
+| `composerInput` | `ChatComposerInput` | `ChatComposerInputProps` |
+| `composerTrailing` | nothing | `ChatComposerTrailingProps` |
+| `composerAttachmentSheet` | `ComposerAttachmentSheet` | `ChatComposerAttachmentSheetProps` |
+
+Return `ChatComposer.hidden` from `composerLeading` or `composerTrailing` to leave the slot out, gap
+and all.
+
+The widgets are built from core's components (`StreamButton`, `StreamLoadingSpinner`,
+`StreamContextMenu`, `StreamListTile`, `StreamSheetHeader`, `StreamTypingIndicatorDots`,
+`StreamErrorBadge`, `StreamFileTypeIcon`, `StreamMessageComposerMediaAttachment`), so core's own
+builders in the same `StreamComponentBuilders`, such as `button` or `loadingSpinner`, restyle the AI
+widgets along with the rest of the app. The shimmers on reasoning and waiting tool calls are drawn
+with core's default skeleton directly, so a `skeletonLoading` builder for placeholders doesn't reach
+them.
+
 Four slots belong to `AIConversationView`:
 
 - `userMessage` replaces the person's bubble, `AIUserMessageView`. `AIUserMessageProps` has the
@@ -1224,7 +1257,6 @@ data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerTh
 ```dart
 MaterialApp(
   theme: ThemeData(
-    colorSchemeSeed: brandBlue,
     extensions: const [
       AITheme(
         composerTheme: ComposerThemeData(sendButtonColor: Color(0xFF005FFF)),

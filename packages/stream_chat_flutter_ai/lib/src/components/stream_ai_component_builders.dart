@@ -35,8 +35,8 @@ import 'package:stream_core_flutter/chat.dart';
 
 /// The builders that replace the components this package builds inside its
 /// own widgets: code blocks and charts in markdown, agent steps, the tool
-/// approval card, the messages of an [AIConversationView] and the composer's
-/// slots.
+/// approval and sign-in cards, the messages of an [AIConversationView], the
+/// reply actions and the composer's slots.
 ///
 /// Each builder is registered as a [StreamComponentBuilderExtension] keyed by
 /// its props type. Pass them to a [StreamComponentFactory] as `extensions`,

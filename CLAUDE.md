@@ -17,7 +17,7 @@ It **is** built on Stream's design system,
 [`stream_core_flutter`](https://github.com/GetStream/stream-core-flutter), which has no client or
 backend dependency: defaults come from `StreamTheme` tokens (`context.streamColorScheme`,
 `context.streamTextTheme`, `context.streamSpacing`, `context.streamRadius`, `context.streamIcons`),
-not Material's `ColorScheme`/`TextTheme`; buttons, sheets, list tiles, spinners and icons are core's
+not Material's `ColorScheme`/`TextTheme`; buttons, sheets, list tiles, spinners and most icons are core's
 components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadingSpinner`,
 `StreamIcons`, …) rather than Material ones; and replaceable components register with core's
 `StreamComponentFactory` through `streamAIComponentBuilders(...)`, keyed by props type. Import
