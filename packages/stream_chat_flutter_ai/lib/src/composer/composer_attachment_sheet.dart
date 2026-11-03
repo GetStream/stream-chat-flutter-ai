@@ -57,7 +57,16 @@ void debugClearAssetPathCache() => _assetPathCache.clear();
 /// **Android** — add to `android/app/src/main/AndroidManifest.xml`:
 /// ```xml
 /// <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-/// <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+/// <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
+/// ```
+///
+/// **macOS** — add the same `Info.plist` keys as iOS, and to
+/// `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
+/// ```xml
+/// <key>com.apple.security.personal-information.photos-library</key>
+/// <true/>
+/// <key>com.apple.security.files.user-selected.read-only</key>
+/// <true/>
 /// ```
 ///
 /// This sheet's own strings resolve through [AITranslations.of]. It works the
@@ -93,7 +102,14 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 
   Future<void> _loadRecentPhotos() async {
     try {
-      final permission = await PhotoManager.requestPermissionExtend();
+      // Images only: the strip lists nothing else. Asking for video too makes
+      // an app declare READ_MEDIA_VIDEO, and on Android 13 the request reports
+      // no access at all without it.
+      final permission = await PhotoManager.requestPermissionExtend(
+        requestOption: const PermissionRequestOption(
+          androidPermission: AndroidPermission(type: RequestType.image, mediaLocation: false),
+        ),
+      );
       if (!permission.hasAccess) {
         if (mounted) setState(() => _isLoading = false);
         return;
