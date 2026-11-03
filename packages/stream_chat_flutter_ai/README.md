@@ -21,6 +21,9 @@ To start, this library includes the following components:
 **`StreamingMessageView`** — renders text, markdown and code in real time with a
 character-by-character animation, similar to ChatGPT.
 
+**`AIMarkdownBody`** — the markdown renderer behind `StreamingMessageView`, for markdown without the
+typewriter animation.
+
 **`AITypingIndicatorView`** — displays the different states of the LLM (thinking, checking external
 sources, etc) with animated dots.
 
@@ -36,15 +39,34 @@ highlighting.
 **`SpeechToTextButton`** — records voice input and streams the recognized transcript into the
 composer.
 
+**`AISuggestionsView`** — a row of quick-reply chips to dock above the composer, such as on a "new
+chat" screen.
+
+**`AIConversationView`** — a whole conversation laid out the way an AI assistant does it, built from
+**`AIUserMessageView`**, **`AIAssistantMessageView`** and **`AIMessageAttachmentView`** rows, with
+**`AIReplyActionsView`** (copy, share, regenerate, rate) under each finished reply.
+
 **`AIMessagePartsView`** — the steps an agent took while replying: its reasoning
 (**`StreamingReasoningView`**), its tool calls (**`AIToolCallView`**) and the tool calls waiting for
-the user's approval (**`AIToolApprovalView`**).
+the user's approval (**`AIToolApprovalView`**) or sign-in (**`AIToolAuthorizationView`**).
+
+**`AIToolApprover`** / **`AIToolAuthorizer`** — send the user's answer to a tool approval, or their
+sign-in at a tool's provider, to your backend.
 
 **`AIToolRegistry`** / **`AIClientToolRunner`** — client-side tool calling, letting the agent reach
 into your app to open a screen, show an alert or read a sensor, and get the result back.
 
+**`AIClientIdentity.installId`** — an id for this install of your app, so an agent can aim a tool
+call at one of a person's devices.
+
 **`AILocalModel`** — a base class to implement over an on-device model, for answering when the
 agent can't, such as when the user is offline.
+
+**`AIVoiceGlowView`** / **`AIVoiceWaveView`** — a voice agent on a call, as a glowing globe or a
+waveform that moves with the agent's state and audio level.
+
+**`AIComponentFactory`** — replaces the components the package builds inside its own widgets, such
+as the code blocks in markdown or the messages of an `AIConversationView`, with your own.
 
 This repository also includes a [showcase app](example) demonstrating every component, which needs
 no API key to run.
@@ -248,11 +270,17 @@ the same dark frame (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike
 
 `brightness` pins whether the block is a dark or a light surface. It is exactly what your
 highlighter receives as `request.brightness`, and every color default follows it:
-`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). For code
-blocks that stay dark whatever the app's mode, set it once:
+`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). The dark
+frame is already the default, so for code blocks that follow the app's mode, set
+`Brightness.light` on your light theme only:
 
 ```dart
-AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.dark))
+MaterialApp(
+  theme: ThemeData(
+    extensions: const [AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.light))],
+  ),
+  darkTheme: ThemeData.dark(), // keeps the default dark frame
+)
 ```
 
 Colors you set still win over those defaults, and are then yours to keep consistent with
@@ -377,7 +405,8 @@ A message composer designed for AI-powered conversations. Features:
 - A **send / stop toggle** — the send button (↑) becomes a stop button (⏹) while the
   AI is generating a response.
 - An optional **voice / send toggle** (`enableSpeechToText: true`) — a single control that
-  shows a microphone while the field is empty and swaps to send as soon as you type.
+  shows a microphone while the field is empty, swaps to send as soon as you type and to stop while
+  the AI is generating.
 - Factory-based slot customisation via `ChatComposerFactory` — leading, trailing, the input
   field, and the attachment sheet.
 
@@ -471,8 +500,8 @@ ChatComposer(
 ```
 
 The leading, trailing and input slots are rebuilt with the composer. `buildAttachmentSheet` runs
-inside a modal route, outside that rebuild — a replacement sheet rendering controller state (a selection count,
-tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
+inside a modal route, outside that rebuild — a replacement sheet rendering controller state (a
+selection count, tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
 `ComposerAttachmentSheet` does.
 
 To replace the input field outright rather than decorate it, build from `props`:
@@ -642,7 +671,7 @@ your manifest's existing `<queries>` element if it has one:
 #### Attachment sheet permissions
 
 `ChatComposer`'s default "+" button opens an attachment sheet that reads the photo library and takes
-photos, which needs these on top of the above:
+photos, which needs these whether or not you enable speech-to-text:
 
 **iOS** and **macOS** — `Info.plist`:
 ```xml
@@ -655,7 +684,6 @@ photos, which needs these on top of the above:
 **Android** — `android/app/src/main/AndroidManifest.xml`:
 ```xml
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-<uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
 <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
 ```
 
@@ -984,8 +1012,8 @@ starts.
 Then route invocations. `dispatch` runs the tool's actions in order, guarding each
 one; `resolve` returns them unrun if you want to schedule them yourself — run those
 with `runActions` to guard them as `dispatch` does, rather than reimplementing it. Unlike
-`dispatch`, `resolve` lets a throw from the tool's `handleInvocation` through, so catch it yourself. `dispatch`
-reports whether *a tool was registered* under the invoked name — not whether it
+`dispatch`, `resolve` lets a throw from the tool's `handleInvocation` through, so catch it
+yourself. `dispatch` reports whether *a tool was registered* under the invoked name — not whether it
 succeeded. A `false` is normal rather than an error: because registrations outlive
 the build that made them, an older version of your app can register a tool this build
 no longer has; a debug build also prints the name and what *is* registered, for the
@@ -1052,11 +1080,14 @@ it on every streaming update is safe, in flight or not; `send` posts
 the caller and feeds the result to the model. Make that endpoint idempotent on
 `tool_call_id`: a retry can post the same result twice.
 
-A tool that throws or times out (`runTimeout`) is answered with a generic failure, a plain
-`AIClientTool` whose call arrives without the arguments its schema requires with "This call's
-arguments didn't reach the device", and one whose result can't be JSON-encoded with "The result
-couldn't be read"; the error
-itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
+A failed tool is still answered, so the agent isn't left waiting:
+
+- one that throws or times out (`runTimeout`) with a generic failure;
+- a plain `AIClientTool` whose call arrives without the arguments its schema requires with "This
+  call's arguments didn't reach the device";
+- one whose result can't be JSON-encoded with "The result couldn't be read".
+
+The error itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
 `failureMessage`). `send` is tried up to `maxAttempts` times with exponential backoff,
 then reported through `onDeliveryError`; the result is kept and sent again, without
 rerunning the tool, if a later `handle` still sees the call waiting, or when you call
@@ -1119,9 +1150,12 @@ Give it your messages as `AIMessage`s — mix `AIMessage` into your own type or 
 
 ```dart
 class ChatMessageAdapter with AIMessage {
-  ChatMessageAdapter(this.message);
+  ChatMessageAdapter(this.message, {this.isGenerating = false});
 
   final Message message;
+
+  @override
+  final bool isGenerating;
 
   @override
   String get id => message.id;
@@ -1136,7 +1170,8 @@ class ChatMessageAdapter with AIMessage {
 
 ```dart
 AIConversationView(
-  messages: [for (final m in channel.state!.messages) ChatMessageAdapter(m)],
+  // generatingId: the message being generated, from the `ai_indicator` events (see Using with Stream Chat).
+  messages: [for (final m in channel.state!.messages) ChatMessageAdapter(m, isGenerating: m.id == generatingId)],
   pendingMessage: sending, // shows a question at once, until its copy arrives
   isThinking: waitingForReply, // "Thinking… 4s" under the question
   approver: approver,
@@ -1431,8 +1466,9 @@ The example app under `example/` has this wired up — an `AITranslationsDelegat
 translation — so run it on a device set to Dutch to see the placeholder and the tooltips follow.
 
 Many of these strings are `Tooltip` messages on icon-only buttons — the composer's send, stop, mic,
-"+" and dismiss controls, copy, share and rate under a reply, and scroll to latest — which makes them
-the only accessible label those buttons expose. Translating them is what makes these controls
+"+", dismiss and remove-attachment controls, a code block's copy button, copy, share, regenerate and
+rate under a reply, and scroll to latest — which makes them the only accessible label those buttons
+expose. Translating them is what makes these controls
 legible to a screen reader in another locale.
 
 To pin one language over part of the tree instead — a screen that is always in one language, a
@@ -1491,10 +1527,10 @@ String chartSemanticsLabel(ChartSemantics chart) {
 
 Switch on `chart.kind` — it covers all eight `USpecKind`s, and a label that names the wrong kind is
 worse than a generic one. The count fields are not interchangeable either: `categoryCount` is the x
-axis a bar chart draws, `pointCount` counts plotted points (a histogram's samples), `sliceLabels` names the slices a pie draws,
-and `rowCount`/`columnLabels` are a heatmap's grid. Check `chart.isEmpty` before reading
-`valueMin`/`valueMax`: they are `null` for a chart with no points. `sizeMin`/`sizeMax` are non-null
-only for a bubble chart, the one kind that draws `UPoint.size`.
+axis a bar chart draws, `pointCount` counts plotted points (a histogram's samples), `sliceLabels`
+names the slices a pie draws, and `rowCount`/`columnLabels` are a heatmap's grid. Check
+`chart.isEmpty` before reading `valueMin`/`valueMax`: they are `null` for a chart with no points.
+`sizeMin`/`sizeMax` are non-null only for a bubble chart, the one kind that draws `UPoint.size`.
 
 ---
 
