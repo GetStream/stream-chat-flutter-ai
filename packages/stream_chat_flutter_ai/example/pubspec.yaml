@@ -22,7 +22,9 @@ dependencies:
     sdk: flutter
   # The package ships LaTeX *parsing* but no math engine, so that hosts who
   # don't render math don't pay for one. Supplying it here is what makes
-  # `StreamingMessageView.mathBuilder` able to typeset.
+  # `StreamingMessageView.mathBuilder` able to typeset. `AIConversationView`
+  # can't take a math builder yet, so until it can, the canned reply's maths
+  # shows as plain LaTeX.
   flutter_math_fork: ^0.7.4
   # Likewise: the package recognises code fences but ships no grammars, because
   # they are several times its own size. Supplying them here is what makes
