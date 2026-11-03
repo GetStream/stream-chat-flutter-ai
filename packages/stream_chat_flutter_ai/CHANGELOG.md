@@ -241,6 +241,9 @@
 
 🐞 Fixed
 
+- `ComposerAttachmentSheet` asked Android for video access as well as photos, though it only lists
+  photos. It now asks for photos only, so an app no longer needs `READ_MEDIA_VIDEO`, which Google
+  Play asks you to justify.
 - `AIConversationView` showed the latest message too high when it scrolled to the end: for the
   first message of a new conversation, a conversation that loads, and the scroll-to-latest button.
   It was off by `padding.bottom`, so with a large bottom padding the message went out of view, and

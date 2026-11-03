@@ -38,9 +38,18 @@ import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 /// <string>Speech recognition is used to convert your voice to text.</string>
 /// ```
 ///
-/// **Android** — add to `android/app/src/main/AndroidManifest.xml`:
+/// **Android** — add to `android/app/src/main/AndroidManifest.xml`. The
+/// `<queries>` entry lets `speech_to_text` find the on-device recognizer on
+/// Android 11 and later; merge its `<intent>` into your manifest's existing
+/// `<queries>` element if it has one:
 /// ```xml
 /// <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+///
+/// <queries>
+///     <intent>
+///         <action android:name="android.speech.RecognitionService"/>
+///     </intent>
+/// </queries>
 /// ```
 ///
 /// **macOS** — add to `macos/Runner/Info.plist`:
