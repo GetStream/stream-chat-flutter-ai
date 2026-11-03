@@ -12,15 +12,13 @@ let package = Package(
     products: [
         .library(name: "stream-chat-flutter-ai-ondevice", targets: ["stream_chat_flutter_ai_ondevice"])
     ],
-    dependencies: [
-        .package(name: "FlutterFramework", path: "../FlutterFramework")
-    ],
+    // No FlutterFramework dependency: Flutter only generates that package from 3.44, and links the
+    // engine into plugins without it.
+    dependencies: [],
     targets: [
         .target(
             name: "stream_chat_flutter_ai_ondevice",
-            dependencies: [
-                .product(name: "FlutterFramework", package: "FlutterFramework")
-            ]
+            dependencies: []
         )
     ]
 )

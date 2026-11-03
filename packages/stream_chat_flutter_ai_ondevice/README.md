@@ -30,8 +30,9 @@ On Android, raise the app's `minSdk` to 26 in `android/app/build.gradle(.kts)`. 
 libraries are built against Kotlin 2.3, so an app on a much older Kotlin Gradle plugin may need to
 update it.
 
-On iOS and macOS the plugin is a Swift package: the app needs Swift Package Manager, which Flutter
-uses by default. CocoaPods isn't supported.
+On iOS and macOS the plugin is a Swift package, so the app needs Swift Package Manager. Flutter
+uses it by default from 3.44; on older versions, turn it on with
+`flutter config --enable-swift-package-manager`. CocoaPods isn't supported.
 
 ## Answering on the device
 

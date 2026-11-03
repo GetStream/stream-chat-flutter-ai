@@ -25,6 +25,12 @@ plugins {
     id("com.android.library")
 }
 
+// AGP 9 (Flutter 3.44 and later) compiles Kotlin itself, and Flutter warns about plugins that apply
+// the Kotlin plugin there. Older AGP needs it applied.
+if (com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.substringBefore('.').toInt() < 9) {
+    apply(plugin = "org.jetbrains.kotlin.android")
+}
+
 android {
     namespace = "io.getstream.stream_chat_flutter_ai_ondevice"
 
@@ -66,10 +72,9 @@ android {
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
-    }
+// Set on the tasks rather than the `kotlin` extension, which only AGP 9 adds before this script runs.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
 
 dependencies {
