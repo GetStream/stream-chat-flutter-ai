@@ -669,8 +669,9 @@ class ChartView extends StatelessWidget {
             tickCount: _kRadarRings,
             // The ring values are painted with no way to turn them off, as
             // bare numbers floating beside one spoke; a reader gets the range
-            // from the summary instead.
-            ticksTextStyle: const TextStyle(color: Colors.transparent),
+            // from the summary instead. Sized to nothing, they take no room
+            // either.
+            ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
             isMinValueAtCenter: true,
             titleTextStyle: theme.axisLabelStyle,
             titlePositionPercentageOffset: _kRadarLabelOffset,

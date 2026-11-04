@@ -142,7 +142,8 @@ void main() {
   testWidgets('paints no ring values', (tester) async {
     await tester.pumpWidget(_wrap(ChartView(spec: _radar(_twoSeries))));
 
-    expect(_data(tester).ticksTextStyle?.color, Colors.transparent);
+    final ticks = _data(tester).ticksTextStyle!;
+    expect((ticks.color, ticks.fontSize), (Colors.transparent, 0));
   });
 
   testWidgets('cuts a label wider than a third of the chart without splitting an emoji', (tester) async {
