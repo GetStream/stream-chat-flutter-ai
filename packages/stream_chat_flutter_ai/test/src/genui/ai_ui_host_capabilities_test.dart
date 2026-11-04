@@ -16,6 +16,20 @@ void main() {
     expect(capabilities, genuiFixture('capabilities_place_card.json'));
   });
 
+  test("AIUIHost.capabilities gives each renderer the app's tool definitions, sorted by name", () {
+    final renderer = _ToolsRenderer();
+
+    testHost(
+      renderers: [renderer],
+      tools: const [_Tool('send_email'), _Tool('list_events', isReadOnly: true)],
+    ).capabilities;
+
+    expect(renderer.tools, [
+      const AIToolDefinition(name: 'list_events', description: 'list_events', isReadOnly: true),
+      const AIToolDefinition(name: 'send_email', description: 'send_email'),
+    ]);
+  });
+
   test("AIUIHost.capabilities names each renderer's format over a format of its own", () {
     final host = testHost(
       renderers: [
@@ -57,7 +71,7 @@ class _CatalogRenderer extends AIUIRenderer {
   AIUIFormat get format => AIUIFormat.a2ui;
 
   @override
-  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components) => added;
+  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) => added;
 
   @override
   AIUIEngine makeEngine(AIUIHosting host) => TestEngine(host);
@@ -68,4 +82,35 @@ class _PlaceCard extends PlaceCardComponent {
 
   @override
   final AIUIComponentDefinition definition;
+}
+
+// A renderer that keeps the tools it was last given.
+class _ToolsRenderer extends AIUIRenderer {
+  List<AIToolDefinition> tools = const [];
+
+  @override
+  AIUIFormat get format => AIUIFormat.openUI;
+
+  @override
+  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) {
+    this.tools = tools;
+    return const {};
+  }
+
+  @override
+  AIUIEngine makeEngine(AIUIHosting host) => TestEngine(host);
+}
+
+// A tool called [name], described by its name.
+class _Tool extends AIResultClientTool {
+  const _Tool(this.name, {this.isReadOnly = false});
+
+  final String name;
+  final bool isReadOnly;
+
+  @override
+  AIToolDefinition get definition => AIToolDefinition(name: name, description: name, isReadOnly: isReadOnly);
+
+  @override
+  Future<AIClientToolResult> run(AIToolCallPart call) async => AIClientToolResult.completed(null);
 }

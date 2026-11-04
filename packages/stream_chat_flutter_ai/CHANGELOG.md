@@ -36,8 +36,11 @@
 - `AIConversationView.ui` — takes an `AIUIHost`, which shows replies' generated UI.
 - `AIUIHost` and `AIUIHosting` — manage a conversation's generated UI: its renderers, the app's
   components and tools, where the person's actions are sent, and per-reply UI state. By default only
-  web and email links open, in the browser or mail app. `AIUIToolException` is thrown when a tool
-  the UI runs is missing or fails.
+  web and email links open, in the browser or mail app. Tools run on their own only when they're
+  read-only, and any other tool only when the person asks for it. `AIUIToolException` is thrown when
+  a tool the UI runs is missing, isn't allowed to run, or fails.
+- `AIToolDefinition.isReadOnly` — marks a tool that only reads data, which generated UI may run on
+  its own.
 - `AIUIRenderer` and `AIUIEngine` — what a renderer package implements to show one format.
 - `AIUIComponent`, `AIUIComponentContext` and `AIUIArguments` — let the agent use the app's own
   widgets, such as a map or a calendar, in any format.

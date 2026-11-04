@@ -3,6 +3,7 @@ import 'package:stream_chat_flutter_ai/src/genui/ai_ui_component.dart';
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_format.dart';
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
+import 'package:stream_chat_flutter_ai/src/tools/ai_tool_definition.dart';
 
 /// Shows generated UI written in one format, such as A2UI or OpenUI.
 ///
@@ -61,10 +62,13 @@ abstract class AIUIRenderer {
 
   /// Extra information for the agent's backend about this format, such as the
   /// instructions that teach the model to write it, given the app's
-  /// [components].
+  /// [components] and the [tools] its UI can run, sorted by name.
   ///
-  /// [AIUIHost.capabilities] includes it. Empty by default.
-  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components) => const {};
+  /// A renderer can describe each tool to the model, including whether it's
+  /// read-only ([AIToolDefinition.isReadOnly]), so the model knows which ones
+  /// the UI may run on its own. [AIUIHost.capabilities] includes the result.
+  /// Empty by default.
+  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) => const {};
 
   /// Creates the engine that shows this format's documents in one
   /// conversation, for that conversation's [host].

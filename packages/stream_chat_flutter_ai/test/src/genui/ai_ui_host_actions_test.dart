@@ -151,6 +151,28 @@ void main() {
     );
   });
 
+  test("AIUIHost.runTool refuses a tool that isn't read-only when the person didn't ask for it", () async {
+    final host = testHost(tools: [_ListEventsTool(AIClientToolResult.completed(null), isReadOnly: false)]);
+
+    await expectLater(host.runTool('list_events'), throwsA(isA<AIUIToolException>()));
+  });
+
+  test("AIUIHost.runTool doesn't run a tool that isn't read-only when the person didn't ask for it", () async {
+    final tool = _ListEventsTool(AIClientToolResult.completed(null), isReadOnly: false);
+
+    await expectLater(testHost(tools: [tool]).runTool('list_events'), throwsA(isA<AIUIToolException>()));
+
+    expect(tool.calls, isEmpty);
+  });
+
+  test("AIUIHost.runTool runs a tool that isn't read-only when the person asked for it", () async {
+    final tool = _ListEventsTool(AIClientToolResult.completed(null), isReadOnly: false);
+
+    await testHost(tools: [tool]).runTool('list_events', userInitiated: true);
+
+    expect(tool.calls, hasLength(1));
+  });
+
   test('AIUIHost.runTool throws for a tool the app has not given it', () async {
     final host = testHost(tools: [_ListEventsTool(AIClientToolResult.completed(null))]);
 
@@ -210,14 +232,18 @@ List<FlutterErrorDetails> _captureErrors() {
   return reported;
 }
 
+// A tool called `list_events`, read-only unless [isReadOnly] says otherwise,
+// that answers every call with [result].
 class _ListEventsTool extends AIResultClientTool {
-  _ListEventsTool(this.result);
+  _ListEventsTool(this.result, {this.isReadOnly = true});
 
   final AIClientToolResult result;
+  final bool isReadOnly;
   final calls = <AIToolCallPart>[];
 
   @override
-  AIToolDefinition get definition => const AIToolDefinition(name: 'list_events', description: 'Lists events.');
+  AIToolDefinition get definition =>
+      AIToolDefinition(name: 'list_events', description: 'Lists events.', isReadOnly: isReadOnly);
 
   @override
   Future<AIClientToolResult> run(AIToolCallPart call) async {

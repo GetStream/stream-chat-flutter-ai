@@ -17,6 +17,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_tool_result.dart';
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_tool_runner.dart';
+import 'package:stream_chat_flutter_ai/src/tools/ai_tool_definition.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
@@ -45,9 +46,19 @@ abstract mixin class AIUIHosting {
   /// Runs the app's tool called [name] on this device, such as to load data the
   /// UI shows, and completes with the tool's output.
   ///
-  /// Throws an [AIUIToolException] if there is no tool with that name, or if
-  /// the tool fails.
-  Future<Object?> runTool(String name, {Map<String, Object?> arguments = const {}});
+  /// Set [userInitiated] when the person asked for it, such as by tapping a
+  /// button, rather than the UI running it on its own while it shows. Without
+  /// it, only a read-only tool ([AIToolDefinition.isReadOnly]) runs, so UI the
+  /// agent wrote can't change anything, such as sending an email, without the
+  /// person's tap.
+  ///
+  /// Throws an [AIUIToolException] if there is no tool with that name, if it
+  /// isn't read-only and [userInitiated] is `false`, or if the tool fails.
+  Future<Object?> runTool(
+    String name, {
+    Map<String, Object?> arguments = const {},
+    bool userInitiated = false,
+  });
 
   /// Opens a link the person tapped in generated UI.
   void open(Uri url);
@@ -92,9 +103,11 @@ final class AIUIHost with AIUIHosting {
   /// the agent as their next message.
   ///
   /// `tools` are the app's tools that generated UI may run, such as to load
-  /// data on this device. They run without asking the person, so only include
-  /// tools that are safe to run that way. They are separate from the tools the
-  /// agent itself calls. If two tools have the same name, the first is used.
+  /// data on this device. A read-only tool ([AIToolDefinition.isReadOnly])
+  /// runs whenever the UI asks; any other only when the person asks for it,
+  /// such as by tapping a button. They are separate from the tools the agent
+  /// itself calls, and renderers can describe them to the agent through
+  /// [capabilities]. If two tools have the same name, the first is used.
   ///
   /// `open` is called when the person taps a link in generated UI. By default,
   /// only web links to a host and email links open, in the browser or mail
@@ -159,9 +172,16 @@ final class AIUIHost with AIUIHosting {
   }
 
   @override
-  Future<Object?> runTool(String name, {Map<String, Object?> arguments = const {}}) async {
+  Future<Object?> runTool(
+    String name, {
+    Map<String, Object?> arguments = const {},
+    bool userInitiated = false,
+  }) async {
     final tool = _tools[name];
     if (tool == null) throw AIUIToolException('No tool named $name');
+    if (!userInitiated && !tool.definition.isReadOnly) {
+      throw AIUIToolException("$name isn't read-only, so it runs only when the person asks for it");
+    }
     final call = AIToolCallPart(
       id: const Uuid().v4(),
       name: name,
@@ -233,7 +253,8 @@ final class AIUIHost with AIUIHosting {
 
   /// A JSON description of what this app can show: the formats its renderers
   /// read, with any extra information each renderer adds (see
-  /// [AIUIRenderer.capabilities]), and the definitions of its components.
+  /// [AIUIRenderer.capabilities]), such as instructions that list the app's
+  /// tools, and the definitions of its components.
   ///
   /// The app can send this to its agent backend, so the model knows which
   /// formats and components it may use.
@@ -253,12 +274,17 @@ final class AIUIHost with AIUIHosting {
     'renderers': [
       for (final renderer in renderers)
         <String, Object?>{
-          ...deepCopy(renderer.capabilities(components))! as Map<String, Object?>,
+          ...deepCopy(renderer.capabilities(components, _toolDefinitions))! as Map<String, Object?>,
           'format': renderer.format,
         },
     ],
     'components': [for (final component in components) component.definition.toJson()],
   };
+
+  // The definitions of the app's tools, by name.
+  List<AIToolDefinition> get _toolDefinitions => List.unmodifiable(
+    [for (final tool in _tools.values) tool.definition]..sort((a, b) => a.name.compareTo(b.name)),
+  );
 
   /// Releases the renderers' engines.
   ///

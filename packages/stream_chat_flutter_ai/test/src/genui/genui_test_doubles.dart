@@ -53,7 +53,9 @@ class TestRenderer extends AIUIRenderer {
   bool supports(String? version) => version == null || version.startsWith(versions);
 
   @override
-  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components) => {'components': components.length};
+  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) => {
+    'components': components.length,
+  };
 
   @override
   AIUIEngine makeEngine(AIUIHosting host) {
