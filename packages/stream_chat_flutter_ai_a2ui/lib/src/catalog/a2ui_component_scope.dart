@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_modal.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
@@ -22,16 +23,24 @@ part 'a2ui_node_view.dart';
 /// property, such as each tab's `child` in a `Tabs`'s `tabs`, is an
 /// [A2UIChild], or `null` when it would show nothing; see [children].
 ///
+/// A component a person uses, such as a field or a button, also writes what
+/// the person enters back to the data model with [write], and does what the
+/// agent asked for when it is used with [performAction]. Its checks, the
+/// conditions the agent gave for its value to be accepted, are read with
+/// [isValid] and [validationErrors].
+///
 /// Obtained from the arguments of an [A2UIComponentBuilder]. Not constructed
 /// directly. It belongs to the build it is given to: a builder reads it, and
 /// may pass it to the widgets it returns, which use it until the component is
 /// built again with a new scope.
 ///
 /// ```dart
-/// Widget buildBadge(BuildContext context, A2UIComponentScope scope) {
-///   final label = scope.string('label') ?? '';
-///   final isCaption = scope.hint('variant') == 'caption';
-///   return Text(label, style: isCaption ? captionStyle : bodyStyle);
+/// Widget buildToggle(BuildContext context, A2UIComponentScope scope) {
+///   final isOn = scope.boolean('value') ?? false;
+///   return Switch(
+///     value: isOn,
+///     onChanged: (value) => scope.write('value', value),
+///   );
 /// }
 /// ```
 sealed class A2UIComponentScope {
@@ -108,6 +117,57 @@ sealed class A2UIComponentScope {
   /// The [child] is one this scope gave: from [child], [children], or the
   /// value of a property.
   Widget build(A2UIChild child);
+
+  /// Writes [value] where the property `name` is bound in the surface's data
+  /// model, as a field does when the person changes it.
+  ///
+  /// Every component bound to that place shows the new value. A property the
+  /// agent wrote as a value rather than binding it isn't changed, and nothing
+  /// happens; see [isBound]. The [value] is JSON: a string, number, boolean,
+  /// list, map or `null`.
+  void write(String name, Object? value);
+
+  /// Whether this component does something when the person uses it: the
+  /// agent gave it an `action`, such as a button's.
+  bool get hasAction;
+
+  /// Runs this component's action as the person's own act, such as when they
+  /// tap a button.
+  ///
+  /// An action that names an event lets the agent hear about it, with the
+  /// values the agent asked for read from the data model now. An action that
+  /// calls a function runs it, such as one opening a link the agent gave. A
+  /// link opens only while an action runs, so this is called from the
+  /// person's gesture.
+  ///
+  /// A component in the `trigger` of a `Modal` also opens the modal's
+  /// content, with or without an action of its own.
+  ///
+  /// What the person typed into a field the agent made obscured, such as a
+  /// password, stays on the device: the action reads it as `null`.
+  ///
+  /// Completes once the action has run. When this component has no action,
+  /// see [hasAction], it runs nothing, and only opens the modal it is the
+  /// trigger of. A problem with the action is reported, not thrown.
+  Future<void> performAction();
+
+  /// The messages of this component's checks that fail now and block it,
+  /// such as a form that isn't complete yet, in the order the agent wrote the
+  /// checks.
+  ///
+  /// A check whose condition reads nothing yet, such as data still on its
+  /// way, passes. A failing check that calls a function gives the message the
+  /// agent wrote for it, else the function's; one that reads its result from
+  /// the data model gives that result's message, else the agent's. Without
+  /// either, it gives the code of its result, and with none of them it blocks
+  /// without being listed. A check marked as a warning or information fails
+  /// without blocking, and isn't listed. The list is empty when the component
+  /// has no checks.
+  List<String> get validationErrors;
+
+  /// Whether none of this component's checks blocks it; see
+  /// [validationErrors].
+  bool get isValid;
 }
 
 /// A child component, to place with [A2UIComponentScope.build].

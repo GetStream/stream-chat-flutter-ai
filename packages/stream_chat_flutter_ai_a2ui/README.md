@@ -17,8 +17,10 @@ final theme = A2UITheme.fromStream(StreamTheme.of(context)).copyWith(cornerRadiu
 
 ## The components
 
-`A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Divider` and `Tabs`.
-To draw one of them another way, replace its builder; the agent still writes the component as A2UI describes it:
+`A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Divider`, `Tabs`
+and `Modal`, and the components a person uses: `Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider` and
+`DateTimeInput`. To draw one of them another way, replace its builder; the agent still writes the component as A2UI
+describes it:
 
 ```dart
 final catalog = A2UICatalog.basic.replacing('Card', (context, scope) {
@@ -27,7 +29,20 @@ final catalog = A2UICatalog.basic.replacing('Card', (context, scope) {
 });
 ```
 
-The [example](example) is a gallery of the examples published with A2UI's basic catalog.
+A builder of a component a person uses writes what they enter to the surface's data model, and runs the component's
+action when they use it:
+
+```dart
+final catalog = A2UICatalog.basic.replacing('CheckBox', (context, scope) {
+  return Switch(
+    value: scope.boolean('value') ?? false,
+    onChanged: (value) => scope.write('value', value),
+  );
+});
+```
+
+The [example](example) is a gallery of the examples published with A2UI's basic catalog, which lists what a person's
+actions in them do: each event an agent would get, with its values, and each link that would open.
 
 ## Tests
 

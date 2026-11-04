@@ -130,6 +130,30 @@ void main() {
 
     expect(errors.map((error) => error.code), [A2UIErrorCode.validationFailed]);
   });
+
+  test('a DateTimeInput with a minimum and a maximum is kept', () {
+    final root = _rootOf({
+      'id': 'root',
+      'component': 'DateTimeInput',
+      'value': '',
+      'min': '2026-10-05',
+      'max': '2026-10-20',
+    });
+
+    expect(root?.type, 'DateTimeInput');
+  });
+
+  test('a DateTimeInput with a minimum time is kept', () {
+    final root = _rootOf({
+      'id': 'root',
+      'component': 'DateTimeInput',
+      'value': '',
+      'enableTime': true,
+      'min': '09:00:00',
+    });
+
+    expect(root?.type, 'DateTimeInput');
+  });
 }
 
 // The root of a surface whose root is [component], from a processor disposed

@@ -24,12 +24,18 @@ class A2UISurfaceView extends StatelessWidget {
   /// [A2UITheme.fromStream] makes from the [StreamTheme] around it. An image
   /// whose URL has a scheme loads from the URL [mediaUrl] gives for it, and
   /// only web links load unless it is given another function.
+  ///
+  /// A link a person's action opens, such as a button whose action is the
+  /// agent's `openUrl`, goes to [onOpenLink]; only web links do. Without
+  /// [onOpenLink], no link opens, and the surface's processor reports each
+  /// one it couldn't open.
   const A2UISurfaceView({
     super.key,
     required this.surface,
     this.catalog = A2UICatalog.basic,
     this.theme,
     this.mediaUrl = a2uiWebMediaUrl,
+    this.onOpenLink,
   });
 
   /// The surface to show.
@@ -45,6 +51,9 @@ class A2UISurfaceView extends StatelessWidget {
   /// The function the surface's images are loaded through.
   final A2UIMediaUrl mediaUrl;
 
+  /// The function that opens the links a person's actions open, or `null`.
+  final A2UIOpenLink? onOpenLink;
+
   // The size of icons, as A2UI's basic catalog draws them.
   static const _iconSize = 24.0;
 
@@ -55,6 +64,7 @@ class A2UISurfaceView extends StatelessWidget {
       catalog: catalog,
       theme: theme,
       mediaUrl: mediaUrl,
+      onOpenLink: onOpenLink,
       child: DefaultTextStyle.merge(
         style: theme.body.copyWith(color: theme.text),
         child: IconTheme.merge(

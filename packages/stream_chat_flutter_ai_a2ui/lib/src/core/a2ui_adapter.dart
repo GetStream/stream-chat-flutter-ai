@@ -23,6 +23,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
 
 part 'a2ui_catalogs.dart';
+part 'a2ui_checks.dart';
 part 'a2ui_conformance_seams.dart';
 part 'a2ui_core_errors.dart';
 part 'a2ui_expansion.dart';

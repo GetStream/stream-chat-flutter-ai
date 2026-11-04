@@ -37,7 +37,7 @@ void main() {
     expect(events, isEmpty);
   });
 
-  test("act reports a function the surface's catalog can't run", () async {
+  test('act reports a link it has nothing to open with', () async {
     final reported = Completer<A2UIError>();
     final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: reported.complete);
     addTearDown(processor.dispose);
@@ -48,7 +48,7 @@ void main() {
     expect((await reported.future).code, A2UIErrorCode.expressionError);
   });
 
-  test("act completes for a function the surface's catalog can't run", () async {
+  test('act completes for a link it has nothing to open with', () async {
     final root = planSurface(components: _openUrlButton).root!;
 
     await expectLater(root.act('action'), completes);

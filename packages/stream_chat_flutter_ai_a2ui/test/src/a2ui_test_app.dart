@@ -6,13 +6,15 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
 
 // Shows a surface of [components] and [data], the way a reply shows it, in a
 // box at most [width] wide, and returns the processor, disposed when the test
-// ends.
+// ends. The events of the surface's actions go to [events], and the links
+// they open to [onOpenLink].
 Future<A2UIProcessor> pumpSurface(
   WidgetTester tester, {
   required List<Map<String, Object?>> components,
@@ -21,11 +23,13 @@ Future<A2UIProcessor> pumpSurface(
   A2UITheme? theme,
   A2UIMediaUrl mediaUrl = a2uiWebMediaUrl,
   List<A2UIError>? errors,
+  List<A2UIActionEvent>? events,
+  A2UIOpenLink? onOpenLink,
   TextDirection direction = TextDirection.ltr,
   double width = 400,
   Brightness brightness = Brightness.light,
 }) async {
-  final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: errors?.add);
+  final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: errors?.add, onAction: events?.add);
   addTearDown(processor.dispose);
   processor.apply([createSurface(components, data: data)]);
   await tester.pumpWidget(
@@ -34,6 +38,7 @@ Future<A2UIProcessor> pumpSurface(
       catalog: catalog,
       theme: theme,
       mediaUrl: mediaUrl,
+      onOpenLink: onOpenLink,
       direction: direction,
       width: width,
       brightness: brightness,
@@ -49,6 +54,7 @@ Widget surfaceApp(
   A2UICatalog catalog = A2UICatalog.basic,
   A2UITheme? theme,
   A2UIMediaUrl mediaUrl = a2uiWebMediaUrl,
+  A2UIOpenLink? onOpenLink,
   TextDirection direction = TextDirection.ltr,
   double width = 400,
   Brightness brightness = Brightness.light,
@@ -66,7 +72,13 @@ Widget surfaceApp(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: width),
             child: SingleChildScrollView(
-              child: A2UISurfaceView(surface: surface, catalog: catalog, theme: theme, mediaUrl: mediaUrl),
+              child: A2UISurfaceView(
+                surface: surface,
+                catalog: catalog,
+                theme: theme,
+                mediaUrl: mediaUrl,
+                onOpenLink: onOpenLink,
+              ),
             ),
           ),
         ),

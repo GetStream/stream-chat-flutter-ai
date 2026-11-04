@@ -39,6 +39,9 @@ final class A2UISurface extends ChangeNotifier {
   core.NodeResolver<core.ComponentApi>? _resolver;
   void Function()? _unsubscribeRoot;
   final Expando<A2UINode> _nodes = Expando();
+  // The paths a person typed a secret into, such as a password in an
+  // obscured text field.
+  final Set<String> _secretPaths = {};
   bool _disposed = false;
 
   /// The id the agent gave this surface.
@@ -135,6 +138,60 @@ final class A2UISurface extends ChangeNotifier {
       _processor._report(_errorFromCore(error, surfaceId: id));
       return null;
     }
+  }
+
+  /// The value at [path] in this surface's data model as it may leave the
+  /// device, such as with an action: without what the person typed into
+  /// obscured fields, which reads as `null`.
+  ///
+  /// Otherwise it is what [read] gives, including `null` for a path that
+  /// can't be read, which is reported the same way.
+  Object? readWithoutSecrets(String path) {
+    if (_disposed) return null;
+    try {
+      return _plain(_dataModelWithoutSecrets().get(path));
+    } on core.A2uiError catch (error) {
+      _processor._report(_errorFromCore(error, surfaceId: id));
+      return null;
+    }
+  }
+
+  // A copy of the data model with each secret path cleared, or the data model
+  // itself when there are no secrets.
+  core.DataModel _dataModelWithoutSecrets() {
+    if (_secretPaths.isEmpty) return _model.dataModel;
+    final copy = core.DataModel(_model.dataModel.get('/'));
+    for (final path in _secretPaths) {
+      try {
+        copy.set(path, null);
+      } on core.A2uiError {
+        // A path the data model no longer reaches holds no secret.
+      }
+    }
+    return copy;
+  }
+
+  // A context that reads [model] at [path] as a component of this surface
+  // reads its data model, with problems going to [onError], else to the
+  // processor's `onError` as the surface's own. With [callsAgent], a function
+  // no catalog has is sent to the agent; without, it isn't found.
+  core.DataContext _dataContext(
+    String path, {
+    required core.DataModel model,
+    core.ExpressionErrorReporter? onError,
+    bool callsAgent = false,
+  }) {
+    return core.DataContext(
+      model,
+      (name, args, context) => _model.resolveCatalog(null).invoke(name, args, context),
+      path,
+      onError: onError ?? (error) => _model.dispatchError(core.ComponentContext.clientErrorFor(_model, error)),
+      protocolVersion: core.A2uiProtocolVersion.v1_0,
+      invokerForCatalog: (catalogId) => _model.resolveCatalog(catalogId).invoke,
+      // The core's own reading of the same bindings reports missing data.
+      onMissingData: (_) {},
+      callAgentFunction: callsAgent ? _model.callAgentFunction : null,
+    );
   }
 
   /// Writes [value] at [path] in this surface's data model, and updates the
