@@ -1,0 +1,154 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:ui' show FlutterView;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+
+part 'a2ui_node_view.dart';
+
+/// One component of a reply's A2UI as its builder reads it: its id and type,
+/// its properties, and its children.
+///
+/// The properties are resolved: a property the agent bound to the surface's
+/// data model reads the model's current value, and the component is built
+/// again when that value changes. Values are JSON: maps, lists, strings,
+/// numbers, booleans and `null`, except that a component placed inside a
+/// property, such as each tab's `child` in a `Tabs`'s `tabs`, is an
+/// [A2UIChild], or `null` when it would show nothing; see [children].
+///
+/// Obtained from the arguments of an [A2UIComponentBuilder]. Not constructed
+/// directly. It belongs to the build it is given to: a builder reads it, and
+/// may pass it to the widgets it returns, which use it until the component is
+/// built again with a new scope.
+///
+/// ```dart
+/// Widget buildBadge(BuildContext context, A2UIComponentScope scope) {
+///   final label = scope.string('label') ?? '';
+///   final isCaption = scope.hint('variant') == 'caption';
+///   return Text(label, style: isCaption ? captionStyle : bodyStyle);
+/// }
+/// ```
+sealed class A2UIComponentScope {
+  const A2UIComponentScope._();
+
+  /// The id of this component, unique in its surface.
+  String get id;
+
+  /// The type of this component, such as `Text`.
+  String get type;
+
+  /// The value of the property [name], or `null` when this component doesn't
+  /// set it or its value isn't there yet.
+  Object? value(String name);
+
+  /// The property [name] as text, or `null` when it is missing.
+  ///
+  /// A string is returned as it is. A number is written without a decimal
+  /// point when it is whole, such as `3` for `3.0`, and a boolean as `true` or
+  /// `false`. A list or a map is written as JSON.
+  String? string(String name);
+
+  /// The property [name] as a number, or `null` when it isn't one.
+  ///
+  /// A string that holds a number, such as `'2.5'`, counts as that number.
+  double? number(String name);
+
+  /// The property [name] as a boolean, or `null` when it isn't one.
+  ///
+  /// A number counts as `true` unless it is 0, and the strings `true` and
+  /// `false` count in any capitalization. A map with a `valid` entry, such as
+  /// the result of a validation function, counts as that entry.
+  bool? boolean(String name);
+
+  /// The property [name] as a list of strings, each item read as [string]
+  /// reads a property, or `null` when it isn't a list.
+  ///
+  /// Items that are `null` are left out.
+  List<String>? stringList(String name);
+
+  /// The style hint [name], such as a `Text`'s `variant`, when the agent
+  /// wrote it as a string, or `null` otherwise.
+  ///
+  /// A style hint chooses how a component looks and is never read from the
+  /// data model: a property the agent bound to the data model, or computed
+  /// with a function, gives `null`, whatever [value] gives for it. A value
+  /// the component's type doesn't know, such as a `variant` of `h1`, is
+  /// returned as it is, for the builder to fall back to its default.
+  String? hint(String name);
+
+  /// Whether the property [name] is bound to a path of the surface's data
+  /// model, so its [value] is the value at that path.
+  bool isBound(String name);
+
+  /// The child the property [name] holds, such as a `Card`'s `child`, or
+  /// `null` when it holds no single child, or one that shows nothing; see
+  /// [children].
+  A2UIChild? child([String name = 'child']);
+
+  /// The children the property [name] holds, in order, such as a `Row`'s
+  /// `children`.
+  ///
+  /// A list of ids gives one child for each id. A template gives one child for
+  /// each item of the data model list it names. A property that holds no
+  /// children gives an empty list.
+  ///
+  /// A child that would show nothing is left out: one the agent hasn't sent
+  /// yet, and one whose type the surface's catalog has no builder for. So the
+  /// children a builder lays out are the ones that show.
+  List<A2UIChild> children([String name = 'children']);
+
+  /// The widget of [child], built with the surface's catalog.
+  ///
+  /// The [child] is one this scope gave: from [child], [children], or the
+  /// value of a property.
+  Widget build(A2UIChild child);
+}
+
+/// A child component, to place with [A2UIComponentScope.build].
+///
+/// Obtained from [A2UIComponentScope.child], [A2UIComponentScope.children]
+/// and the property values of [A2UIComponentScope.value]. Two children are
+/// equal when they are the same component in the same place.
+@immutable
+final class A2UIChild {
+  const A2UIChild._(this._node);
+
+  final A2UINode _node;
+
+  /// A key that tells this child apart from its siblings and stays the same
+  /// while the agent updates the surface, such as for a widget's [Key].
+  String get key => _node.key;
+
+  /// The id of the child component.
+  String get id => _node.id;
+
+  /// The share of the free space this child takes in a `Row` or `Column`, or
+  /// `null` when it has no weight.
+  ///
+  /// Only a finite weight above 0 counts.
+  double? get weight {
+    final weight = _node.property('weight');
+    if (weight is! num || weight <= 0 || !weight.isFinite) return null;
+    return weight.toDouble();
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(other, this)) {
+      return true;
+    }
+    return other is A2UIChild && identical(other._node, _node);
+  }
+
+  @override
+  int get hashCode => identityHashCode(_node);
+
+  @override
+  String toString() => '${objectRuntimeType(this, 'A2UIChild')}(id: $id, key: $key)';
+}

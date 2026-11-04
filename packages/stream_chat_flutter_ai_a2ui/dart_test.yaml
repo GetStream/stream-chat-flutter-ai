@@ -3,3 +3,6 @@
 
 tags:
   conformance:
+  # Alchemist's golden tests.
+  golden:
+    timeout: 15s

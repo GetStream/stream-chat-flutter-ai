@@ -54,6 +54,13 @@ final class A2UINode extends ChangeNotifier {
     return _value(_node.props.peek()[name]);
   }
 
+  /// The property [name] as the agent wrote it, with bindings and function
+  /// calls unread, or `null` when the component doesn't set it.
+  Object? writtenProperty(String name) {
+    if (_disposed) return null;
+    return _surface._model.componentsModel.get(id)?.properties[name];
+  }
+
   Object? _value(Object? value) {
     return switch (value) {
       final core.ResolvedBinding<Object?> binding => _plain(binding.value),
