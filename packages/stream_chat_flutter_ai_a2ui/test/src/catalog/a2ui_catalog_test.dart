@@ -5,11 +5,13 @@ import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 import '../a2ui_test_app.dart';
 
 void main() {
-  test('the basic catalog has the sixteen components this package draws', () {
+  test('the basic catalog has the eighteen components this package draws', () {
     expect(A2UICatalog.basic.types.toSet(), {
       'Text',
       'Image',
       'Icon',
+      'Video',
+      'AudioPlayer',
       'Row',
       'Column',
       'List',
@@ -75,7 +77,7 @@ void main() {
   });
 
   test('removing keeps the other types', () {
-    expect(A2UICatalog.basic.removing(['Text']).types, hasLength(15));
+    expect(A2UICatalog.basic.removing(['Text']).types, hasLength(17));
   });
 
   test('catalogs with the same builders are equal', () {

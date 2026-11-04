@@ -32,6 +32,8 @@ dependencies:
   a2ui_core: ">=0.4.0 <0.5.0"
   # The images agents place in their replies, loaded and cached.
   cached_network_image: ^3.4.1
+  # Hosts the controls of the videos agents place in their replies.
+  chewie: ^1.13.1
   # Deep equality for the package's value types that hold JSON.
   collection: ^1.19.0
   flutter:
@@ -43,15 +45,23 @@ dependencies:
   # The schema type `a2ui_core` takes for a catalog's components. Only
   # `lib/src/core/` uses it, as it does `a2ui_core`.
   json_schema_builder: ^0.1.7
+  # Plays the audio agents place in their replies.
+  just_audio: ^0.10.5
   # Resolved to this workspace's own copy; pinned to its version once this
   # package is published.
   stream_chat_flutter_ai: any
+  # Plays the videos agents place in their replies.
+  video_player: ^2.11.1
 
 dev_dependencies:
   # Golden tests, as in the core package.
   alchemist: ^0.14.0
   flutter_test:
     sdk: flutter
+  # The audio tests stand in for the audio plugin.
+  just_audio_platform_interface: ^4.6.0
+  # The video tests stand in for the video plugin.
+  video_player_platform_interface: ^6.9.0
   # Reads the A2UI conformance suites, which are YAML.
   yaml: ^3.1.3
 

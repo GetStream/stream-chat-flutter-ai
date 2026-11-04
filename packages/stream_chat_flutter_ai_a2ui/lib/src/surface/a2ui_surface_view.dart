@@ -21,9 +21,11 @@ class A2UISurfaceView extends StatelessWidget {
   /// Creates the view of [surface].
   ///
   /// Without a [theme], the surface is drawn with the one
-  /// [A2UITheme.fromStream] makes from the [StreamTheme] around it. An image
-  /// whose URL has a scheme loads from the URL [mediaUrl] gives for it, and
-  /// only web links load unless it is given another function.
+  /// [A2UITheme.fromStream] makes from the [StreamTheme] around it.
+  ///
+  /// Media whose URL has a scheme loads from the URL [mediaUrl] gives for it:
+  /// an image, a video's poster, a video and an audio clip. Only web links
+  /// load unless it is given another function.
   ///
   /// A link a person's action opens, such as a button whose action is the
   /// agent's `openUrl`, goes to [onOpenLink]; only web links do. Without
@@ -48,7 +50,8 @@ class A2UISurfaceView extends StatelessWidget {
   /// theme.
   final A2UITheme? theme;
 
-  /// The function the surface's images are loaded through.
+  /// The function the surface's images, videos and audio clips are loaded
+  /// through.
   final A2UIMediaUrl mediaUrl;
 
   /// The function that opens the links a person's actions open, or `null`.
