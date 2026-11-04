@@ -648,12 +648,12 @@ void main() {
     Widget view(
       List<AIMessagePart> parts, {
       AIToolApprover? approver,
-      AIComponentBuilders? builders,
+      StreamComponentBuilders? builders,
       AIMessagePartWidgetBuilder? partBuilder,
       AIToolCallWidgetBuilder? toolCallBuilder,
     }) => _wrap(
-      AIComponentFactory(
-        builders: builders ?? const AIComponentBuilders(),
+      StreamComponentFactory(
+        builders: builders ?? StreamComponentBuilders(),
         child: SizedBox(
           width: 360,
           child: AIMessagePartsView(
@@ -762,7 +762,9 @@ void main() {
         view(
           parts(status: 'running'),
           approver: forgetful,
-          builders: AIComponentBuilders(toolCall: (context, props) => AIMessagePartsView.hidden),
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(toolCall: (context, props) => AIMessagePartsView.hidden),
+          ),
         ),
       );
       pending.complete(false);
@@ -777,8 +779,10 @@ void main() {
         view(
           parts(),
           approver: approver,
-          builders: AIComponentBuilders(
-            toolCall: (context, props) => props.call.id == 'call_1' ? AIMessagePartsView.hidden : const Text('row'),
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(
+              toolCall: (context, props) => props.call.id == 'call_1' ? AIMessagePartsView.hidden : const Text('row'),
+            ),
           ),
         ),
       );
@@ -877,11 +881,11 @@ void main() {
 
     testWidgets("reads like a tool call's row by default", (tester) async {
       await tester.pumpWidget(_wrap(const AIUnsupportedPartView()));
-      final theme = Theme.of(tester.element(find.byType(AIUnsupportedPartView)));
+      final theme = StreamTheme.of(tester.element(find.byType(AIUnsupportedPartView)));
 
       final style = tester.widget<Text>(find.byType(Text)).style!;
-      expect(style.fontSize, theme.textTheme.bodyMedium!.fontSize, reason: "the tool call title's size");
-      expect(style.color, theme.colorScheme.onSurfaceVariant, reason: "the tool call detail's color");
+      expect(style.fontSize, theme.textTheme.bodyDefault.fontSize, reason: "the tool call title's size");
+      expect(style.color, theme.colorScheme.textSecondary, reason: "the tool call detail's color");
       expect(tester.widget<Icon>(find.byType(Icon)).size, 16);
       expect(tester.getTopLeft(find.byType(Text)).dx - tester.getTopRight(find.byType(Icon)).dx, 8);
     });

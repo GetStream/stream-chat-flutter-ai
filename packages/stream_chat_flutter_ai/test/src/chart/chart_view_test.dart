@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
+import 'package:stream_core_flutter/chat.dart';
 
 void main() {
   group('ChartView', () {
@@ -873,7 +874,7 @@ void main() {
         final context = tester.element(find.byType(ChartView));
         final style = tester.widget<Text>(find.text('Sales')).style!;
         expect(style.fontSize, 15);
-        expect(style.color, Theme.of(context).colorScheme.onSurfaceVariant);
+        expect(style.color, StreamTheme.of(context).colorScheme.textSecondary);
       });
 
       testWidgets('the legend text style follows the theme', (tester) async {
@@ -889,12 +890,12 @@ void main() {
         expect(style.color, const Color(0xFF123456));
       });
 
-      testWidgets('defaults its text to onSurfaceVariant', (tester) async {
+      testWidgets('defaults its text to textSecondary', (tester) async {
         await tester.pumpWidget(_wrap(const ChartView(spec: _multiLineSpec)));
 
         final context = tester.element(find.byType(ChartView));
         final style = tester.widget<Text>(find.text('Sales')).style!;
-        expect(style.color, Theme.of(context).colorScheme.onSurfaceVariant);
+        expect(style.color, StreamTheme.of(context).colorScheme.textSecondary);
         expect(style.fontSize, 11);
       });
 

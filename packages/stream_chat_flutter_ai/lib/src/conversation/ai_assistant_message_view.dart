@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';
@@ -148,7 +148,7 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         ? scope.clock.elapsed(scope.turn)
         : scope.clock.durationOfFirstStep(scope.turn, step.duration);
     final props = AIReasoningProps(reasoning: step, text: widget.reasoningText?.call(step), duration: duration);
-    if (AIComponentFactory.of(context).reasoning case final builder?) return builder(context, props);
+    if (context.aiComponentBuilder<AIReasoningProps>() case final builder?) return builder(context, props);
     if (duration == null) return StreamingReasoningView.part(step, text: props.text);
     return StreamingReasoningView(
       // As `StreamingReasoningView.part` shows it.
@@ -161,7 +161,6 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
 
   @override
   Widget build(BuildContext context) {
-    final builders = AIComponentFactory.of(context);
     final onAttachmentTap = widget.onAttachmentTap;
 
     return Column(
@@ -175,7 +174,6 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         for (final attachment in widget.attachments)
           AIMessageAttachmentView.of(
             context,
-            builders,
             AIMessageAttachmentProps(
               attachment: attachment,
               isFromUser: false,
