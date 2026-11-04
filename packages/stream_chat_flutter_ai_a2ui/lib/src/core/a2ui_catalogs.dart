@@ -103,7 +103,10 @@ final class A2UICatalogs {
             key: _styleProperties.contains(key) && _isStringChoice(value) ? _anyValue : _anyString(value),
         },
       if (parts is List<Object?>)
-        'allOf': [for (final part in parts) part is Map<String, Object?> ? _loosened(part) : part],
+        'allOf': [
+          for (final part in parts)
+            if (part is Map<String, Object?>) _loosened(part) else part,
+        ],
     };
   }
 

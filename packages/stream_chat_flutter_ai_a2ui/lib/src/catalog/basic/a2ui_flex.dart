@@ -70,7 +70,10 @@ List<double> a2uiFlexSlots({
   // Weights only count relative to one another; scaling them to the largest
   // keeps their sum finite whatever the agent wrote.
   final largest = weights.fold<double>(0, math.max);
-  final shares = [for (final weight in weights) weight > 0 ? weight / largest : 0.0];
+  final shares = [
+    for (final weight in weights)
+      if (weight > 0) weight / largest else 0.0,
+  ];
   var fixed = 0.0;
   var totalShare = 0.0;
   for (var index = 0; index < natural.length; index += 1) {
@@ -326,9 +329,10 @@ class _RenderA2UIFlex extends RenderBox
     // A child's natural length is the length it takes when nothing limits it.
     final natural = [
       for (var index = 0; index < children.length; index += 1)
-        shares && weights[index] > 0
-            ? 0.0
-            : _main(layoutChild(children[index], _constraints(maxMain: double.infinity, maxCross: availableCross))),
+        if (shares && weights[index] > 0)
+          0.0
+        else
+          _main(layoutChild(children[index], _constraints(maxMain: double.infinity, maxCross: availableCross))),
     ];
     final List<double> maxLengths;
     if (availableMain == null) {
@@ -351,7 +355,7 @@ class _RenderA2UIFlex extends RenderBox
     ];
     final lengths = [
       for (var index = 0; index < children.length; index += 1)
-        shares && weights[index] > 0 ? maxLengths[index] : _main(measured[index]),
+        if (shares && weights[index] > 0) maxLengths[index] else _main(measured[index]),
     ];
     final contentMain =
         lengths.fold<double>(0, (sum, length) => sum + length) + a2uiSpacing * math.max(0, children.length - 1);

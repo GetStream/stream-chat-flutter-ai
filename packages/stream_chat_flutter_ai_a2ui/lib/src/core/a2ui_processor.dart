@@ -303,7 +303,7 @@ final class A2UIProcessor extends ChangeNotifier {
     surface._releaseTree();
     _report(
       A2UIError(
-        code: const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED'),
+        code: A2UIErrorCode.recursionLimitExceeded,
         message: switch (limit) {
           _TooManyComponents() =>
             "Surface '$surfaceId' expands to more than $_maxExpandedComponents components. "

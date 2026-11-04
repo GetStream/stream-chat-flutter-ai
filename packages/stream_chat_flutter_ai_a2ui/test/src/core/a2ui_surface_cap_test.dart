@@ -22,7 +22,7 @@ void main() {
     _surfaceWith(_fanOut(width: 10, depth: 4, leaf: 'Nope'), errors: errors);
     await pumpEventQueue();
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
   });
 
   test('a surface updated past the limit is not built while it is applied', () async {
@@ -33,7 +33,7 @@ void main() {
     processor.apply([_update(_fanOut(width: 10, depth: 4, leaf: 'Nope'))]);
     await pumpEventQueue();
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
   });
 
   test('an update past the limit with the components already there is not built while it is applied', () async {
@@ -62,7 +62,7 @@ void main() {
     ]);
     await pumpEventQueue();
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
   });
 
   test('a fan-out under the limit with an unknown type is built and reports the type', () async {
@@ -71,7 +71,7 @@ void main() {
     _surfaceWith(_fanOut(width: 10, depth: 2, leaf: 'Nope'), errors: errors);
     await pumpEventQueue();
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('UNKNOWN_COMPONENT_TYPE')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.unknownComponentType]);
   });
 
   test('a component whose catalog id is not a string is counted without failing', () {
@@ -97,7 +97,7 @@ void main() {
 
     _surfaceWith(_fanOut(width: 10, depth: 5), errors: errors);
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
   });
 
   test('the report says what multiplies the components', () {
@@ -165,7 +165,7 @@ void main() {
     );
     await pumpEventQueue();
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
   });
 
   test('a template inside a template multiplies the components', () {
@@ -234,7 +234,7 @@ void main() {
     processor.apply([_setData('/items', _items(6000))]);
     await pumpEventQueue();
 
-    expect(errors.map((error) => error.code), [const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED')]);
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
   });
 
   test('a data change that brings a template under the limit builds the tree again', () {
@@ -449,7 +449,7 @@ void main() {
 
     _surfaceWith(_chain(51), errors: errors);
 
-    expect(errors.single.code, const A2UIErrorCode('RECURSION_LIMIT_EXCEEDED'));
+    expect(errors.single.code, A2UIErrorCode.recursionLimitExceeded);
     expect(errors.single.message, "Component nesting exceeded 50 levels at 'c51'.");
   });
 
