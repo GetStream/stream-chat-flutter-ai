@@ -1,6 +1,7 @@
 import 'package:alchemist/alchemist.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
@@ -409,6 +410,43 @@ void main() {
         expect(find.byType(CodeBlockView), findsOneWidget);
         expect(find.textContaining('plain'), findsOneWidget);
       });
+    });
+
+    group('default style sheet', () {
+      testWidgets('a link keeps the size and weight of the heading it is in', (tester) async {
+        await tester.pumpWidget(_wrap(const AIMarkdownBody(data: '# Head [link](https://x.io)')));
+        final sheet = tester.widget<MarkdownBody>(find.byType(MarkdownBody)).styleSheet!;
+
+        expect(sheet.a!.fontSize, isNull);
+        expect(sheet.a!.fontWeight, isNull);
+        expect(sheet.a!.color, StreamTheme.of(tester.element(find.byType(AIMarkdownBody))).colorScheme.textLink);
+      });
+
+      for (final brightness in Brightness.values) {
+        testWidgets('draws inline code, quotes, rules and tables in Stream colors (${brightness.name})', (
+          tester,
+        ) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(brightness: brightness),
+              home: const Scaffold(body: AIMarkdownBody(data: 'Use `x`.\n\n> Quoted\n\n---')),
+            ),
+          );
+          final colors = StreamTheme.of(tester.element(find.byType(AIMarkdownBody))).colorScheme;
+          final sheet = tester.widget<MarkdownBody>(find.byType(MarkdownBody)).styleSheet!;
+
+          expect(sheet.code!.backgroundColor, colors.backgroundSurfaceSubtle);
+          expect(sheet.code!.color, colors.textPrimary);
+          expect(sheet.code!.fontFamily, 'monospace');
+          final quote = sheet.blockquoteDecoration! as BoxDecoration;
+          expect(quote.color, colors.backgroundSurfaceSubtle);
+          expect((quote.border! as BorderDirectional).start.color, colors.borderStrong);
+          final rule = sheet.horizontalRuleDecoration! as BoxDecoration;
+          expect((rule.border! as Border).top.color, colors.borderDefault);
+          expect(sheet.tableBorder!.top.color, colors.borderDefault);
+          expect(sheet.checkbox!.color, colors.accentPrimary);
+        });
+      }
     });
 
     group('math', () {

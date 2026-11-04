@@ -1,7 +1,7 @@
 /// Interpolation helpers shared by the component theme datas.
 ///
 /// Internal. Every field on those classes is nullable, and `null` means "derive
-/// it from the ambient [ThemeData]" rather than zero, transparent or empty — so
+/// it from the Stream theme" rather than zero, transparent or empty — so
 /// a field only one side sets cannot be interpolated towards, and these helpers
 /// swap at the midpoint instead.
 library;

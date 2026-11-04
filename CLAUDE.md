@@ -9,9 +9,22 @@ for LLM-driven chat: streaming markdown text, typing indicators, code blocks, ch
 composer, and speech-to-text input.
 
 **The package has no dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
-package, by design.** Every widget operates on plain strings, callbacks and controllers. Do not add
-a Stream Chat dependency — that would change the package's core premise. If a task seems to need
-one, raise it rather than doing it.
+or backend package, by design.** Every widget operates on plain strings, callbacks and controllers.
+Do not add a Stream Chat dependency — that would change the package's core premise. If a task seems
+to need one, raise it rather than doing it.
+
+It **is** built on Stream's design system,
+[`stream_core_flutter`](https://github.com/GetStream/stream-core-flutter), which has no client or
+backend dependency: defaults come from `StreamTheme` tokens (`context.streamColorScheme`,
+`context.streamTextTheme`, `context.streamSpacing`, `context.streamRadius`, `context.streamIcons`),
+not Material's `ColorScheme`/`TextTheme`; buttons, sheets, list tiles, spinners and most icons are core's
+components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadingSpinner`,
+`StreamIcons`, …) rather than Material ones; and replaceable components register with core's
+`StreamComponentFactory` through `streamAIComponentBuilders(...)`, keyed by props type. Import
+`package:stream_core_flutter/core.dart` (`chat.dart` only where a chat-only component such as
+`StreamMessageComposerMediaAttachment` is used). The barrel re-exports a `show` allowlist from core
+(theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
+uses, so a core minor bump is released in step with chat.
 
 The Stream Chat SDK itself lives in the separate
 [GetStream/stream-chat-flutter](https://github.com/GetStream/stream-chat-flutter) repo, and
@@ -85,7 +98,7 @@ filter + draft-PR check) feeding `analyze`, `format` and `test`. Jobs are skippe
 `if: needs.gate.outputs.should_run` rather than `on.paths`, so skipped jobs still report success to
 branch protection.
 
-Other workflows: `legacy_version_analyze` / `beta_version_analyze` (N-1 stable and beta Flutter,
+Other workflows: `legacy_version_analyze` / `beta_version_analyze` (the minimum supported Flutter, 3.44.0, and beta,
 sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enforcement),
 `update_goldens` (manual), and the two release workflows below.
 

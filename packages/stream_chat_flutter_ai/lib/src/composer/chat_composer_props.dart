@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-// The [ChatComposer], [ChatComposerFactory], [ChatComposerInput], [ChatOption]
+// The [ChatComposer], [ChatComposerInput], [ChatOption]
 // and [SpeechToTextButton] references below are doc links only; nothing in this
 // file's code uses them.
+// Imported for the [streamAIComponentBuilders] doc links only.
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
-import 'package:stream_chat_flutter_ai/src/composer/chat_composer_factory.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
@@ -12,7 +13,7 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 // Doc links only.
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 
-/// What every [ChatComposerFactory] slot receives.
+/// What every slot of a [ChatComposer] receives.
 ///
 /// Carries the composer's wiring — the [controller], the [focusNode], and the
 /// [onSend]/[onStop] handlers — so that *any* slot can drive the composer, not
@@ -97,11 +98,12 @@ abstract class ChatComposerSlotProps {
 
   /// Whether calling [onSend] right now would actually send.
   ///
-  /// The condition a slot's send control should be enabled on:
+  /// The condition a slot's send control should be enabled on, with core's
+  /// `StreamButton` from `package:stream_core_flutter/core.dart`:
   ///
   /// ```dart
-  /// IconButton(
-  ///   icon: const Icon(Icons.send),
+  /// StreamButton.icon(
+  ///   icon: Icon(context.streamIcons.send),
   ///   onPressed: props.canSend ? props.onSend : null,
   /// )
   /// ```
@@ -114,7 +116,7 @@ abstract class ChatComposerSlotProps {
   bool get canSend => controller.hasContent && (allowSendWhileGenerating || !controller.isGenerating);
 }
 
-/// Props for [ChatComposerFactory.buildLeading].
+/// Props for the `composerLeading` builder of [streamAIComponentBuilders].
 class ChatComposerLeadingProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerLeadingProps].
   const ChatComposerLeadingProps({
@@ -140,7 +142,7 @@ class ChatComposerLeadingProps extends ChatComposerSlotProps {
       );
 }
 
-/// Props for [ChatComposerFactory.buildTrailing].
+/// Props for the `composerTrailing` builder of [streamAIComponentBuilders].
 class ChatComposerTrailingProps extends ChatComposerSlotProps {
   /// Creates a [ChatComposerTrailingProps].
   const ChatComposerTrailingProps({
@@ -164,7 +166,7 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
       );
 }
 
-/// Props for [ChatComposerFactory.buildAttachmentSheet].
+/// Props for the `composerAttachmentSheet` builder of [streamAIComponentBuilders].
 ///
 /// The sheet is built inside a modal route, so — unlike the other three slots
 /// — it is not rebuilt by the composer. A sheet that renders [controller]
@@ -177,23 +179,29 @@ class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
+    this.scrollController,
   });
 
   /// Creates a [ChatComposerAttachmentSheetProps] carrying another slot's
   /// wiring.
   ///
   /// See [ChatComposerLeadingProps.from].
-  ChatComposerAttachmentSheetProps.from(ChatComposerSlotProps props)
+  ChatComposerAttachmentSheetProps.from(ChatComposerSlotProps props, {ScrollController? scrollController})
     : this(
         controller: props.controller,
         focusNode: props.focusNode,
         onSend: props.onSend,
         onStop: props.onStop,
         allowSendWhileGenerating: props.allowSendWhileGenerating,
+        scrollController: scrollController,
       );
+
+  /// The sheet's scroll controller, to attach to the sheet's scrollable so a
+  /// drag scrolls its content before it moves the sheet.
+  final ScrollController? scrollController;
 }
 
-/// Props for [ChatComposerFactory.buildInput].
+/// Props for the `composerInput` builder of [streamAIComponentBuilders].
 ///
 /// Everything [ChatComposerInput] renders from: the wiring every slot gets
 /// from [ChatComposerSlotProps], plus the text-field configuration passed to

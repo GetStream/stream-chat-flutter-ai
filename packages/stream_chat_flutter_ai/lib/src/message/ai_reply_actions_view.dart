@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/reply_actions_theme.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// How the person rated a reply.
 enum AIMessageRating {
@@ -117,28 +118,26 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
   Widget build(BuildContext context) {
     final translations = AITranslations.of(context);
     final theme = ReplyActionsTheme.of(context);
-    final color = theme.iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    final color = theme.iconColor ?? context.streamColorScheme.textSecondary;
+    final icons = context.streamIcons;
     final selectedColor = theme.selectedIconColor ?? color;
     final size = theme.iconSize ?? 18;
     // A 40 dp button, padded to a 48 dp tap target where the theme asks for
-    // one. Material 2 ignores `tapTargetSize`, so there the button is as
-    // big as its target.
+    // one.
     final padded = Theme.of(context).materialTapTargetSize == MaterialTapTargetSize.padded;
-    final extent = padded && !Theme.of(context).useMaterial3 ? kMinInteractiveDimension : 40.0;
     final actions = widget.actions;
 
     Widget button(IconData icon, String label, VoidCallback onPressed, {bool? selected}) {
       final glyph = Icon(icon, size: size, color: selected ?? false ? selectedColor : color);
-      return IconButton(
+      return StreamButton.icon(
         onPressed: onPressed,
-        // Material 3 styles a toggle by it; the Semantics below reports the
-        // state under Material 2 as well, which ignores it.
+        style: .secondary,
+        type: .ghost,
+        size: .medium,
         isSelected: selected,
-        icon: selected == null ? glyph : Semantics(selected: selected, child: glyph),
+        icon: glyph,
         tooltip: label,
-        // Set on the button rather than in `style`, which Material 2 ignores.
-        constraints: BoxConstraints.tightFor(width: extent, height: extent),
-        padding: EdgeInsets.zero,
+        themeStyle: StreamButtonThemeStyle(tapTargetSize: padded ? .padded : .shrinkWrap),
       );
     }
 
@@ -155,12 +154,12 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
       spacing: padded ? 0 : 8,
       children: [
         button(
-          _copied ? Icons.check : Icons.content_copy,
+          _copied ? icons.checkmark : icons.copy,
           _copied ? translations.replyCopied : translations.copyReply,
           _copy,
         ),
         Builder(
-          builder: (context) => button(Icons.ios_share, translations.shareReply, () {
+          builder: (context) => button(icons.share, translations.shareReply, () {
             final box = context.findRenderObject() as RenderBox?;
             final origin = box != null && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
             if (onShare != null) {
@@ -170,7 +169,7 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
             }
           }),
         ),
-        if (onRegenerate != null) button(Icons.refresh, translations.regenerateReply, onRegenerate),
+        if (onRegenerate != null) button(icons.refresh, translations.regenerateReply, onRegenerate),
         if (onRate != null) ...[
           button(
             positive ? Icons.thumb_up : Icons.thumb_up_outlined,

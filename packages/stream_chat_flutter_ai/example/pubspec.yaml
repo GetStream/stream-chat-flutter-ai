@@ -5,8 +5,8 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.0
-  flutter: ">=3.41.0"
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 
 # This app is a member of the pub workspace defined in the root pubspec.yaml.
 resolution: workspace
@@ -34,6 +34,9 @@ dependencies:
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace, so it needs no update when the package version is bumped.
   stream_chat_flutter_ai: any
+  # Core's widgets (`StreamAppBar`, `StreamButton`) for the example's own
+  # screens; the AI package exports only the theme and factory types.
+  stream_core_flutter: ^0.5.3
 
 dev_dependencies:
   flutter_test:
