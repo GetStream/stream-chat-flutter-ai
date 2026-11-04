@@ -259,6 +259,14 @@ void main() {
         expect(polarArea!.kind, USpecKind.pie);
       });
 
+      test('reads a doughnut as a plain pie: chart data asks for no donut', () {
+        final doughnut = USpecParser.tryParse('''
+        {"type": "doughnut", "data": {"labels": ["A", "B"], "datasets": [{"label": "S", "data": [1, 2]}]}}
+        ''');
+
+        expect((doughnut!.kind, doughnut.donut), (USpecKind.pie, false));
+      });
+
       test('reads options.scales.y.beginAtZero', () {
         final spec = USpecParser.tryParse('''
         {

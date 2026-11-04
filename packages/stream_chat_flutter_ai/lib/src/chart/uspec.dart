@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 
-// Here for the [ChartView] doc link only — this library is otherwise pure Dart
-// with no Flutter dependency, and nothing below uses the widget.
+// Here for the [ChartView] and [ChartThemeData] doc links only — this library
+// is otherwise pure Dart with no Flutter dependency, and nothing below uses
+// either.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 
 /// Supported chart types.
 enum USpecKind {
@@ -31,6 +33,66 @@ enum USpecKind {
 
   /// Histogram — a bar chart of binned values.
   histogram,
+
+  /// Bar chart whose bars run left to right, one row per category with the
+  /// first at the top.
+  ///
+  /// Grouped or stacked like [bar], by [USpec.barLayout]. In the screen-reader
+  /// summary, [USpec.xLabel] names the horizontal axis, which carries the
+  /// values, and [USpec.yLabel] the vertical one, which carries the
+  /// categories.
+  horizontalBar,
+
+  /// Radar chart: one spoke per category, the first pointing up and the rest
+  /// following clockwise, and one closed shape per series.
+  ///
+  /// Values are measured from the center, which is zero, out to the largest
+  /// value. A negative value, and a category a series has no finite value for,
+  /// sit at the center. Fewer than three categories draw nothing.
+  radar,
+
+  /// Radial chart: one ring per drawn point of the first series, the first
+  /// one's ring outermost.
+  ///
+  /// Each ring is an arc starting at the top and running clockwise, three
+  /// quarters of a full turn for the largest value and proportionally less for
+  /// the rest. Zero, negative and non-finite values get no ring.
+  radial,
+
+  /// One bar the full width of the chart, split into a part per drawn point of
+  /// the first series, each as wide as its share of the total.
+  ///
+  /// The parts run left to right in data order. Zero, negative and non-finite
+  /// values get no part.
+  singleStackedBar,
+}
+
+/// How a [USpecKind.bar] or [USpecKind.horizontalBar] chart places the bars of
+/// its series within one category.
+enum USpecBarLayout {
+  /// One bar per series, side by side.
+  grouped,
+
+  /// One bar per category, its series' values laid end to end in series order.
+  ///
+  /// Positive values build outward from zero and negative values build the
+  /// other way, each side on its own, so the two ends of the bar are the sums
+  /// of the category's positive and negative values. A value that isn't
+  /// finite is left out, and a category whose sum is too large to represent
+  /// draws no bar.
+  stacked,
+}
+
+/// How a [USpecKind.line] or [USpecKind.area] chart joins its points.
+enum USpecCurve {
+  /// Straight segments from point to point.
+  linear,
+
+  /// A smooth curve through every point.
+  natural,
+
+  /// Level runs that step up or down halfway between points.
+  step,
 }
 
 /// A single data point in a chart series.
@@ -93,6 +155,21 @@ class USeries {
 /// - Highcharts (`xAxis` + `series` fields).
 /// - Vega-Lite (`data.values` + `mark` + `encoding` fields).
 /// - A flat pie schema (`type: "pie"` + `data: [{label, value}]`).
+///
+/// The parsers produce line, bar, pie, area, scatter, bubble, heatmap and
+/// histogram charts with their default looks. Built in code, a spec can use
+/// every kind and option:
+///
+/// ```dart
+/// const USpec(
+///   kind: USpecKind.horizontalBar,
+///   barLayout: USpecBarLayout.stacked,
+///   series: [
+///     USeries(name: 'Won', points: [UPoint(x: 'Q1', y: 12), UPoint(x: 'Q2', y: 18)]),
+///     USeries(name: 'Lost', points: [UPoint(x: 'Q1', y: 5), UPoint(x: 'Q2', y: 3)]),
+///   ],
+/// )
+/// ```
 class USpec {
   /// Creates a [USpec].
   const USpec({
@@ -102,6 +179,10 @@ class USpec {
     this.xLabel,
     this.yLabel,
     this.beginAtZeroY = false,
+    this.barLayout = USpecBarLayout.grouped,
+    this.curve = USpecCurve.linear,
+    this.donut = false,
+    this.semicircle = false,
   });
 
   /// The chart type.
@@ -122,6 +203,30 @@ class USpec {
   /// Whether the y-axis should be forced to start at zero.
   final bool beginAtZeroY;
 
+  /// How a [USpecKind.bar] or [USpecKind.horizontalBar] chart places the bars
+  /// of its series within a category.
+  ///
+  /// Defaults to [USpecBarLayout.grouped]. Other kinds ignore it.
+  final USpecBarLayout barLayout;
+
+  /// How a [USpecKind.line] or [USpecKind.area] chart joins its points.
+  ///
+  /// Defaults to [USpecCurve.linear]. Other kinds ignore it.
+  final USpecCurve curve;
+
+  /// Whether a [USpecKind.pie] is drawn as a ring with a hole in its middle,
+  /// rather than solid.
+  ///
+  /// The hole's share of the radius is [ChartThemeData.donutHoleRatio]. Other
+  /// kinds ignore it.
+  final bool donut;
+
+  /// Whether a [USpecKind.pie] spans the top half of a circle, its slices
+  /// running from left to right over the top, instead of the whole circle.
+  ///
+  /// Combines with [donut]. Other kinds ignore it.
+  final bool semicircle;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -131,10 +236,25 @@ class USpec {
           other.title == title &&
           other.xLabel == xLabel &&
           other.yLabel == yLabel &&
-          other.beginAtZeroY == beginAtZeroY;
+          other.beginAtZeroY == beginAtZeroY &&
+          other.barLayout == barLayout &&
+          other.curve == curve &&
+          other.donut == donut &&
+          other.semicircle == semicircle;
 
   @override
-  int get hashCode => Object.hash(kind, Object.hashAll(series), title, xLabel, yLabel, beginAtZeroY);
+  int get hashCode => Object.hash(
+    kind,
+    Object.hashAll(series),
+    title,
+    xLabel,
+    yLabel,
+    beginAtZeroY,
+    barLayout,
+    curve,
+    donut,
+    semicircle,
+  );
 }
 
 /// Parses JSON strings from AI code blocks into [USpec] chart data.

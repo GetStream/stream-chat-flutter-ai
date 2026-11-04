@@ -1214,6 +1214,16 @@ void main() {
           builder: () => _wrap(ChartView(spec: entry.value)),
         );
       }
+
+      // The line and heatmap goldens under a dark theme are in 'golden themed'.
+      for (final entry in _goldenCases.entries.where((e) => e.key != 'line' && e.key != 'heatmap')) {
+        goldenTest(
+          '${entry.key} chart under a dark theme',
+          fileName: 'chart_view_dark_${entry.key}',
+          constraints: const BoxConstraints.tightFor(width: 320, height: 260),
+          builder: () => _wrapDark(ChartView(spec: entry.value)),
+        );
+      }
     });
 
     // The eight goldens above all use the default theme, so they prove the
@@ -1300,6 +1310,8 @@ void main() {
   });
 }
 
+// Each kind gets a light golden and, under 'golden', a dark one; the line and
+// heatmap dark goldens are in 'golden themed', which the dark loop skips.
 const _goldenCases = {
   'line': _lineSpec,
   'area': _areaSpec,

@@ -127,6 +127,54 @@ void main() {
       expect(_spec(title: 'Sales'), _spec(title: 'Sales'));
     });
 
+    test('a spec without a bar layout groups its bars', () {
+      expect(_spec().barLayout, USpecBarLayout.grouped);
+    });
+
+    test('a spec without a curve joins its points with straight lines', () {
+      expect(_spec().curve, USpecCurve.linear);
+    });
+
+    test('a spec is not a donut unless asked', () {
+      expect(_spec().donut, isFalse);
+    });
+
+    test('a spec is not a semicircle unless asked', () {
+      expect(_spec().semicircle, isFalse);
+    });
+
+    test('the bar layout participates', () {
+      const grouped = USpec(kind: USpecKind.bar, series: []);
+      const stacked = USpec(kind: USpecKind.bar, series: [], barLayout: USpecBarLayout.stacked);
+
+      expect(stacked, isNot(grouped));
+      expect(stacked.hashCode, isNot(grouped.hashCode));
+    });
+
+    test('the curve participates', () {
+      const linear = USpec(kind: USpecKind.line, series: []);
+      const natural = USpec(kind: USpecKind.line, series: [], curve: USpecCurve.natural);
+
+      expect(natural, isNot(linear));
+      expect(natural.hashCode, isNot(linear.hashCode));
+    });
+
+    test('donut participates', () {
+      const pie = USpec(kind: USpecKind.pie, series: []);
+      const donut = USpec(kind: USpecKind.pie, series: [], donut: true);
+
+      expect(donut, isNot(pie));
+      expect(donut.hashCode, isNot(pie.hashCode));
+    });
+
+    test('semicircle participates', () {
+      const pie = USpec(kind: USpecKind.pie, series: []);
+      const semicircle = USpec(kind: USpecKind.pie, series: [], semicircle: true);
+
+      expect(semicircle, isNot(pie));
+      expect(semicircle.hashCode, isNot(pie.hashCode));
+    });
+
     test('works as a map key and in a set', () {
       final set = {_spec(), _spec(), _spec(title: 'Sales')};
 
