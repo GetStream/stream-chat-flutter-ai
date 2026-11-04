@@ -1256,6 +1256,12 @@ class DutchTranslations implements AITranslations {
   String attachmentDetails(String type, String size) => '$type · $size';
 
   @override
+  String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
+
+  @override
   String fileSize(int bytes) {
     // Decimal units like the English, with a decimal comma as Dutch writes it.
     if (bytes < 1000) return '$bytes bytes';
