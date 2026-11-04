@@ -104,8 +104,10 @@ void main() {
     });
 
     testWidgets('in a conversation, keeps the reply actions after an edit once done', (tester) async {
-      Widget conversation(_Reply reply) => AIComponentFactory(
-        builders: AIComponentBuilders(replyActions: (context, props) => const Text('actions')),
+      Widget conversation(_Reply reply) => StreamComponentFactory(
+        builders: StreamComponentBuilders(
+          extensions: streamAIComponentBuilders(replyActions: (context, props) => const Text('actions')),
+        ),
         child: MaterialApp(
           home: Scaffold(body: AIConversationView(messages: [reply])),
         ),

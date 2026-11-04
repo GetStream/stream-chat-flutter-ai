@@ -61,7 +61,7 @@ void main() {
         Reply('a1', text: 'Here is your plan', uiDocument: openUI('Ohrid plan card')),
       ],
       ui: testHost(),
-      builders: AIComponentBuilders(assistantMessage: assistant),
+      builders: StreamComponentBuilders(extensions: streamAIComponentBuilders(assistantMessage: assistant)),
     );
 
     expect(texts.toSet(), {''});
@@ -130,7 +130,7 @@ void main() {
         Reply('a1', uiDocument: openUI('Ohrid plan card')),
       ],
       ui: testHost(),
-      builders: AIComponentBuilders(assistantMessage: assistant),
+      builders: StreamComponentBuilders(extensions: streamAIComponentBuilders(assistantMessage: assistant)),
     );
 
     expect(
@@ -228,14 +228,14 @@ Future<void> _pump(
   WidgetTester tester,
   List<AIMessage> messages, {
   AIUIHost? ui,
-  AIComponentBuilders builders = const AIComponentBuilders(replyActions: _actions),
+  StreamComponentBuilders? builders,
 }) async {
   tester.view.physicalSize = _kScreen;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    AIComponentFactory(
-      builders: builders,
+    StreamComponentFactory(
+      builders: builders ?? StreamComponentBuilders(extensions: streamAIComponentBuilders(replyActions: _actions)),
       child: MaterialApp(
         home: MediaQuery(
           data: const MediaQueryData(size: _kScreen, disableAnimations: true),

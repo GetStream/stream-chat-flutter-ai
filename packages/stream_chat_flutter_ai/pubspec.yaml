@@ -18,8 +18,8 @@ issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
 #   2. Add it to the root pubspec.yaml for future updates.
 
 environment:
-  sdk: ^3.11.0
-  flutter: ">=3.41.0"
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 
 # This package is a member of the pub workspace defined in the root pubspec.yaml.
 resolution: workspace
@@ -51,6 +51,7 @@ dependencies:
   photo_manager: ^3.9.0
   share_plus: ^13.3.1
   speech_to_text: ^7.0.0
+  stream_core_flutter: ^0.5.3
   # Opens the web and email links of a reply's generated UI, unless the app
   # opens them itself.
   url_launcher: ^6.3.2

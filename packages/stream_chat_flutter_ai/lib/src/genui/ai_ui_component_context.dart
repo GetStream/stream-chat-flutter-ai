@@ -16,8 +16,8 @@ final class AIUIComponentContext {
     required this.messageId,
     required this.isStreaming,
     required this.host,
-    required AIUIEventEmitter emit,
-  }) : _emit = emit;
+    required this._emit,
+  });
 
   /// The id of the reply whose UI the component is in.
   final String messageId;

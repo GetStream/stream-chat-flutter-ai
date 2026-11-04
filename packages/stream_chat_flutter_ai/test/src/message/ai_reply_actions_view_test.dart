@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
+
+const _icons = StreamIcons();
 
 Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
   theme: theme,
@@ -14,7 +17,7 @@ Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
 
 /// The tooltips of the buttons, in order.
 List<String> _labels(WidgetTester tester) =>
-    tester.widgetList<IconButton>(find.byType(IconButton)).map((b) => b.tooltip!).toList();
+    tester.widgetList<StreamButton>(find.byType(StreamButton)).map((b) => b.props.tooltip!).toList();
 
 IconData _iconOf(WidgetTester tester, String tooltip) =>
     tester.widget<Icon>(find.descendant(of: find.byTooltip(tooltip), matching: find.byType(Icon))).icon!;
@@ -107,7 +110,7 @@ void main() {
 
       expect(copied, ['The answer']);
       expect(_labels(tester).first, 'Copied!');
-      expect(_iconOf(tester, 'Copied!'), Icons.check);
+      expect(_iconOf(tester, 'Copied!'), _icons.checkmark);
       expect(tester.takeAnnouncements().map((a) => a.message), ['Copied!']);
 
       await tester.pump(const Duration(milliseconds: 1499));
@@ -138,7 +141,7 @@ void main() {
 
       final params = sharePlatform.shared.single;
       expect(params.text, 'The answer');
-      expect(params.sharePositionOrigin, tester.getRect(find.widgetWithIcon(IconButton, Icons.ios_share)));
+      expect(params.sharePositionOrigin, tester.getRect(find.widgetWithIcon(StreamButton, _icons.share)));
     });
 
     testWidgets('ignores a share sheet that fails', (tester) async {
@@ -179,7 +182,7 @@ void main() {
       await tester.tap(find.byTooltip('Share'));
 
       expect(shared, 'The answer');
-      expect(origin, tester.getRect(find.widgetWithIcon(IconButton, Icons.ios_share)));
+      expect(origin, tester.getRect(find.widgetWithIcon(StreamButton, _icons.share)));
       expect(sharePlatform.shared, isEmpty);
     });
 
@@ -225,30 +228,33 @@ void main() {
         expect(await tapRating(tester, AIMessageRating.positive, 'Good response'), [null]);
       });
 
-      for (final material3 in [true, false]) {
-        testWidgets('fills the rating given and marks it selected (Material ${material3 ? 3 : 2})', (tester) async {
-          final semantics = tester.ensureSemantics();
-          await tester.pumpWidget(
-            _wrap(
-              AIReplyActionsView(
-                text: 'Hi',
-                actions: AIReplyActions(rating: AIMessageRating.positive, onRate: (_) {}),
-              ),
-              theme: ThemeData(useMaterial3: material3),
+      testWidgets('fills the rating given and marks it selected', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await tester.pumpWidget(
+          _wrap(
+            AIReplyActionsView(
+              text: 'Hi',
+              actions: AIReplyActions(rating: AIMessageRating.positive, onRate: (_) {}),
             ),
-          );
+          ),
+        );
 
-          expect(_iconOf(tester, 'Good response'), Icons.thumb_up);
-          expect(_iconOf(tester, 'Bad response'), Icons.thumb_down_outlined);
-          expect(tester.getSemantics(find.byTooltip('Good response')).flagsCollection.isSelected, Tristate.isTrue);
-          expect(tester.getSemantics(find.byTooltip('Bad response')).flagsCollection.isSelected, Tristate.isFalse);
-          // Material 2 can't pad a button out to its tap target, so there the
-          // button fills it.
-          expect(tester.getSize(find.byTooltip('Good response')), Size.square(material3 ? 40 : 48));
-          expect(tester.getSize(find.widgetWithIcon(IconButton, Icons.thumb_up)), const Size.square(48));
-          semantics.dispose();
-        });
-      }
+        expect(_iconOf(tester, 'Good response'), Icons.thumb_up);
+        expect(_iconOf(tester, 'Bad response'), Icons.thumb_down_outlined);
+        expect(tester.getSemantics(find.byTooltip('Good response')).flagsCollection.isSelected, Tristate.isTrue);
+        expect(tester.getSemantics(find.byTooltip('Bad response')).flagsCollection.isSelected, Tristate.isFalse);
+        expect(
+          tester.getSize(find.byTooltip('Good response')),
+          const Size.square(48),
+          reason: 'its tap target',
+        );
+        expect(
+          tester.getSize(find.descendant(of: find.byTooltip('Good response'), matching: find.byType(Material)).first),
+          const Size.square(40),
+          reason: 'the button',
+        );
+        semantics.dispose();
+      });
     });
 
     testWidgets('a confirmation still showing is dropped with the view', (tester) async {
