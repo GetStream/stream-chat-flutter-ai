@@ -5,8 +5,9 @@
 /// A2UI in place of its text: surfaces drawn from a catalog of components,
 /// such as text, images, rows, columns, cards and tabs, and the fields,
 /// choices and buttons a person uses, with a theme made from the app's Stream
-/// design system. What the person does in them reaches the agent as their
-/// next message.
+/// design system. The agent can place the app's own components, the host's
+/// `components`, among them. What the person does in them reaches the agent
+/// as their next message.
 ///
 /// ```dart
 /// final ui = AIUIHost(

@@ -37,6 +37,36 @@ Problems with a reply's A2UI, such as a component the catalog doesn't have, go t
 reply's message id; without it they are reported in debug builds only. Messages that aren't JSON objects, and a
 finished reply whose components don't form a whole tree, are reported in debug builds only.
 
+## The app's components
+
+The host's `components`, the app's own widgets such as a place card, can be placed by the agent too. The agent writes
+one by its name in PascalCase, `PlaceCard` for `place_card`, with the component's parameters as its properties, each
+a value or bound to the surface's data:
+
+```dart
+final ui = AIUIHost(
+  components: const [PlaceCardComponent()],
+  renderers: [A2UIRenderer()],
+  send: (action) => channel.sendMessage(Message(text: action.label, extraData: action.toCustomData())),
+);
+```
+
+```json
+{"id": "naum", "component": "PlaceCard", "title": "Monastery of Saint Naum", "note": {"@path": "/boat"}}
+```
+
+The component shows nothing while its values don't fit its parameters, such as while the agent is still writing them,
+and one the agent wrote without a required value, or with `null` for it, is reported to `onError`. A parameter's value
+is passed as written or as the binding or function resolves it; the component itself decides whether it fits.
+
+An event the component reports with `emit` is sent as an `AIUIAction` named after the event, with the label the
+component gave, and its payload with `component` set to the component's name. An app component holds no other
+components and no `action` of the agent's.
+
+A component the agent can't place is left out, and reported in debug builds: one whose name in PascalCase isn't an
+A2UI identifier, is `Surface`, or is the name of one of the basic catalog's components or of an earlier app
+component, and one with a parameter whose name isn't an identifier or is `id` or `component`.
+
 ## The look
 
 A reply's A2UI is drawn with an `A2UITheme` made from the app's Stream design system. A custom theme starts from it

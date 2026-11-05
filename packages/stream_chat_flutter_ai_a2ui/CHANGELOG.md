@@ -9,6 +9,9 @@
 - A button's event reaches the host as an `AIUIAction` labeled with the button's text, or else its event's name in
   words, with what the action asked for in its payload. Links open through the host, and functions the catalog
   doesn't have run as the host's tools.
+- `A2UIRenderer` places the app's components (`AIUIHost.components`) in A2UI replies: the agent names one in
+  PascalCase, such as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the
+  component.
 - `A2UIError`, `A2UIErrorCode` and `A2UIErrorHandler`: the problems with a reply's A2UI, given to the renderer's
   `onError` with the reply's message id. A function that fails or that no tool answers is reported as an expression
   error, a catalog function that fails while an action runs as an execution error, and a call whose surface is

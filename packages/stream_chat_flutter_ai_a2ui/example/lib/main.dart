@@ -2,6 +2,10 @@
 // published with A2UI's basic catalog, both shown by the package's
 // `A2UIRenderer`. What a person's actions do, each action an agent would get
 // and each link that would open, is listed below them.
+//
+// The app has one component of its own, `place_card`, which the agent places
+// as `PlaceCard` in the Ohrid reply. Its other components there, `TripMap` and
+// `CalendarCheck`, aren't the app's, so they are listed as unknown.
 
 import 'dart:async';
 import 'dart:convert';
@@ -49,8 +53,8 @@ class Example {
   final String file;
   final List<String> messages;
 
-  /// The component types the example uses that the catalog has no builder
-  /// for.
+  /// The component types the example uses that neither the catalog nor the
+  /// app's own components draw.
   final List<String> missing;
 
   static List<String> _missingOf(List<String> messages) {
@@ -64,7 +68,7 @@ class Example {
     messages.map(jsonDecode).forEach(walk);
     return [
       for (final type in types)
-        if (A2UICatalog.basic[type] == null) type,
+        if (A2UICatalog.basic[type] == null && type != PlaceCardComponent.type) type,
     ]..sort();
   }
 }
@@ -189,6 +193,7 @@ class _ExamplePageState extends State<ExamplePage> {
   final _log = _ActionLog();
   late final AIUIHost _host = AIUIHost(
     renderers: [A2UIRenderer(onError: (error, _) => _log.addError(error))],
+    components: const [PlaceCardComponent()],
     send: (action) async => _log.addAction(action),
     // The gallery has nowhere to open a link, so it only shows it.
     open: (link) => _log.add('Opened $link'),
@@ -301,6 +306,7 @@ class _ConversationPageState extends State<ConversationPage> {
   final _log = _ActionLog();
   late final AIUIHost _host = AIUIHost(
     renderers: [A2UIRenderer(onError: (error, _) => _log.addError(error))],
+    components: const [PlaceCardComponent()],
     send: _send,
   );
   late final List<_Message> _history = [
@@ -434,6 +440,73 @@ class _Note extends StatelessWidget {
       child: Text(
         text,
         style: context.streamTextTheme.captionDefault.copyWith(color: context.streamColorScheme.textSecondary),
+      ),
+    );
+  }
+}
+
+// What the agent writes for a place: its title and an optional note.
+typedef _Place = ({String title, String? note});
+
+// A place on a trip, which the agent places as `PlaceCard`, with a button
+// that asks the agent about it.
+class PlaceCardComponent extends AIUIComponent<_Place> {
+  const PlaceCardComponent();
+
+  /// The A2UI type the agent places it by.
+  static const type = 'PlaceCard';
+
+  @override
+  AIUIComponentDefinition get definition => const AIUIComponentDefinition(
+    name: 'place_card',
+    description: 'A place to visit, with a short note such as when to go.',
+    parameters: [
+      AIUIParameter.required('title', AIUIParameterType.string, description: "The place's name."),
+      AIUIParameter.optional('note', AIUIParameterType.string, description: 'A short tip, such as how long to stay.'),
+    ],
+    events: [AIUIComponentEvent(name: 'ask_about', description: 'The person asks about the place.')],
+  );
+
+  @override
+  _Place readArguments(AIUIArguments arguments) =>
+      (title: arguments.string('title'), note: arguments.optional('note', arguments.string));
+
+  @override
+  Widget build(BuildContext context, _Place place, AIUIComponentContext ui) {
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.backgroundSurface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          children: [
+            Icon(Icons.place, color: colors.accentPrimary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(place.title, style: text.bodyEmphasis.copyWith(color: colors.textPrimary)),
+                  if (place.note case final note?)
+                    Text(note, style: text.captionDefault.copyWith(color: colors.textSecondary)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chat_bubble_outline),
+              tooltip: 'Ask about ${place.title}',
+              onPressed: () => ui.emit(
+                'ask_about',
+                label: 'Tell me more about ${place.title}',
+                payload: {'title': place.title},
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -26,3 +26,7 @@
   lines 161-189: `words(of:)` copied unchanged, `buttonText` with the same casts over plain component properties,
   into a Swift driver). The package follows the `buttonText` rule where iOS and Android agree; for a text bound to an
   absolute path, blank text and a number it follows Android, so those cases document iOS only.
+- `ios_app_component_types.json` — the A2UI type of an app component: StreamChatA2UI's `PortableComponent.typeName`
+  for 15 names (`name` → `type`), produced by running it (stream-chat-swift `develop` @ `78b4612`,
+  `Sources/StreamChatA2UI/Catalog/PortableComponent.swift` lines 21-26, copied unchanged into a Swift driver). The
+  case `ßeta_card` documents iOS only: Dart's `toUpperCase` keeps `ß`.

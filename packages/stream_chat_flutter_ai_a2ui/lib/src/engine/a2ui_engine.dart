@@ -6,10 +6,12 @@ import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_renderer.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_action_label.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_app_components.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_reply_view.dart';
 
@@ -20,19 +22,33 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_reply_view.dart';
 /// [view], and are kept until the reply is [remove]d or the engine is
 /// disposed, while the reply streams and after it finishes.
 ///
+/// The host's components join the catalogs when the engine is made; one that
+/// can't is left out, and reported in debug builds.
+///
 /// Internal to the package.
 @internal
 final class A2UIEngine extends AIUIEngine {
   /// Creates the engine of [_renderer] for one conversation's [_host].
-  A2UIEngine(this._renderer, this._host)
-    : _catalogs = A2UICatalogs(
-        catalogId: _renderer.catalogId,
-        locale: WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
-      );
+  A2UIEngine(this._renderer, this._host) {
+    _appComponents = a2uiPlaceableComponents(
+      _host.components,
+      onLeftOut: (message) => _whenNotBuilding(() => _debugReportLeftOut(message)),
+    );
+    _catalogs = A2UICatalogs(
+      catalogId: _renderer.catalogId,
+      locale: WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
+      appComponents: {
+        for (final (:type, :component) in _appComponents) type: component.definition.parametersSchema,
+      },
+    );
+  }
 
   final A2UIRenderer _renderer;
   final AIUIHosting _host;
-  final A2UICatalogs _catalogs;
+  // The host's components the agent can place, read once, as the catalogs
+  // that hold them are made once for every reply.
+  late final List<({String type, AIUIComponent<Object?> component})> _appComponents;
+  late final A2UICatalogs _catalogs;
   final Map<String, _A2UIReply> _replies = {};
   // The latest document of each reply that [receive] got during a frame, to
   // apply once it ends.
@@ -40,6 +56,9 @@ final class A2UIEngine extends AIUIEngine {
   // What waits for the frame being built to end, in the order it came.
   final List<VoidCallback> _afterFrame = [];
   bool _disposed = false;
+
+  // The key of an app component's action payload that names the component.
+  static const _componentKey = 'component';
 
   @override
   void receive(AIUIDocument document, String messageId) {
@@ -70,7 +89,7 @@ final class A2UIEngine extends AIUIEngine {
     if (reply.processor.surfaceIds.isEmpty) return null;
     return A2UIReplyView(
       processor: reply.processor,
-      catalog: _renderer.catalog,
+      catalog: reply.catalog,
       theme: _renderer.theme,
       mediaUrl: _renderer.mediaUrl,
       onOpenLink: _host.open,
@@ -196,6 +215,52 @@ final class A2UIEngine extends AIUIEngine {
   // Whether [reply] is still one of this engine's, rather than removed.
   bool _shows(_A2UIReply reply) => identical(_replies[reply.messageId], reply);
 
+  // The widget of the app's [component] that a reply's surface places, with
+  // the values [scope] reads for its parameters.
+  Widget _buildAppComponent(A2UIComponentScope scope, AIUIComponent<Object?> component, _A2UIReply reply) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: reply.isStreaming,
+      builder: (context, isStreaming, _) {
+        final arguments = {
+          for (final parameter in component.definition.parameters)
+            if (scope.value(parameter.name) case final value?) parameter.name: value,
+        };
+        final context = AIUIComponentContext(
+          messageId: reply.messageId,
+          isStreaming: isStreaming,
+          host: _host,
+          emit: (event, label, payload) {
+            // A widget may report an event after its reply left or the
+            // engine was disposed, such as when its own request completes,
+            // and the agent never hears it.
+            if (!_shows(reply)) return Future<void>.value();
+            return _host.send(
+              AIUIAction(
+                messageId: reply.messageId,
+                format: AIUIFormat.a2ui,
+                name: event,
+                label: label,
+                payload: {...payload, _componentKey: component.name},
+              ),
+            );
+          },
+        );
+        return component.view(arguments, context) ?? const SizedBox.shrink();
+      },
+    );
+  }
+
+  static void _debugReportLeftOut(String message) {
+    if (!kDebugMode) return;
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: message,
+        library: 'stream_chat_flutter_ai_a2ui',
+        context: ErrorDescription("while adding the app's components to A2UI replies"),
+      ),
+    );
+  }
+
   static void _debugReport(Object problem, String messageId) {
     if (!kDebugMode) return;
     FlutterError.reportError(
@@ -223,6 +288,17 @@ final class _A2UIReply {
   final A2UIEngine _engine;
   final String messageId;
   late final A2UIProcessor processor;
+  // Whether the agent is still writing the reply, which the app's components
+  // are told, and built again when it changes.
+  final isStreaming = ValueNotifier(false);
+  // Whether [isStreaming] holds a value of the reply's yet.
+  bool _hasStreamingFlag = false;
+  // The builders of the reply's components: the renderer's, and the app's
+  // drawn for this reply.
+  late final A2UICatalog catalog = a2uiCatalogAdding(_engine._renderer.catalog, {
+    for (final (:type, :component) in _engine._appComponents)
+      type: (context, scope) => _engine._buildAppComponent(scope, component, this),
+  });
   List<String> _applied = const [];
   // Whether the tree of each surface was checked since its messages last
   // changed.
@@ -263,13 +339,31 @@ final class _A2UIReply {
     _applied = messages;
     processor.apply(added ?? messages);
     // A callback the messages reached may have removed the reply.
-    if (_disposed || document.isStreaming || _checked) return;
+    if (_disposed) return;
+    _setStreaming(document.isStreaming);
+    if (document.isStreaming || _checked) return;
     _checked = true;
     processor.checkTopology((error) => A2UIEngine._debugReport(error, messageId));
+  }
+
+  // Tells the app's components whether the agent is still writing the
+  // reply. The first value is the one they are built with. A reply applies
+  // while the conversation builds, and a component may show in a route above
+  // it, such as a `Modal`'s sheet, so they hear a change once the frame ends.
+  void _setStreaming(bool value) {
+    if (!_hasStreamingFlag) {
+      _hasStreamingFlag = true;
+      isStreaming.value = value;
+      return;
+    }
+    _engine._whenNotBuilding(() {
+      if (!_disposed) isStreaming.value = value;
+    });
   }
 
   void dispose() {
     _disposed = true;
     processor.dispose();
+    isStreaming.dispose();
   }
 }

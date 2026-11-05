@@ -17,6 +17,10 @@ part of 'a2ui_adapter.dart';
 /// formats, such as a `DateTimeInput`'s `min` being a date or a time, is kept
 /// whichever it is. Every other property is checked as the catalog lists it.
 ///
+/// The app's own components join both catalogs too, each under the A2UI type
+/// it is placed by; see [A2UICatalogs.new]. They hold no other components and
+/// no action.
+///
 /// It doesn't change, so one can be shared by several [A2UIProcessor]s, such
 /// as those of every reply in a chat.
 ///
@@ -25,8 +29,27 @@ part of 'a2ui_adapter.dart';
 final class A2UICatalogs {
   /// Creates the catalogs, with the app's catalog named [catalogId] and the
   /// format functions in the [locale].
-  A2UICatalogs({this.catalogId = defaultCatalogId, String locale = defaultLocale})
-    : _catalogs = _assemble(catalogId, locale);
+  ///
+  /// Each of [appComponents] maps an A2UI type, such as `PlaceCard`, to the
+  /// parameters of one of the app's components, written as a JSON Schema
+  /// object. A component of that type takes those parameters as its
+  /// properties, each written as any value or as a binding or a function call
+  /// whose result is its value; the ones the schema lists as `required` must
+  /// be there. What each parameter's schema says about its value isn't
+  /// checked here. Each type must be one
+  /// [appComponentProblem] finds nothing wrong with.
+  A2UICatalogs({
+    this.catalogId = defaultCatalogId,
+    String locale = defaultLocale,
+    Map<String, Map<String, Object?>> appComponents = const {},
+  }) : assert(
+         appComponents.entries.every((entry) => appComponentProblem(entry.key, entry.value) == null),
+         "A2UICatalogs was given app components that can't join the catalogs: ${[
+           for (final MapEntry(:key, :value) in appComponents.entries)
+             if (appComponentProblem(key, value) case final problem?) '$key ($problem)',
+         ].join(', ')}.",
+       ),
+       _catalogs = _assemble(catalogId, locale, appComponents);
 
   /// The catalogs a conformance case needs, the first of which is the app's.
   ///
@@ -67,9 +90,90 @@ final class A2UICatalogs {
 
   static final _noRefs = core.ComponentRefMap(const {});
 
-  static List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> _assemble(String catalogId, String locale) {
+  // A value, a binding or a function call.
+  static const _dynamicValue = {r'$ref': r'common_types.json#/$defs/DynamicValue'};
+
+  // The same, or `null`, which an optional parameter the agent leaves empty
+  // may hold.
+  static const _optionalDynamicValue = {
+    'anyOf': [
+      _dynamicValue,
+      {'type': 'null'},
+    ],
+  };
+
+  // The key of a component that holds its type.
+  static const _typeKey = 'component';
+
+  // The key of a component that holds its id, which its properties never
+  // read.
+  static const _idKey = 'id';
+
+  // The type of the surface itself, which a component may not take.
+  static const _surfaceType = 'Surface';
+
+  // The types of the basic catalog's components.
+  static final _basicTypes = core.BasicCatalog.v1_0().components.keys.toSet();
+
+  /// Why an app component of [type] whose parameters are [parametersSchema]
+  /// can't join the catalogs, or `null` when it can.
+  ///
+  /// The [type] must be an A2UI identifier, and must be neither `Surface` nor
+  /// the type of one of the basic catalog's components. The name of each
+  /// parameter must be an A2UI identifier other than `id` and `component`,
+  /// the keys that hold a component's id and type.
+  static String? appComponentProblem(String type, Map<String, Object?> parametersSchema) {
+    if (!core.isValidUax31Identifier(type)) return "its type '$type' isn't an A2UI identifier";
+    if (type == _surfaceType) return "its type '$type' is the surface's own";
+    if (_basicTypes.contains(type)) return "its type '$type' is one of the basic catalog's";
+    for (final name in _parameterNames(parametersSchema)) {
+      if (name == _typeKey) return "its parameter '$name' is the key that holds a component's type";
+      if (name == _idKey) return "its parameter '$name' is the key that holds a component's id";
+      if (!core.isValidUax31Identifier(name)) return "its parameter '$name' isn't an A2UI identifier";
+    }
+    return null;
+  }
+
+  static Iterable<String> _parameterNames(Map<String, Object?> parametersSchema) {
+    final properties = parametersSchema['properties'];
+    if (properties is! Map<String, Object?>) return const [];
+    return properties.keys;
+  }
+
+  // The definition of an app component of [type] with the parameters in
+  // [parametersSchema]. Each property takes any value, a binding or a function
+  // call, as a basic component's dynamic values do: the component itself
+  // decides whether the value it resolves to fits, so the parameter's own
+  // schema, which may refer to definitions it doesn't hold, isn't read.
+  static core.ComponentApi _appComponent(String type, Map<String, Object?> parametersSchema) {
+    final required = switch (parametersSchema['required']) {
+      final List<Object?> names => names.whereType<String>().toSet(),
+      _ => const <String>{},
+    };
+    return core.ComponentApi(
+      name: type,
+      schema: Schema.fromMap({
+        'type': 'object',
+        'properties': {
+          _typeKey: {'const': type},
+          for (final name in _parameterNames(parametersSchema))
+            name: required.contains(name) ? _dynamicValue : _optionalDynamicValue,
+        },
+        'required': [_typeKey, ...required],
+      }),
+    );
+  }
+
+  static List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> _assemble(
+    String catalogId,
+    String locale,
+    Map<String, Map<String, Object?>> appComponents,
+  ) {
     final basic = core.BasicCatalog.v1_0(locale: locale, openUrl: _openUrl);
-    final components = [for (final component in basic.components.values) _withLooseStyle(component)];
+    final components = [
+      for (final component in basic.components.values) _withLooseStyle(component),
+      for (final MapEntry(:key, :value) in appComponents.entries) _appComponent(key, value),
+    ];
     core.Catalog<core.ComponentApi, core.FunctionImplementation> named(String id) {
       return core.Catalog<core.ComponentApi, core.FunctionImplementation>(
         id: id,
