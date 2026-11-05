@@ -43,13 +43,16 @@ This is a [Melos 8](https://melos.invertase.dev) monorepo built on
 [Dart pub workspaces](https://dart.dev/tools/pub/workspaces).
 
 ```
-pubspec.yaml                            # workspace root: `workspace:` member list + `melos:` config
-analysis_options.yaml                   # lint + formatter config for every member
-packages/stream_chat_flutter_ai/        # the published package
-packages/stream_chat_flutter_ai/example # showcase app, publish_to: none
-packages/stream_chat_flutter_ai_a2ui/   # the A2UI renderer plugin, publish_to: none until released
+pubspec.yaml                                 # workspace root: `workspace:` member list + `melos:` config
+analysis_options.yaml                        # lint + formatter config for every member
+packages/stream_chat_flutter_ai/             # the core published package
+packages/stream_chat_flutter_ai/example      # showcase app, publish_to: none
+packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin, publish_to: none until released
 packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_to: none
 ```
+
+The two packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
+treat every `packages/*/` whose pubspec isn't `publish_to: none` as publishable.
 
 Consequences worth remembering:
 
@@ -112,21 +115,29 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 
 ## Releasing
 
-Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`:
+Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`. The published packages
+(`stream_chat_flutter_ai` and `stream_chat_flutter_ai_a2ui`) are released **in lockstep**: they always share
+one `version:`, one `v<version>` tag publishes both, and the A2UI package depends on
+`stream_chat_flutter_ai: ^<version>` (set in its own pubspec; bootstrap doesn't manage it). Until its first
+release PR drops `publish_to: none`, the A2UI package is private and the release tooling skips it.
 
-1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps the version, promotes
-   `## Upcoming` to `## <version>` in the CHANGELOG and opens a `chore(repo): release v<version>` PR.
+1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps both versions and the lockstep
+   constraint, promotes `## Upcoming` to `## <version>` in both CHANGELOGs and opens a
+   `chore(repo): release v<version>` PR.
 2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
-3. `release_tag.yml` reads `v<version>` from that commit, checks it matches the pubspec and isn't
-   tagged yet, and pushes the tag with `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger
-   the next workflow).
-4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC and creates the GitHub Release.
+3. `release_tag.yml` reads `v<version>` from that commit, checks it matches every publishable pubspec
+   (`.github/workflows/scripts/verify-release-versions.sh`) and isn't tagged yet, and pushes the tag with
+   `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
+4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC — core first, since the A2UI
+   upload needs core `<version>` on pub.dev — and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
-setup outside git: automated publishing enabled on the package's pub.dev admin page (repository
+setup outside git: automated publishing enabled on **each** package's pub.dev admin page (repository
 `GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, "Require GitHub Actions environment" left empty) and the
 `BOT_GITHUB_API_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
-`refs/tags/v*` to the bot is worth adding too.
+`refs/tags/v*` to the bot is worth adding too. pub.dev can't create a package through automated publishing,
+so a new package's first version is uploaded by hand by a publisher member before its admin page offers the
+setting; a release tag after that skips it if that version is already live.
 
 Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates the package but
 skips the publish and the GitHub Release. Below `1.0.0` a breaking release bumps the minor version
