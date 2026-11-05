@@ -179,11 +179,16 @@ something unexpected — surface it and stop.
 
 ### 3. Finalise the CHANGELOG
 
-Rename `## Upcoming` to `## <version>` in `packages/stream_chat_flutter_ai/CHANGELOG.md`. Keep the curated bullets
+Rename `## Upcoming` to `## <version>` in `packages/stream_chat_flutter_ai/CHANGELOG.md` and
+`packages/stream_chat_flutter_ai_a2ui/CHANGELOG.md`. Keep the curated bullets
 and sub-headings exactly as they are — don't add, rewrite, reorder or regenerate them.
 
 Don't write fresh bullets from `git log`. An unreleased user-facing change that never got an `## Upcoming` bullet
 is a gap to raise with the user, not one for this step to fill in.
+
+**The A2UI package's first release:** while `packages/stream_chat_flutter_ai_a2ui/pubspec.yaml` still has
+`publish_to: none` (and the comment above it), delete both lines in this same PR. Until then the package is private,
+so `lint:pub` and `release:pub` skip it; from this release on it is published with the core package.
 
 ### 4. Analyze, then commit
 

@@ -1,5 +1,7 @@
 name: stream_chat_flutter_ai_a2ui
 version: 0.1.0
+# Published from its first release on: the release PR drops this line.
+publish_to: none
 homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: A2UI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in A2UI in its replies.
 repository: https://github.com/GetStream/stream-chat-flutter-ai
