@@ -9,9 +9,9 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// are drawn with.
 ///
 /// A reply's A2UI is drawn with the theme [A2UITheme.fromStream] makes from
-/// the app's [StreamTheme], so it looks like the rest of the conversation. A
-/// theme that changes only A2UI, such as its accent, starts from that one and
-/// is given to the [A2UIRenderer]:
+/// the app's [StreamTheme], so it looks like the rest of the conversation.
+/// Every theme starts from that one: a theme that changes only A2UI, such as
+/// its accent, is made with [copyWith] and given to the [A2UIRenderer]:
 ///
 /// ```dart
 /// final renderer = A2UIRenderer(
@@ -24,11 +24,12 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// Two themes are equal when all their values are.
 @immutable
 final class A2UITheme {
-  /// Creates a theme from its colors, its text styles and its corner radii.
-  ///
-  /// The [headings] are the styles of headings from level 1 down, at least
-  /// one; see [heading]. The theme keeps its own copy of them.
-  A2UITheme({
+  // Private, so a value added to the theme later doesn't break an app: a
+  // theme starts from [A2UITheme.fromStream] and changes with [copyWith].
+  //
+  // The [headings] are the styles of headings from level 1 down, at least
+  // one; see [heading]. The theme keeps its own copy of them.
+  A2UITheme._({
     required this.accent,
     required this.onAccent,
     required this.text,
@@ -57,7 +58,7 @@ final class A2UITheme {
     final colors = theme.colorScheme;
     final text = theme.textTheme;
     final radius = theme.radius;
-    return A2UITheme(
+    return A2UITheme._(
       accent: colors.accentPrimary,
       onAccent: colors.textOnAccent,
       text: colors.textPrimary,
@@ -198,7 +199,7 @@ final class A2UITheme {
     double? buttonCornerRadius,
     double? controlCornerRadius,
   }) {
-    return A2UITheme(
+    return A2UITheme._(
       accent: accent ?? this.accent,
       onAccent: onAccent ?? this.onAccent,
       text: text ?? this.text,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
 void main() {
@@ -90,7 +91,7 @@ TextStyle _h3() => const TextStyle(fontSize: 20);
 // A theme whose values all differ from each other, so a value read from the
 // wrong field shows.
 A2UITheme _theme({List<TextStyle>? headings}) {
-  return A2UITheme(
+  return A2UITheme.fromStream(StreamTheme.light()).copyWith(
     accent: Colors.blue,
     onAccent: Colors.white,
     text: Colors.black,
