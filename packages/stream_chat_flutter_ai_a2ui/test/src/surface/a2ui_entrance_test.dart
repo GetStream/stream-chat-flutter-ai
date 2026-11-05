@@ -174,7 +174,7 @@ class _SurfaceRenderer extends AIUIRenderer {
   AIUIFormat get format => AIUIFormat.a2ui;
 
   @override
-  AIUIEngine makeEngine(AIUIHosting host) => _SurfaceEngine(surface);
+  AIUIEngine createEngine(AIUIHosting host) => _SurfaceEngine(surface);
 }
 
 class _SurfaceEngine extends AIUIEngine {
