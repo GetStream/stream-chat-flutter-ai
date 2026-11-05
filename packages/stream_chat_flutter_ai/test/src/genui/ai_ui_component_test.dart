@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -32,6 +33,20 @@ void main() {
     const PlaceCardComponent().view({'title': 3}, _context());
 
     expect(reports.single, contains('"place_card"'));
+  });
+
+  test("AIUIComponent.view reports an app's own error in readArguments as an error, not as the agent's", () {
+    final reports = _captureReports();
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = previous);
+
+    final view = const _BrokenComponent().view({'title': 'Ohrid'}, _context());
+
+    expect(view, isNull);
+    expect(errors.single.exception, isStateError);
+    expect(reports, isEmpty);
   });
 
   test('AIUIComponent.view brings the component in as it shows', () {
@@ -87,4 +102,12 @@ List<String> _captureReports() {
   debugPartIssueReporter = reports.add;
   addTearDown(() => debugPartIssueReporter = null);
   return reports;
+}
+
+// A component whose own code fails while it reads its arguments.
+class _BrokenComponent extends PlaceCardComponent {
+  const _BrokenComponent();
+
+  @override
+  String readArguments(AIUIArguments arguments) => throw StateError('The app broke');
 }

@@ -72,16 +72,31 @@ abstract class AIUIComponent<T> {
   /// when [readArguments] throws, such as while the agent is still writing
   /// them.
   ///
+  /// A [FormatException], which [AIUIArguments] throws, means the agent's
+  /// arguments don't fit, and is reported in debug builds once the UI is
+  /// written. Anything else is the app's own error, and is reported to
+  /// [FlutterError.onError].
+  ///
   /// The widget is wrapped in an [AIUIEntrance], so it animates in when it
   /// appears. Renderers call this to place a component.
   Widget? view(Map<String, Object?> arguments, AIUIComponentContext context) {
     final T read;
     try {
       read = readArguments(AIUIArguments(arguments));
-    } on Object catch (error) {
+    } on FormatException catch (error) {
       if (!context.isStreaming) {
         reportPartIssue(() => 'The arguments of the component "$name" don\'t fit its parameters ($error).');
       }
+      return null;
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while reading the arguments of the component "$name"'),
+        ),
+      );
       return null;
     }
     return AIUIEntrance(child: Builder(builder: (buildContext) => build(buildContext, read, context)));

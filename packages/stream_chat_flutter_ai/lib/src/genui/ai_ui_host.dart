@@ -76,6 +76,10 @@ abstract mixin class AIUIHosting {
 
   /// The UI state saved for the reply [messageId], such as a form's values, or
   /// `null` if none was saved.
+  ///
+  /// The slot belongs to the reply's engine, which uses it to restore the
+  /// reply's UI when it's rebuilt, such as after scrolling back to it, while
+  /// the UI on screen keeps its own live state. Components don't write to it.
   Object? state(String messageId);
 
   /// Saves [state] for the reply [messageId], or clears it when [state] is
@@ -233,6 +237,10 @@ final class AIUIHost with AIUIHosting {
 
   /// The UI state saved for the reply [messageId], such as a form's values, or
   /// `null` if none was saved.
+  ///
+  /// The slot belongs to the reply's engine, which uses it to restore the
+  /// reply's UI when it's rebuilt, such as after scrolling back to it, while
+  /// the UI on screen keeps its own live state. Components don't write to it.
   ///
   /// It's kept for as long as the host is alive and the reply is in the
   /// conversation.
