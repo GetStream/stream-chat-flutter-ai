@@ -74,7 +74,7 @@ class _CatalogRenderer extends AIUIRenderer {
   Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) => added;
 
   @override
-  AIUIEngine makeEngine(AIUIHosting host) => TestEngine(host);
+  AIUIEngine createEngine(AIUIHosting host) => TestEngine(host);
 }
 
 class _PlaceCard extends PlaceCardComponent {
@@ -98,7 +98,7 @@ class _ToolsRenderer extends AIUIRenderer {
   }
 
   @override
-  AIUIEngine makeEngine(AIUIHosting host) => TestEngine(host);
+  AIUIEngine createEngine(AIUIHosting host) => TestEngine(host);
 }
 
 // A tool called [name], described by its name.

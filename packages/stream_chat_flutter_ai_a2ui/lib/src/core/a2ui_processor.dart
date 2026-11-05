@@ -63,6 +63,10 @@ final class A2UIProcessor extends ChangeNotifier {
   /// `onUnreadable` instead of `onError`.
   ///
   /// None of the three is called after [dispose].
+  ///
+  /// None of the three may throw: one that does stops [apply] partway, and
+  /// leaves the problem it was given marked as reported. Its creator runs app
+  /// code behind its own guard, as the engine does.
   A2UIProcessor({required this._catalogs, this._onAction, this._onError, this._onUnreadable})
     : _defaultsCatalog = true,
       _debugChecks = null,
@@ -124,9 +128,11 @@ final class A2UIProcessor extends ChangeNotifier {
   /// on its own.
   ///
   /// A text that isn't a JSON object is skipped (see `onUnreadable`). A message
-  /// with a `version` other than 1.0, or that its surfaces can't take, is
-  /// reported and skipped; see [A2UIVersions.check] for the version and the
-  /// message keys.
+  /// with no `version`, or with one this package doesn't read, or that its
+  /// surfaces can't take, is reported and skipped; see [A2UIVersions.check]
+  /// for the versions read and the message keys. Anything else that goes
+  /// wrong applying a message is reported with [FlutterError.reportError], and
+  /// the messages after it still apply.
   ///
   /// Notifies listeners once, after the last message, if the surfaces changed.
   void apply(List<String> messages) {
@@ -164,8 +170,8 @@ final class A2UIProcessor extends ChangeNotifier {
       return;
     }
     if (decoded case {'messages': final List<Object?> batch} when !_namesAMessage(decoded)) {
-      for (final item in batch) {
-        _applyBatchItem(item);
+      for (final (index, item) in batch.indexed) {
+        _applyBatchItem(index, item);
         // Messages applied to a disposed core would leave surfaces in it that
         // nothing disposes.
         if (_disposed) return;
@@ -176,14 +182,30 @@ final class A2UIProcessor extends ChangeNotifier {
   }
 
   // A batch item that isn't an object is a malformed batch, which A2UI reports.
-  void _applyBatchItem(Object? item) {
+  // The error names the item, so the items of one batch are told apart.
+  void _applyBatchItem(int index, Object? item) {
     if (item is Map<String, Object?>) {
       _applyMessage(item);
       return;
     }
     _report(
-      const A2UIError(code: A2UIErrorCode.validationFailed, message: 'Unknown A2UI message type. Keys: ', path: ''),
+      A2UIError(
+        code: A2UIErrorCode.validationFailed,
+        message: "Item ${index + 1} of the A2UI batch isn't an object: it is ${_jsonKind(item)}.",
+        path: '',
+      ),
     );
+  }
+
+  static String _jsonKind(Object? value) {
+    return switch (value) {
+      null => 'null',
+      String() => 'a string',
+      num() => 'a number',
+      bool() => 'a boolean',
+      List<Object?>() => 'a list',
+      _ => 'a ${value.runtimeType}',
+    };
   }
 
   static bool _namesAMessage(Map<String, Object?> json) {
@@ -207,6 +229,17 @@ final class A2UIProcessor extends ChangeNotifier {
           _core.processMessages([forCore]);
         } on core.A2uiError catch (error) {
           _report(_errorFromCore(error, message: message));
+        } catch (error, stack) {
+          // Anything else is a fault of the core rather than of the message,
+          // so it isn't reported as A2UI. The messages after it still apply.
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stack,
+              library: 'stream_chat_flutter_ai_a2ui',
+              context: ErrorDescription('while applying an A2UI message'),
+            ),
+          );
         } finally {
           _tooLargeSurfaceId = null;
           // Also when the core throws something else, so a tree held back
@@ -384,6 +417,8 @@ final class A2UIProcessor extends ChangeNotifier {
   }
 
   void _handleAction(core.A2uiRendererAction action) {
+    // An action that was still running when this processor was disposed.
+    if (_disposed) return;
     _onAction?.call(
       A2UIActionEvent(
         name: action.name,

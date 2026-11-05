@@ -89,6 +89,30 @@ void main() {
 
     expect(events, isEmpty);
   });
+
+  test('no event reaches onAction from a node whose surface was deleted', () async {
+    final events = <A2UIActionEvent>[];
+    final processor = testProcessor(events: events)..apply([createPlanSurface(), updatePlanComponents()]);
+    final update = rootChild(processor.surface('plan')!, 'update');
+
+    processor.apply([deletePlanSurface()]);
+    await update.act('action');
+
+    expect(events, isEmpty);
+  });
+
+  test('no event reaches onAction from a node of before a reset, though its surface is back', () async {
+    final events = <A2UIActionEvent>[];
+    final processor = testProcessor(events: events)..apply([createPlanSurface(), updatePlanComponents()]);
+    final update = rootChild(processor.surface('plan')!, 'update');
+
+    processor
+      ..reset()
+      ..apply([createPlanSurface(), updatePlanComponents()]);
+    await update.act('action');
+
+    expect(events, isEmpty);
+  });
 }
 
 const _openUrlButton = [

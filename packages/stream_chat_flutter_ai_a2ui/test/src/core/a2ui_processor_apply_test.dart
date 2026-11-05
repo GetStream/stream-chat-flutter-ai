@@ -66,6 +66,21 @@ void main() {
     expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
+  test("apply reports each batch item that isn't an object, by its place and kind", () {
+    final errors = <A2UIError>[];
+    _processor(errors: errors).apply([
+      jsonEncode({
+        'messages': ['text', 7, null],
+      }),
+    ]);
+
+    expect(errors.map((error) => error.message), [
+      "Item 1 of the A2UI batch isn't an object: it is a string.",
+      "Item 2 of the A2UI batch isn't an object: it is a number.",
+      "Item 3 of the A2UI batch isn't an object: it is null.",
+    ]);
+  });
+
   test("apply applies the rest of a batch after an item that isn't an object", () {
     final processor = _processor()
       ..apply([

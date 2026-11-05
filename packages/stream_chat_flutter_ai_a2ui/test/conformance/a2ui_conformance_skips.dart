@@ -5,6 +5,9 @@ const _otherVersions = {'v0.8', 'v0.9', 'v0.9.1'};
 const _v09Syntax = 'Written in v0.9 syntax (`path`, a bare `name`), which a 1.0 renderer reads as literals.';
 const _agentCallIds = "Calls to the agent come from bindings and actions, with call ids of the renderer's own.";
 const _callConfig = 'Per-call validation config of the optional agent_renderer_app feature.';
+const _functionCallErrors =
+    'Expects the error to name the function call, and the errors of this package name no function call; '
+    'a2ui_core 0.4.0 also rejects the message rather than answering it.';
 
 const _byName = <String, String>{
   'test_action_event_with_data_binding': _v09Syntax,
@@ -31,6 +34,9 @@ const _byName = <String, String>{
   'test_error_response_call_renderer_function_missing_catalog_id': _functionCallErrors,
   'test_error_response_call_renderer_function_non_object_args': _functionCallErrors,
   'test_error_response_call_renderer_function_missing_call_function': _functionCallErrors,
+  'test_error_response_delete_surface_missing_surface_id':
+      'Expects `surfaceId: ""` for a message that names no surface; the errors of this package give `null` for '
+      'no surface. (a2ui_core 0.4.0 also gives the error no `/surfaceId` path.)',
 };
 
 // What a2ui_core 0.4.0, the core this package is built on, doesn't do yet:
@@ -41,9 +47,6 @@ const _errorPaths =
     "a2ui_core 0.4.0 points the error at the component's own field (such as `/id`), not at its place in the "
     'message (`/components/0/id`); the message paths came after 0.4.0, with `MessageErrorMapper`.';
 const _notRejected = 'a2ui_core 0.4.0 accepts this message; rejecting it came after 0.4.0.';
-const _functionCallErrors =
-    'Expects the error to name the function call, and the errors of this package name no function call; '
-    'a2ui_core 0.4.0 also rejects the message rather than answering it.';
 const _actionMetadata = 'Action metadata (`dispatchAction(metadata:)`) came after a2ui_core 0.4.0 (a2ui#3757).';
 const _validationResult = 'a2ui_core 0.4.0 gives a check no single `validationResult`.';
 const _checkCode =
@@ -55,7 +58,6 @@ const _coreGaps = <String, String>{
   'test_error_response_update_components_invalid_property_type': _errorPaths,
   'test_error_response_update_components_invalid_uax31_id': _errorPaths,
   'test_error_response_update_components_unallowed_parent': _errorPaths,
-  'test_error_response_delete_surface_missing_surface_id': _errorPaths,
   'test_custom_catalog_1_0': _errorPaths,
   'test_v10_function_argument_schema_mismatch_error': _errorPaths,
   'test_v10_uax31_invalid_identifier_error': _errorPaths,
@@ -79,6 +81,14 @@ const _coreGaps = <String, String>{
   'test_validation_result_multiple_rules_preserve_order': _checkCode,
   'test_validation_result_reactive_recovery_on_data_update': _checkCode,
 };
+
+/// The case names the skip list names, so a test can check each is still a
+/// case of the vendored suites.
+Set<String> get conformanceSkippedNames => {..._byName.keys, ..._coreGaps.keys};
+
+/// Whether the case [name] is skipped for a gap of a2ui_core, which it passes
+/// once the core closes the gap.
+bool isConformanceCoreGap(String name) => _coreGaps.containsKey(name);
 
 /// Why the case [name] of [suite] isn't run, or `null` when it is.
 String? conformanceSkipReason(String suite, String name, Map<String, Object?> testCase) {

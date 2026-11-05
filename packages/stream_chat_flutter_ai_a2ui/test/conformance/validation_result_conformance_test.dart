@@ -6,5 +6,5 @@ import 'package:flutter_test/flutter_test.dart';
 import 'a2ui_conformance.dart';
 
 void main() {
-  runConformanceSuite('validation_result');
+  runConformanceSuite('validation_result', run: 2, skipped: 4);
 }

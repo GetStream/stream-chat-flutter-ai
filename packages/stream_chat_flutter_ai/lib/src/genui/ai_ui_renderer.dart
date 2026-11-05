@@ -16,13 +16,17 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_tool_definition.dart';
 /// [AIUIDocument] into a widget, placing the app's components by name where
 /// the agent asked for them.
 ///
+/// Extend it rather than implementing it. Members added in later versions come
+/// with a default, so a subclass keeps compiling, while a class that
+/// `implements` it would break.
+///
 /// ```dart
 /// class CardsRenderer extends AIUIRenderer {
 ///   @override
 ///   AIUIFormat get format => const AIUIFormat('cards');
 ///
 ///   @override
-///   AIUIEngine makeEngine(AIUIHosting host) => CardsEngine(host);
+///   AIUIEngine createEngine(AIUIHosting host) => CardsEngine(host);
 /// }
 ///
 /// class CardsEngine extends AIUIEngine {
@@ -72,7 +76,7 @@ abstract class AIUIRenderer {
 
   /// Creates the engine that shows this format's documents in one
   /// conversation, for that conversation's [host].
-  AIUIEngine makeEngine(AIUIHosting host);
+  AIUIEngine createEngine(AIUIHosting host);
 }
 
 /// Turns one format's documents into widgets, for one conversation.
@@ -81,6 +85,15 @@ abstract class AIUIRenderer {
 /// needed, and keeps it until the host is disposed. So an engine can keep
 /// state for each reply, such as a form's values, and can follow formats in
 /// which a later reply changes an earlier reply's UI.
+///
+/// Extend it rather than implementing it. Members added in later versions come
+/// with a default, so a subclass keeps compiling, while a class that
+/// `implements` it would break.
+///
+/// When [receive], [remove] or [view] throws, the host reports the error to
+/// [FlutterError.onError] and carries on, and a reply whose [view] threw shows
+/// its text, so one document the engine can't read doesn't break the
+/// conversation.
 abstract class AIUIEngine {
   /// Creates an [AIUIEngine].
   AIUIEngine();
@@ -101,12 +114,14 @@ abstract class AIUIEngine {
   /// Does nothing by default.
   void remove(String messageId) {}
 
-  /// Builds the widget for a reply's [document], or returns `null` to show the
-  /// reply's text instead, such as for a reply that only changed an earlier
-  /// reply's UI.
+  /// Builds the widget for a reply's [document], or returns `null` when there
+  /// is nothing to show yet, such as for a reply that only changed an earlier
+  /// reply's UI. The reply then shows its text, if it has any. A reply with
+  /// nothing else to show isn't shown at all, and while the agent is still
+  /// writing it, the conversation shows the agent thinking.
   ///
-  /// It's called again when the reply's document changes, or when the reply is
-  /// built from scratch, such as after scrolling back into view. It isn't
+  /// It's called once for each document of a reply, which can be before the
+  /// reply is on screen, to tell whether the reply shows anything. It isn't
   /// called again when other replies change, so a widget that other replies
   /// can update should listen to the engine's state, such as a [Listenable].
   Widget? view(AIUIDocument document, String messageId);

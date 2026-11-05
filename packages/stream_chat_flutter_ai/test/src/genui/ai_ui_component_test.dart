@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -34,6 +35,20 @@ void main() {
     expect(reports.single, contains('"place_card"'));
   });
 
+  test("AIUIComponent.view reports an app's own error in readArguments as an error, not as the agent's", () {
+    final reports = _captureReports();
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = previous);
+
+    final view = const _BrokenComponent().view({'title': 'Ohrid'}, _context());
+
+    expect(view, isNull);
+    expect(errors.single.exception, isStateError);
+    expect(reports, isEmpty);
+  });
+
   test('AIUIComponent.view brings the component in as it shows', () {
     final view = const PlaceCardComponent().view({'title': 'Ohrid'}, _context());
 
@@ -48,7 +63,7 @@ void main() {
     final emitted = <(String, String)>[];
 
     _context(
-      emit: (event, label, _) => emitted.add((event, label)),
+      emit: (event, label, _) async => emitted.add((event, label)),
     ).emit('ask_about', label: 'Tell me more about Ohrid', payload: {'title': 'Ohrid'});
 
     expect(emitted, [('ask_about', 'Tell me more about Ohrid')]);
@@ -58,7 +73,7 @@ void main() {
     final payloads = <Map<String, Object?>>[];
 
     _context(
-      emit: (_, _, payload) => payloads.add(payload),
+      emit: (_, _, payload) async => payloads.add(payload),
     ).emit('ask_about', label: 'Tell me more about Ohrid', payload: {'title': 'Ohrid'});
 
     expect(payloads, [
@@ -69,7 +84,7 @@ void main() {
   test('AIUIComponentContext.emit gives an empty payload when the component gives none', () {
     final payloads = <Map<String, Object?>>[];
 
-    _context(emit: (_, _, payload) => payloads.add(payload)).emit('ask_about', label: 'Tell me more about Ohrid');
+    _context(emit: (_, _, payload) async => payloads.add(payload)).emit('ask_about', label: 'Tell me more about Ohrid');
 
     expect(payloads, [<String, Object?>{}]);
   });
@@ -79,7 +94,7 @@ AIUIComponentContext _context({bool isStreaming = false, AIUIEventEmitter? emit}
   messageId: 'm1',
   isStreaming: isStreaming,
   host: testHost(components: const [PlaceCardComponent()]),
-  emit: emit ?? (_, _, _) {},
+  emit: emit ?? (_, _, _) async {},
 );
 
 List<String> _captureReports() {
@@ -87,4 +102,12 @@ List<String> _captureReports() {
   debugPartIssueReporter = reports.add;
   addTearDown(() => debugPartIssueReporter = null);
   return reports;
+}
+
+// A component whose own code fails while it reads its arguments.
+class _BrokenComponent extends PlaceCardComponent {
+  const _BrokenComponent();
+
+  @override
+  String readArguments(AIUIArguments arguments) => throw StateError('The app broke');
 }
