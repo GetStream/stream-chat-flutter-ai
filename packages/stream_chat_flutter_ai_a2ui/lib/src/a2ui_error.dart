@@ -52,8 +52,9 @@ final class A2UIError {
 
 /// The code of an [A2UIError].
 ///
-/// The constants are the codes this package reports. Any other string is a
-/// valid code too, such as one A2UI adds later.
+/// The constants are A2UI's error codes; this package doesn't report every
+/// one of them. Any other string is a valid code too, such as one A2UI adds
+/// later.
 extension type const A2UIErrorCode(String _) implements String {
   /// A message, component or value that doesn't match what A2UI or the catalog
   /// allows.

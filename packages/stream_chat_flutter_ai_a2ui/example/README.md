@@ -8,7 +8,8 @@ Ohrid trip example the Stream agent backend gives its model, all shown by `strea
 at once. Tapping a button sends the action as the person's next message, and "Read about Ohrid" opens its web page
 outside the app.
 
-In the gallery, examples that use components the package doesn't draw yet say which. "Replay" writes an example
+In the gallery, an example that uses components neither the basic catalog nor the app has, such as the Ohrid example's
+`TripMap` and `CalendarCheck`, says which. "Replay" writes an example
 message by message, so components come in as they arrive.
 
 Below both, the app lists what a person's actions did: each action an agent would get, with its label and payload.

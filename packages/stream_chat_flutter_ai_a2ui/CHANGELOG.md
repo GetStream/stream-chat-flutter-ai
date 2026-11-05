@@ -22,9 +22,3 @@
   `Slider`, `DateTimeInput` and `Modal`.
 - `A2UICatalog.basic` draws `Video`, with its poster until it plays, and `AudioPlayer`, with its description. Neither
   plays until the person taps play.
-
-
-🐞 Fixed
-
-- A vertical `Divider` in a `Row` is as tall as the row whatever the row's `align`. It drew nothing in a row that
-  wasn't stretched.
