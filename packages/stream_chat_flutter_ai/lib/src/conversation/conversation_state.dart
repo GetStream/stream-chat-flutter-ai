@@ -59,14 +59,14 @@ class ConversationEntry {
   ConversationEntry asLatestReply() => ConversationEntry._(id, message, pending, sentAttachments, true);
 }
 
-/// Whether a reply's generated UI can be shown, such as when one of the
-/// conversation host's renderers reads its format.
+/// Whether the generated UI [document] of the reply [messageId] shows, such as
+/// when one of the conversation host's renderers built a widget for it.
 @internal
-typedef CanShowUI = bool Function(AIUIDocument document);
+typedef CanShowUI = bool Function(AIUIDocument document, String messageId);
 
 /// A [CanShowUI] for a conversation without generated UI.
 @internal
-bool showsNoUI(AIUIDocument document) => false;
+bool showsNoUI(AIUIDocument document, String messageId) => false;
 
 /// Whether [message] is a reply with nothing to show yet: no text, steps or
 /// attachments, and no generated UI that [canShowUI] accepts.
@@ -76,7 +76,7 @@ bool showsNothing(AIMessage message, {CanShowUI canShowUI = showsNoUI}) {
   if (message.text.isNotEmpty || message.parts.isNotEmpty || message.attachments.isNotEmpty) return false;
   final document = message.uiDocument;
   if (document == null) return true;
-  return !canShowUI(document);
+  return !canShowUI(document, message.id);
 }
 
 /// A message the person sent and the replies after it. Messages before their

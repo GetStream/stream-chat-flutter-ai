@@ -3,10 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 /// An engine that records what it is given, and shows a document's text.
+///
+/// It throws a [StateError] when asked to `receive`, `view` or `remove` a reply
+/// that [fails] lists for that call.
 class TestEngine extends AIUIEngine {
-  TestEngine(this.host);
+  TestEngine(this.host, {this.fails = const {}});
 
   final AIUIHosting host;
+  final Map<String, String> fails;
   final received = <(String, AIUIDocument)>[];
   final shown = <(String, AIUIDocument)>[];
   final removed = <String>[];
@@ -18,15 +22,20 @@ class TestEngine extends AIUIEngine {
   void receive(AIUIDocument document, String messageId) {
     received.add((messageId, document));
     asked.add('receive $messageId');
+    _failIf('receive', messageId);
   }
 
   @override
-  void remove(String messageId) => removed.add(messageId);
+  void remove(String messageId) {
+    removed.add(messageId);
+    _failIf('remove', messageId);
+  }
 
   @override
   Widget? view(AIUIDocument document, String messageId) {
     shown.add((messageId, document));
     asked.add('view $messageId');
+    _failIf('view', messageId);
     final text = document.text;
     return text == null ? null : Text(text, textDirection: TextDirection.ltr);
   }
@@ -36,17 +45,24 @@ class TestEngine extends AIUIEngine {
     isDisposed = true;
     super.dispose();
   }
+
+  void _failIf(String call, String messageId) {
+    if (fails[messageId] == call) throw StateError("Can't $call $messageId");
+  }
 }
 
 /// A renderer of [format] that reads the versions starting with [versions],
 /// and keeps the engines it makes.
 class TestRenderer extends AIUIRenderer {
-  TestRenderer({this.format = AIUIFormat.openUI, this.versions = '1.'});
+  TestRenderer({this.format = AIUIFormat.openUI, this.versions = '1.', this.fails = const {}});
 
   @override
   final AIUIFormat format;
 
   final String versions;
+
+  /// The call each reply's engine throws on, by reply id (see [TestEngine]).
+  final Map<String, String> fails;
   final engines = <TestEngine>[];
 
   @override
@@ -58,8 +74,8 @@ class TestRenderer extends AIUIRenderer {
   };
 
   @override
-  AIUIEngine makeEngine(AIUIHosting host) {
-    final engine = TestEngine(host);
+  AIUIEngine createEngine(AIUIHosting host) {
+    final engine = TestEngine(host, fails: fails);
     engines.add(engine);
     return engine;
   }

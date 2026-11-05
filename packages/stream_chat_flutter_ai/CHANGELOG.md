@@ -30,29 +30,9 @@
 - `ComposerAttachmentSheet.scrollController` and `ChatComposerAttachmentSheetProps.scrollController`
   — the sheet's scroll controller. A custom sheet passes it to its scrollable so the sheet scrolls
   with its drag.
-- Generative UI: an agent's reply can carry interactive UI, such as a trip plan with a map and a
-  form, which `AIConversationView` shows instead of the reply's text. What the person does in it is
-  sent as their next message. Formats such as A2UI and OpenUI come as separate renderer packages.
-- `AIConversationView.ui` — takes an `AIUIHost`, which shows replies' generated UI.
-- `AIUIHost` and `AIUIHosting` — manage a conversation's generated UI: its renderers, the app's
-  components and tools, where the person's actions are sent, and per-reply UI state. By default only
-  web and email links open, in the browser or mail app. Tools run on their own only when they're
-  read-only, and any other tool only when the person asks for it. `AIUIToolException` is thrown when
-  a tool the UI runs is missing, isn't allowed to run, or fails.
-- `AIToolDefinition.isReadOnly` — marks a tool that only reads data, which generated UI may run on
-  its own.
-- `AIUIRenderer` and `AIUIEngine` — what a renderer package implements to show one format.
-- `AIUIComponent`, `AIUIComponentContext` and `AIUIArguments` — let the agent use the app's own
-  widgets, such as a map or a calendar, in any format.
-- `AIUIView` — shows one reply's generated UI outside `AIConversationView`.
-- `AIUIEntrance` — animates parts of generated UI in as they appear.
-- `AIUIDocument`, `AIUIAction` and `AIUIFormat` — the `ai_ui` and `ai_ui_action` custom fields that
-  carry a reply's UI and the person's actions.
-- `AIUIComponentDefinition`, `AIUIComponentEvent`, `AIUIParameter` and `AIUIParameterType` —
-  describe an app component to the agent, in JSON shared with the other platforms and the backend.
-- `AIMessage.uiDocument` — a reply's generated UI, `null` by default.
-- `AIAssistantMessageProps(text:)` — the text the assistant message builder shows, empty when the
-  reply's generated UI is shown instead.
+- Generative UI: `AIConversationView.ui` takes an `AIUIHost` that shows a reply's `AIMessage.uiDocument`
+  with app-supplied renderers and components, and `AIToolDefinition.isReadOnly` marks the tools it may
+  run on its own.
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.

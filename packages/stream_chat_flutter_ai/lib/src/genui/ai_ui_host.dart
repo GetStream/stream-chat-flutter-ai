@@ -33,6 +33,11 @@ typedef AIUILinkOpener = void Function(Uri url);
 /// keeping each reply's UI state.
 ///
 /// [AIUIHost] implements it.
+///
+/// A host of your own, such as a fake one in tests, should mix it in or extend
+/// it rather than implementing it. Members added in later versions come with a
+/// default, so it keeps compiling, while a class that `implements` it would
+/// break.
 abstract mixin class AIUIHosting {
   /// The app's components, which any renderer can place.
   List<AIUIComponent<Object?>> get components;
@@ -41,16 +46,22 @@ abstract mixin class AIUIHosting {
   AIUIComponent<Object?>? component(String name) => components.where((component) => component.name == name).firstOrNull;
 
   /// Sends [action] to the agent as the person's next message.
-  void send(AIUIAction action);
+  ///
+  /// Completes once it is sent, or with the error if sending failed, so the UI
+  /// can, for example, disable a button meanwhile or say the action didn't
+  /// reach the agent. Ignoring the result is fine.
+  Future<void> send(AIUIAction action);
 
   /// Runs the app's tool called [name] on this device, such as to load data the
   /// UI shows, and completes with the tool's output.
   ///
   /// Set [userInitiated] when the person asked for it, such as by tapping a
   /// button, rather than the UI running it on its own while it shows. Without
-  /// it, only a read-only tool ([AIToolDefinition.isReadOnly]) runs, so UI the
-  /// agent wrote can't change anything, such as sending an email, without the
-  /// person's tap.
+  /// it, only a read-only tool ([AIToolDefinition.isReadOnly]) runs, so a
+  /// renderer runs a tool that changes something, such as sending an email,
+  /// only when the person asks. The host can't check either side of this:
+  /// renderers must set [userInitiated] only for the person's own actions, and
+  /// the app must mark only tools that change nothing as read-only.
   ///
   /// Throws an [AIUIToolException] if there is no tool with that name, if it
   /// isn't read-only and [userInitiated] is `false`, or if the tool fails.
@@ -138,37 +149,44 @@ final class AIUIHost with AIUIHosting {
   final _engines = <int, AIUIEngine>{};
   final _states = <String, Object?>{};
   final _received = <String, AIUIDocument>{};
+  // The widget each reply's engine built for its latest document, so the
+  // conversation and the reply's row agree on whether the reply shows UI.
+  final _built = <String, (AIUIDocument, Widget?)>{};
   Future<void> _lastSend = Future<void>.value();
   bool _isDisposed = false;
 
   /// Whether one of the [renderers] reads [document]'s format and version.
   ///
-  /// A renderer that reads it can still decide to show nothing for a reply, in
-  /// which case the reply shows its text. [AIUIView.canShow] tells the two
-  /// apart.
+  /// This doesn't mean the reply shows UI: the renderer's engine can still
+  /// build nothing for it, such as before an A2UI reply has a surface. Use
+  /// [AIUIView.canShow] to tell whether a reply's UI actually shows.
   bool canShow(AIUIDocument document) => _positionOf(document) != null;
 
   /// Sends [action] to the agent, waiting for earlier actions to be sent first
   /// so the agent gets them in the order they happened.
   ///
-  /// If sending fails, the error is reported to [FlutterError.onError], and
-  /// later actions are still sent.
+  /// Completes once it is sent. If sending fails, it completes with the
+  /// error, which is also reported to [FlutterError.onError], and later
+  /// actions are still sent.
+  ///
+  /// Does nothing once the host is disposed.
   @override
-  void send(AIUIAction action) {
-    _lastSend = _lastSend.then((_) async {
-      try {
-        await _sendAction(action);
-      } on Object catch (error, stack) {
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stack,
-            library: 'stream_chat_flutter_ai',
-            context: ErrorDescription("while sending what the person did in a reply's UI"),
-          ),
-        );
-      }
-    });
+  Future<void> send(AIUIAction action) {
+    if (_isDisposed) return Future<void>.value();
+    final sent = _lastSend.then((_) => _sendAction(action));
+    // The next action waits for this one, whether it was sent or not.
+    _lastSend = sent.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) => FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription("while sending what the person did in a reply's UI"),
+        ),
+      ),
+    );
+    return sent;
   }
 
   @override
@@ -177,6 +195,7 @@ final class AIUIHost with AIUIHosting {
     Map<String, Object?> arguments = const {},
     bool userInitiated = false,
   }) async {
+    if (_isDisposed) throw AIUIToolException("Can't run $name: the host was disposed");
     final tool = _tools[name];
     if (tool == null) throw AIUIToolException('No tool named $name');
     if (!userInitiated && !tool.definition.isReadOnly) {
@@ -189,7 +208,21 @@ final class AIUIHost with AIUIHosting {
       executor: AIToolExecutor.client,
       arguments: deepUnmodifiable(arguments)! as Map<String, Object?>,
     );
-    return switch (await tool.run(call)) {
+    final AIClientToolResult result;
+    try {
+      result = await tool.run(call);
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription("while running the tool $name for a reply's UI"),
+        ),
+      );
+      throw AIUIToolException('$name failed');
+    }
+    return switch (result) {
       AIClientToolCompleted(:final output) => output,
       AIClientToolFailed(:final reason) => throw AIUIToolException(reason),
     };
@@ -225,7 +258,11 @@ final class AIUIHost with AIUIHosting {
   /// [AIConversationView] calls this itself. An app that shows replies with
   /// [AIUIView] instead calls it each time the conversation's messages
   /// change.
+  ///
+  /// Does nothing once the host is disposed.
   void receive(List<AIMessage> messages) {
+    assert(!_isDisposed, 'AIUIHost.receive was called after the host was disposed.');
+    if (_isDisposed) return;
     final documents = [
       for (final message in messages)
         if (message.role != AIMessageRole.user)
@@ -235,8 +272,11 @@ final class AIUIHost with AIUIHosting {
     for (final MapEntry(key: messageId, value: document) in _received.entries.toList()) {
       if (current.contains(messageId)) continue;
       _received.remove(messageId);
+      _built.remove(messageId);
       _states.remove(messageId);
-      if (_positionOf(document) case final position?) _engine(position).remove(messageId);
+      if (_positionOf(document) case final position?) {
+        _guarded(_kRemoving, () => _engine(position).remove(messageId));
+      }
     }
     for (final (messageId, document) in documents) {
       final previous = _received[messageId];
@@ -246,8 +286,8 @@ final class AIUIHost with AIUIHosting {
       // A reply whose UI another renderer now reads, or none does, is gone
       // from the engine that had it.
       final had = previous == null ? null : _positionOf(previous);
-      if (had != null && had != position) _engine(had).remove(messageId);
-      if (position != null) _engine(position).receive(document, messageId);
+      if (had != null && had != position) _guarded(_kRemoving, () => _engine(had).remove(messageId));
+      if (position != null) _guarded(_kReceiving, () => _engine(position).receive(document, messageId));
     }
   }
 
@@ -288,21 +328,46 @@ final class AIUIHost with AIUIHosting {
 
   /// Releases the renderers' engines.
   ///
-  /// The host can't be used afterwards.
+  /// Afterwards the host shows no UI and sends no actions, and [runTool]
+  /// throws an [AIUIToolException].
   void dispose() {
     _isDisposed = true;
     for (final engine in _engines.values) {
       engine.dispose();
     }
     _engines.clear();
+    _built.clear();
   }
 
   // The widget of a reply's document from the first renderer that reads its
-  // format and version.
+  // format and version. The engine is asked once per document, and a document
+  // it throws on shows nothing.
   Widget? _content(AIUIDocument document, String messageId) {
+    if (_isDisposed) return null;
+    if (_built[messageId] case (final built, final content) when built == document) return content;
     final position = _positionOf(document);
-    if (position == null) return null;
-    return _engine(position).view(document, messageId);
+    final content = position == null ? null : _guarded(_kBuilding, () => _engine(position).view(document, messageId));
+    _built[messageId] = (document, content);
+    return content;
+  }
+
+  // Calls a renderer's engine, reporting what it throws to
+  // [FlutterError.onError] rather than letting one reply's UI break the
+  // conversation. Returns `null` when it throws.
+  static T? _guarded<T>(String doing, T Function() call) {
+    try {
+      return call();
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription(doing),
+        ),
+      );
+      return null;
+    }
   }
 
   int? _positionOf(AIUIDocument document) {
@@ -316,13 +381,19 @@ final class AIUIHost with AIUIHosting {
   // The engine of the renderer at [position], made the first time it is needed.
   AIUIEngine _engine(int position) {
     assert(!_isDisposed, 'An AIUIHost was used after it was disposed.');
-    return _engines.putIfAbsent(position, () => renderers[position].makeEngine(this));
+    if (_isDisposed) throw StateError('An AIUIHost was used after it was disposed.');
+    return _engines.putIfAbsent(position, () => renderers[position].createEngine(this));
   }
 
   @override
   String toString() =>
       'AIUIHost(renderers: [${renderers.map((renderer) => renderer.format).join(', ')}], components: $components)';
 }
+
+// What the host was doing when an engine threw, for the error report.
+const _kReceiving = "while passing a reply's UI to its renderer";
+const _kRemoving = "while removing a reply's UI from its renderer";
+const _kBuilding = "while building a reply's UI";
 
 // The version of the capabilities' shape.
 const _kCapabilitiesVersion = 1;
@@ -344,7 +415,9 @@ void _openIfWebOrEmail(Uri url) {
   }
   unawaited(
     launchUrl(url, mode: LaunchMode.externalApplication).then<void>(
-      (_) {},
+      (opened) {
+        if (!opened) reportPartIssue(() => "No app could open $url, which a reply's UI asked to open.");
+      },
       onError: (Object error, StackTrace stack) => FlutterError.reportError(
         FlutterErrorDetails(
           exception: error,
@@ -358,7 +431,8 @@ void _openIfWebOrEmail(Uri url) {
 }
 
 /// Thrown by [AIUIHosting.runTool] when the app has no tool with the given
-/// name, or when the tool fails.
+/// name, when the tool isn't read-only and the person didn't ask for it, or
+/// when the tool fails.
 final class AIUIToolException implements Exception {
   /// Creates an [AIUIToolException] that says why the tool couldn't run.
   const AIUIToolException(this.message);
@@ -377,7 +451,7 @@ final class AIUIToolException implements Exception {
 /// [AIConversationView] uses it for every reply. Use it directly to show a
 /// reply's UI somewhere else: when [canShow] is `true`, show it below an
 /// [AIAssistantMessageView] with empty text. Otherwise show the reply's text
-/// as usual.
+/// as usual, or nothing while the reply has no text or anything else to show.
 ///
 /// While the agent is still writing the UI, it animates in as it first
 /// appears, and so do parts added later (see [AIUIEntrance]).
@@ -393,8 +467,8 @@ final class AIUIToolException implements Exception {
 /// );
 /// ```
 ///
-/// Creating an [AIUIView] asks the renderer's engine to build the reply's
-/// widget, so create a new one only when the reply's document changes.
+/// The host asks the renderer's engine for the reply's widget once for each
+/// document, and gives every [AIUIView] of that document the same widget.
 class AIUIView extends StatelessWidget {
   /// Creates an [AIUIView] that shows [document], the generated UI of the
   /// reply [messageId], with [host]'s renderers.

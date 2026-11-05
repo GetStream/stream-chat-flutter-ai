@@ -41,4 +41,4 @@ void main() {
 
 AIUIDocument _writingUI() => openUI('root = Card([title])', isStreaming: true);
 
-bool _showsUI(AIUIDocument document) => true;
+bool _showsUI(AIUIDocument document, String messageId) => true;
