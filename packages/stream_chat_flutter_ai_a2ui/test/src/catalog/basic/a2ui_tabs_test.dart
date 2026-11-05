@@ -101,6 +101,23 @@ void main() {
     expect(find.text('Sunday plan'), findsOneWidget);
   });
 
+  testWidgets('a selected tab that the agent removes and adds back is selected again', (tester) async {
+    final processor = await _pumpTabs(tester, withMonday: true);
+    await tester.tap(find.text('Monday'));
+    await tester.pump();
+
+    processor.apply([
+      updateComponents([_tabs(saturdayTitle: 'Saturday')]),
+    ]);
+    await tester.pump();
+    processor.apply([
+      updateComponents([_tabs(saturdayTitle: 'Saturday', withMonday: true)]),
+    ]);
+    await tester.pump();
+
+    expect(find.text('Monday plan'), findsOneWidget);
+  });
+
   testWidgets('the selected tab stays selected when the agent adds accessibility to the Tabs', (tester) async {
     final processor = await _pumpTabs(tester);
     await tester.tap(find.text('Sunday'));

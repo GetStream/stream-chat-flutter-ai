@@ -411,10 +411,11 @@ class _RenderA2UIFlex extends RenderBox
   @override
   void performLayout() {
     final children = getChildrenAsList();
-    final arrangement = _arrange(constraints, (child, constraints) {
-      child.layout(constraints, parentUsesSize: true);
-      return child.size;
-    });
+    // The children are measured by their dry layouts, which are cached, and
+    // laid out once below: laying a child out for each measurement would lay
+    // out its whole subtree again each time, and so cost more with each level
+    // of nesting.
+    final arrangement = _arrange(constraints, (child, constraints) => child.getDryLayout(constraints));
     size = arrangement.size;
     final stretches = _align == 'stretch';
     final offsets = a2uiFlexOffsets(

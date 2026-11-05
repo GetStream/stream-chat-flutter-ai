@@ -11,17 +11,11 @@ part of 'a2ui_adapter.dart';
 /// takes any value here: a component with a value its catalog doesn't list,
 /// such as a `variant` of `h1`, is kept, and is drawn in the property's
 /// default style. One bound to the data model is read from it, as any
-/// property is, and is drawn in the default style too. Any other property the
-/// catalog lists the strings of, such as an `Icon`'s `name`, takes any
-/// string, so an icon of a name the catalog doesn't have is kept too, and a
-/// string the catalog asks to be one of several formats, such as a
-/// `DateTimeInput`'s `min` being a date or a time, is kept whichever it is.
-///
-/// Its functions format numbers and dates for `locale`, a BCP 47 tag such as
-/// `de-DE`; a tag the functions don't know formats as `en-US`. Its `openUrl`
-/// opens a link only while a node runs an action the person started (see
-/// [A2UINode.act]), and only an `http` or `https` link with a host; it reports
-/// any other.
+/// property is, and is drawn in the default style too. An `Icon`'s `name`
+/// takes any string, so an icon of a name the catalog doesn't have is kept
+/// too, and shows a fallback. A string the catalog asks to be one of several
+/// formats, such as a `DateTimeInput`'s `min` being a date or a time, is kept
+/// whichever it is. Every other property is checked as the catalog lists it.
 ///
 /// It doesn't change, so one can be shared by several [A2UIProcessor]s, such
 /// as those of every reply in a chat.
@@ -95,9 +89,10 @@ final class A2UICatalogs {
   }
 
   static core.ComponentApi _withLooseStyle(core.ComponentApi component) {
+    final loosened = _loosened(component.schema.value);
     return core.ComponentApi(
       name: component.name,
-      schema: Schema.fromMap(_loosened(component.schema.value)),
+      schema: Schema.fromMap(component.name == 'Icon' ? _withAnyIconName(loosened) : loosened),
       allowedParents: component.allowedParents,
       allowedChildren: component.allowedChildren,
     );
@@ -113,7 +108,7 @@ final class A2UICatalogs {
       if (properties is Map<String, Object?>)
         'properties': {
           for (final MapEntry(:key, :value) in properties.entries)
-            key: _styleProperties.contains(key) && _isStringChoice(value) ? _anyValue : _anyString(value),
+            key: _styleProperties.contains(key) && _isStringChoice(value) ? _anyValue : _anyFormat(value),
         },
       if (parts is List<Object?>)
         'allOf': [
@@ -125,22 +120,50 @@ final class A2UICatalogs {
 
   static bool _isStringChoice(Object? schema) => schema is Map<String, Object?> && schema['enum'] is List<Object?>;
 
+  // The `Icon` [schema] with any string allowed as its `name`, where it is
+  // listed, so an icon the catalog doesn't have shows the help icon instead
+  // of being dropped.
+  static Map<String, Object?> _withAnyIconName(Map<String, Object?> schema) {
+    final properties = schema['properties'];
+    final parts = schema['allOf'];
+    return {
+      ...schema,
+      if (properties is Map<String, Object?>)
+        'properties': {
+          for (final MapEntry(:key, :value) in properties.entries) key: key == 'name' ? _anyString(value) : value,
+        },
+      if (parts is List<Object?>)
+        'allOf': [
+          for (final part in parts)
+            if (part is Map<String, Object?>) _withAnyIconName(part) else part,
+        ],
+    };
+  }
+
   // [schema] with each list of the strings a value may be taken out, at any
-  // depth, so any string passes; a builder shows a fallback for one it
-  // doesn't know, such as the help icon for an icon name.
-  //
-  // A choice of string formats, such as a `DateTimeInput`'s `min` being a
-  // date, a time or a date and time, becomes a choice of any of them: the
-  // schema library checks no format, so every string matches all of them,
-  // and "exactly one" would drop the component.
+  // depth, so any string passes.
   static Object? _anyString(Object? schema) {
     return switch (schema) {
       final Map<String, Object?> map => {
         for (final MapEntry(:key, :value) in map.entries)
-          if (!(key == 'enum' && map['type'] == 'string'))
-            key == 'oneOf' && _isFormatChoice(value) ? 'anyOf' : key: _anyString(value),
+          if (!(key == 'enum' && map['type'] == 'string')) key: _anyString(value),
       },
       final List<Object?> list => [for (final item in list) _anyString(item)],
+      _ => schema,
+    };
+  }
+
+  // [schema] with each choice of string formats, at any depth, such as a
+  // `DateTimeInput`'s `min` being a date, a time or a date and time, made a
+  // choice of any of them: the schema library checks no format, so every
+  // string matches all of them, and "exactly one" would drop the component.
+  static Object? _anyFormat(Object? schema) {
+    return switch (schema) {
+      final Map<String, Object?> map => {
+        for (final MapEntry(:key, :value) in map.entries)
+          key == 'oneOf' && _isFormatChoice(value) ? 'anyOf' : key: _anyFormat(value),
+      },
+      final List<Object?> list => [for (final item in list) _anyFormat(item)],
       _ => schema,
     };
   }

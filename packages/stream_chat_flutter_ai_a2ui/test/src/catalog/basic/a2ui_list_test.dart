@@ -72,6 +72,53 @@ void main() {
     expect(tester.getSize(card).width, 12 + 24 + 12);
   });
 
+  for (final (name, child) in <(String, List<Map<String, Object?>>)>[
+    (
+      'a header image',
+      [
+        {'id': 'child', 'component': 'Image', 'url': 'https://example.com/header.png', 'variant': 'header'},
+      ],
+    ),
+    (
+      'a horizontal divider',
+      [
+        {'id': 'child', 'component': 'Divider'},
+      ],
+    ),
+    (
+      'a row with a weighted child',
+      [
+        {
+          'id': 'child',
+          'component': 'Row',
+          'children': ['text'],
+        },
+        {'id': 'text', 'component': 'Text', 'text': 'Ohrid', 'weight': 1},
+      ],
+    ),
+  ]) {
+    testWidgets('a horizontal list with $name lays out without an error', (tester) async {
+      await pumpSurface(
+        tester,
+        components: [
+          {
+            'id': 'root',
+            'component': 'List',
+            'direction': 'horizontal',
+            'children': ['child', 'i0'],
+          },
+          ...child,
+          iconImage('i0'),
+        ],
+        width: 300,
+        mediaUrl: (url) => null,
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(imageBox('i0')), const Size(24, 24));
+    });
+  }
+
   testWidgets('align center places a child of a vertical list in the middle', (tester) async {
     await _pumpList(tester, align: 'center', variants: const ['icon', 'avatar']);
 

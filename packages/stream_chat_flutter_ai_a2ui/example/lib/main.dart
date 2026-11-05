@@ -305,7 +305,7 @@ class _GalleryRenderer extends AIUIRenderer {
   AIUIFormat get format => AIUIFormat.a2ui;
 
   @override
-  AIUIEngine makeEngine(AIUIHosting host) => _GalleryEngine(processor, onOpenLink: onOpenLink);
+  AIUIEngine createEngine(AIUIHosting host) => _GalleryEngine(processor, onOpenLink: onOpenLink);
 }
 
 class _GalleryEngine extends AIUIEngine {

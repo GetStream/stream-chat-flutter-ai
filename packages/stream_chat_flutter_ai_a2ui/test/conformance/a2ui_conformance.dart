@@ -28,18 +28,51 @@ part 'conformance_rpc.dart';
 // subset); an expected list must have the same length.
 
 /// Registers a test for each case of the suite named `suite`, read from
-/// `conformance/core/<suite>.yaml`, and one that checks the suite has cases.
-void runConformanceSuite(String suite) {
+/// `conformance/core/<suite>.yaml`, and one that checks the suite runs `run`
+/// cases and skips `skipped`, so a re-vendored suite whose cases move in or
+/// out of the skip list shows in review.
+///
+/// With `A2UI_CONFORMANCE_CORE_GAPS=true` in the environment, a case skipped
+/// for a gap of the core runs instead, and is expected to fail; one that
+/// passes is a gap the core has closed, whose skip can go.
+void runConformanceSuite(String suite, {required int run, required int skipped}) {
   final cases = _cases(suite);
+  final reasons = {for (final testCase in cases) testCase: _skipReason(suite, testCase)};
 
-  test('the $suite suite has cases', () {
-    expect(cases, isNotEmpty);
+  test('the $suite suite runs $run cases and skips $skipped', () {
+    expect(run, isPositive, reason: 'A suite whose cases are all skipped belongs to skipConformanceSuite.');
+    expect(
+      (run: reasons.values.where((reason) => reason == null).length, skipped: reasons.values.nonNulls.length),
+      (run: run, skipped: skipped),
+    );
   });
 
-  for (final testCase in cases) {
+  for (final MapEntry(key: testCase, value: reason) in reasons.entries) {
     final name = testCase['name']! as String;
-    test(name, () => _run(testCase), skip: conformanceSkipReason(suite, name, testCase));
+    if (_runsCoreGaps && isConformanceCoreGap(name)) {
+      test('$name fails, for a gap of the core', () async {
+        await expectLater(() async => _run(testCase), throwsA(isA<TestFailure>()), reason: 'The core closed the gap.');
+      });
+      continue;
+    }
+    test(name, () => _run(testCase), skip: reason);
   }
+}
+
+String? _skipReason(String suite, Map<String, Object?> testCase) {
+  return conformanceSkipReason(suite, testCase['name']! as String, testCase);
+}
+
+final _runsCoreGaps = Platform.environment['A2UI_CONFORMANCE_CORE_GAPS'] == 'true';
+
+/// The names of every case of every vendored suite.
+Set<String> conformanceCaseNames() {
+  return {
+    for (final file in Directory('$_root/conformance/core').listSync().whereType<File>())
+      if (file.path.endsWith('.yaml'))
+        for (final item in _json(loadYaml(file.readAsStringSync()))! as List<Object?>)
+          (item! as Map<String, Object?>)['name']! as String,
+  };
 }
 
 /// Registers one skipped test for the suite named `suite`, which isn't run,

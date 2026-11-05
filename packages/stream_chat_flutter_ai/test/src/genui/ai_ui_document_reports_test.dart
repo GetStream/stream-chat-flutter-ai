@@ -45,6 +45,14 @@ void main() {
     expect(reports.single, contains('ignored `version`'));
   });
 
+  test('AIUIDocument.fromCustomData reports a v that is not a number', () {
+    final reports = _captureReports();
+
+    AIUIDocument.fromCustomData(_customData(const {'v': '2', 'format': 'openui', 'content': 'root = Card([])'}));
+
+    expect(reports.single, contains('`ai_ui.v` is 2, not a number'));
+  });
+
   test('AIUIDocument.fromCustomData reports a status that is not a string', () {
     final reports = _captureReports();
 

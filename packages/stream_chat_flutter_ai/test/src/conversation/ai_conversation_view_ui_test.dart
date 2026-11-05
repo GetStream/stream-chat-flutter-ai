@@ -177,6 +177,119 @@ void main() {
     expect(find.byType(AIThinkingView), findsOneWidget);
   });
 
+  testWidgets("AIConversationView keeps the thinking while a reply's engine has built nothing yet", (tester) async {
+    await _pump(tester, [
+      _question(),
+      Reply('a1', isGenerating: true, uiDocument: _builtNothing(isStreaming: true)),
+    ], ui: testHost());
+
+    expect(find.byType(AIThinkingView), findsOneWidget);
+    expect(find.byType(AIAssistantMessageView), findsNothing);
+  });
+
+  testWidgets('AIConversationView leaves out a finished reply that has no text and whose engine built nothing', (
+    tester,
+  ) async {
+    await _pump(tester, [_question(), Reply('a1', uiDocument: _builtNothing())], ui: testHost());
+
+    expect(find.byType(AIAssistantMessageView), findsNothing);
+    expect(find.text('actions for a1'), findsNothing);
+  });
+
+  testWidgets("AIConversationView shows a reply's text when its engine built nothing", (tester) async {
+    await _pump(tester, [
+      _question(),
+      Reply('a1', text: 'Your plan is updated', uiDocument: _builtNothing()),
+    ], ui: testHost());
+
+    expect(_text('Your plan is updated'), findsOneWidget);
+    expect(find.text('actions for a1'), findsOneWidget);
+  });
+
+  testWidgets('AIConversationView shows a reply once its engine builds its UI', (tester) async {
+    final ui = testHost();
+
+    await _pump(tester, [
+      _question(),
+      Reply('a1', isGenerating: true, uiDocument: _builtNothing(isStreaming: true)),
+    ], ui: ui);
+    await _pump(tester, [
+      _question(),
+      Reply('a1', isGenerating: true, uiDocument: openUI('Ohrid plan card', isStreaming: true)),
+    ], ui: ui);
+
+    expect(_text('Ohrid plan card'), findsOneWidget);
+    expect(find.byType(AIThinkingView), findsNothing);
+  });
+
+  testWidgets("AIConversationView shows the other replies' UI when an engine throws on receiving one", (tester) async {
+    final renderer = TestRenderer(fails: {'a1': 'receive'});
+
+    await _pump(tester, [
+      _question(),
+      Reply('a1', uiDocument: openUI('Ohrid plan card')),
+      Reply('a2', uiDocument: openUI('Struga plan card')),
+    ], ui: testHost(renderers: [renderer]));
+
+    expect(tester.takeException(), isStateError);
+    expect(_text('Struga plan card'), findsOneWidget);
+  });
+
+  testWidgets("AIConversationView shows a reply's text when its engine throws on building its UI", (tester) async {
+    final renderer = TestRenderer(fails: {'a1': 'view'});
+
+    await _pump(tester, [
+      _question(),
+      Reply('a1', text: 'Here is your plan', uiDocument: openUI('Ohrid plan card')),
+    ], ui: testHost(renderers: [renderer]));
+
+    expect(tester.takeException(), isStateError);
+    expect(_text('Here is your plan'), findsOneWidget);
+  });
+
+  testWidgets('AIConversationView still builds when an engine throws on removing a reply', (tester) async {
+    final ui = testHost(
+      renderers: [
+        TestRenderer(fails: {'a1': 'remove'}),
+      ],
+    );
+
+    await _pump(tester, [_question(), Reply('a1', uiDocument: openUI('Ohrid plan card'))], ui: ui);
+    await _pump(tester, [_question()], ui: ui);
+
+    expect(tester.takeException(), isStateError);
+    expect(_text('Plan a weekend in Ohrid'), findsOneWidget);
+  });
+
+  testWidgets('AIConversationView shows the actions once a reply whose UI streamed finishes', (tester) async {
+    final ui = testHost();
+
+    await _pump(tester, [
+      _question(),
+      Reply('a1', isGenerating: true, uiDocument: openUI('Ohrid plan card', isStreaming: true)),
+    ], ui: ui);
+    await _pump(tester, [_question(), Reply('a1', uiDocument: openUI('Ohrid plan card'))], ui: ui);
+
+    expect(find.text('actions for a1'), findsOneWidget);
+  });
+
+  testWidgets("AIConversationView keeps the state of a reply's UI while the agent writes more of it", (tester) async {
+    final renderer = _StatefulRenderer();
+    final ui = testHost(renderers: [renderer]);
+
+    await _pump(tester, [
+      _question(),
+      Reply('a1', isGenerating: true, uiDocument: openUI('Ohrid', isStreaming: true)),
+    ], ui: ui);
+    await _pump(tester, [
+      _question(),
+      Reply('a1', isGenerating: true, uiDocument: openUI('Ohrid and Struga', isStreaming: true)),
+    ], ui: ui);
+
+    expect(_text('Ohrid and Struga'), findsOneWidget);
+    expect(renderer.states, 1);
+  });
+
   testWidgets("AIConversationView gives the engines every reply's UI before its rows build", (tester) async {
     const moreTurnsThanFitOnScreen = 80;
     final renderer = TestRenderer();
@@ -218,7 +331,53 @@ void main() {
 
 const _kScreen = Size(400, 600);
 
+// A renderer whose UI keeps state, counting the states it makes.
+class _StatefulRenderer extends AIUIRenderer {
+  int states = 0;
+
+  @override
+  AIUIFormat get format => AIUIFormat.openUI;
+
+  @override
+  AIUIEngine createEngine(AIUIHosting host) => _StatefulEngine(this);
+}
+
+class _StatefulEngine extends AIUIEngine {
+  _StatefulEngine(this.renderer);
+
+  final _StatefulRenderer renderer;
+
+  @override
+  Widget? view(AIUIDocument document, String messageId) => _Card(document.text!, renderer);
+}
+
+class _Card extends StatefulWidget {
+  const _Card(this.text, this.renderer);
+
+  final String text;
+  final _StatefulRenderer renderer;
+
+  @override
+  State<_Card> createState() => _CardState();
+}
+
+class _CardState extends State<_Card> {
+  @override
+  void initState() {
+    super.initState();
+    widget.renderer.states++;
+  }
+
+  @override
+  Widget build(BuildContext context) => Text(widget.text);
+}
+
 Reply _question() => Reply('q1', role: AIMessageRole.user, text: 'Plan a weekend in Ohrid');
+
+// A document the test engine reads but builds nothing for, as an engine does
+// before a reply's UI has anything to show.
+AIUIDocument _builtNothing({bool isStreaming = false}) =>
+    AIUIDocument(format: AIUIFormat.openUI, isStreaming: isStreaming, content: const <Object?>[]);
 
 Finder _text(String text) => find.textContaining(text, findRichText: true);
 

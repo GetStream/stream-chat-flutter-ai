@@ -249,7 +249,11 @@ class _AIConversationViewState extends State<AIConversationView> {
     // The rows build only the replies on screen, so the engines take every
     // reply's UI first.
     ui?.receive(widget.messages);
-    final canShowUI = ui?.canShow ?? showsNoUI;
+    // The same answer as the rows': whether the engine built a widget.
+    final canShowUI = ui == null
+        ? showsNoUI
+        : (AIUIDocument document, String messageId) =>
+              AIUIView(host: ui, document: document, messageId: messageId).canShow;
     _entries = _tracker.entries(widget.messages, widget.pendingMessage, canShowUI: canShowUI);
     _thinking =
         widget.isThinking || _tracker.isAwaitingReply(widget.messages, widget.pendingMessage, canShowUI: canShowUI);

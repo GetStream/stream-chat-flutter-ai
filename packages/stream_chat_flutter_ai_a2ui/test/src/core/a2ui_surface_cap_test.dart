@@ -249,6 +249,74 @@ void main() {
     expect(surface.root!.children('children'), hasLength(3));
   });
 
+  test("a write to the surface's data that takes a template past the limit releases the tree", () {
+    final processor = _processor()
+      ..apply([
+        _create(_template(), data: {'items': _items(3)}),
+      ]);
+    final surface = processor.surface('s')!..write('/items', _items(6000));
+
+    expect(surface.root, isNull);
+  });
+
+  test("a write to the surface's data that takes a template past the limit is reported", () {
+    final errors = <A2UIError>[];
+    final processor = _processor(errors: errors)
+      ..apply([
+        _create(_template(), data: {'items': _items(3)}),
+      ]);
+
+    processor.surface('s')!.write('/items', _items(6000));
+
+    expect(errors.map((error) => error.code), [A2UIErrorCode.recursionLimitExceeded]);
+  });
+
+  test("a write to the surface's data that brings a template under the limit builds the tree again", () {
+    final processor = _processor()
+      ..apply([
+        _create(_template(), data: {'items': _items(6000)}),
+      ]);
+    final surface = processor.surface('s')!..write('/items', _items(3));
+
+    expect(surface.root!.children('children'), hasLength(3));
+  });
+
+  test("a write through a component's binding that takes a template past the limit releases the tree", () {
+    final processor = _processor()
+      ..apply([
+        _create(
+          [
+            {
+              'id': 'root',
+              'component': 'Column',
+              'children': ['list', 'count'],
+            },
+            {
+              'id': 'list',
+              'component': 'Column',
+              'children': {'componentId': 'item', 'path': '/items'},
+            },
+            {
+              'id': 'item',
+              'component': 'Text',
+              'text': {'@path': 'name'},
+            },
+            {
+              'id': 'count',
+              'component': 'Text',
+              'text': {'@path': '/items'},
+            },
+          ],
+          data: {'items': _items(3)},
+        ),
+      ]);
+    final surface = processor.surface('s')!;
+
+    surface.root!.children('children').last.write('text', _items(6000));
+
+    expect(surface.root, isNull);
+  });
+
   test('a data change the data model rejects leaves the tree built', () {
     final processor = _processor()
       ..apply([

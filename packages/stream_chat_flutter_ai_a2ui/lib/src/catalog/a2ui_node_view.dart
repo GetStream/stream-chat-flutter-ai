@@ -6,7 +6,9 @@ part of 'a2ui_component_scope.dart';
 ///
 /// It draws nothing while the component is on its way or its type has no
 /// builder, and builds again when the component's properties or children
-/// change.
+/// change. A builder that throws draws nothing either: the error goes to
+/// [FlutterError.reportError], and to the processor's `onError` as an
+/// `EXECUTION_ERROR` once the frame is done.
 ///
 /// Internal to the package.
 @internal
@@ -32,11 +34,32 @@ class A2UINodeView extends StatelessWidget {
         return AIUIEntrance(
           child: _A2UIAccessibility(
             node: node,
-            child: Builder(builder: (context) => builder(context, _NodeScope(node, catalog, onOpenLink, openModal))),
+            child: Builder(
+              builder: (context) => _build(context, builder, _NodeScope(node, catalog, onOpenLink, openModal)),
+            ),
           ),
         );
       },
     );
+  }
+
+  // What [builder] builds for the component, or nothing when it throws.
+  Widget _build(BuildContext context, A2UIComponentBuilder builder, A2UIComponentScope scope) {
+    try {
+      return builder(context, scope);
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai_a2ui',
+          context: ErrorDescription("while building the A2UI component '${node.id}' of type '${node.type}'"),
+        ),
+      );
+      // Reported after the frame, as the app may rebuild in its `onError`.
+      WidgetsBinding.instance.addPostFrameCallback((_) => node.reportBuildError(error));
+      return const SizedBox.shrink();
+    }
   }
 }
 

@@ -19,3 +19,7 @@ runs:
     - name: "Stream Chat Flutter AI Analyze"
       shell: bash
       run: cd packages/stream_chat_flutter_ai/lib && dart analyze --fatal-infos . && cd .. && flutter test --exclude-tags golden
+
+    - name: "Stream Chat Flutter AI A2UI Analyze"
+      shell: bash
+      run: cd packages/stream_chat_flutter_ai_a2ui/lib && dart analyze --fatal-infos . && cd .. && flutter test --exclude-tags golden

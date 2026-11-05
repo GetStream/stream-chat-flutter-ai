@@ -5,14 +5,18 @@
 /// rows, columns, cards and tabs, and the fields, choices and buttons a person
 /// uses, with a theme made from the app's Stream design system. An
 /// `A2UITheme` holds its look, and an `A2UICatalog` its components, each of
-/// which can be drawn another way:
+/// which can be drawn another way. A builder draws with the surface's theme
+/// through `A2UITheme.of`:
 ///
 /// ```dart
 /// final theme = A2UITheme.fromStream(StreamTheme.of(context)).copyWith(
 ///   cornerRadius: 8,
 /// );
-/// final catalog = A2UICatalog.basic.replacing('Divider', (context, scope) {
-///   return const SizedBox(height: 16);
+///
+/// // In a `static final` field: a catalog made in `build` is a new one each
+/// // time, so everything drawn with it is built again.
+/// static final catalog = A2UICatalog.basic.replacing('Divider', (context, scope) {
+///   return Container(height: 1, color: A2UITheme.of(context).border);
 /// });
 /// ```
 ///

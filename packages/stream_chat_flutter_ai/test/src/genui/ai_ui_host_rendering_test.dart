@@ -21,6 +21,38 @@ void main() {
     expect(testHost().canShow(const AIUIDocument(format: AIUIFormat.a2ui, content: '{}')), isFalse);
   });
 
+  test('AIUIHost.canShow reads a format whose engine builds nothing for the document', () {
+    const nothing = AIUIDocument(format: AIUIFormat.openUI, content: <Object?>[]);
+    final host = testHost();
+
+    expect(host.canShow(nothing), isTrue);
+    expect(AIUIView(host: host, document: nothing, messageId: 'm1').canShow, isFalse);
+  });
+
+  test("AIUIView shows a renderer's format written without a version", () {
+    expect(AIUIView(host: testHost(), document: openUI('root = Card([])'), messageId: 'm1').canShow, isTrue);
+  });
+
+  test("AIUIView shows a version the format's renderer supports", () {
+    final view = AIUIView(
+      host: testHost(),
+      document: openUI('root = Card([])', version: '1.2.0'),
+      messageId: 'm1',
+    );
+
+    expect(view.canShow, isTrue);
+  });
+
+  test("AIUIView can't show a version no renderer of the format supports", () {
+    final view = AIUIView(
+      host: testHost(),
+      document: openUI('root = Card([])', version: '2.0.0'),
+      messageId: 'm1',
+    );
+
+    expect(view.canShow, isFalse);
+  });
+
   test("AIUIView can't show a format no renderer reads", () {
     final host = testHost();
 
@@ -150,6 +182,43 @@ void main() {
     await tester.pumpWidget(Directionality(textDirection: TextDirection.rtl, child: view));
 
     expect(renderer.engines.single.shown, hasLength(1));
+  });
+
+  test("AIUIHost asks the engine once for each of a reply's documents", () {
+    final renderer = TestRenderer();
+    final host = testHost(renderers: [renderer]);
+
+    final first = AIUIView(host: host, document: openUI('Ohrid'), messageId: 'm1');
+    final again = AIUIView(host: host, document: openUI('Ohrid'), messageId: 'm1');
+    AIUIView(host: host, document: openUI('Ohrid and Struga'), messageId: 'm1');
+
+    expect(renderer.engines.single.shown, [('m1', openUI('Ohrid')), ('m1', openUI('Ohrid and Struga'))]);
+    expect(again.canShow, first.canShow);
+  });
+
+  test('AIUIHost asks the engine again for a reply that left the conversation and came back', () {
+    final renderer = TestRenderer();
+    final host = testHost(renderers: [renderer]);
+    final reply = Reply('m1', uiDocument: openUI('Ohrid'));
+
+    host.receive([reply]);
+    AIUIView(host: host, document: openUI('Ohrid'), messageId: 'm1');
+    host
+      ..receive([])
+      ..receive([reply]);
+    AIUIView(host: host, document: openUI('Ohrid'), messageId: 'm1');
+
+    expect(renderer.engines.single.shown, hasLength(2));
+  });
+
+  test('AIUIView shows nothing and makes no engine once the host is disposed', () {
+    final renderer = TestRenderer();
+    final host = AIUIHost(renderers: [renderer], send: (_) async {})..dispose();
+
+    final view = AIUIView(host: host, document: openUI('Ohrid'), messageId: 'm1');
+
+    expect(view.canShow, isFalse);
+    expect(renderer.engines, isEmpty);
   });
 
   test('AIUIHost.dispose disposes the engines its renderers made', () {
