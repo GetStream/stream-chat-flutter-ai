@@ -238,6 +238,13 @@ bool a2uiFillsWidth(A2UIChild child) {
   };
 }
 
+/// Whether [child] fills the height it is given, as a vertical `Divider`
+/// does, so a row gives it the row's height whatever its `align`.
+///
+/// Internal to the package.
+@internal
+bool a2uiFillsHeight(A2UIChild child) => child._node.type == 'Divider' && child._node.property('axis') == 'vertical';
+
 /// The type of the component [child] holds, such as `Button`.
 ///
 /// Internal to the package.

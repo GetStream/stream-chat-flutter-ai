@@ -101,6 +101,32 @@ void main() {
     expect(tester.getSize(find.byWidgetPredicate((widget) => widget is SizedBox && widget.width == 1)).height, 48);
   });
 
+  testWidgets('a vertical divider in a centered row is as tall as the row', (tester) async {
+    await _pumpRow(
+      tester,
+      align: 'center',
+      children: [
+        iconImage('a', variant: 'avatar'),
+        {'id': 'line', 'component': 'Divider', 'axis': 'vertical', 'weight': 1},
+      ],
+    );
+
+    expect(tester.getSize(find.byWidgetPredicate((widget) => widget is SizedBox && widget.width == 1)).height, 48);
+  });
+
+  testWidgets('a vertical divider in a row aligned to the start is as tall as the row', (tester) async {
+    await _pumpRow(
+      tester,
+      align: 'start',
+      children: [
+        iconImage('a', variant: 'avatar'),
+        {'id': 'line', 'component': 'Divider', 'axis': 'vertical'},
+      ],
+    );
+
+    expect(tester.getSize(find.byWidgetPredicate((widget) => widget is SizedBox && widget.width == 1)).height, 48);
+  });
+
   testWidgets('an icon image next to long text keeps its width', (tester) async {
     await _pumpRow(tester, children: [iconImage('a'), _text('b', _longText())]);
 
