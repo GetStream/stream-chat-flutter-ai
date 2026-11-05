@@ -1,9 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Required by ChatComposer's speech-to-text button (package:speech_to_text). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- Required by the composer's attachment sheet (package:image_picker, package:photo_manager). -->
+    <!-- Required by the composer's attachment sheet (package:photo_manager). The camera tile
+         (package:image_picker) needs no CAMERA permission: declaring one would make it required. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
     <application
         android:label="stream_chat_flutter_ai_example"

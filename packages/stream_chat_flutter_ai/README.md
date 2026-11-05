@@ -23,6 +23,9 @@ To start, this library includes the following components:
 **`StreamingMessageView`** — renders text, markdown and code in real time with a
 character-by-character animation, similar to ChatGPT.
 
+**`AIMarkdownBody`** — the markdown renderer behind `StreamingMessageView`, for markdown without the
+typewriter animation.
+
 **`AITypingIndicatorView`** — displays the different states of the LLM (thinking, checking external
 sources, etc) with animated dots.
 
@@ -38,15 +41,35 @@ highlighting.
 **`SpeechToTextButton`** — records voice input and streams the recognized transcript into the
 composer.
 
+**`AISuggestionsView`** — a row of quick-reply chips to dock above the composer, such as on a "new
+chat" screen.
+
+**`AIConversationView`** — a whole conversation laid out the way an AI assistant does it, built from
+**`AIUserMessageView`**, **`AIAssistantMessageView`** and **`AIMessageAttachmentView`** rows, with
+**`AIReplyActionsView`** (copy, share, regenerate, rate) under each finished reply.
+
 **`AIMessagePartsView`** — the steps an agent took while replying: its reasoning
 (**`StreamingReasoningView`**), its tool calls (**`AIToolCallView`**) and the tool calls waiting for
-the user's approval (**`AIToolApprovalView`**).
+the user's approval (**`AIToolApprovalView`**) or sign-in (**`AIToolAuthorizationView`**).
+
+**`AIToolApprover`** / **`AIToolAuthorizer`** — send the user's answer to a tool approval, or their
+sign-in at a tool's provider, to your backend.
 
 **`AIToolRegistry`** / **`AIClientToolRunner`** — client-side tool calling, letting the agent reach
 into your app to open a screen, show an alert or read a sensor, and get the result back.
 
+**`AIClientIdentity.installId`** — an id for this install of your app, so an agent can aim a tool
+call at one of a person's devices.
+
 **`AILocalModel`** — a base class to implement over an on-device model, for answering when the
 agent can't, such as when the user is offline.
+
+**`AIVoiceGlowView`** / **`AIVoiceWaveView`** — a voice agent on a call, as a glowing globe or a
+waveform that moves with the agent's state and audio level.
+
+**`streamAIComponentBuilders`** — replaces the components the package builds inside its own
+widgets, such as the code blocks in markdown or the messages of an `AIConversationView`, with your
+own.
 
 This repository also includes a [showcase app](example) demonstrating every component, which needs
 no API key to run.
@@ -72,6 +95,8 @@ it 😎.
 dependencies:
   stream_chat_flutter_ai: ^0.1.0
 ```
+
+It requires Dart 3.11 or later and Flutter 3.41 or later.
 
 ## ⚙️ Usage
 
@@ -249,11 +274,17 @@ the same dark frame (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike
 
 `brightness` pins whether the block is a dark or a light surface. It is exactly what your
 highlighter receives as `request.brightness`, and every color default follows it:
-`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). For code
-blocks that stay dark whatever the app's mode, set it once:
+`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). The dark
+frame is already the default, so for code blocks that follow the app's mode, set
+`Brightness.light` on your light theme only:
 
 ```dart
-AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.dark))
+MaterialApp(
+  theme: ThemeData(
+    extensions: const [AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.light))],
+  ),
+  darkTheme: ThemeData.dark(), // keeps the default dark frame
+)
 ```
 
 Colors you set still win over those defaults, and are then yours to keep consistent with
@@ -305,7 +336,7 @@ the heatmap are painted by `fl_chart`; the heatmap is a plain widget grid. Parse
 contain JSON chart data with `USpecParser`:
 
 ```dart
-// Reads USpec, Chart.js, Plotly, ECharts, Highcharts, Vega-Lite and a flat pie schema.
+// Reads USpec, Chart.js, Plotly heatmaps, ECharts, Highcharts, Vega-Lite and a flat pie schema.
 final spec = USpecParser.tryParse(jsonString);
 if (spec != null) ChartView(spec: spec);
 ```
@@ -377,7 +408,8 @@ A message composer designed for AI-powered conversations. Features:
 - A **send / stop toggle** — the send button (↑) becomes a stop button (⏹) while the
   AI is generating a response.
 - An optional **voice / send toggle** (`enableSpeechToText: true`) — a single control that
-  shows a microphone while the field is empty and swaps to send as soon as you type.
+  shows a microphone while the field is empty, swaps to send as soon as you type and to stop while
+  the AI is generating.
 - Replaceable slots — leading, trailing, the input field, and the attachment sheet — through
   `streamAIComponentBuilders` (see [Composer slots](#composer-slots)).
 
@@ -461,9 +493,9 @@ streamAIComponentBuilders(
 )
 ```
 
-Only the input's result is rebuilt by the composer. The attachment sheet runs inside its own route,
-outside that rebuild — a replacement sheet rendering controller state (a selection count, tiles
-disabled at `maxAttachments`) has to listen to `props.controller` itself, as
+The leading, trailing and input slots are rebuilt with the composer. The attachment sheet runs
+inside its own route, outside that rebuild — a replacement sheet rendering controller state (a
+selection count, tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
 `ComposerAttachmentSheet` does.
 
 To replace the input field outright rather than decorate it, build from `props`:
@@ -532,11 +564,13 @@ Column(
 ### `SpeechToTextButton`
 
 A microphone button that feeds partial and final speech recognition results directly
-into an `ChatComposerController`'s text field. The button hides itself automatically
-when the AI is generating or the text field is non-empty. Prefer
+into a `ChatComposerController`'s text field. Placed on its own, the button is always shown:
+it doesn't hide while the AI is generating or the field has text, and it turns disabled once
+a tap finds no speech recognizer on the device. Prefer
 `ChatComposer(enableSpeechToText: true, ...)` over placing this widget manually — that
-swaps it into the send button's own slot for a single toggling control, rather than a
-separate button alongside send.
+puts the microphone in the send button's own slot while the field is empty, swapping to
+send as you type and to stop while the AI is generating, rather than a separate button
+alongside send.
 
 ```dart
 SpeechToTextButton(
@@ -562,9 +596,17 @@ SpeechToTextButton(
 <string>Speech recognition is used to convert your voice to text.</string>
 ```
 
-**Android** — `android/app/src/main/AndroidManifest.xml`:
+**Android** — `android/app/src/main/AndroidManifest.xml`. The `<queries>` entry lets
+`speech_to_text` find the on-device recognizer on Android 11 and later; merge its `<intent>` into
+your manifest's existing `<queries>` element if it has one:
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+<queries>
+    <intent>
+        <action android:name="android.speech.RecognitionService"/>
+    </intent>
+</queries>
 ```
 
 **macOS** — `macos/Runner/Info.plist`:
@@ -583,6 +625,33 @@ SpeechToTextButton(
 <true/>
 ```
 
+#### Attachment sheet permissions
+
+`ChatComposer`'s default "+" button opens an attachment sheet that reads the photo library and takes
+photos, which needs these whether or not you enable speech-to-text:
+
+**iOS** and **macOS** — `Info.plist`:
+```xml
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Photo library access is needed to attach images to your message.</string>
+<key>NSCameraUsageDescription</key>
+<string>Camera access is needed to attach a new photo to your message.</string>
+```
+
+**Android** — `android/app/src/main/AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+<uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
+```
+
+**macOS** — `DebugProfile.entitlements` and `Release.entitlements`:
+```xml
+<key>com.apple.security.personal-information.photos-library</key>
+<true/>
+<key>com.apple.security.files.user-selected.read-only</key>
+<true/>
+```
+
 ### Agent steps: `AIMessagePartsView`
 
 An agent writes each step it takes — a round of reasoning, a tool call — as a custom attachment on
@@ -598,7 +667,8 @@ AIMessagePartsView(parts: AIMessagePart.parseAll(attachments));
 Reasoning gets a `StreamingReasoningView`, a tool call an `AIToolCallView`, and a step this version
 can't read a neutral `AIUnsupportedPartView`. To show some steps your own way, return a widget from
 `partBuilder` (any part) or `toolCallBuilder` (tool calls only); return `null` to keep the default,
-or `AIMessagePartsView.hidden` to leave the step out:
+or `AIMessagePartsView.hidden` to leave the step out (a tool call waiting for this person's
+approval or sign-in still shows its question):
 
 ```dart
 AIMessagePartsView(
@@ -715,7 +785,7 @@ user gets an `AIToolAuthorizationView` under its row, with **Connect** and **Not
 ```dart
 late final approver = AIToolApprover(
   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
-  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+  decide: (call, decision) => backend.answerToolCall(call.id, decision),
   authorizer: AIToolAuthorizer(
     // Open the page; complete with whether the person connected.
     connect: (call, url) => signIn(url),
@@ -815,11 +885,12 @@ Future<bool> signIn(Uri url) async {
 }
 ```
 
-Without an authorizer, the row still says "Waiting for you to sign in" to the person it waits for
-(and "Waiting for sign-in" to everyone else), but nothing is offered. A
-call you draw yourself gets no sign-in; put an `AIToolAuthorizationView(call: call, approver:
-approver)` in your widget then. Pass it a `builder`, or register a `toolAuthorization` builder with `streamAIComponentBuilders`,
-to ask in your own design. The default `AIToolAuthorizationCard` uses `ToolApprovalThemeData`.
+Without an authorizer, nothing is offered and the row reads "Waiting for sign-in" for everyone,
+the person it waits for included: it says "Waiting for you to sign in" only where Connect is
+there to tap. A call you draw yourself gets no sign-in; put an
+`AIToolAuthorizationView(call: call, approver: approver)` in your widget then. Pass it a `builder`,
+or register a `toolAuthorization` builder with `streamAIComponentBuilders`, to ask in your own
+design. The default `AIToolAuthorizationCard` uses `ToolApprovalThemeData`.
 
 ### `AIToolRegistry`
 
@@ -897,8 +968,9 @@ starts.
 
 Then route invocations. `dispatch` runs the tool's actions in order, guarding each
 one; `resolve` returns them unrun if you want to schedule them yourself — run those
-with `runActions` to get the same guarding, rather than reimplementing it. `dispatch`
-reports whether *a tool was registered* under the invoked name — not whether it
+with `runActions` to guard them as `dispatch` does, rather than reimplementing it. Unlike
+`dispatch`, `resolve` lets a throw from the tool's `handleInvocation` through, so catch it
+yourself. `dispatch` reports whether *a tool was registered* under the invoked name — not whether it
 succeeded. A `false` is normal rather than an error: because registrations outlive
 the build that made them, an older version of your app can register a tool this build
 no longer has; a debug build also prints the name and what *is* registered, for the
@@ -965,12 +1037,18 @@ it on every streaming update is safe, in flight or not; `send` posts
 the caller and feeds the result to the model. Make that endpoint idempotent on
 `tool_call_id`: a retry can post the same result twice.
 
-A tool that throws or times out (`runTimeout`) is answered with a generic failure, and
-one whose result can't be JSON-encoded with "The result couldn't be read"; the error
-itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
+A failed tool is still answered, so the agent isn't left waiting:
+
+- one that throws or times out (`runTimeout`) with a generic failure;
+- a plain `AIClientTool` whose call arrives without the arguments its schema requires with "This
+  call's arguments didn't reach the device";
+- one whose result can't be JSON-encoded with "The result couldn't be read".
+
+The error itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
 `failureMessage`). `send` is tried up to `maxAttempts` times with exponential backoff,
 then reported through `onDeliveryError`; the result is kept and sent again, without
-rerunning the tool, if a later `handle` still sees the call waiting.
+rerunning the tool, if a later `handle` still sees the call waiting, or when you call
+`retryUndelivered()`, such as once the device is back online.
 
 A call for a tool the runner doesn't have is left alone, as on iOS, so several runners
 can share one `AIClientIdentity`, each with its own tools. The catch: if no runner has
@@ -1028,8 +1106,29 @@ to the latest message.
 Give it your messages as `AIMessage`s — mix `AIMessage` into your own type or wrap one:
 
 ```dart
+class ChatMessageAdapter with AIMessage {
+  ChatMessageAdapter(this.message, {this.isGenerating = false});
+
+  final Message message;
+
+  @override
+  final bool isGenerating;
+
+  @override
+  String get id => message.id;
+
+  @override
+  AIMessageRole get role => message.extraData['ai_generated'] == true ? AIMessageRole.assistant : AIMessageRole.user;
+
+  @override
+  String get text => message.text ?? '';
+}
+```
+
+```dart
 AIConversationView(
-  messages: [for (final m in channel.messages) ChatMessageAdapter(m)],
+  // generatingId: the message being generated, from the `ai_indicator` events (see Using with Stream Chat).
+  messages: [for (final m in channel.state!.messages) ChatMessageAdapter(m, isGenerating: m.id == generatingId)],
   pendingMessage: sending, // shows a question at once, until its copy arrives
   isThinking: waitingForReply, // "Thinking… 4s" under the question
   approver: approver,
@@ -1287,7 +1386,8 @@ MaterialApp(
 ```
 
 Every field on every one of them is nullable, and leaving one unset means "derive it from the
-`StreamTheme`" — so overriding the send button leaves the pill, the border, the hint and the
+`StreamTheme`" (except for code blocks, which keep a fixed dark frame unless you set
+`CodeBlockThemeData`) — so overriding the send button leaves the pill, the border, the hint and the
 attachment sheet following your app, in light and dark alike. Theming is opt-in.
 
 `ComposerThemeData` covers `ChatComposer` and `ComposerAttachmentSheet`: `fillColor` and
@@ -1312,7 +1412,7 @@ Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme
 `ConversationTheme`, `ReasoningTheme`, `ReplyActionsTheme`, `SuggestionsTheme`, `ToolApprovalTheme`,
 `ToolCallTheme` or `TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
 `HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView`,
-`AIToolApprovalView` or `AIToolApprovalCard`:
+`AIToolApprovalView`, `AIToolApprovalCard`, `AIToolAuthorizationView` or `AIToolAuthorizationCard`:
 
 ```dart
 ComposerTheme(
@@ -1401,9 +1501,11 @@ and add the rest later. The delegate adds no dependency; `GlobalMaterialLocaliza
 The example app under `example/` has this wired up — an `AITranslationsDelegate` carrying a Dutch
 translation — so run it on a device set to Dutch to see the placeholder and the tooltips follow.
 
-Most of these strings are `Tooltip` messages on icon-only buttons — the send, stop, mic, "+", copy
-and dismiss controls — which makes them the only accessible label those buttons expose. Translating
-them is what makes the composer legible to a screen reader in another locale.
+Many of these strings are `Tooltip` messages on icon-only buttons — the composer's send, stop, mic,
+"+", dismiss and remove-attachment controls, a code block's copy button, copy, share, regenerate and
+rate under a reply, and scroll to latest — which makes them the only accessible label those buttons
+expose. Translating them is what makes these controls
+legible to a screen reader in another locale.
 
 To pin one language over part of the tree instead — a screen that is always in one language, a
 preview, a test — wrap it in an `AITranslationsScope`:
@@ -1451,7 +1553,7 @@ String chartSemanticsLabel(ChartSemantics chart) {
   if (chart.isEmpty) return '$kind, geen gegevens';
   final count = switch (chart.kind) {
     USpecKind.bar => '${chart.categoryCount} categorieën',
-    USpecKind.pie => '${chart.pointCount} segmenten',
+    USpecKind.pie => '${chart.sliceLabels.length} segmenten',
     USpecKind.heatmap => '${chart.rowCount} rijen bij ${chart.columnCount} kolommen',
     _ => '${chart.pointCount} punten',
   };
@@ -1461,10 +1563,10 @@ String chartSemanticsLabel(ChartSemantics chart) {
 
 Switch on `chart.kind` — it covers all eight `USpecKind`s, and a label that names the wrong kind is
 worse than a generic one. The count fields are not interchangeable either: `categoryCount` is the x
-axis a bar chart draws, `pointCount` counts plotted points (a pie's slices, a histogram's samples),
-and `rowCount`/`columnLabels` are a heatmap's grid. Check `chart.isEmpty` before reading
-`valueMin`/`valueMax`: they are `null` for a chart with no points. `sizeMin`/`sizeMax` are non-null
-only for a bubble chart, the one kind that draws `UPoint.size`.
+axis a bar chart draws, `pointCount` counts plotted points (a histogram's samples), `sliceLabels`
+names the slices a pie draws, and `rowCount`/`columnLabels` are a heatmap's grid. Check
+`chart.isEmpty` before reading `valueMin`/`valueMax`: they are `null` for a chart with no points.
+`sizeMin`/`sizeMax` are non-null only for a bubble chart, the one kind that draws `UPoint.size`.
 
 ---
 
@@ -1476,29 +1578,34 @@ on top of [Stream Chat](https://getstream.io/chat/sdk/flutter/), here's how the 
 typically connect to a `Channel` from `stream_chat_flutter`. This requires adding
 `stream_chat_flutter` as a dependency of your app (not of this package).
 
-`stream_chat_flutter` 10.x exports its own `AITypingIndicatorView`, `StreamingMessageView`,
-`TypewriterController`, `TypewriterValue` and `TypewriterWidgetBuilder`, so hide them when importing
-it next to this package:
+`stream_chat_flutter` 10.x ships older versions of some of these widgets. Hide them when you import
+both packages, so the ones from this package are used:
 
 ```dart
 import 'package:stream_chat_flutter/stream_chat_flutter.dart'
-    hide AITypingIndicatorView, StreamingMessageView, TypewriterController, TypewriterValue, TypewriterWidgetBuilder;
+    hide
+        StreamingMessageView,
+        AITypingIndicatorView,
+        AnimatedDots,
+        TypewriterState,
+        TypewriterValue,
+        TypewriterController,
+        TypewriterWidgetBuilder;
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 ```
 
-Connect the pieces like this:
+Track which message the backend is generating from the `ai_indicator` events:
 
 ```dart
 channel.on(EventType.aiIndicatorUpdate).listen((event) {
-  final state = event.aiState;     // AITypingState enum
-  final msgId = event.aiMessage;   // ID of the message being generated
+  final state = event.aiState; // AITypingState enum
   controller.isGenerating = state == AITypingState.generating;
-  setState(() => backendDone = false);
+  setState(() => generatingId = event.messageId); // ID of the message being generated
   // show AITypingIndicatorView / switch to StreamingMessageView
 });
 
 channel.on(EventType.aiIndicatorClear).listen((_) {
-  setState(() => backendDone = true);
+  setState(() => generatingId = null);
   // hide the indicator; the final message may still be typing out
 });
 ```
@@ -1510,7 +1617,7 @@ Leave that to the message view instead:
 ```dart
 StreamingMessageView(
   text: message.text ?? '',
-  expectMoreText: !backendDone,
+  expectMoreText: message.id == generatingId,
   onFinished: () => controller.isGenerating = false,
 );
 ```
