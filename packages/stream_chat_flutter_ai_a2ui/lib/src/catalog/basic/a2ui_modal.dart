@@ -108,8 +108,7 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
       a2uiReportOnce(widget.scope, 'navigator', "Its sheet can't open: the surface has no Navigator above it.");
       return;
     }
-    final surface = A2UISurfaceScope.of(context);
-    final theme = surface.theme;
+    final theme = A2UISurfaceScope.of(context).theme;
     final sheet = _sheet = ModalBottomSheetRoute<void>(
       isScrollControlled: true,
       useSafeArea: true,
@@ -117,15 +116,10 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
       barrierLabel: MaterialLocalizations.of(context).scrimLabel,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(theme.cornerRadius))),
       // The sheet is built apart from the surface, so it is given what the
-      // surface's components are drawn with again.
+      // surface's components are drawn with, the surface's scope among it,
+      // again.
       capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
-      builder: (sheetContext) => A2UISurfaceScope(
-        catalog: surface.catalog,
-        theme: theme,
-        mediaUrl: surface.mediaUrl,
-        onOpenLink: surface.onOpenLink,
-        child: _A2UIModalSheet(content: _content),
-      ),
+      builder: (sheetContext) => _A2UIModalSheet(content: _content),
     );
     navigator.push(sheet);
     updateKeepAlive();
