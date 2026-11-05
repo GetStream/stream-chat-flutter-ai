@@ -29,6 +29,7 @@ channel is documented as an optional integration.
 | Package | Pub | Description |
 | --- | --- | --- |
 | [`stream_chat_flutter_ai`](packages/stream_chat_flutter_ai) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai) | AI chat UI components: `StreamingMessageView`, `ChatComposer`, `AITypingIndicatorView`, `ChartView`, `CodeBlockView` and more. |
+| [`stream_chat_flutter_ai_a2ui`](packages/stream_chat_flutter_ai_a2ui) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai_a2ui.svg)](https://pub.dev/packages/stream_chat_flutter_ai_a2ui) | Shows the interactive UI an agent writes in [A2UI](https://a2ui.org) in its replies, through the core package's generative UI. |
 
 See the [package README](packages/stream_chat_flutter_ai/README.md) for the full component
 reference.

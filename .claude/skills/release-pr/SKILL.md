@@ -35,9 +35,10 @@ per [Choosing the version](#choosing-the-version).
 
 ## Key facts for this repo
 
-- **One publishable package:** `packages/stream_chat_flutter_ai`. The example app is `publish_to: none`, and the
-  workspace root is private. Nothing depends on the package inside the repo except the example, which uses
-  `any`, so there are no intra-repo constraints to bump.
+- **Publishable packages, released in lockstep with one version:** `packages/stream_chat_flutter_ai` and
+  `packages/stream_chat_flutter_ai_a2ui`. The example apps are `publish_to: none`, and the workspace root is
+  private. The A2UI package depends on `stream_chat_flutter_ai: ^<version>`, which every release bumps; the examples
+  use `any`.
 - **The title is load-bearing.** `release_tag.yml` only fires on a tip commit starting with
   `chore(repo): release v`, and refuses to tag unless the version in it matches the pubspec. `repo` is also the
   scope `pr_title.yml` doesn't map to a CHANGELOG, so the changelog check doesn't apply — this skill edits the
@@ -145,11 +146,12 @@ git checkout -b release/v<version>
 
 Edit by hand:
 
-- **`packages/stream_chat_flutter_ai/pubspec.yaml`** — set `version: <version>`. This is the package's own
-  version, the one thing in it bootstrap doesn't manage. Change nothing else.
-- **The install snippets** — `stream_chat_flutter_ai: ^<version>` in `README.md` and
-  `packages/stream_chat_flutter_ai/README.md` (find them with
-  `grep -n 'stream_chat_flutter_ai: \^' README.md packages/stream_chat_flutter_ai/README.md`). The package README
+- **`packages/stream_chat_flutter_ai/pubspec.yaml`** and **`packages/stream_chat_flutter_ai_a2ui/pubspec.yaml`** —
+  set `version: <version>`, the package's own version, the one thing bootstrap doesn't manage. In the A2UI pubspec
+  also set `stream_chat_flutter_ai: ^<version>`. Change nothing else.
+- **The install snippets** — `stream_chat_flutter_ai: ^<version>` and `stream_chat_flutter_ai_a2ui: ^<version>` in
+  `README.md` and both package READMEs (find them with
+  `grep -n 'stream_chat_flutter_ai\(_a2ui\)\?: \^' README.md packages/*/README.md`). The package README
   is what pub.dev shows, so a stale caret there tells new users to install the old version.
 
 Leave `packages/stream_chat_flutter_ai/example/pubspec.yaml` alone — it depends on `any` and resolves through the
@@ -167,7 +169,7 @@ Check the diff shape:
 git diff --stat
 ```
 
-Only `packages/stream_chat_flutter_ai/pubspec.yaml` and the two READMEs should appear (the CHANGELOG comes next).
+Only the two package pubspecs and the READMEs should appear (the CHANGELOG comes next).
 
 `pubspec.lock` may show up too, but the bump itself never changes it — workspace members aren't listed in it. A
 lockfile diff means the local Flutter SDK resolved transitive packages differently from the one that wrote it (it

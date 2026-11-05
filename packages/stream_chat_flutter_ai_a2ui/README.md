@@ -3,7 +3,15 @@
 Shows the interactive UI that an agent writes in [A2UI](https://a2ui.org) 1.0 in its replies, through the
 generative UI of [`stream_chat_flutter_ai`](../stream_chat_flutter_ai).
 
-This package is in development and isn't published.
+## Installation
+
+```yaml
+dependencies:
+  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai_a2ui: ^0.1.0
+```
+
+Both packages are released together, with the same version.
 
 ## Showing replies
 
@@ -131,4 +139,5 @@ and on iOS follows the app's audio session and background modes.
 
 The A2UI conformance suites it is tested against are vendored, unchanged, under
 [`test/conformance/upstream`](test/conformance/upstream), with their license. The examples published with the basic
-catalog are under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples).
+catalog are under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples). Why the suites are kept is in
+[`test/conformance/README.md`](test/conformance/README.md).

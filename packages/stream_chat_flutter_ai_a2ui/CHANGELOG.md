@@ -2,28 +2,26 @@
 
 ✅ Added
 
-- New package for A2UI 1.0, the protocol an agent writes interactive UI in. In development.
-- `A2UIRenderer`, which shows a reply's A2UI in the conversation's generative UI when added to the `AIUIHost`, with
-  its `catalog`, `catalogId`, `theme`, `mediaUrl` and `onError`, and `A2UIRenderer.version`, `fence`,
-  `defaultCatalogId`, `basicCatalogId` and `webUrl`.
-- A button's event reaches the host as an `AIUIAction` labeled with the button's text, or else its event's name in
-  words, with what the action asked for in its payload. Links open through the host, and functions the catalog
-  doesn't have run as the host's tools.
-- `A2UIRenderer` places the app's components (`AIUIHost.components`) in A2UI replies: the agent names one in
-  PascalCase, such as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the
-  component.
-- `A2UIError`, `A2UIErrorCode` and `A2UIErrorHandler`: the problems with a reply's A2UI, given to the renderer's
-  `onError` with the reply's message id. A function that fails or that no tool answers is reported as an expression
-  error, a catalog function that fails while an action runs as an execution error, and a call whose surface is
-  deleted before it's answered isn't reported.
-- The look and components of a reply's A2UI: `A2UITheme`, made from the app's Stream theme with
-  `A2UITheme.fromStream` with six heading sizes, and `A2UICatalog`, whose builders read a component through
-  `A2UIComponentScope`.
-- The components a person uses, in `A2UICatalog.basic`: `Button`, `TextField`, `CheckBox`, `ChoicePicker`,
-  `Slider`, `DateTimeInput` and `Modal`.
-- A2UI's buttons, check boxes, fields, images and sheets are drawn with Stream's design system, styled with the
-  renderer's `A2UITheme`; an app's component themes apply to them, and its `StreamComponentFactory` builders for
-  buttons, check boxes, text inputs and network images draw them. Date inputs and search fields are outlined as text
-  fields are, and a sheet closes with the close button at its top.
-- `A2UICatalog.basic` draws `Video`, with its poster until it plays, and `AudioPlayer`, with its description. Neither
-  plays until the person taps play.
+- New package that shows the interactive UI an agent writes in [A2UI](https://a2ui.org) 1.0 in its replies, through
+  the generative UI of `stream_chat_flutter_ai`. Released in lockstep with it.
+- `A2UIRenderer`, added to the conversation's `AIUIHost`, shows a reply's A2UI surfaces in place of its text, part by
+  part while the agent writes it. It takes a `catalog`, `catalogId`, `theme`, `mediaUrl` and `onError`, and exposes
+  `A2UIRenderer.version`, `fence`, `defaultCatalogId`, `basicCatalogId` and `webUrl`.
+- `A2UICatalog.basic` draws A2UI's basic components: `Text`, `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`,
+  `Column`, `List`, `Card`, `Divider`, `Tabs` and `Modal`, and the components a person uses, `Button`, `TextField`,
+  `CheckBox`, `ChoicePicker`, `Slider` and `DateTimeInput`. A catalog's components are replaced with
+  `A2UICatalog.replacing` and removed with `removing`; an `A2UIComponentBuilder` reads its component, writes to the
+  surface's data and runs its action through `A2UIComponentScope`, and builds its children from `A2UIChild`.
+- `A2UITheme`, made from the app's Stream theme with `A2UITheme.fromStream` and changed with `copyWith`. Buttons,
+  check boxes, fields, images and sheets are drawn with Stream's design system, so the app's component themes and its
+  `StreamComponentFactory` builders for buttons, check boxes, text inputs and network images apply to them. The
+  components' look matches the iOS and Android A2UI renderers.
+- What the person does reaches the host: a button's event is sent as an `AIUIAction` labeled with the button's text,
+  or else its event's name in words, with what the action asked for in its payload. Links open through the host's
+  `open`, and functions the catalog doesn't have run as the host's `tools`.
+- The app's components (`AIUIHost.components`) can be placed in A2UI replies: the agent names one in PascalCase, such
+  as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the component.
+- `A2UIError`, `A2UIErrorCode` and `A2UIErrorHandler`: the problems with a reply's A2UI, such as a component the
+  catalog doesn't have or a function that fails, given to the renderer's `onError` with the reply's message id.
+- `Video` shows its poster and `AudioPlayer` its description until the person taps play; media loads only from web
+  links unless the renderer is given another `mediaUrl`.
