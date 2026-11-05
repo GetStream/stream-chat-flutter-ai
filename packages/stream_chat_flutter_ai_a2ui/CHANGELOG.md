@@ -20,5 +20,8 @@
   `A2UITheme.fromStream`, and `A2UICatalog`, whose builders read a component through `A2UIComponentScope`.
 - The components a person uses, in `A2UICatalog.basic`: `Button`, `TextField`, `CheckBox`, `ChoicePicker`,
   `Slider`, `DateTimeInput` and `Modal`.
+- A2UI's buttons, check boxes, fields, images and sheets are drawn with Stream's design system, styled with the
+  renderer's `A2UITheme`; an app's component themes apply to them, and its `StreamComponentFactory` builders for
+  buttons, check boxes, text inputs and network images draw them.
 - `A2UICatalog.basic` draws `Video`, with its poster until it plays, and `AudioPlayer`, with its description. Neither
   plays until the person taps play.

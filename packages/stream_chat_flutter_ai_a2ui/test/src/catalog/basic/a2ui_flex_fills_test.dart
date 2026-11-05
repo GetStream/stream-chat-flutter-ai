@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_flex.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -22,13 +23,15 @@ void main() {
       ]),
     );
 
-    expect(tester.getSize(find.byType(TextField)).width, 196);
+    expect(tester.getSize(find.byType(StreamTextInput)).width, 196);
   });
 
   testWidgets('two fields without weights share the row equally', (tester) async {
     await pumpSurface(tester, components: _row([_field('first'), _field('last')]));
 
-    final widths = tester.widgetList(find.byType(TextField)).map((field) => tester.getSize(find.byWidget(field)).width);
+    final widths = tester
+        .widgetList(find.byType(StreamTextInput))
+        .map((field) => tester.getSize(find.byWidget(field)).width);
     expect(widths, [196, 196]);
   });
 
@@ -36,7 +39,7 @@ void main() {
     await pumpSurface(tester, components: _row([_field('first'), _field('last', weight: 2)]));
 
     final widths = [
-      for (final field in tester.widgetList(find.byType(TextField))) tester.getSize(find.byWidget(field)).width,
+      for (final field in tester.widgetList(find.byType(StreamTextInput))) tester.getSize(find.byWidget(field)).width,
     ];
     expect(widths.last, closeTo(widths.first * 2, 0.01));
   });
@@ -97,7 +100,7 @@ void main() {
   testWidgets('a field in a column is as wide as the column', (tester) async {
     await pumpSurface(tester, components: inColumn([_field('name')]));
 
-    expect(tester.getSize(find.byType(TextField)).width, 400);
+    expect(tester.getSize(find.byType(StreamTextInput)).width, 400);
   });
 }
 

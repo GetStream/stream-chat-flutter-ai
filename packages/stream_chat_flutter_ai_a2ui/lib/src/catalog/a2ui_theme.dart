@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_renderer.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// The look of a reply's A2UI: the colors, fonts and corners its components
 /// are drawn with.
@@ -20,6 +20,15 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 ///   ),
 /// );
 /// ```
+///
+/// Buttons, check boxes, fields, images and sheets are drawn with the Stream
+/// design system's components, such as [StreamButton] and
+/// [StreamNetworkImage], so the builders an app registers through
+/// [StreamComponentFactory] for buttons, check boxes, text inputs and network
+/// images draw them in A2UI too. Around each surface the
+/// design system's colors, body text and corner radii are this theme's, so
+/// those components follow it; component themes the app sets for them still
+/// apply. A field for a secret never goes to the app's text input builder.
 ///
 /// Two themes are equal when all their values are.
 @immutable
@@ -52,8 +61,12 @@ final class A2UITheme {
   /// Creates the theme of the Stream design system's [theme]: its colors,
   /// text styles and corner radii.
   ///
-  /// The text styles set no color, so text takes [text], or [secondaryText]
-  /// for captions.
+  /// Its colors are the design system's accent, text, card, surface, border,
+  /// error and warning colors. Its text styles are the body, metadata and
+  /// caption styles and the four heading styles; they set no color, so text
+  /// takes [text], or [secondaryText] for captions. Cards, fields, images and
+  /// media players have the extra large corner radius, and buttons are fully
+  /// rounded.
   factory A2UITheme.fromStream(StreamTheme theme) {
     final colors = theme.colorScheme;
     final text = theme.textTheme;

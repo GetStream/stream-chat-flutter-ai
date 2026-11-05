@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -22,7 +22,7 @@ void main() {
     await tester.tap(find.text('Details'));
     await tester.pumpAndSettle();
 
-    expect(find.descendant(of: find.byType(BottomSheet), matching: find.text('Open daily, 9 to 5.')), findsOneWidget);
+    expect(find.descendant(of: find.byType(StreamSheet), matching: find.text('Open daily, 9 to 5.')), findsOneWidget);
   });
 
   testWidgets("a modal's button still sends its event", (tester) async {
@@ -79,7 +79,7 @@ void main() {
     await tester.tap(find.text('Details'), warnIfMissed: false);
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(StreamSheet), findsNothing);
   });
 
   testWidgets('tapping a trigger that is not a button opens the sheet', (tester) async {
@@ -88,7 +88,7 @@ void main() {
     await tester.tap(find.text('Details'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(StreamSheet), findsOneWidget);
   });
 
   testWidgets('a trigger that is not a button is read as a button', (tester) async {
@@ -100,6 +100,28 @@ void main() {
     );
   });
 
+  testWidgets('a tap outside the sheet closes it', (tester) async {
+    await pumpSurface(tester, components: _modal());
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreamSheet), findsNothing);
+  });
+
+  testWidgets('dragging the sheet down by content that scrolls closes it', (tester) async {
+    await pumpSurface(tester, components: _modal(content: List.filled(60, 'Open daily, 9 to 5.').join('\n\n')));
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, 500));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreamSheet), findsNothing);
+  });
+
   testWidgets("the sheet's close button closes it", (tester) async {
     await pumpSurface(tester, components: _modal());
     await tester.tap(find.text('Details'));
@@ -108,7 +130,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel(const DefaultMaterialLocalizations().closeButtonLabel));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(StreamSheet), findsNothing);
   });
 
   testWidgets("the sheet draws its content with the surface's catalog", (tester) async {
@@ -171,7 +193,7 @@ void main() {
     controller.jumpTo(2500);
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(StreamSheet), findsOneWidget);
   });
 
   testWidgets('a list lets a modal go once its sheet is closed', (tester) async {
@@ -199,7 +221,7 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(StreamSheet), findsNothing);
   });
 
   testWidgets('the open sheet shows the content the agent changes the modal to', (tester) async {
@@ -275,7 +297,7 @@ void main() {
     await tester.tap(find.text('Inner'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(StreamSheet), findsNothing);
   });
 
   testWidgets('a button in the sheet sends its event', (tester) async {

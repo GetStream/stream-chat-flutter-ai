@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
@@ -6,10 +5,17 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dar
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_fill.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds an `Image`: the image at its `url`, in a box whose size its
 /// `variant` sets and that the image never changes, scaled into it as its
 /// `fit` says.
+///
+/// The image is drawn with the Stream design system's [StreamNetworkImage], so
+/// the builder an app registers for network images through
+/// [StreamComponentFactory] loads and draws it instead. It is decoded at a
+/// width its box needs rather than at its own size, unless its `fit` is
+/// `none`, which shows it at its own size.
 ///
 /// The box shows the subtle surface color, with a spinner while the image
 /// loads. An image that can't load, whose URL has no scheme, or whose URL the
@@ -147,16 +153,15 @@ class A2UIImageView extends StatelessWidget {
   }
 
   Widget _image(BuildContext context, Uri source) {
-    return Image(
-      image: a2uiImageProvider(source),
-      fit: fit,
+    return StreamNetworkImage(
+      source.toString(),
       width: footprint.width,
       height: footprint.height,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (frame == null && !wasSynchronouslyLoaded) return const A2UISpinner();
-        return child;
-      },
-      errorBuilder: (context, error, stackTrace) {
+      cacheWidth: a2uiDecodeWidth(context, width: footprint.width, height: footprint.height, fit: fit),
+      fit: fit,
+      excludeFromSemantics: true,
+      placeholderBuilder: (context) => const A2UISpinner(),
+      errorBuilder: (context, error, retry) {
         a2uiDebugLogOnce("The Image '$source' failed to load: $error");
         return const SizedBox.shrink();
       },
@@ -164,20 +169,28 @@ class A2UIImageView extends StatelessWidget {
   }
 }
 
-/// The image at [source], loaded and kept in the disk cache, and decoded at
-/// no more than 1200 pixels on its longest side, whatever size it was sent at.
+/// The width, in pixels, an image shown with [fit] in a box [height] tall and
+/// [width] wide is decoded at, or `null` to decode it at its own size.
+///
+/// A box with no [width] is taken to be as wide as the screen.
+///
+/// The image keeps its proportions. An image that only has to fit in the box
+/// needs no more pixels than the box's longest side; one that covers or fills
+/// the box needs more when it is wider than the box, so it gets twice that,
+/// which keeps images up to twice as wide as tall sharp. With [BoxFit.none]
+/// it is shown at its own size, so it is decoded at its own size.
 ///
 /// Internal to the package.
 @internal
-ImageProvider<Object> a2uiImageProvider(Uri source) {
-  return ResizeImage(
-    CachedNetworkImageProvider(source.toString()),
-    width: _maxPixels,
-    height: _maxPixels,
-    policy: ResizeImagePolicy.fit,
-    allowUpscaling: false,
-  );
+int? a2uiDecodeWidth(BuildContext context, {required double? width, required double height, required BoxFit fit}) {
+  final factor = switch (fit) {
+    BoxFit.none => null,
+    BoxFit.contain || BoxFit.scaleDown => 1,
+    BoxFit.cover || BoxFit.fill || BoxFit.fitWidth || BoxFit.fitHeight => 2,
+  };
+  if (factor == null) return null;
+  // A box without a width is at most as wide as the screen.
+  final boxWidth = width ?? MediaQuery.sizeOf(context).width;
+  final longestSide = boxWidth > height ? boxWidth : height;
+  return (longestSide * MediaQuery.devicePixelRatioOf(context) * factor).ceil();
 }
-
-// The longest side an image is decoded at.
-const _maxPixels = 1200;

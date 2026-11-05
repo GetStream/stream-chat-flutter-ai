@@ -30,8 +30,6 @@ dependencies:
   # Only `lib/src/core/` uses it, so it can be replaced without changing the
   # rest of the package. Kept below 0.6.0, whose changes may be breaking.
   a2ui_core: ">=0.5.0 <0.6.0"
-  # The images agents place in their replies, loaded and cached.
-  cached_network_image: ^3.4.1
   # Hosts the controls of the videos agents place in their replies.
   chewie: ^1.13.1
   # Deep equality for the package's value types that hold JSON.
@@ -50,6 +48,10 @@ dependencies:
   # Resolved to this workspace's own copy; pinned to its version once this
   # package is published.
   stream_chat_flutter_ai: any
+  # Stream's design system: the theme tokens and the buttons, check boxes,
+  # fields, images and sheets A2UI components are drawn with, so an app's
+  # component builders apply to them too.
+  stream_core_flutter: ^0.5.3
   # Plays the videos agents place in their replies.
   video_player: ^2.11.1
 

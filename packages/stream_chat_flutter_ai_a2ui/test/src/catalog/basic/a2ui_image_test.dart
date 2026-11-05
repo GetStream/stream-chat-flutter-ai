@@ -1,11 +1,9 @@
-import 'dart:async';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -72,14 +70,14 @@ void main() {
     testWidgets('an image that fits by $fit is scaled by $boxFit', (tester) async {
       await _pumpImage(tester, fit: fit);
 
-      expect(tester.widget<Image>(find.byType(Image)).fit, boxFit);
+      expect(_props(tester).fit, boxFit);
     });
   }
 
   testWidgets('an image without a fit is stretched to its box', (tester) async {
     await _pumpImage(tester);
 
-    expect(tester.widget<Image>(find.byType(Image)).fit, BoxFit.fill);
+    expect(_props(tester).fit, BoxFit.fill);
   });
 
   testWidgets('an image loads from the URL the media function gives', (tester) async {
@@ -99,19 +97,19 @@ void main() {
   testWidgets('an image whose URL the media function refuses is not loaded', (tester) async {
     await _pumpImage(tester, mediaUrl: (url) => null);
 
-    expect(find.byType(Image), findsNothing);
+    expect(find.byType(StreamNetworkImage), findsNothing);
   });
 
   testWidgets('a file URL is not loaded by default', (tester) async {
     await _pumpImage(tester, url: 'file:///etc/hosts');
 
-    expect(find.byType(Image), findsNothing);
+    expect(find.byType(StreamNetworkImage), findsNothing);
   });
 
   testWidgets('a name without a scheme is not loaded', (tester) async {
     await _pumpImage(tester, url: 'lake.png');
 
-    expect(find.byType(Image), findsNothing);
+    expect(find.byType(StreamNetworkImage), findsNothing);
   });
 
   testWidgets('the media function is not asked for a name without a scheme', (tester) async {
@@ -125,39 +123,75 @@ void main() {
   testWidgets('an image shows a spinner while it loads', (tester) async {
     await _pumpImage(tester);
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(_props(tester).placeholderBuilder!(tester.element(_image)), isA<A2UISpinner>());
   });
 
   testWidgets('an image that cannot load leaves its box empty', (tester) async {
-    await _pumpImageThatFails(tester);
-
-    final content = find.descendant(of: find.byType(Image), matching: find.byType(SizedBox));
-
-    expect(tester.widget<SizedBox>(content).child, isNull);
-  });
-
-  testWidgets('an image is decoded at most 1,200 pixels wide', (tester) async {
     await _pumpImage(tester);
 
-    expect(_decoding(tester).width, _maxDecodedPixels);
+    final empty = _props(tester).errorBuilder!(tester.element(_image), StateError('No image.'), () {});
+
+    expect(empty, isA<SizedBox>().having((box) => box.child, 'child', isNull));
   });
 
-  testWidgets('an image is decoded at most 1,200 pixels high', (tester) async {
-    await _pumpImage(tester);
+  testWidgets("the app's network image builder loads the image", (tester) async {
+    String? loaded;
+    await pumpSurface(
+      tester,
+      components: [
+        {'id': 'root', 'component': 'Image', 'url': 'https://example.com/lake.png'},
+      ],
+      builders: StreamComponentBuilders(
+        networkImage: (context, props) {
+          loaded = props.url;
+          return const SizedBox();
+        },
+      ),
+    );
 
-    expect(_decoding(tester).height, _maxDecodedPixels);
+    expect(loaded, 'https://example.com/lake.png');
+  });
+
+  for (final fit in ['contain', 'scaleDown']) {
+    testWidgets('an image that fits by $fit is decoded as wide as its box', (tester) async {
+      await _pumpImage(tester, variant: 'smallFeature', fit: fit);
+
+      expect(_props(tester).cacheWidth, (72 * tester.view.devicePixelRatio).ceil());
+    });
+  }
+
+  for (final fit in ['cover', 'fill']) {
+    testWidgets('an image that fits by $fit is decoded twice as wide as its box', (tester) async {
+      await _pumpImage(tester, variant: 'smallFeature', fit: fit);
+
+      expect(_props(tester).cacheWidth, (2 * 72 * tester.view.devicePixelRatio).ceil());
+    });
+  }
+
+  testWidgets('an image without a fit is decoded twice as wide as its box', (tester) async {
+    await _pumpImage(tester, variant: 'smallFeature');
+
+    expect(_props(tester).cacheWidth, (2 * 72 * tester.view.devicePixelRatio).ceil());
+  });
+
+  testWidgets('an image that fits by none is decoded at its own size', (tester) async {
+    await _pumpImage(tester, fit: 'none');
+
+    expect(_props(tester).cacheWidth, isNull);
+  });
+
+  testWidgets('a header image is decoded as wide as the screen', (tester) async {
+    await _pumpImage(tester, variant: 'header', fit: 'contain');
+
+    final screenWidth = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+
+    expect(_props(tester).cacheWidth, (screenWidth * tester.view.devicePixelRatio).ceil());
   });
 
   testWidgets('an image is decoded with its aspect ratio kept', (tester) async {
     await _pumpImage(tester);
 
-    expect(_decoding(tester).policy, ResizeImagePolicy.fit);
-  });
-
-  testWidgets('an image smaller than the decoding limit is not decoded larger', (tester) async {
-    await _pumpImage(tester);
-
-    expect(_decoding(tester).allowUpscaling, isFalse);
+    expect(_props(tester).cacheHeight, isNull);
   });
 
   testWidgets("an image's description is its label", (tester) async {
@@ -215,9 +249,6 @@ void main() {
 // The box of the image, which shows the subtle surface color.
 Finder _box() => find.descendant(of: find.byType(A2UIImageView), matching: find.byType(ColoredBox));
 
-// The longest side an image is decoded at.
-const _maxDecodedPixels = 1200;
-
 Future<void> _pumpImage(
   WidgetTester tester, {
   String url = 'https://example.com/lake.png',
@@ -246,28 +277,11 @@ Future<void> _pumpImage(
   );
 }
 
+// The image in its box.
+final _image = find.byType(StreamNetworkImage);
+
+// What the image is loaded and drawn with.
+StreamNetworkImageProps _props(WidgetTester tester) => tester.widget<StreamNetworkImage>(_image).props;
+
 // The URL the image is loaded from.
-String _loadedUrl(WidgetTester tester) {
-  return (_decoding(tester).imageProvider as CachedNetworkImageProvider).url;
-}
-
-// The decoding of the image: its size limit and how the image is fitted to it.
-ResizeImage _decoding(WidgetTester tester) => tester.widget<Image>(find.byType(Image)).image as ResizeImage;
-
-// Shows an image whose loading fails. A real load never ends in a widget
-// test, because the image's file cache waits for plugins, so the image cache
-// is given a failing load under the key of the image, which a first showing
-// gives, before the image shows again.
-Future<void> _pumpImageThatFails(WidgetTester tester) async {
-  await _pumpImage(tester);
-  final key = await _decoding(tester).obtainKey(ImageConfiguration.empty);
-  await tester.pumpWidget(const SizedBox());
-  final imageCache = PaintingBinding.instance.imageCache..clear();
-  addTearDown(imageCache.clear);
-  final load = Completer<ImageInfo>();
-  imageCache.putIfAbsent(key, () => OneFrameImageStreamCompleter(load.future));
-
-  await _pumpImage(tester);
-  load.completeError(StateError('The image could not be loaded.'));
-  await tester.pump();
-}
+String _loadedUrl(WidgetTester tester) => _props(tester).url;

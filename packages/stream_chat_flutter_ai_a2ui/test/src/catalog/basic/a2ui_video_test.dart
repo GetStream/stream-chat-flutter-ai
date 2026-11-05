@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 import 'a2ui_media_fakes.dart';
@@ -22,7 +22,7 @@ void main() {
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster});
 
-    expect(_posterImage(tester), _imageAt(_poster));
+    expect(_posterUrl(tester), _poster);
   });
 
   testWidgets('a Video loads nothing but the poster until the person plays it', (tester) async {
@@ -75,9 +75,9 @@ void main() {
     await tester.pump();
 
     expect(
-      (poster: _posterImage(tester), spinners: find.byType(A2UISpinner).evaluate().length),
+      (poster: _posterUrl(tester), spinners: find.byType(A2UISpinner).evaluate().length),
       (
-        poster: _imageAt(_poster),
+        poster: _poster,
         spinners: 1,
       ),
     );
@@ -90,7 +90,7 @@ void main() {
     await _playAndLoad(tester, platform);
 
     expect(
-      (players: find.byType(Chewie).evaluate().length, posters: find.byType(Image).evaluate().length),
+      (players: find.byType(Chewie).evaluate().length, posters: find.byType(StreamNetworkImage).evaluate().length),
       (
         players: 1,
         posters: 0,
@@ -113,7 +113,7 @@ void main() {
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster}, mediaUrl: _throughProxy);
 
-    expect(_posterImage(tester), _imageAt('https://proxy.example.com/poster.jpg'));
+    expect(_posterUrl(tester), 'https://proxy.example.com/poster.jpg');
   });
 
   testWidgets('a Video whose URL the media function refuses has no play button', (tester) async {
@@ -174,7 +174,7 @@ void main() {
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': 'file:///poster.jpg'});
 
-    expect(find.byType(Image), findsNothing);
+    expect(find.byType(StreamNetworkImage), findsNothing);
   });
 
   testWidgets('a Video lets its player go when it leaves the widget tree', (tester) async {
@@ -421,7 +421,7 @@ void main() {
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster});
 
-    expect(tester.widget<Image>(find.byType(Image)).excludeFromSemantics, isTrue);
+    expect(tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage)).props.excludeFromSemantics, isTrue);
   });
 
   testWidgets('a Video draws its play button in white over its poster', (tester) async {
@@ -777,11 +777,10 @@ Future<void> _settle(WidgetTester tester) => tester.runAsync(pumpEventQueue);
 // The URL [url] has on a proxy host.
 Uri _throughProxy(Uri url) => url.replace(host: 'proxy.example.com');
 
-// The image the poster shows.
-ImageProvider _posterImage(WidgetTester tester) => tester.widget<Image>(find.byType(Image)).image;
-
-// The image a poster at [url] shows.
-ImageProvider _imageAt(String url) => a2uiImageProvider(Uri.parse(url));
+// The URL the poster loads from.
+String _posterUrl(WidgetTester tester) {
+  return tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage)).props.url;
+}
 
 class _DutchTranslations extends DefaultAITranslations {
   const _DutchTranslations();

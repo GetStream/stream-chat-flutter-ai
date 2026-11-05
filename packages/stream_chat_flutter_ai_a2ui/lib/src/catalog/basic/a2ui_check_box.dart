@@ -1,12 +1,17 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
-/// Builds a `CheckBox`: a box, checked in [A2UITheme.accent] while its
-/// `value` is true, beside its `label`; a tap writes the other value.
+/// Builds a `CheckBox`: the Stream design system's [StreamCheckbox], checked in
+/// [A2UITheme.accent] while its `value` is true, beside its `label`; a tap on
+/// either writes the other value.
+///
+/// The builder an app registers for check boxes through
+/// [StreamComponentFactory] draws the box instead.
 ///
 /// One whose `value` isn't bound to the data model shows fainter, and a tap
 /// does nothing. The messages of its failing checks show below it.
@@ -35,9 +40,19 @@ Widget buildA2UICheckBox(BuildContext context, A2UIComponentScope scope) {
             mainAxisSize: MainAxisSize.min,
             spacing: _labelSpacing,
             children: [
-              Icon(
-                isChecked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                color: isChecked ? theme.accent : theme.secondaryText,
+              // The row is read, focused and activated as the check box, with
+              // its label, so the box itself is neither.
+              ExcludeFocus(
+                child: ExcludeSemantics(
+                  // Drawn enabled when read-only, so the fade alone shows
+                  // it, as for the other inputs; it writes nothing then.
+                  child: StreamCheckbox(
+                    value: isChecked,
+                    onChanged: (value) {
+                      if (canEdit) scope.write('value', value);
+                    },
+                  ),
+                ),
               ),
               Flexible(
                 child: Text(label, style: theme.body.copyWith(color: theme.text)),

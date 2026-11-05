@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -12,6 +14,38 @@ void main() {
     await tester.pump();
 
     expect(processor.surface('s')!.read('/subscribe'), isTrue);
+  });
+
+  testWidgets('tapping the box itself writes the other value', (tester) async {
+    final processor = await pumpSurface(tester, components: [_box()], data: {'subscribe': false});
+
+    await tester.tap(find.byType(StreamCheckbox));
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/subscribe'), isTrue);
+  });
+
+  testWidgets('a box is one stop when moving focus with the keyboard', (tester) async {
+    await pumpSurface(tester, components: [_box()]);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    final first = FocusManager.instance.primaryFocus;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    expect(FocusManager.instance.primaryFocus, first);
+  });
+
+  testWidgets("the app's check box builder draws the box", (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_box()],
+      data: {'subscribe': true},
+      builders: StreamComponentBuilders(checkbox: (context, props) => Text('App box ${props.value}')),
+    );
+
+    expect(find.text('App box true'), findsOneWidget);
   });
 
   testWidgets('tapping a checked box writes false', (tester) async {
@@ -46,13 +80,15 @@ void main() {
   testWidgets('a checked box is drawn in the accent color', (tester) async {
     await pumpSurface(tester, components: [_box()], data: {'subscribe': true});
 
-    expect(tester.widget<Icon>(find.byIcon(Icons.check_box_rounded)).color, lightTheme().accent);
+    final style = tester.widget<IconButton>(find.byType(IconButton)).style!;
+
+    expect(style.backgroundColor!.resolve({WidgetState.selected}), lightTheme().accent);
   });
 
   testWidgets('an unchecked box is drawn empty', (tester) async {
     await pumpSurface(tester, components: [_box()], data: {'subscribe': false});
 
-    expect(find.byIcon(Icons.check_box_outline_blank_rounded), findsOneWidget);
+    expect(tester.widget<StreamCheckbox>(find.byType(StreamCheckbox)).props.value, isFalse);
   });
 
   testWidgets('a checked box is read as checked', (tester) async {
