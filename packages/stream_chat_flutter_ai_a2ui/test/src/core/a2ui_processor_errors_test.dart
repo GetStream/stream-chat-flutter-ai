@@ -74,7 +74,47 @@ void main() {
 
     expect(errors, isEmpty);
   });
+
+  // The core tells these apart from other integrity errors of its topology
+  // checks only by their words, so a core that rewords them fails here.
+  test('a component that holds itself is a recursion problem', () {
+    final errors = <A2UIError>[];
+    _checkedProcessor(errors).apply([
+      _createSurface('plan'),
+      _componentList('plan', [
+        {
+          'id': 'root',
+          'component': 'Column',
+          'children': ['root'],
+        },
+      ]),
+    ]);
+
+    expect(errors.single.code, A2UIErrorCode.recursionLimitExceeded);
+  });
+
+  test('components that hold each other are a recursion problem', () {
+    final errors = <A2UIError>[];
+    _checkedProcessor(errors).apply([
+      _createSurface('plan'),
+      _componentList('plan', [
+        {
+          'id': 'root',
+          'component': 'Column',
+          'children': ['card'],
+        },
+        {'id': 'card', 'component': 'Card', 'child': 'root'},
+      ]),
+    ]);
+
+    expect(errors.single.code, A2UIErrorCode.recursionLimitExceeded);
+  });
 }
+
+String _componentList(String surfaceId, List<Map<String, Object?>> components) => jsonEncode({
+  'version': '1.0',
+  'updateComponents': {'surfaceId': surfaceId, 'components': components},
+});
 
 String _createSurface(String surfaceId) => jsonEncode({
   'version': '1.0',
@@ -98,6 +138,14 @@ String _updateDataModel(String surfaceId) => jsonEncode({
 
 A2UIProcessor _processor({List<A2UIError>? errors, A2UIErrorCallback? onError}) {
   final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: onError ?? errors?.add);
+  addTearDown(processor.dispose);
+  return processor;
+}
+
+// A processor that checks the topology of each message, as a conformance case
+// asks.
+A2UIProcessor _checkedProcessor(List<A2UIError> errors) {
+  final processor = A2UIProcessor.debug(catalogs: A2UICatalogs(), checks: const A2UIDebugChecks(), onError: errors.add);
   addTearDown(processor.dispose);
   return processor;
 }

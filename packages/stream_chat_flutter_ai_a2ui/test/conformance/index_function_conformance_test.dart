@@ -6,5 +6,5 @@ import 'package:flutter_test/flutter_test.dart';
 import 'a2ui_conformance.dart';
 
 void main() {
-  runConformanceSuite('index_function');
+  runConformanceSuite('index_function', run: 4, skipped: 0);
 }

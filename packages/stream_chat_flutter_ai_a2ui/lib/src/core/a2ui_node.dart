@@ -112,8 +112,11 @@ final class A2UINode extends ChangeNotifier {
   /// that calls a function runs it when the surface's catalog can; a function
   /// it can't run is reported through the processor's `onError`, as is any
   /// other problem. Completes once the action has run, and does nothing when
-  /// the property holds no action.
+  /// the property holds no action or this node is disposed, such as when a
+  /// button whose surface was just deleted is tapped before it leaves the
+  /// screen.
   Future<void> act(String name) async {
+    if (_disposed) return;
     final action = _node.props.peek()[name];
     if (action is! Future<void> Function()) return;
     try {

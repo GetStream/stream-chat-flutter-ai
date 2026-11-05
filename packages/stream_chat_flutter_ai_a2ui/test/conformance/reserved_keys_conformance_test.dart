@@ -6,5 +6,5 @@ import 'package:flutter_test/flutter_test.dart';
 import 'a2ui_conformance.dart';
 
 void main() {
-  runConformanceSuite('reserved_keys');
+  runConformanceSuite('reserved_keys', run: 8, skipped: 0);
 }
