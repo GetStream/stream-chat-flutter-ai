@@ -104,9 +104,17 @@ melos:
 
     release:pub:
       exec:
-        command: flutter pub publish -f
+        # The packages are released in lockstep and a dependent requires its
+        # sibling's new version, so `orderDependents` publishes
+        # stream_chat_flutter_ai first. pub.dev can take a moment to serve a
+        # version it just accepted, so a failed upload is retried once after a
+        # minute.
+        command: >-
+          flutter pub publish -f ||
+          { echo "Retrying $MELOS_PACKAGE_NAME in 60s"; sleep 60; flutter pub publish -f; }
         concurrency: 1
         orderDependents: true
+        failFast: true
       description: |
         Publish all publishable packages to pub.dev.
          - Note: run by `release_publish.yml` on a release tag. Never run it locally.
