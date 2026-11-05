@@ -24,9 +24,5 @@ They also keep the adapter honest if the core is ever replaced (by `a2ui_flutter
 pass the same suite.
 
 ## Keeping them cheap
-- Automated core updates: re-vendor the suites for each `a2ui_core` release, and fail when a case skipped
-  as a core gap starts passing.
-- A package of their own, so the ~23k lines of YAML stay out of
-  the published package and out of the renderer's test run.
-- If they ever need slimming, drop the suites that only re-test core internals first (expression parsing, function
-  evaluation, path resolution); keep the ones that go through what the adapter adds.
+If they ever need slimming, drop the suites that only re-test core internals first (expression parsing, function
+evaluation, path resolution); keep the ones that go through what the adapter adds.
