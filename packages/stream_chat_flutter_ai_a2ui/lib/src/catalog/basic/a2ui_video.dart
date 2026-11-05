@@ -20,11 +20,14 @@ import 'package:video_player/video_player.dart';
 ///
 /// A video whose URL is missing, has no scheme, or is refused by the
 /// surface's media function shows the box with a sign that it can't play, and
-/// no play button. A video that fails to load shows the box with its play
-/// button again, so a tap tries again.
+/// no play button. A video that fails to load or to play shows the box with
+/// its play button again, so a tap tries again, and the failure is reported
+/// with [FlutterError.reportError].
 ///
-/// The player is let go when the component leaves the widget tree, when a
-/// screen pushed over the conversation covers it, and when its URL changes.
+/// The player is let go, and where it had played to is lost, when the
+/// component leaves the widget tree, when its URL changes, and when a screen
+/// pushed over the conversation covers it once the push has finished. A
+/// bottom sheet or a dialog over it, such as a `Modal`, lets it play on.
 ///
 /// Internal to the package.
 @internal
@@ -62,7 +65,8 @@ class _A2UIVideoState extends State<_A2UIVideo> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // A video under a screen pushed over it stops.
+    // A video under a screen pushed over it is let go. Only an opaque route
+    // turns tickers off, so one under a bottom sheet or a dialog plays on.
     if (!TickerMode.valuesOf(context).enabled) _release();
   }
 
@@ -98,10 +102,10 @@ class _A2UIVideoState extends State<_A2UIVideo> {
     setState(() => _video = video);
     try {
       await video.initialize();
-    } on Object {
-      // A player let go of while it loads is already disposed.
-      if (!identical(_video, video) || !mounted) return;
-      setState(_release);
+    } on Object catch (error, stack) {
+      // A player let go of while it loads is already disposed, and its
+      // failure is expected.
+      _handleFailure(video, error, stack);
       return;
     }
     // The component left or its URL changed while the video loaded, and that
@@ -116,7 +120,7 @@ class _A2UIVideoState extends State<_A2UIVideo> {
         allowMuting: false,
         allowPlaybackSpeedChanging: false,
         showOptions: false,
-        customControls: _A2UIVideoControls(onFailed: () => _handleFailure(video)),
+        customControls: _A2UIVideoControls(onFailed: (error, stack) => _handleFailure(video, error, stack)),
       );
     });
     _play(video);
@@ -125,21 +129,24 @@ class _A2UIVideoState extends State<_A2UIVideo> {
   // Plays [video]; a video that can't is let go, as one that fails while it
   // plays.
   void _play(VideoPlayerController video) {
-    unawaited(video.play().catchError((Object error) => _handleFailure(video)));
+    unawaited(video.play().catchError((Object error, StackTrace stack) => _handleFailure(video, error, stack)));
   }
 
-  // Lets go of [video] when it is still this component's player, so the box
-  // shows its play button again.
-  void _handleFailure(VideoPlayerController video) {
+  // Reports [error] and lets go of [video] when it is still this component's
+  // player, so the box shows its play button again. A player already let go
+  // of fails as it is disposed, which is not reported.
+  void _handleFailure(VideoPlayerController video, Object error, StackTrace? stack) {
     if (!identical(_video, video) || !mounted) return;
+    reportA2UIMediaError(error, stack, 'while playing the video at ${widget.source}');
     setState(_release);
   }
 
   // A video that fails while it plays is let go, so the box shows its play
   // button again.
   void _handleVideoChange() {
-    if (!(_video?.value.hasError ?? false)) return;
-    setState(_release);
+    final video = _video;
+    if (video == null || !video.value.hasError) return;
+    _handleFailure(video, video.value.errorDescription ?? 'The video failed to play.', null);
   }
 
   @override
@@ -196,8 +203,8 @@ class _A2UIVideoState extends State<_A2UIVideo> {
 class _A2UIVideoControls extends StatelessWidget {
   const _A2UIVideoControls({required this.onFailed});
 
-  // Called when the video can't play again after a pause.
-  final VoidCallback onFailed;
+  // Called with the error when the video can't play again after a pause.
+  final void Function(Object error, StackTrace stack) onFailed;
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +225,7 @@ class _A2UIVideoControls extends StatelessWidget {
                       size: _buttonSize,
                       color: _overPicture,
                       hasShadow: true,
-                      onPressed: () => unawaited(video.play().catchError((Object error) => onFailed())),
+                      onPressed: () => unawaited(video.play().catchError(onFailed)),
                     ),
             ),
             A2UIMediaProgress(

@@ -51,7 +51,13 @@ Media loads only from web links. An app that plays media needs the `INTERNET` pe
 (Flutter adds it only to debug and profile builds), and a sandboxed macOS app needs the
 `com.apple.security.network.client` entitlement. Media over `https` needs nothing more. Media over plain `http` also
 needs `android:usesCleartextTraffic="true"` on the Android manifest's `<application>`, and
-`NSAllowsArbitraryLoadsForMedia` under `NSAppTransportSecurity` in the `Info.plist` of an iOS or macOS app.
+`NSAllowsArbitraryLoadsForMedia` under `NSAppTransportSecurity` in the `Info.plist` of an iOS or macOS app. That
+covers the video and audio, not a video's poster or an `Image`, which need an ATS exception for their domain.
+
+A player is let go, and starts again from the beginning, when another screen is pushed over it, but it plays on under a
+bottom sheet or a dialog, such as a `Modal`.
+Players don't pause each other. When the app goes to the background, a video pauses; audio keeps playing on Android,
+and on iOS follows the app's audio session and background modes.
 
 ## Tests
 

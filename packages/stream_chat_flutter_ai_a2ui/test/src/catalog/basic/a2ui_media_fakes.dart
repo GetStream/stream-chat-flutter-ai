@@ -24,12 +24,15 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   static const videoDuration = Duration(seconds: 10);
 
   // Initializes the player [id], as if its video loaded.
+  // A player already let go of hears nothing more.
   void initialize(int id) {
+    if (_events[id]!.isClosed) return;
     _events[id]!.add(VideoEvent(eventType: VideoEventType.initialized, duration: videoDuration, size: videoSize));
   }
 
   // Fails the player [id], as if its video couldn't load.
   void fail(int id) {
+    if (_events[id]!.isClosed) return;
     _events[id]!.addError(PlatformException(code: 'VideoError', message: 'The video could not be loaded.'));
   }
 
@@ -122,6 +125,9 @@ class FakeJustAudioPlatform extends JustAudioPlatform {
   @override
   Future<DisposePlayerResponse> disposePlayer(DisposePlayerRequest request) async {
     disposed.add(request.id);
+    for (final player in players) {
+      if (player.id == request.id) player._interrupt();
+    }
     return DisposePlayerResponse();
   }
 
@@ -147,12 +153,20 @@ class FakeAudioPlayerPlatform extends AudioPlayerPlatform {
 
   // Loads the audio, as if it arrived.
   void finishLoading() {
+    if (_load.isCompleted) return;
     _report(ProcessingStateMessage.ready);
     _load.complete(LoadResponse(duration: audioDuration));
   }
 
+  // Interrupts a load that hasn't finished, as the plugin does when the
+  // player is disposed.
+  void _interrupt() {
+    if (!_load.isCompleted) _load.completeError(PlatformException(code: 'abort', message: 'Loading interrupted'));
+  }
+
   // Fails to load the audio, as if it couldn't be reached.
   void failLoading() {
+    if (_load.isCompleted) return;
     _load.completeError(PlatformException(code: '404', message: 'The audio could not be loaded.'));
   }
 
@@ -281,6 +295,7 @@ class FakeAudioPlayerPlatform extends AudioPlayerPlatform {
 
   @override
   Future<DisposeResponse> dispose(DisposeRequest request) async {
+    _interrupt();
     await _events.close();
     return DisposeResponse();
   }

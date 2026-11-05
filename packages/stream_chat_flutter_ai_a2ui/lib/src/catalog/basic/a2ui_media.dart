@@ -8,7 +8,9 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 
 /// The box a video or an audio clip shows in: [height] tall, as wide as it is
 /// given, and [fallbackWidth] wide where nothing limits its width, such as in
-/// a row that scrolls, with the corners of the theme's controls.
+/// a row that scrolls.
+///
+/// Rounded with the theme's control corner radius.
 ///
 /// A row whose children don't fit can make it as narrow as it needs, down to
 /// nothing. Its [color] fills it under [children], which are stacked to fill
@@ -306,4 +308,21 @@ class A2UISpinner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Reports [error], which a video or an audio clip hit [doing], with
+/// [FlutterError.reportError], so a bad URL or a missing permission reaches
+/// the console and [FlutterError.onError].
+///
+/// Internal to the package.
+@internal
+void reportA2UIMediaError(Object error, StackTrace? stack, String doing) {
+  FlutterError.reportError(
+    FlutterErrorDetails(
+      exception: error,
+      stack: stack,
+      library: 'stream_chat_flutter_ai_a2ui',
+      context: ErrorDescription(doing),
+    ),
+  );
 }

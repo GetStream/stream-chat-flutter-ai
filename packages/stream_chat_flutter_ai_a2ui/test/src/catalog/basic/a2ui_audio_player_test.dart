@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
@@ -200,10 +203,13 @@ void main() {
     await _settle(tester);
     await tester.pump();
 
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
+
     expect(find.bySemanticsLabel('Play'), findsOneWidget);
   });
 
-  testWidgets('an AudioPlayer that fails to load raises no exception', (tester) async {
+  testWidgets('an AudioPlayer reports audio that fails to load', (tester) async {
     final platform = installFakeAudioPlatform(tester);
     await _pumpAudio(tester, audio: {'url': _song});
     await _tapPlay(tester);
@@ -212,7 +218,7 @@ void main() {
     await _settle(tester);
     await tester.pump();
 
-    expect(tester.takeException(), isNull);
+    expect(tester.takeException(), isA<PlayerException>());
   });
 
   testWidgets('an AudioPlayer loads its audio again when the person taps play after a failure', (tester) async {
@@ -225,6 +231,9 @@ void main() {
 
     await _tapPlay(tester);
 
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
+
     expect(platform.players.length, 2);
   });
 
@@ -236,6 +245,9 @@ void main() {
     platform.players.single.failPlaying();
     await _settle(tester);
     await tester.pump();
+
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
 
     expect(find.bySemanticsLabel('Play'), findsOneWidget);
   });
@@ -412,7 +424,125 @@ void main() {
 
     expect(platform.players.length, 1);
   });
+
+  testWidgets('an AudioPlayer lets its player go when a screen is pushed over it', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    await _pumpAudio(tester, audio: {'url': _song});
+    await _playAndLoad(tester, platform);
+
+    unawaited(_navigator(tester).push(MaterialPageRoute<void>(builder: (context) => const SizedBox.shrink())));
+    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    expect(platform.disposed, [platform.players.single.id]);
+  });
+
+  testWidgets('an AudioPlayer does not play on its own when the screen over it is popped', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    await _pumpAudio(tester, audio: {'url': _song});
+    await _playAndLoad(tester, platform);
+    final navigator = _navigator(tester);
+    unawaited(navigator.push(MaterialPageRoute<void>(builder: (context) => const SizedBox.shrink())));
+    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    expect(
+      (
+        players: platform.players.length,
+        plays: platform.players.single.plays,
+        play: find.bySemanticsLabel('Play').evaluate().length,
+      ),
+      (players: 1, plays: 1, play: 1),
+    );
+  });
+
+  testWidgets('an AudioPlayer plays on under a bottom sheet', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    await _pumpAudio(tester, audio: {'url': _song});
+    await _playAndLoad(tester, platform);
+
+    unawaited(
+      showModalBottomSheet<void>(
+        context: tester.element(find.byType(A2UIMediaBox)),
+        builder: (context) => const SizedBox(height: 100),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    expect(platform.disposed, isEmpty);
+  });
+
+  testWidgets('an AudioPlayer does not play audio that loads after its URL changed', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    final processor = await _pumpAudio(
+      tester,
+      audio: {
+        'url': {'@path': '/song'},
+      },
+      data: {'song': _song},
+    );
+    await _tapPlay(tester);
+    final player = platform.players.single;
+
+    processor.apply([updateData('/song', 'https://example.com/other.mp3')]);
+    await tester.pump();
+    player.finishLoading();
+    await _settle(tester);
+
+    expect(
+      (plays: player.plays, disposed: platform.disposed.length, play: find.bySemanticsLabel('Play').evaluate().length),
+      (plays: 0, disposed: 1, play: 1),
+    );
+  });
+
+  testWidgets('an AudioPlayer does not report a load it interrupted by letting its player go', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    final processor = await _pumpAudio(
+      tester,
+      audio: {
+        'url': {'@path': '/song'},
+      },
+      data: {'song': _song},
+    );
+    await _tapPlay(tester);
+
+    processor.apply([updateData('/song', 'https://example.com/other.mp3')]);
+    await tester.pump();
+    await _until(tester, () => platform.disposed.isNotEmpty);
+    await _settle(tester);
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an AudioPlayer keeps playing when its surface rebuilds with the same URL', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    final processor = await _pumpAudio(
+      tester,
+      audio: {
+        'url': {'@path': '/song'},
+      },
+      data: {'song': _song},
+    );
+    await _playAndLoad(tester, platform);
+
+    processor.apply([updateData('/song', _song)]);
+    await tester.pump();
+    await _settle(tester);
+
+    expect(
+      (players: platform.players.length, plays: platform.players.single.plays, disposed: platform.disposed.length),
+      (players: 1, plays: 1, disposed: 0),
+    );
+  });
 }
+
+// The navigator the surface shows in.
+NavigatorState _navigator(WidgetTester tester) => Navigator.of(tester.element(find.byType(A2UIMediaBox)));
 
 // Shows a surface whose root is an AudioPlayer with the properties [audio].
 Future<A2UIProcessor> _pumpAudio(

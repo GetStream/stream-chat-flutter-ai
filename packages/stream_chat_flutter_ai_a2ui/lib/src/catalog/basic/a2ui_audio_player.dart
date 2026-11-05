@@ -17,11 +17,14 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 ///
 /// Audio whose URL is missing, has no scheme, or is refused by the surface's
 /// media function shows the box with a speaker, and no button. Audio that
-/// fails to load shows the box with its play button again, so a tap tries
-/// again.
+/// fails to load or to play shows the box with its play button again, so a
+/// tap tries again, and the failure is reported with
+/// [FlutterError.reportError].
 ///
-/// The player is let go when the component leaves the widget tree, when a
-/// screen pushed over the conversation covers it, and when its URL changes.
+/// The player is let go, and where it had played to is lost, when the
+/// component leaves the widget tree, when its URL changes, and when a screen
+/// pushed over the conversation covers it once the push has finished. A
+/// bottom sheet or a dialog over it, such as a `Modal`, lets it play on.
 ///
 /// Internal to the package.
 @internal
@@ -45,7 +48,7 @@ class _A2UIAudioPlayer extends StatefulWidget {
 
 class _A2UIAudioPlayerState extends State<_A2UIAudioPlayer> {
   // The height of the box, and its width where nothing limits it, the width of
-  // the largest image.
+  // a `largeFeature` image.
   static const _height = 80.0;
   static const _fallbackWidth = 240.0;
 
@@ -67,7 +70,8 @@ class _A2UIAudioPlayerState extends State<_A2UIAudioPlayer> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Audio under a screen pushed over it stops.
+    // Audio under a screen pushed over it is let go. Only an opaque route
+    // turns tickers off, so audio under a bottom sheet or a dialog plays on.
     if (!TickerMode.valuesOf(context).enabled) _release();
   }
 
@@ -103,18 +107,22 @@ class _A2UIAudioPlayerState extends State<_A2UIAudioPlayer> {
     final player = AudioPlayer();
     setState(() => _player = player);
     _stateSubscription = player.playerStateStream.listen(_handleState);
-    _errorSubscription = player.errorStream.listen((error) => _handleError(player));
+    _errorSubscription = player.errorStream.listen((error) => _handleError(player, error, null));
     try {
       await player.setUrl(source.toString());
-    } on Object {
-      _handleError(player);
+    } on Object catch (error, stack) {
+      _handleError(player, error, stack);
       return;
     }
     // The component left or its URL changed while the audio loaded, and that
     // player was let go; one that still finishes loading doesn't play.
     if (!identical(_player, player) || !mounted) return;
     setState(() => _isLoaded = true);
-    unawaited(player.play().catchError((Object error) => _handleError(player)));
+    _play(player);
+  }
+
+  void _play(AudioPlayer player) {
+    unawaited(player.play().catchError((Object error, StackTrace stack) => _handleError(player, error, stack)));
   }
 
   // Audio that ends goes back to the start, ready to play again. The player
@@ -131,9 +139,13 @@ class _A2UIAudioPlayerState extends State<_A2UIAudioPlayer> {
     });
   }
 
-  // A player that fails is let go, so the box shows its play button again.
-  void _handleError(AudioPlayer player) {
+  // Reports [error] and lets go of [player] when it is still this
+  // component's player, so the box shows its play button again. A player
+  // already let go of fails as it is disposed, as just_audio interrupts a
+  // load it hasn't finished, which is not reported.
+  void _handleError(AudioPlayer player, Object error, StackTrace? stack) {
     if (!identical(_player, player) || !mounted) return;
+    reportA2UIMediaError(error, stack, 'while playing the audio at ${widget.source}');
     setState(_release);
   }
 
@@ -144,7 +156,7 @@ class _A2UIAudioPlayerState extends State<_A2UIAudioPlayer> {
       unawaited(player.pause().catchError(_ignore));
       return;
     }
-    unawaited(player.play().catchError((Object error) => _handleError(player)));
+    _play(player);
   }
 
   @override

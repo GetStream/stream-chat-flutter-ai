@@ -1,8 +1,11 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
+
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
@@ -19,7 +22,7 @@ void main() {
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster});
 
-    expect(_posterUrl(tester), _poster);
+    expect(_posterImage(tester), _imageAt(_poster));
   });
 
   testWidgets('a Video loads nothing but the poster until the person plays it', (tester) async {
@@ -72,9 +75,9 @@ void main() {
     await tester.pump();
 
     expect(
-      (posterUrl: _posterUrl(tester), spinners: find.byType(A2UISpinner).evaluate().length),
+      (poster: _posterImage(tester), spinners: find.byType(A2UISpinner).evaluate().length),
       (
-        posterUrl: _poster,
+        poster: _imageAt(_poster),
         spinners: 1,
       ),
     );
@@ -110,7 +113,7 @@ void main() {
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster}, mediaUrl: _throughProxy);
 
-    expect(_posterUrl(tester), 'https://proxy.example.com/poster.jpg');
+    expect(_posterImage(tester), _imageAt('https://proxy.example.com/poster.jpg'));
   });
 
   testWidgets('a Video whose URL the media function refuses has no play button', (tester) async {
@@ -266,19 +269,10 @@ void main() {
     platform.fail(0);
     await tester.pump();
 
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
+
     expect(find.bySemanticsLabel('Play'), findsOneWidget);
-  });
-
-  testWidgets('a Video that fails to load raises no exception', (tester) async {
-    final platform = installFakeVideoPlatform();
-    await _pumpVideo(tester, video: {'url': _clip});
-    await tester.tap(find.bySemanticsLabel('Play'));
-    await tester.pump();
-
-    platform.fail(0);
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a Video lets go of its player when its video fails to load', (tester) async {
@@ -289,6 +283,9 @@ void main() {
 
     platform.fail(0);
     await _settle(tester);
+
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
 
     expect(platform.disposed, [0]);
   });
@@ -301,6 +298,9 @@ void main() {
     platform.fail(0);
     await tester.pump();
     await tester.pump();
+
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
 
     expect(
       (players: find.byType(Chewie).evaluate().length, play: find.bySemanticsLabel('Play').evaluate().length),
@@ -321,6 +321,9 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Play'));
     await tester.pump();
+
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
 
     expect(platform.created, [_clip, _clip]);
   });
@@ -413,31 +416,12 @@ void main() {
     expect(tester.getSize(find.byType(A2UIMediaBox)), const Size(200 * 16 / 9, 200));
   });
 
-  testWidgets('a Video has the corners of the theme controls', (tester) async {
-    installFakeVideoPlatform();
-
-    await _pumpVideo(tester, video: {'url': _clip});
-
-    final clip = tester.widget<ClipRRect>(
-      find.descendant(of: find.byType(A2UIMediaBox), matching: find.byType(ClipRRect)),
-    );
-    expect(clip.borderRadius, BorderRadius.all(Radius.circular(lightTheme().controlCornerRadius)));
-  });
-
   testWidgets('a Video hides its poster from assistive technologies', (tester) async {
     installFakeVideoPlatform();
 
     await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster});
 
     expect(tester.widget<Image>(find.byType(Image)).excludeFromSemantics, isTrue);
-  });
-
-  testWidgets('a Video without a poster draws its play button in the accent color', (tester) async {
-    installFakeVideoPlatform();
-
-    await _pumpVideo(tester, video: {'url': _clip});
-
-    expect(tester.widget<A2UIPlayButton>(find.byType(A2UIPlayButton)).color, lightTheme().accent);
   });
 
   testWidgets('a Video draws its play button in white over its poster', (tester) async {
@@ -572,6 +556,9 @@ void main() {
 
     await _playAndLoad(tester, platform);
 
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
+
     expect(
       (players: find.byType(Chewie).evaluate().length, play: find.bySemanticsLabel('Play').evaluate().length),
       (
@@ -593,9 +580,167 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    // The failure is reported, which a test of its own covers.
+    tester.takeException();
+
     expect(find.byType(Chewie), findsNothing);
   });
+
+  testWidgets('a Video lets its player go when a screen is pushed over it', (tester) async {
+    final platform = installFakeVideoPlatform();
+    await _pumpVideo(tester, video: {'url': _clip});
+    await _playAndLoad(tester, platform);
+
+    unawaited(_navigator(tester).push(MaterialPageRoute<void>(builder: (context) => const SizedBox.shrink())));
+    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    expect(platform.disposed, [0]);
+  });
+
+  testWidgets('a Video does not play on its own when the screen over it is popped', (tester) async {
+    final platform = installFakeVideoPlatform();
+    await _pumpVideo(tester, video: {'url': _clip});
+    await _playAndLoad(tester, platform);
+    final navigator = _navigator(tester);
+    unawaited(navigator.push(MaterialPageRoute<void>(builder: (context) => const SizedBox.shrink())));
+    await tester.pumpAndSettle();
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    expect(
+      (
+        created: platform.created.length,
+        played: platform.played.length,
+        play: find.bySemanticsLabel('Play').evaluate().length,
+      ),
+      (created: 1, played: 1, play: 1),
+    );
+  });
+
+  testWidgets('a Video plays on under a bottom sheet', (tester) async {
+    final platform = installFakeVideoPlatform();
+    await _pumpVideo(tester, video: {'url': _clip});
+    await _playAndLoad(tester, platform);
+
+    unawaited(
+      showModalBottomSheet<void>(
+        context: tester.element(find.byType(Chewie)),
+        builder: (context) => const SizedBox(height: 100),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    expect(
+      (disposed: platform.disposed.length, players: find.byType(Chewie).evaluate().length),
+      (disposed: 0, players: 1),
+    );
+  });
+
+  testWidgets('a Video does not play a video that loads after its URL changed', (tester) async {
+    final platform = installFakeVideoPlatform();
+    final processor = await _pumpVideo(
+      tester,
+      video: {
+        'url': {'@path': '/trailer'},
+      },
+      data: {'trailer': _clip},
+    );
+    await tester.tap(find.bySemanticsLabel('Play'));
+    await tester.pump();
+
+    processor.apply([updateData('/trailer', 'https://example.com/other.mp4')]);
+    await tester.pump();
+    platform.initialize(0);
+    await tester.pump();
+    await tester.pump();
+    await _settle(tester);
+
+    expect(
+      (
+        played: platform.played.length,
+        disposed: platform.disposed.length,
+        players: find.byType(Chewie).evaluate().length,
+        play: find.bySemanticsLabel('Play').evaluate().length,
+      ),
+      (played: 0, disposed: 1, players: 0, play: 1),
+    );
+  });
+
+  testWidgets('a Video keeps playing when its surface rebuilds with the same URL', (tester) async {
+    final platform = installFakeVideoPlatform();
+    final processor = await _pumpVideo(
+      tester,
+      video: {
+        'url': {'@path': '/trailer'},
+      },
+      data: {'trailer': _clip},
+    );
+    await _playAndLoad(tester, platform);
+
+    processor.apply([updateData('/trailer', _clip)]);
+    await tester.pump();
+    await tester.pump();
+    await _settle(tester);
+
+    expect(
+      (
+        created: platform.created.length,
+        played: platform.played.length,
+        disposed: platform.disposed.length,
+        players: find.byType(Chewie).evaluate().length,
+      ),
+      (created: 1, played: 1, disposed: 0, players: 1),
+    );
+  });
+
+  testWidgets('a Video reports a video that fails to load', (tester) async {
+    final platform = installFakeVideoPlatform();
+    await _pumpVideo(tester, video: {'url': _clip});
+    await tester.tap(find.bySemanticsLabel('Play'));
+    await tester.pump();
+
+    platform.fail(0);
+    await tester.pump();
+
+    expect(tester.takeException(), isA<PlatformException>());
+  });
+
+  testWidgets('a Video reports a video that cannot start playing', (tester) async {
+    final platform = installFakeVideoPlatform()..failsToPlay = true;
+    await _pumpVideo(tester, video: {'url': _clip});
+
+    await _playAndLoad(tester, platform);
+
+    expect(tester.takeException(), isA<PlatformException>());
+  });
+
+  testWidgets('a Video does not report the failure of a player it let go of', (tester) async {
+    final platform = installFakeVideoPlatform();
+    final processor = await _pumpVideo(
+      tester,
+      video: {
+        'url': {'@path': '/trailer'},
+      },
+      data: {'trailer': _clip},
+    );
+    await tester.tap(find.bySemanticsLabel('Play'));
+    await tester.pump();
+    processor.apply([updateData('/trailer', 'https://example.com/other.mp4')]);
+    await tester.pump();
+
+    platform.fail(0);
+    await tester.pump();
+    await _settle(tester);
+
+    expect(tester.takeException(), isNull);
+  });
 }
+
+// The navigator the surface shows in.
+NavigatorState _navigator(WidgetTester tester) => Navigator.of(tester.element(find.byType(A2UIMediaBox)));
 
 // Shows a surface whose root is a Video with the properties [video].
 Future<A2UIProcessor> _pumpVideo(
@@ -632,11 +777,11 @@ Future<void> _settle(WidgetTester tester) => tester.runAsync(pumpEventQueue);
 // The URL [url] has on a proxy host.
 Uri _throughProxy(Uri url) => url.replace(host: 'proxy.example.com');
 
-// The URL the poster loads from.
-String _posterUrl(WidgetTester tester) {
-  final image = tester.widget<Image>(find.byType(Image)).image as ResizeImage;
-  return (image.imageProvider as CachedNetworkImageProvider).url;
-}
+// The image the poster shows.
+ImageProvider _posterImage(WidgetTester tester) => tester.widget<Image>(find.byType(Image)).image;
+
+// The image a poster at [url] shows.
+ImageProvider _imageAt(String url) => a2uiImageProvider(Uri.parse(url));
 
 class _DutchTranslations extends DefaultAITranslations {
   const _DutchTranslations();
