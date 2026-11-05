@@ -4,8 +4,8 @@ import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_versions.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_engine.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// Signature for the function that gets a problem with a reply's A2UI, with

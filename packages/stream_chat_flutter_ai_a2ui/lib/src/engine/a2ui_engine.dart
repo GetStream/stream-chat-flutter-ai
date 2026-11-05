@@ -10,9 +10,9 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_action_label.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_app_components.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_reply_view.dart';
 
 /// The A2UI replies of one conversation, each with surfaces of its own, which
@@ -139,14 +139,7 @@ final class A2UIEngine extends AIUIEngine {
     try {
       work();
     } catch (error, stack) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stack,
-          library: 'stream_chat_flutter_ai_a2ui',
-          context: ErrorDescription("while showing a reply's A2UI"),
-        ),
-      );
+      _report(error, "while showing a reply's A2UI", stack: stack);
     }
   }
 
@@ -251,23 +244,20 @@ final class A2UIEngine extends AIUIEngine {
   }
 
   static void _debugReportLeftOut(String message) {
-    if (!kDebugMode) return;
-    FlutterError.reportError(
-      FlutterErrorDetails(
-        exception: message,
-        library: 'stream_chat_flutter_ai_a2ui',
-        context: ErrorDescription("while adding the app's components to A2UI replies"),
-      ),
-    );
+    if (kDebugMode) _report(message, "while adding the app's components to A2UI replies");
   }
 
   static void _debugReport(Object problem, String messageId) {
-    if (!kDebugMode) return;
+    if (kDebugMode) _report(problem, "while showing the A2UI of reply '$messageId'");
+  }
+
+  static void _report(Object problem, String context, {StackTrace? stack}) {
     FlutterError.reportError(
       FlutterErrorDetails(
         exception: problem,
+        stack: stack,
         library: 'stream_chat_flutter_ai_a2ui',
-        context: ErrorDescription("while showing the A2UI of reply '$messageId'"),
+        context: ErrorDescription(context),
       ),
     );
   }
