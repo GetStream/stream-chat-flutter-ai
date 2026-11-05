@@ -81,8 +81,8 @@ class ChartView extends StatelessWidget {
         // Sized from the space they get, so they can't answer a host asking for
         // their intrinsic size, as `IntrinsicWidth` and `Table` do.
         USpecKind.pie => _NoIntrinsics(child: _buildPieChart(chartTheme, slices, hasLegend: hasLegend)),
-        USpecKind.bar => _buildBarChart(context, chartTheme, horizontal: false),
-        USpecKind.horizontalBar => _buildBarChart(context, chartTheme, horizontal: true),
+        USpecKind.bar => _NoIntrinsics(child: _buildBarChart(context, chartTheme, horizontal: false)),
+        USpecKind.horizontalBar => _NoIntrinsics(child: _buildBarChart(context, chartTheme, horizontal: true)),
         USpecKind.scatter => _buildScatterChart(chartTheme, bubble: false),
         USpecKind.bubble => _buildScatterChart(chartTheme, bubble: true),
         USpecKind.histogram => _buildHistogramChart(chartTheme),
@@ -142,8 +142,9 @@ class ChartView extends StatelessWidget {
   // Plot frame
   // ---------------------------------------------------------------------------
 
-  // The plot with its padding: as tall as the kind needs, or as the width
-  // allows for a semicircle, whose height is its radius.
+  // The plot with its padding: as tall as the kind needs, or for a
+  // semicircle, whose height is its radius, as the width allows up to the
+  // theme's height.
   Widget _buildPlot(ResolvedChartTheme theme, Widget child) {
     final padding = _plotPadding;
     final height = _plotHeight(theme);
@@ -161,12 +162,12 @@ class ChartView extends StatelessWidget {
   }
 
   // The height of the plot, padding included, or null when the width decides
-  // it.
+  // it, up to the theme's height.
   double? _plotHeight(ResolvedChartTheme theme) {
     switch (spec.kind) {
       case USpecKind.singleStackedBar:
         return _kSingleBarThickness + _kPlotVerticalPadding * 2;
-      case USpecKind.pie when spec.semicircle:
+      case USpecKind.pie when spec.pieShape == USpecPieShape.semicircle:
         return null;
       case USpecKind.horizontalBar when !theme.heightIsSet:
         // A row per category, tall enough for its grouped bars, so a long list
@@ -271,6 +272,10 @@ class ChartView extends StatelessWidget {
         color: color,
         isCurved: curved,
         curveSmoothness: _kNaturalCurveSmoothness,
+        // Keeps the curve between the values of the two points it joins, so
+        // it never swings past a peak or a trough, nor out of the plot.
+        preventCurveOverShooting: curved,
+        preventCurveOvershootingThreshold: theme.height * _kCurveOvershootShare,
         isStepLineChart: stepped,
         lineChartStepData: const LineChartStepData(stepDirection: LineChartStepData.stepDirectionMiddle),
         dotData: const FlDotData(show: false),
@@ -285,10 +290,6 @@ class ChartView extends StatelessWidget {
         gridData: _gridData(theme),
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
-        // A smooth curve swings past its lowest points; clipped along the
-        // bottom, it stays off the axis labels. The top is left open so a peak
-        // keeps its full stroke, with the plot's padding above it.
-        clipData: curved ? const FlClipData(top: false, bottom: true, left: false, right: false) : const .none(),
       ),
     );
   }
@@ -315,13 +316,20 @@ class ChartView extends StatelessWidget {
             ? constraints.maxHeight - _kBottomAxisSize
             : constraints.maxWidth - _kLeftAxisSize;
         final band = axisLength / max(1, labels.length);
+        // A category's bars keep their width while the band has room, and
+        // narrow with it once it doesn't, so neighbors never overlap. A stack
+        // takes at most `_kStackedBandShare` of the band. Grouped bars keep at
+        // least the gap between their own bars from the next category's, or
+        // the same share once the band is too thin for that.
         final stackWidth = max<double>(0, min(_barGroupWidth, band * _kStackedBandShare));
+        final groupLimit = max(band - _kBarsSpace, band * _kStackedBandShare);
+        final groupScale = max<double>(0, min(_barGroupWidth, groupLimit)) / _barGroupWidth;
         return BarChart(
           BarChartData(
             barGroups: [
               for (var xi = 0; xi < labels.length; xi++)
                 switch (spec.barLayout) {
-                  USpecBarLayout.grouped => _groupedBars(theme, labels, xi),
+                  USpecBarLayout.grouped => _groupedBars(theme, labels, xi, scale: groupScale),
                   USpecBarLayout.stacked => _stackedBar(theme, labels, xi, width: stackWidth),
                 },
             ],
@@ -336,8 +344,9 @@ class ChartView extends StatelessWidget {
     );
   }
 
-  // One rod per series, side by side.
-  BarChartGroupData _groupedBars(ResolvedChartTheme theme, List<String> labels, int xi) {
+  // One rod per series, side by side, their widths and gaps `scale` times
+  // the usual ones.
+  BarChartGroupData _groupedBars(ResolvedChartTheme theme, List<String> labels, int xi, {required double scale}) {
     final rods = <BarChartRodData>[];
     for (var si = 0; si < spec.series.length; si++) {
       // Omit the rod where a series has no point in this category. Falling
@@ -345,9 +354,9 @@ class ChartView extends StatelessWidget {
       // real measurement of nothing rather than as absent.
       final point = _pointAt(spec.series[si], labels[xi], xi);
       if (point == null) continue;
-      rods.add(BarChartRodData(toY: point.y, color: theme.seriesColor(si), width: _kBarWidth));
+      rods.add(BarChartRodData(toY: point.y, color: theme.seriesColor(si), width: _kBarWidth * scale));
     }
-    return BarChartGroupData(x: xi, barRods: rods, barsSpace: _kBarsSpace);
+    return BarChartGroupData(x: xi, barRods: rods, barsSpace: _kBarsSpace * scale);
   }
 
   // One rod `width` wide for the whole category, its series' values laid end
@@ -394,9 +403,9 @@ class ChartView extends StatelessWidget {
     );
   }
 
-  // How wide one category's grouped bars are, gaps included. A stacked bar is
-  // as wide, so switching the layout keeps each category's footprint, unless
-  // that would crowd its neighbors.
+  // How wide one category's grouped bars are, gaps included, when the band
+  // has room for them. A stacked bar is as wide, so switching the layout
+  // keeps each category's footprint.
   double get _barGroupWidth {
     final count = max(1, spec.series.length);
     return count * _kBarWidth + (count - 1) * _kBarsSpace;
@@ -479,10 +488,10 @@ class ChartView extends StatelessWidget {
   // other slice's angle.
   //
   // The first slice starts at the top. A pie fills the plot, solid unless it
-  // is a [USpec.donut], and a [USpec.semicircle] spreads the slices over the
+  // is a [USpec.donut], and a [USpecPieShape.semicircle] spreads the slices over the
   // top half of a circle.
   Widget _buildPieChart(ResolvedChartTheme theme, List<_PieSlice> slices, {required bool hasLegend}) {
-    if (spec.semicircle) return _buildSemicircle(theme, slices, hasLegend: hasLegend);
+    if (spec.pieShape == USpecPieShape.semicircle) return _buildSemicircle(theme, slices, hasLegend: hasLegend);
     return LayoutBuilder(
       builder: (context, constraints) {
         final radius = constraints.biggest.shortestSide / 2;
@@ -1108,6 +1117,13 @@ const _kCategoryGutterSpacing = 8.0;
 // `fl_chart` starts it with no reach at all.
 const _kNaturalCurveSmoothness = 1 / 3;
 
+// The share of the chart's height under which `fl_chart` lays a curve level
+// at a point. A point keeps its slope only where the line falls by more than
+// this on both sides of it. That slope reaches a sixth of the fall across its
+// neighbors, at most a sixth of the height, so it can't carry the curve past
+// either of them.
+const _kCurveOvershootShare = 1 / 6;
+
 // The fewest spokes a radar can draw a shape with.
 const _kRadarMinSpokes = 3;
 
@@ -1274,13 +1290,17 @@ class _SingleBarPainter extends CustomPainter {
     canvas
       ..save()
       ..clipRRect(RRect.fromRectAndRadius(bar, Radius.circular(size.height / 2)));
-    var left = 0.0;
+    // The parts run from the start, as the legend's entries do: from the
+    // right in a right-to-left layout.
+    final rtl = textDirection == TextDirection.rtl;
+    var start = 0.0;
     for (final part in parts) {
       final width = available * part.share;
+      final left = rtl ? size.width - start - width : start;
       final rect = Rect.fromLTWH(left, 0, width, size.height);
       canvas.drawRect(rect, Paint()..color = part.color);
       _paintLabel(canvas, part, rect);
-      left += width + gap;
+      start += width + gap;
     }
     canvas.restore();
   }

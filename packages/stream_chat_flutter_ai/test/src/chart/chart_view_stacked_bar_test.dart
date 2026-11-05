@@ -191,6 +191,67 @@ void main() {
     expect(_groups(tester).first.barRods.single.width, closeTo((320 - 16 - 40) / 3 * 0.6, 1e-9));
   });
 
+  testWidgets('grouped rods and their gaps narrow alike between crowded categories', (tester) async {
+    // The same 108 of rods and gaps narrow evenly to fit the 88 band, less
+    // the 4 gap they keep from the next category.
+    final spec = USpec(
+      kind: USpecKind.bar,
+      series: [
+        for (var s = 0; s < 8; s++)
+          USeries(
+            name: 'S$s',
+            points: const [
+              UPoint(x: 'A', y: 1),
+              UPoint(x: 'B', y: 1),
+              UPoint(x: 'C', y: 1),
+            ],
+          ),
+      ],
+    );
+
+    await tester.pumpWidget(_wrap(SizedBox(width: 320, child: ChartView(spec: spec))));
+
+    final group = _groups(tester).first;
+    const scale = ((320 - 16 - 40) / 3 - 4) / 108;
+    expect(group.barRods.map((r) => r.width), everyElement(closeTo(10 * scale, 1e-9)));
+    expect(group.barsSpace, closeTo(4 * scale, 1e-9));
+  });
+
+  testWidgets('grouped rods in a band too thin to keep their gap take 0.6 of it, as a stack does', (tester) async {
+    // 30 categories share 264, 8.8 each; 8.8 less the gap is under 0.6 of it.
+    final spec = USpec(
+      kind: USpecKind.bar,
+      series: [
+        for (var s = 0; s < 2; s++)
+          USeries(
+            name: 'S$s',
+            points: [for (var c = 0; c < 30; c++) UPoint(x: 'C$c', y: 1)],
+          ),
+      ],
+    );
+
+    await tester.pumpWidget(_wrap(SizedBox(width: 320, child: ChartView(spec: spec))));
+
+    final group = _groups(tester).first;
+    const scale = (320 - 16 - 40) / 30 * 0.6 / 24;
+    expect(group.barRods.map((r) => r.width), everyElement(closeTo(10 * scale, 1e-9)));
+    expect(group.barsSpace, closeTo(4 * scale, 1e-9));
+  });
+
+  testWidgets('grouped rods keep their width while the band has room', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        const ChartView(
+          spec: USpec(kind: USpecKind.bar, series: _twoPositive),
+        ),
+      ),
+    );
+
+    final group = _groups(tester).first;
+    expect(group.barRods.map((r) => r.width), [10, 10]);
+    expect(group.barsSpace, 4);
+  });
+
   testWidgets('gives a stacked rod no width when the chart is narrower than its value gutter', (tester) async {
     // 50 wide leaves 34 inside the inset, less than the 40 value gutter.
     await tester.pumpWidget(_wrap(SizedBox(width: 50, child: ChartView(spec: _stacked(_twoPositive)))));

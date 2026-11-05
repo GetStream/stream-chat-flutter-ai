@@ -84,7 +84,7 @@ void main() {
   });
 
   testWidgets('a semicircle can be a donut', (tester) async {
-    const spec = USpec(kind: USpecKind.pie, semicircle: true, donut: true, series: _parts);
+    const spec = USpec(kind: USpecKind.pie, pieShape: USpecPieShape.semicircle, donut: true, series: _parts);
 
     await tester.pumpWidget(_wrapSized(const ChartView(spec: spec)));
 
@@ -124,7 +124,7 @@ void main() {
   testWidgets('a semicircle with no slice to draw adds no filler', (tester) async {
     const spec = USpec(
       kind: USpecKind.pie,
-      semicircle: true,
+      pieShape: USpecPieShape.semicircle,
       series: [
         USeries(
           name: 'Share',
@@ -143,7 +143,7 @@ void main() {
 
   testWidgets('a line chart ignores donut and semicircle', (tester) async {
     const plain = USpec(kind: USpecKind.line, series: _parts);
-    const shaped = USpec(kind: USpecKind.line, donut: true, semicircle: true, series: _parts);
+    const shaped = USpec(kind: USpecKind.line, donut: true, pieShape: USpecPieShape.semicircle, series: _parts);
 
     await tester.pumpWidget(_wrap(const ChartView(spec: plain)));
     // The lines themselves; the title builders are new closures every build.
@@ -169,7 +169,7 @@ const _pie = USpec(kind: USpecKind.pie, series: _parts);
 
 const _donut = USpec(kind: USpecKind.pie, donut: true, series: _parts);
 
-const _semicircle = USpec(kind: USpecKind.pie, semicircle: true, series: _parts);
+const _semicircle = USpec(kind: USpecKind.pie, pieShape: USpecPieShape.semicircle, series: _parts);
 
 PieChartData _data(WidgetTester tester) => tester.widget<PieChart>(find.byType(PieChart)).data;
 

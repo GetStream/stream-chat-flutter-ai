@@ -32,6 +32,33 @@ void main() {
     );
   });
 
+  testWidgets('runs its parts right to left in a right-to-left layout, as its legend does', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        Directionality(
+          textDirection: TextDirection.rtl,
+          child: ChartView(spec: _bar([50, 30, 20]), theme: _palette),
+        ),
+      ),
+    );
+
+    const available = 768 - 2 * 2;
+    expect(
+      _painted(tester),
+      paints
+        ..rect(
+          rect: const Rect.fromLTWH(768 - available * 0.5, 0, available * 0.5, 24),
+          color: _palette.seriesColors![0],
+        )
+        ..rect(rect: const Rect.fromLTWH(available * 0.2 + 2, 0, available * 0.3, 24), color: _palette.seriesColors![1])
+        // Ends at the left edge, give or take rounding.
+        ..rect(color: _palette.seriesColors![2]),
+    );
+    // The legend's first entry sits at the right, over the first part.
+    final legend = find.descendant(of: find.byKey(ChartView.legendKey), matching: find.byType(Text));
+    expect(tester.getCenter(legend.first).dx, greaterThan(tester.getCenter(legend.last).dx));
+  });
+
   testWidgets('narrows the gaps rather than the parts when there are many', (tester) async {
     // 200 parts on a 288-wide bar: 2-wide gaps would take 398, so they share
     // half the bar instead.

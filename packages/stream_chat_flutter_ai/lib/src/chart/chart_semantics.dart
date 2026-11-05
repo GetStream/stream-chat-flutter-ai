@@ -101,6 +101,11 @@ class ChartSemantics {
       USpecKind.heatmap => points.map((p) => p.z ?? p.y),
       // The rings and parts drawn, not the values left out.
       USpecKind.radial || USpecKind.singleStackedBar when parts.isNotEmpty => parts.map((part) => part.value),
+      // Where the stacks end, as the bars and the axis show them, not the
+      // values stacked.
+      USpecKind.bar || USpecKind.horizontalBar
+          when spec.barLayout == USpecBarLayout.stacked && _stackEnds(drawn).isNotEmpty =>
+        _stackEnds(drawn),
       // Where each value sits: a negative or non-finite one at the center.
       USpecKind.radar => points.map((p) => p.y.isFinite ? math.max<double>(0, p.y) : 0.0),
       USpecKind.line ||
@@ -169,6 +174,22 @@ class ChartSemantics {
       largestSliceLabel: largestLabel,
       largestSlicePercent: largestPercent,
     );
+  }
+
+  // Where each category's stack ends: the sum of its positive values above
+  // zero, and of its negative ones below, leaving out the values a stacked bar
+  // leaves out.
+  static List<double> _stackEnds(List<USeries> series) {
+    final positive = <String, double>{};
+    final negative = <String, double>{};
+    for (final s in series) {
+      for (final point in s.points) {
+        if (!point.y.isFinite) continue;
+        final sums = point.y >= 0 ? positive : negative;
+        sums[point.x] = (sums[point.x] ?? 0) + point.y;
+      }
+    }
+    return [...positive.values, ...negative.values].where((end) => end.isFinite).toList(growable: false);
   }
 
   /// Which kind of chart this is.

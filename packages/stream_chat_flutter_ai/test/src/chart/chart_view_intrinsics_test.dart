@@ -35,9 +35,11 @@ const _parts = [
 ];
 
 const _cases = {
+  'a bar chart': USpec(kind: USpecKind.bar, series: _parts),
+  'a horizontal bar chart': USpec(kind: USpecKind.horizontalBar, series: _parts),
   'a pie': USpec(kind: USpecKind.pie, series: _parts),
   'a donut': USpec(kind: USpecKind.pie, donut: true, series: _parts),
-  'a semicircle': USpec(kind: USpecKind.pie, semicircle: true, series: _parts),
+  'a semicircle': USpec(kind: USpecKind.pie, pieShape: USpecPieShape.semicircle, series: _parts),
   'a radar': USpec(kind: USpecKind.radar, series: _parts),
   'a radial chart': USpec(kind: USpecKind.radial, series: _parts),
   'a single stacked bar': USpec(kind: USpecKind.singleStackedBar, series: _parts),

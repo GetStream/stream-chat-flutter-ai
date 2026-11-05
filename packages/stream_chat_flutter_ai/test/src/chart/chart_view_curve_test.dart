@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
+import 'package:stream_chat_flutter_ai/src/theme/components/chart_theme.dart';
 
 void main() {
   testWidgets('a line chart joins its points with straight segments by default', (tester) async {
@@ -38,13 +39,29 @@ void main() {
     expect((line.isStepLineChart, line.lineChartStepData.stepDirection), (true, LineChartStepData.stepDirectionMiddle));
   });
 
-  testWidgets('a natural curve is clipped along the bottom, off the axis labels', (tester) async {
+  testWidgets('a natural curve stays between the points it joins, so it needs no clip', (tester) async {
     const spec = USpec(kind: USpecKind.line, curve: USpecCurve.natural, series: _visits);
 
-    await tester.pumpWidget(_wrap(const ChartView(spec: spec)));
+    await tester.pumpWidget(_wrap(const ChartView(spec: spec, theme: ChartThemeData(height: 240))));
 
-    final clip = tester.widget<LineChart>(find.byType(LineChart)).data.clipData;
-    expect((clip.bottom, clip.top), (true, false));
+    final line = _line(tester);
+    // A slope reaches a sixth of a rise the plot holds, so levelling every
+    // point the line falls less than a sixth of the height past keeps each
+    // segment between its two points.
+    expect((line.preventCurveOverShooting, line.preventCurveOvershootingThreshold), (true, 240 / 6));
+    expect(tester.widget<LineChart>(find.byType(LineChart)).data.clipData, const FlClipData.none());
+  });
+
+  testWidgets('a straight line keeps its slopes, with nothing to level', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        const ChartView(
+          spec: USpec(kind: USpecKind.line, series: _visits),
+        ),
+      ),
+    );
+
+    expect(_line(tester).preventCurveOverShooting, isFalse);
   });
 
   testWidgets('a step line, which never swings past its points, is not clipped', (tester) async {

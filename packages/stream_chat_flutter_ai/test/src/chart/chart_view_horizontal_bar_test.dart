@@ -25,6 +25,22 @@ void main() {
     expect(tester.getCenter(find.text('0')).dx, lessThan(tester.getCenter(find.text('10')).dx));
   });
 
+  testWidgets('keeps its category labels at the left in a right-to-left layout, as a bar chart keeps its axis', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        Directionality(
+          textDirection: TextDirection.rtl,
+          child: ChartView(spec: _horizontal(_regions)),
+        ),
+      ),
+    );
+
+    expect(tester.getCenter(find.text('North')).dx, lessThan(tester.getCenter(find.text('10')).dx));
+    expect(tester.getCenter(find.text('0')).dx, lessThan(tester.getCenter(find.text('10')).dx));
+  });
+
   testWidgets('stacks like a vertical bar chart: one rod per category', (tester) async {
     await tester.pumpWidget(_wrap(ChartView(spec: _horizontal(_regions, layout: USpecBarLayout.stacked))));
 
@@ -64,6 +80,25 @@ void main() {
 
       // Four rods of 10 with 4 between them, plus 12 of air.
       expect(_plotHeight(tester), 10 * (4 * 10 + 3 * 4 + 12) + 40);
+    });
+
+    testWidgets('narrows grouped bars that the 1000 cap leaves too little room', (tester) async {
+      // 30 rows of three rods would need 38 each, more than the capped
+      // height's rows get.
+      final series = [
+        for (final name in ['A', 'B', 'C'])
+          USeries(
+            name: name,
+            points: [for (var i = 0; i < 30; i++) UPoint(x: 'Row $i', y: 1)],
+          ),
+      ];
+
+      await tester.pumpWidget(_wrap(ChartView(spec: _horizontal(series))));
+
+      final group = _chart(tester).data.barGroups.first;
+      final footprint = group.barRods.fold<double>(0, (sum, rod) => sum + rod.width) + 2 * group.barsSpace;
+      expect(_plotHeight(tester), 1000);
+      expect(footprint, lessThan(1000 / 30));
     });
 
     testWidgets('keeps a stacked row 34 tall, one bar whatever the series', (tester) async {

@@ -154,8 +154,8 @@ void main() {
             ),
             (
               name: 'donutHoleRatio',
-              only: const ChartThemeData(donutHoleRatio: 0.98),
-              copied: () => base.copyWith(donutHoleRatio: 0.98),
+              only: const ChartThemeData(donutHoleRatio: 0.85),
+              copied: () => base.copyWith(donutHoleRatio: 0.85),
               read: (t) => t.donutHoleRatio,
             ),
             (
@@ -233,13 +233,14 @@ void main() {
       expect(described['radialTrackColor'], const Color(0xFF123456).toString());
     });
 
-    test('asserts the donut hole ratio is a share from 0 to 1', () {
+    test('asserts the donut hole ratio is a share from 0 to 0.9, leaving a ring to draw', () {
       // Not const: a const constructor's assert fails at compile time instead.
       double ratio(double v) => v;
-      expect(() => ChartThemeData(donutHoleRatio: ratio(1.5)), throwsAssertionError);
+      expect(() => ChartThemeData(donutHoleRatio: ratio(1)), throwsAssertionError);
+      expect(() => ChartThemeData(donutHoleRatio: ratio(0.91)), throwsAssertionError);
       expect(() => ChartThemeData(donutHoleRatio: ratio(-0.1)), throwsAssertionError);
       expect(() => ChartThemeData(donutHoleRatio: ratio(double.nan)), throwsAssertionError);
-      expect(ChartThemeData(donutHoleRatio: ratio(1)).donutHoleRatio, 1);
+      expect(ChartThemeData(donutHoleRatio: ratio(0.9)).donutHoleRatio, 0.9);
     });
 
     group('merge', () {
@@ -375,9 +376,9 @@ void main() {
 
       test('keeps the donut hole ratio in range when a curve overshoots', () {
         const a = ChartThemeData(donutHoleRatio: 0);
-        const b = ChartThemeData(donutHoleRatio: 1);
+        const b = ChartThemeData(donutHoleRatio: 0.9);
 
-        expect(ChartThemeData.lerp(a, b, 2).donutHoleRatio, 1);
+        expect(ChartThemeData.lerp(a, b, 2).donutHoleRatio, 0.9);
         expect(ChartThemeData.lerp(a, b, -1).donutHoleRatio, 0);
       });
 

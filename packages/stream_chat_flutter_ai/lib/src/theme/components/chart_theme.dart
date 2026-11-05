@@ -24,6 +24,10 @@ const kDefaultChartSeriesColors = [
   Color(0xFF1ABC9C),
 ];
 
+/// The largest [ChartThemeData.donutHoleRatio]: a larger hole would leave the
+/// ring too thin to see, and a hole the whole radius would leave nothing.
+const kMaxDonutHoleRatio = 0.9;
+
 /// Where [ChartView] places its legend relative to the plot.
 ///
 /// Above or below only, for now: a legend beside the plot would take width a
@@ -88,8 +92,8 @@ class ChartThemeData with Diagnosticable {
          'piePercentageThreshold is a share of the whole, from 0 to 1',
        ),
        assert(
-         donutHoleRatio == null || (donutHoleRatio >= 0 && donutHoleRatio <= 1),
-         'donutHoleRatio is a share of the radius, from 0 to 1',
+         donutHoleRatio == null || (donutHoleRatio >= 0 && donutHoleRatio <= kMaxDonutHoleRatio),
+         'donutHoleRatio is a share of the radius, from 0 to $kMaxDonutHoleRatio',
        );
 
   /// The colors series — and a pie's slices, a radial chart's rings and a
@@ -102,7 +106,7 @@ class ChartThemeData with Diagnosticable {
   ///
   /// With no height set at any level, app-wide, per subtree or per chart, a
   /// [USpecKind.horizontalBar] chart grows with its number of categories
-  /// instead. A [USpec.semicircle] pie is only as tall as its radius, which the
+  /// instead. A [USpecPieShape.semicircle] pie is only as tall as its radius, which the
   /// plot's width and this height both limit. A [USpecKind.singleStackedBar]
   /// chart is one bar tall and ignores it.
   final double? height;
@@ -189,8 +193,8 @@ class ChartThemeData with Diagnosticable {
 
   /// The hole in the middle of a [USpec.donut] pie, as a share of its radius.
   ///
-  /// Falls back to 0.58. Asserted to lie in 0 to 1; a value outside that is
-  /// clamped in release.
+  /// Falls back to 0.58. Asserted to lie in 0 to [kMaxDonutHoleRatio], so the
+  /// ring keeps a width to draw; a value outside that is clamped in release.
   final double? donutHoleRatio;
 
   /// The color of the full ring drawn behind each arc of a [USpecKind.radial]
@@ -303,7 +307,7 @@ class ChartThemeData with Diagnosticable {
       // past 1, which would otherwise trip the constructor's range assert.
       piePercentageThreshold: lerpDoubleOrSwap(a.piePercentageThreshold, b.piePercentageThreshold, t)?.clamp(0.0, 1.0),
       // Clamped for the same reason as the threshold above.
-      donutHoleRatio: lerpDoubleOrSwap(a.donutHoleRatio, b.donutHoleRatio, t)?.clamp(0.0, 1.0),
+      donutHoleRatio: lerpDoubleOrSwap(a.donutHoleRatio, b.donutHoleRatio, t)?.clamp(0.0, kMaxDonutHoleRatio),
       radialTrackColor: lerpColorOrSwap(a.radialTrackColor, b.radialTrackColor, t),
     );
   }

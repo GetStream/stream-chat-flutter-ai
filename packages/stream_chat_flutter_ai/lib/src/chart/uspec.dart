@@ -35,7 +35,8 @@ enum USpecKind {
   histogram,
 
   /// Bar chart whose bars run left to right, one row per category with the
-  /// first at the top.
+  /// first at the top. Like [bar], it is not mirrored in a right-to-left
+  /// layout: the categories stay at the left.
   ///
   /// Grouped or stacked like [bar], by [USpec.barLayout]. In the screen-reader
   /// summary, [USpec.xLabel] names the horizontal axis, which carries the
@@ -59,10 +60,11 @@ enum USpecKind {
   /// the rest. Zero, negative and non-finite values get no ring.
   radial,
 
-  /// One bar the full width of the chart, split into a part per drawn point of
+  /// One bar the full width of the plot, split into a part per drawn point of
   /// the first series, each as wide as its share of the total.
   ///
-  /// The parts run left to right in data order. Zero, negative and non-finite
+  /// The parts run from the start in data order: left to right, or right to
+  /// left in a right-to-left layout, as the legend does. Zero, negative and non-finite
   /// values get no part.
   singleStackedBar,
 }
@@ -95,6 +97,16 @@ enum USpecCurve {
   step,
 }
 
+/// The part of a circle a [USpecKind.pie] spans.
+enum USpecPieShape {
+  /// The whole circle, its first slice starting at the top.
+  full,
+
+  /// The top half of a circle, its slices running from left to right over the
+  /// top.
+  semicircle,
+}
+
 /// A single data point in a chart series.
 class UPoint {
   /// Creates a [UPoint].
@@ -118,6 +130,9 @@ class UPoint {
 
   @override
   int get hashCode => Object.hash(x, y, size, z);
+
+  @override
+  String toString() => 'UPoint(x: $x, y: $y${size == null ? '' : ', size: $size'}${z == null ? '' : ', z: $z'})';
 }
 
 /// A named series of data points.
@@ -143,6 +158,9 @@ class USeries {
 
   @override
   int get hashCode => Object.hash(name, Object.hashAll(points));
+
+  @override
+  String toString() => 'USeries(name: $name, points: $points)';
 }
 
 /// Unified chart specification — the internal representation used by [ChartView].
@@ -156,8 +174,9 @@ class USeries {
 /// - Vega-Lite (`data.values` + `mark` + `encoding` fields).
 /// - A flat pie schema (`type: "pie"` + `data: [{label, value}]`).
 ///
-/// The parsers produce line, bar, pie, area, scatter, bubble, heatmap and
-/// histogram charts with their default looks. Built in code, a spec can use
+/// The parsers produce line, bar, pie, area, scatter, bubble, heatmap,
+/// histogram and radar charts with their default looks, and a Chart.js
+/// `doughnut` as a [donut] pie. Built in code, a spec can use
 /// every kind and option:
 ///
 /// ```dart
@@ -182,7 +201,7 @@ class USpec {
     this.barLayout = USpecBarLayout.grouped,
     this.curve = USpecCurve.linear,
     this.donut = false,
-    this.semicircle = false,
+    this.pieShape = USpecPieShape.full,
   });
 
   /// The chart type.
@@ -221,11 +240,38 @@ class USpec {
   /// kinds ignore it.
   final bool donut;
 
-  /// Whether a [USpecKind.pie] spans the top half of a circle, its slices
-  /// running from left to right over the top, instead of the whole circle.
+  /// The part of a circle a [USpecKind.pie] spans.
   ///
-  /// Combines with [donut]. Other kinds ignore it.
-  final bool semicircle;
+  /// Defaults to [USpecPieShape.full]. Combines with [donut]. Other kinds
+  /// ignore it.
+  final USpecPieShape pieShape;
+
+  /// A copy of this spec with the given fields replaced.
+  USpec copyWith({
+    USpecKind? kind,
+    List<USeries>? series,
+    String? title,
+    String? xLabel,
+    String? yLabel,
+    bool? beginAtZeroY,
+    USpecBarLayout? barLayout,
+    USpecCurve? curve,
+    bool? donut,
+    USpecPieShape? pieShape,
+  }) {
+    return USpec(
+      kind: kind ?? this.kind,
+      series: series ?? this.series,
+      title: title ?? this.title,
+      xLabel: xLabel ?? this.xLabel,
+      yLabel: yLabel ?? this.yLabel,
+      beginAtZeroY: beginAtZeroY ?? this.beginAtZeroY,
+      barLayout: barLayout ?? this.barLayout,
+      curve: curve ?? this.curve,
+      donut: donut ?? this.donut,
+      pieShape: pieShape ?? this.pieShape,
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -240,7 +286,7 @@ class USpec {
           other.barLayout == barLayout &&
           other.curve == curve &&
           other.donut == donut &&
-          other.semicircle == semicircle;
+          other.pieShape == pieShape;
 
   @override
   int get hashCode => Object.hash(
@@ -253,8 +299,14 @@ class USpec {
     barLayout,
     curve,
     donut,
-    semicircle,
+    pieShape,
   );
+
+  @override
+  String toString() =>
+      'USpec(kind: ${kind.name}, series: $series, title: $title, xLabel: $xLabel, yLabel: $yLabel, '
+      'beginAtZeroY: $beginAtZeroY, barLayout: ${barLayout.name}, curve: ${curve.name}, donut: $donut, '
+      'pieShape: ${pieShape.name})';
 }
 
 /// Parses JSON strings from AI code blocks into [USpec] chart data.
@@ -333,6 +385,7 @@ class USpecParser {
       xLabel: json['xLabel']?.toString(),
       yLabel: json['yLabel']?.toString(),
       beginAtZeroY: json['beginAtZeroY'] == true,
+      donut: _isDoughnut(rawKind.toString()),
     );
   }
 
@@ -372,6 +425,7 @@ class USpecParser {
         title: json['title']?.toString(),
         kind: USpecKind.pie,
         series: [USeries(name: ds['label']?.toString() ?? '', points: points)],
+        donut: _isDoughnut(rawType),
       );
     }
 
@@ -750,9 +804,13 @@ class USpecParser {
   // Shared helpers
   // ---------------------------------------------------------------------------
 
+  // Whether a `type` names Chart.js's doughnut, a pie with a hole.
+  static bool _isDoughnut(String raw) => raw.toLowerCase() == 'doughnut';
+
   static USpecKind _parseKind(String raw) => switch (raw.toLowerCase()) {
     'pie' || 'doughnut' || 'polararea' => USpecKind.pie,
-    'bar' || 'column' || 'radar' => USpecKind.bar,
+    'bar' || 'column' => USpecKind.bar,
+    'radar' => USpecKind.radar,
     'area' => USpecKind.area,
     'scatter' => USpecKind.scatter,
     'bubble' => USpecKind.bubble,

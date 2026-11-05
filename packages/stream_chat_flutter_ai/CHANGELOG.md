@@ -135,17 +135,9 @@
 - `ChartView.legendKey` — the key of a chart's legend, for finding it in widget tests.
 - `AITranslations.unnamedChartSlice` and `chartLegendMore` — the legend's names for an unnamed slice
   and for the entries left out.
-- `USpecKind.horizontalBar`, `USpecKind.radar`, `USpecKind.radial` and `USpecKind.singleStackedBar` —
-  bars running left to right, a radar with a shape per series, a ring per value, and one bar split
-  into shares. `ChartView` draws all four, each with a screen-reader summary, and
-  `ChartSemantics.sliceLabels` names a radial chart's rings and a single stacked bar's parts.
-- `USpec.barLayout` and `USpecBarLayout` (`grouped`, `stacked`) — stacks the series of a bar or
-  horizontal bar chart into one bar per category.
-- `USpec.curve` and `USpecCurve` (`linear`, `natural`, `step`) — draws a line or area chart smooth or
-  stepped.
-- `USpec.donut` and `USpec.semicircle` — draw a pie as a ring, or over the top half of a circle.
-- `ChartThemeData.donutHoleRatio` and `ChartThemeData.radialTrackColor` — a donut's hole as a share
-  of its radius, and the ring behind each arc of a radial chart.
+- `ChartView` draws horizontal, stacked, radar, radial, single stacked bar and donut/semicircle pie
+  charts, with smooth and stepped lines (`USpecKind`, `USpec.barLayout`/`curve`/`donut`/`pieShape`,
+  `ChartThemeData.donutHoleRatio`/`radialTrackColor`, `kMaxDonutHoleRatio`), and `USpec` gains `copyWith` and `toString`.
 - `AILocalModel` — an interface over an on-device model that streams a fallback reply when the person is offline or the agent hit its usage limit. Each event is the whole answer so far, which is what `StreamingMessageView.text` takes, and cancelling the subscription stops the model.
 - `AIConversationTurn` and `AIConversationRole` — one turn of the conversation handed to an `AILocalModel`. `AIConversationTurn.fitToBudget` trims the history to a small context, keeping the newest unbroken run of turns and always the question; `estimateTokens` and `tokensPerTurn` set what a turn costs.
 - `AILocalModelException` and `AILocalModelErrorReason` (`unavailable`, `invalidConversation`, `contextExceeded`, `failed`) — the error an `AILocalModel.reply` stream emits when the model can't answer.
@@ -237,7 +229,8 @@
 🔄 Changed
 
 - A pie starts its first slice at the top and is solid, filling its plot. It used to start at the right
-  and leave a hole in the middle that grew with the chart's height; `USpec.donut` draws a ring now.
+  and leave a hole in the middle that grew with the chart's height; `USpec.donut` draws a ring now,
+  and a Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.
 - The recommended way to provide translations is now to implement `AITranslations` rather than
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep

@@ -86,7 +86,7 @@ class ResolvedChartTheme {
       },
       donutHoleRatio: switch (theme.donutHoleRatio) {
         // The constructor asserts the range; this keeps release builds sane.
-        final ratio? when ratio.isFinite => ratio.clamp(0.0, 1.0),
+        final ratio? when ratio.isFinite => ratio.clamp(0.0, kMaxDonutHoleRatio),
         _ => 0.58,
       },
       radialTrackColor: theme.radialTrackColor ?? colors.backgroundSurfaceSubtle,

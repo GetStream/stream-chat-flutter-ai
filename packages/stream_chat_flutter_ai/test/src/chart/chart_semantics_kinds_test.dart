@@ -182,11 +182,41 @@ void main() {
     );
   });
 
-  test('reads a stacked bar chart like a grouped one', () {
+  test('reads a stacked bar chart by its stack totals, as its axis shows them', () {
     const grouped = USpec(kind: USpecKind.bar, series: _twoNamed);
     const stacked = USpec(kind: USpecKind.bar, barLayout: USpecBarLayout.stacked, series: _twoNamed);
+    const horizontal = USpec(kind: USpecKind.horizontalBar, barLayout: USpecBarLayout.stacked, series: _twoNamed);
 
-    expect(_label(stacked), _label(grouped));
+    // Jan stacks 3 + 2, Feb 5 + 4.
+    expect(_label(stacked), _label(grouped).replaceFirst('values 2 to 5', 'values 5 to 9'));
+    expect(_label(horizontal), contains('values 5 to 9'));
+  });
+
+  test('reads a stack with mixed signs to the ends of each side', () {
+    const spec = USpec(
+      kind: USpecKind.bar,
+      barLayout: USpecBarLayout.stacked,
+      series: [
+        USeries(
+          name: 'A',
+          points: [
+            UPoint(x: 'Jan', y: 3),
+            UPoint(x: 'Feb', y: -1),
+          ],
+        ),
+        USeries(
+          name: 'B',
+          points: [
+            UPoint(x: 'Jan', y: -2),
+            UPoint(x: 'Feb', y: -4),
+            UPoint(x: 'Mar', y: double.nan),
+          ],
+        ),
+      ],
+    );
+
+    // Jan reaches 3 and -2, Feb -5; the non-finite value is left out.
+    expect(_label(spec), contains('values -5 to 3'));
   });
 
   test('reads a natural line like a straight one', () {
@@ -205,7 +235,7 @@ void main() {
 
   test('reads a semicircle like a pie', () {
     const pie = USpec(kind: USpecKind.pie, series: _twoNamed);
-    const semicircle = USpec(kind: USpecKind.pie, semicircle: true, series: _twoNamed);
+    const semicircle = USpec(kind: USpecKind.pie, pieShape: USpecPieShape.semicircle, series: _twoNamed);
 
     expect(_label(semicircle), _label(pie));
   });

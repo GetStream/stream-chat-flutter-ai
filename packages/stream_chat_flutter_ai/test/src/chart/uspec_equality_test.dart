@@ -139,8 +139,8 @@ void main() {
       expect(_spec().donut, isFalse);
     });
 
-    test('a spec is not a semicircle unless asked', () {
-      expect(_spec().semicircle, isFalse);
+    test('a pie spans the whole circle unless asked', () {
+      expect(_spec().pieShape, USpecPieShape.full);
     });
 
     test('the bar layout participates', () {
@@ -167,9 +167,9 @@ void main() {
       expect(donut.hashCode, isNot(pie.hashCode));
     });
 
-    test('semicircle participates', () {
+    test('the pie shape participates', () {
       const pie = USpec(kind: USpecKind.pie, series: []);
-      const semicircle = USpec(kind: USpecKind.pie, series: [], semicircle: true);
+      const semicircle = USpec(kind: USpecKind.pie, series: [], pieShape: USpecPieShape.semicircle);
 
       expect(semicircle, isNot(pie));
       expect(semicircle.hashCode, isNot(pie.hashCode));
@@ -186,6 +186,86 @@ void main() {
       const json = '{"kind":"line","series":[{"name":"Revenue","points":[{"x":"Q1","y":1}]}]}';
 
       expect(USpecParser.tryParse(json), USpecParser.tryParse(json));
+    });
+  });
+
+  group('USpec.copyWith', () {
+    const full = USpec(
+      kind: USpecKind.pie,
+      series: [
+        USeries(
+          name: 'S',
+          points: [UPoint(x: 'A', y: 1)],
+        ),
+      ],
+      title: 'Title',
+      xLabel: 'X',
+      yLabel: 'Y',
+      beginAtZeroY: true,
+      barLayout: USpecBarLayout.stacked,
+      curve: USpecCurve.step,
+      donut: true,
+      pieShape: USpecPieShape.semicircle,
+    );
+
+    test('with nothing given, is an equal spec', () {
+      expect(full.copyWith(), full);
+    });
+
+    test('replaces each field it is given, and only that one', () {
+      final replaced = _spec().copyWith(
+        kind: full.kind,
+        series: full.series,
+        title: full.title,
+        xLabel: full.xLabel,
+        yLabel: full.yLabel,
+        beginAtZeroY: full.beginAtZeroY,
+        barLayout: full.barLayout,
+        curve: full.curve,
+        donut: full.donut,
+        pieShape: full.pieShape,
+      );
+
+      expect(replaced, full);
+      expect(
+        full.copyWith(donut: false),
+        const USpec(kind: USpecKind.pie, series: []).copyWith(
+          series: full.series,
+          title: 'Title',
+          xLabel: 'X',
+          yLabel: 'Y',
+          beginAtZeroY: true,
+          barLayout: USpecBarLayout.stacked,
+          curve: USpecCurve.step,
+          pieShape: USpecPieShape.semicircle,
+        ),
+      );
+    });
+  });
+
+  group('toString', () {
+    test('names every field of a spec, its series and their points', () {
+      const spec = USpec(
+        kind: USpecKind.bar,
+        series: [
+          USeries(
+            name: 'S',
+            points: [UPoint(x: 'A', y: 1, size: 2, z: 3)],
+          ),
+        ],
+        title: 'T',
+      );
+
+      expect(
+        spec.toString(),
+        'USpec(kind: bar, series: [USeries(name: S, points: [UPoint(x: A, y: 1.0, size: 2.0, z: 3.0)])], '
+        'title: T, xLabel: null, yLabel: null, beginAtZeroY: false, barLayout: grouped, curve: linear, '
+        'donut: false, pieShape: full)',
+      );
+    });
+
+    test('leaves the optionals a point does not have out', () {
+      expect(const UPoint(x: 'A', y: 1).toString(), 'UPoint(x: A, y: 1.0)');
     });
   });
 }
