@@ -1,5 +1,5 @@
 name: stream_chat_flutter_ai_a2ui_example
-description: "Gallery of the A2UI components of stream_chat_flutter_ai_a2ui."
+description: "A conversation and a gallery of the A2UI replies stream_chat_flutter_ai_a2ui shows."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -34,3 +34,5 @@ flutter:
     # A Video and an AudioPlayer, with the links of the basic catalog's movie
     # and podcast examples.
     - assets/media_example.json
+    # A button that opens a web page.
+    - assets/link_example.json

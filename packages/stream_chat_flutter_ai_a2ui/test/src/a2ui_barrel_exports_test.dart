@@ -32,7 +32,17 @@ void main() {
 }
 
 // The public API: the theme, the catalog and what its builders read.
-const _expectedNames = {'A2UICatalog', 'A2UIChild', 'A2UIComponentBuilder', 'A2UIComponentScope', 'A2UITheme'};
+const _expectedNames = {
+  'A2UICatalog',
+  'A2UIChild',
+  'A2UIComponentBuilder',
+  'A2UIComponentScope',
+  'A2UIError',
+  'A2UIErrorCode',
+  'A2UIErrorHandler',
+  'A2UIRenderer',
+  'A2UITheme',
+};
 
 String _barrel() => File('lib/stream_chat_flutter_ai_a2ui.dart').readAsStringSync();
 

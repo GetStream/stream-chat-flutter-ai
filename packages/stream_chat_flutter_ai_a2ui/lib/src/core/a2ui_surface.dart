@@ -138,6 +138,25 @@ final class A2UISurface extends ChangeNotifier {
     }
   }
 
+  /// The value of the text the button `componentId` shows, or `null` when
+  /// it shows none that can be read here.
+  ///
+  /// The text is the `text` of the component the button's `child` names:
+  /// what the agent wrote, or what it is bound to at an absolute path of the
+  /// data model. A path relative to a template's item and a function call
+  /// give `null`, as does a button whose child isn't there.
+  Object? buttonTextOf(String componentId) {
+    if (_disposed) return null;
+    final components = _model.componentsModel;
+    final childId = components.get(componentId)?.properties['child'];
+    if (childId is! String) return null;
+    return switch (components.get(childId)?.properties['text']) {
+      {'@path': final String path} when path.startsWith('/') => read(path),
+      final Map<Object?, Object?> _ => null,
+      final text => _plain(text),
+    };
+  }
+
   // A context that reads this surface's data model at [path] as a component
   // of this surface reads it, with problems going to [onError]. A function no
   // catalog has is read from the agent calls [parent], a component's own

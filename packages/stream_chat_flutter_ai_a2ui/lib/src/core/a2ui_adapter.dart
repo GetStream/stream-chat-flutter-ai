@@ -15,6 +15,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:a2ui_core/a2ui_core.dart' as core;
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:json_schema_builder/json_schema_builder.dart' show Schema;
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
@@ -22,6 +23,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
 
+part 'a2ui_agent_function.dart';
 part 'a2ui_catalogs.dart';
 part 'a2ui_checks.dart';
 part 'a2ui_conformance_seams.dart';
@@ -30,3 +32,4 @@ part 'a2ui_expansion.dart';
 part 'a2ui_node.dart';
 part 'a2ui_processor.dart';
 part 'a2ui_surface.dart';
+part 'a2ui_topology.dart';

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_renderer.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// The look of a reply's A2UI: the colors, fonts and corners its components
@@ -8,12 +10,14 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 ///
 /// A reply's A2UI is drawn with the theme [A2UITheme.fromStream] makes from
 /// the app's [StreamTheme], so it looks like the rest of the conversation. A
-/// theme that changes only A2UI, such as its accent, starts from that one; the
-/// renderer that takes a theme comes in a later version of the package:
+/// theme that changes only A2UI, such as its accent, starts from that one and
+/// is given to the [A2UIRenderer]:
 ///
 /// ```dart
-/// final theme = A2UITheme.fromStream(StreamTheme.of(context)).copyWith(
-///   accent: const Color(0xFFE65100),
+/// final renderer = A2UIRenderer(
+///   theme: A2UITheme.fromStream(StreamTheme.of(context)).copyWith(
+///     accent: const Color(0xFFE65100),
+///   ),
 /// );
 /// ```
 ///
