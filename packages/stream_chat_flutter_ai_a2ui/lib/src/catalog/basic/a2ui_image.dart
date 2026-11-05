@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_fill.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
@@ -135,12 +136,20 @@ class A2UIImageView extends StatelessWidget {
   }
 
   // The URL to load the image from: the agent's, when it has a scheme, as
-  // [mediaUrl] gives it. A name without a scheme loads nothing.
+  // [mediaUrl] gives it. A name without a scheme loads nothing. A URL that
+  // loads nothing is logged in debug builds.
   static Uri? _sourceOf(String? url, A2UIMediaUrl mediaUrl) {
     if (url == null || url.isEmpty) return null;
     final uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasScheme) return null;
-    return mediaUrl(uri);
+    if (uri == null || !uri.hasScheme) {
+      a2uiDebugLogOnce("The Image URL '$url' is not loaded: it is not a URL with a scheme.");
+      return null;
+    }
+    final source = mediaUrl(uri);
+    if (source == null) {
+      a2uiDebugLogOnce("The Image URL '$url' is not loaded: the surface's media URL function refused it.");
+    }
+    return source;
   }
 
   Widget _image(BuildContext context, Uri source) {
@@ -159,7 +168,10 @@ class A2UIImageView extends StatelessWidget {
         if (frame == null && !wasSynchronouslyLoaded) return const _Loading();
         return child;
       },
-      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+      errorBuilder: (context, error, stackTrace) {
+        a2uiDebugLogOnce("The Image '$source' failed to load: $error");
+        return const SizedBox.shrink();
+      },
     );
   }
 }

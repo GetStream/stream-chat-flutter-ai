@@ -17,10 +17,14 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_text.dart';
 /// The widget it returns is placed where the component shows. It is called
 /// again when the component's properties or children change.
 ///
-/// When the children of a `Row` or `Column` don't fit, the row or column asks
-/// each of them how short it can be, through its intrinsic size such as
+/// A `Row` or `Column` measures each of its children through its dry layout,
+/// [RenderBox.getDryLayout], before laying it out once, so nesting them stays
+/// cheap. A widget that can't measure itself that way, such as a
+/// [LayoutBuilder], can't be a child of one, even inside a box of a fixed
+/// size. When the children don't fit, the row or column also asks each of
+/// them how short it can be, through its intrinsic size such as
 /// [RenderBox.getMinIntrinsicWidth], so a widget that can't say, such as a
-/// [LayoutBuilder] or a [ListView], needs a fixed size there. A child of a
+/// [ListView], needs a fixed size there. A child of a
 /// `Row` without a weight is first laid out with no width limit, as in a
 /// Flutter [Row], so a widget that needs one, such as a `TextField`, needs a
 /// weight or a width of its own.
@@ -43,7 +47,10 @@ typedef A2UIComponentBuilder = Widget Function(BuildContext context, A2UICompone
 /// A component whose type has no builder in the catalog shows nothing.
 ///
 /// A catalog doesn't change: [replacing] and [removing] return new ones. Two
-/// catalogs are equal when they have the same builders for the same types.
+/// catalogs are equal when they have the same builders for the same types,
+/// compared as functions, so a catalog made again in a `build` method, with a
+/// new closure, is never equal to the last one and everything drawn with it
+/// builds again. Keep a catalog in a `final` or `static` field instead.
 @immutable
 final class A2UICatalog {
   const A2UICatalog._(this._builders);

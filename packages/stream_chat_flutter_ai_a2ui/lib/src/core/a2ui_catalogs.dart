@@ -11,9 +11,10 @@ part of 'a2ui_adapter.dart';
 /// takes any value here: a component with a value its catalog doesn't list,
 /// such as a `variant` of `h1`, is kept, and is drawn in the property's
 /// default style. One bound to the data model is read from it, as any
-/// property is, and is drawn in the default style too. Any other property the
-/// catalog lists the strings of, such as an `Icon`'s `name`, takes any
-/// string, so an icon of a name the catalog doesn't have is kept too.
+/// property is, and is drawn in the default style too. An `Icon`'s `name`
+/// takes any string, so an icon of a name the catalog doesn't have is kept
+/// too, and shows a fallback. Every other property is checked as the catalog
+/// lists it.
 ///
 /// It doesn't change, so one can be shared by several [A2UIProcessor]s, such
 /// as those of every reply in a chat.
@@ -82,9 +83,10 @@ final class A2UICatalogs {
   }
 
   static core.ComponentApi _withLooseStyle(core.ComponentApi component) {
+    final loosened = _loosened(component.schema.value);
     return core.ComponentApi(
       name: component.name,
-      schema: Schema.fromMap(_loosened(component.schema.value)),
+      schema: Schema.fromMap(component.name == 'Icon' ? _withAnyIconName(loosened) : loosened),
       allowedParents: component.allowedParents,
       allowedChildren: component.allowedChildren,
     );
@@ -100,7 +102,7 @@ final class A2UICatalogs {
       if (properties is Map<String, Object?>)
         'properties': {
           for (final MapEntry(:key, :value) in properties.entries)
-            key: _styleProperties.contains(key) && _isStringChoice(value) ? _anyValue : _anyString(value),
+            key: _styleProperties.contains(key) && _isStringChoice(value) ? _anyValue : value,
         },
       if (parts is List<Object?>)
         'allOf': [
@@ -112,9 +114,28 @@ final class A2UICatalogs {
 
   static bool _isStringChoice(Object? schema) => schema is Map<String, Object?> && schema['enum'] is List<Object?>;
 
+  // The `Icon` [schema] with any string allowed as its `name`, where it is
+  // listed, so an icon the catalog doesn't have shows the help icon instead
+  // of being dropped.
+  static Map<String, Object?> _withAnyIconName(Map<String, Object?> schema) {
+    final properties = schema['properties'];
+    final parts = schema['allOf'];
+    return {
+      ...schema,
+      if (properties is Map<String, Object?>)
+        'properties': {
+          for (final MapEntry(:key, :value) in properties.entries) key: key == 'name' ? _anyString(value) : value,
+        },
+      if (parts is List<Object?>)
+        'allOf': [
+          for (final part in parts)
+            if (part is Map<String, Object?>) _withAnyIconName(part) else part,
+        ],
+    };
+  }
+
   // [schema] with each list of the strings a value may be taken out, at any
-  // depth, so any string passes; a builder shows a fallback for one it
-  // doesn't know, such as the help icon for an icon name.
+  // depth, so any string passes.
   static Object? _anyString(Object? schema) {
     return switch (schema) {
       final Map<String, Object?> map => {

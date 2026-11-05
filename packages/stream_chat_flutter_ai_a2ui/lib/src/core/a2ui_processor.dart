@@ -209,8 +209,10 @@ final class A2UIProcessor extends ChangeNotifier {
           _report(_errorFromCore(error, message: message));
         } finally {
           _tooLargeSurfaceId = null;
+          // Also when the core throws something else, so a tree held back
+          // above is built again, or reported, either way.
+          if (surfaceId != null) _checkSize(surfaceId);
         }
-        if (surfaceId != null) _checkSize(surfaceId);
     }
   }
 

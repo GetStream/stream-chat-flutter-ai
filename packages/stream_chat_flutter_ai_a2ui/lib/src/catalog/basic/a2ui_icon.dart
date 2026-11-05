@@ -2,13 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dart';
 
 /// Builds an `Icon`: the icon of A2UI's basic catalog its `name` names, or a
 /// shape the agent draws with an `svgPath` in a 24 by 24 box, in the color of
-/// the text around it.
+/// the surrounding [IconTheme].
 ///
 /// A name the catalog doesn't have, a missing name and a path that can't be
-/// drawn show a help icon. The name is the icon's accessibility label.
+/// drawn show a help icon. A named icon's name is its accessibility label; an
+/// icon drawn from a path has none.
 ///
 /// Internal to the package.
 @internal
@@ -104,7 +106,10 @@ class _A2UISvgIcon extends StatelessWidget {
       width: size,
       height: size,
       colorFilter: color == null ? null : ColorFilter.mode(color, BlendMode.srcIn),
-      errorBuilder: (context, error, stackTrace) => Icon(_fallback, size: size),
+      errorBuilder: (context, error, stackTrace) {
+        a2uiDebugLogOnce("The Icon svgPath '$path' can't be drawn: $error");
+        return Icon(_fallback, size: size);
+      },
     );
   }
 }

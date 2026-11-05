@@ -19,8 +19,23 @@ void main() {
     expect(_theme().heading(9), _h3());
   });
 
-  test('with no heading styles, a heading is the body style', () {
-    expect(_theme(headings: const []).heading(1), _body());
+  test('a theme with no heading styles asserts', () {
+    expect(() => _theme(headings: const []), throwsAssertionError);
+  });
+
+  test('changing the heading styles a theme was made with leaves the theme as it was', () {
+    final headings = [_h1(), _h2(), _h3()];
+    final theme = _theme(headings: headings);
+    final hashCode = theme.hashCode;
+
+    headings.clear();
+
+    expect(theme.headings, [_h1(), _h2(), _h3()]);
+    expect(theme.hashCode, hashCode);
+  });
+
+  test("a theme's heading styles can't be changed", () {
+    expect(() => _theme().headings.add(_h1()), throwsUnsupportedError);
   });
 
   for (final field in _fields()) {

@@ -14,9 +14,10 @@ part of 'a2ui_adapter.dart';
 ///
 /// A surface whose components would expand to more than 5,000, counting a
 /// component once for each place it shows and a template's once for each item
-/// of its list, or would nest more than 50 levels deep, has no [root] until
-/// the agent or its data changes it to fit; the processor reports it once as
-/// `RECURSION_LIMIT_EXCEEDED`.
+/// of its list, or would nest more than 50 levels deep, has no [root] until a
+/// message from the agent or a [write] to its data makes it fit; the processor
+/// reports it once as `RECURSION_LIMIT_EXCEEDED`. A [write] is checked too, so
+/// one that grows a templated list past the limit takes the [root] away.
 ///
 /// Its processor owns it: it is disposed when the agent deletes the surface,
 /// and when the processor is reset or disposed. When the agent deletes it, or
@@ -152,6 +153,7 @@ final class A2UISurface extends ChangeNotifier {
     } on core.A2uiError catch (error) {
       _processor._report(_errorFromCore(error, surfaceId: id));
     }
+    _processor._checkSize(id);
   }
 
   // Releases this surface. When [notify] is true, listeners hear first that

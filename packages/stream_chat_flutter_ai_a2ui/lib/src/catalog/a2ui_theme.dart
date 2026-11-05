@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// The look of a reply's A2UI: the colors, fonts and corners its components
 /// are drawn with.
@@ -21,9 +22,9 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 final class A2UITheme {
   /// Creates a theme from its colors, its text styles and its corner radii.
   ///
-  /// The [headings] are the styles of headings from level 1 down; see
-  /// [heading].
-  const A2UITheme({
+  /// The [headings] are the styles of headings from level 1 down, at least
+  /// one; see [heading]. The theme keeps its own copy of them.
+  A2UITheme({
     required this.accent,
     required this.onAccent,
     required this.text,
@@ -36,20 +37,18 @@ final class A2UITheme {
     required this.body,
     required this.caption,
     required this.label,
-    required this.headings,
+    required List<TextStyle> headings,
     required this.cornerRadius,
     required this.buttonCornerRadius,
     required this.controlCornerRadius,
-  });
+  }) : assert(headings.isNotEmpty, 'An A2UITheme needs at least one heading style.'),
+       headings = List.unmodifiable(headings);
 
-  /// Creates the theme of the Stream design system's [theme].
+  /// Creates the theme of the Stream design system's [theme]: its colors,
+  /// text styles and corner radii.
   ///
-  /// Its colors are the design system's accent, text, card, surface, border,
-  /// error and warning colors. Its text styles are the body, metadata and
-  /// caption styles and the four heading styles; they set no color, so text
-  /// takes [text], or [secondaryText] for captions. Cards, fields, images and
-  /// media players have the extra large corner radius, and buttons are fully
-  /// rounded.
+  /// The text styles set no color, so text takes [text], or [secondaryText]
+  /// for captions.
   factory A2UITheme.fromStream(StreamTheme theme) {
     final colors = theme.colorScheme;
     final text = theme.textTheme;
@@ -78,6 +77,12 @@ final class A2UITheme {
       controlCornerRadius: radius.xl.x,
     );
   }
+
+  /// The theme of the surface a component is drawn in, for a builder of the
+  /// surface's catalog, or a widget it builds, to draw with.
+  ///
+  /// Asserts that [context] is inside a surface.
+  static A2UITheme of(BuildContext context) => A2UISurfaceScope.of(context).theme;
 
   /// The color of primary buttons, selected options and the active parts of
   /// controls, such as the selected tab.
@@ -165,9 +170,8 @@ final class A2UITheme {
   /// The style of headings of [level], counted from 1.
   ///
   /// A [level] below 1 gives the first of [headings], and one past the last
-  /// gives the last. With no [headings] at all, it is [body].
+  /// gives the last.
   TextStyle heading(int level) {
-    if (headings.isEmpty) return body;
     return headings[level.clamp(1, headings.length) - 1];
   }
 
