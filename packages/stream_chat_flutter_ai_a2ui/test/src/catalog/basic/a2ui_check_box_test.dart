@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -29,6 +30,17 @@ void main() {
     await tester.pump();
 
     expect(processor.surface('s')!.read('/'), isEmpty);
+  });
+
+  testWidgets('a box whose value is written as true is fainter, and reported', (tester) async {
+    final errors = <A2UIError>[];
+    await pumpSurface(tester, components: [_box(value: true)], errors: errors);
+
+    expect(
+      tester.widget<Opacity>(find.ancestor(of: find.text('Subscribe'), matching: find.byType(Opacity)).first).opacity,
+      lessThan(1),
+    );
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
   testWidgets('a checked box is drawn in the accent color', (tester) async {

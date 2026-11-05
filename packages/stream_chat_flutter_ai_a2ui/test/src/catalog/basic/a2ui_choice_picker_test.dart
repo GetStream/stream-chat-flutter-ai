@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
 import '../../a2ui_test_app.dart';
@@ -34,6 +35,41 @@ void main() {
     await tester.pump();
 
     expect(_picked(processor), ['relaxed', 'packed']);
+  });
+
+  testWidgets("tapping an option of a multiple choice leaves out a pick that isn't among the options", (tester) async {
+    final processor = await pumpSurface(
+      tester,
+      components: [_picker(variant: 'multipleSelection')],
+      data: {
+        'pace': ['relaxed', 'gone'],
+      },
+    );
+
+    await tester.tap(find.text('Packed'));
+    await tester.pump();
+
+    expect(_picked(processor), ['relaxed', 'packed']);
+  });
+
+  testWidgets('a picker whose value is written as a list picks nothing, and is reported', (tester) async {
+    final errors = <A2UIError>[];
+    final processor = await pumpSurface(
+      tester,
+      components: [
+        {
+          ..._picker(),
+          'value': ['relaxed'],
+        },
+      ],
+      errors: errors,
+    );
+
+    await tester.tap(find.text('Packed'));
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/'), isEmpty);
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
   testWidgets('tapping a picked option of a multiple choice removes it', (tester) async {

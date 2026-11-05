@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_slider.dart';
 
 import '../../a2ui_test_app.dart';
@@ -86,6 +87,51 @@ void main() {
     await pumpSurface(tester, components: [_slider()], data: {'size': 20});
 
     expect(tester.widget<Slider>(find.byType(Slider)).value, 8);
+  });
+
+  testWidgets('a value above the maximum is written as the end once it shows', (tester) async {
+    final processor = await pumpSurface(tester, components: [_slider()], data: {'size': 20});
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/size'), 8);
+  });
+
+  testWidgets('a value below the minimum is written as the start once it shows', (tester) async {
+    final processor = await pumpSurface(tester, components: [_slider()], data: {'size': -3});
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/size'), 1);
+  });
+
+  testWidgets("a value that isn't a number is written as the minimum, and reported", (tester) async {
+    final errors = <A2UIError>[];
+    final processor = await pumpSurface(tester, components: [_slider()], data: {'size': 'big'}, errors: errors);
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/size'), 1);
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
+  });
+
+  testWidgets('a value within the range is left as it is', (tester) async {
+    final processor = await pumpSurface(tester, components: [_slider()], data: {'size': 3});
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/size'), 3);
+  });
+
+  testWidgets("a slider whose value is written as a number can't be moved, and is reported", (tester) async {
+    final errors = <A2UIError>[];
+    await pumpSurface(
+      tester,
+      components: [
+        {..._slider(), 'value': 3},
+      ],
+      errors: errors,
+    );
+    await tester.pump();
+
+    expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
   testWidgets('a slider is read with its label and its value', (tester) async {

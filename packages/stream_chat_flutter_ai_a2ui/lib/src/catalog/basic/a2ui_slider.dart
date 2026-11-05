@@ -10,9 +10,12 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// divisions when it has them.
 ///
 /// A `min` that isn't a number is 0, and a `max` that isn't above it is one
-/// more than it. A value outside the range shows at the nearer end. When the
-/// value isn't there yet, the slider writes `min` once it shows, so what the
-/// person sees is what an action sends.
+/// more than it. Once the slider shows, it writes what it shows, so what the
+/// person sees is what an action sends: a value outside the range becomes
+/// the nearer end, and a value that isn't there yet becomes `min`, as does
+/// one that isn't a number, which is reported through the processor's
+/// `onError`. A slider whose `value` isn't bound to the data model shows its
+/// value fainter, and can't be moved.
 ///
 /// Internal to the package.
 @internal
@@ -44,23 +47,42 @@ class _A2UISliderState extends State<_A2UISlider> {
   @override
   void initState() {
     super.initState();
-    _writeShownValueIfMissing();
+    _writeShownValue();
   }
 
   @override
   void didUpdateWidget(_A2UISlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _writeShownValueIfMissing();
+    _writeShownValue();
   }
 
-  // Writes the value the slider shows when there is none, after this frame:
-  // the data model can't change while the surface builds.
-  void _writeShownValueIfMissing() {
-    if (widget.scope.number('value') != null) return;
+  // Writes the value the slider shows when the data model holds another,
+  // after this frame: the data model can't change while the surface builds.
+  void _writeShownValue() {
+    if (_unshownValue() == null) return;
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || widget.scope.number('value') != null) return;
-      widget.scope.write('value', _json(_range.min));
+      if (!mounted) return;
+      if (_unshownValue() case final shown?) widget.scope.write('value', _json(shown));
     });
+  }
+
+  // The value the slider shows, when the data model holds another one: one
+  // outside the range, one that isn't there yet, or one that isn't a number,
+  // which is reported. `null` when the slider shows what the model holds, or
+  // can't write.
+  double? _unshownValue() {
+    final scope = widget.scope;
+    if (!scope.isBound('value')) return null;
+    final range = _range;
+    final number = scope.number('value');
+    if (number == null) {
+      if (scope.value('value') != null) {
+        a2uiReportOnce(scope, 'value', "Its 'value' isn't a number, so it starts at its 'min'.");
+      }
+      return range.min;
+    }
+    final shown = number.clamp(range.min, range.max);
+    return shown == number ? null : shown;
   }
 
   ({double min, double max}) get _range => a2uiSliderRange(widget.scope.number('min'), widget.scope.number('max'));
@@ -89,6 +111,7 @@ class _A2UISliderState extends State<_A2UISlider> {
     final divisions = steps != null && steps >= 1 ? steps.round() : null;
     final label = scope.string('label') ?? '';
     final accessibility = a2uiAccessibilityOf(scope);
+    final canEdit = a2uiCanEdit(scope);
     final labelStyle = theme.label.copyWith(color: theme.secondaryText);
     return A2UIInputWidth(
       child: Column(
@@ -132,7 +155,9 @@ class _A2UISliderState extends State<_A2UISlider> {
                     max: range.max,
                     divisions: divisions,
                     semanticFormatterCallback: (value) => a2uiText(_json(value)) ?? '',
-                    onChanged: (picked) => scope.write('value', _json(_snapped(picked, range, divisions))),
+                    onChanged: canEdit
+                        ? (picked) => scope.write('value', _json(_snapped(picked, range, divisions)))
+                        : null,
                   ),
                 ),
               ),

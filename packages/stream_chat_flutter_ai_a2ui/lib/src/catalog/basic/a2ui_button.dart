@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
@@ -26,9 +28,12 @@ Widget buildA2UIButton(BuildContext context, A2UIComponentScope scope) {
   final accessibility = a2uiAccessibilityOf(scope);
   final child = scope.child();
   final variant = scope.hint('variant');
+  // Each tap runs the action, as on iOS and Android: a second tap while the
+  // first one's action runs sends a second event, so an agent that books
+  // something treats a repeated event as a repeat.
   void handleTap() {
     FocusManager.instance.primaryFocus?.unfocus();
-    scope.performAction();
+    unawaited(scope.performAction());
   }
 
   final isEnabled = !a2uiBlocks(failures);

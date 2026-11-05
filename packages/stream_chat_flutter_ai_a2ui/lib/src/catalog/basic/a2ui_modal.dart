@@ -97,11 +97,19 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
     super.dispose();
   }
 
+  // Opens the sheet, unless it is open already. Opening never throws, so a
+  // button in the trigger still runs its own action after it: a modal that
+  // has left the surface opens nothing, and one without a [Navigator] above
+  // it is reported.
   void _handleOpen() {
-    if (_sheet?.isActive ?? false) return;
+    if (!mounted || (_sheet?.isActive ?? false)) return;
+    final navigator = Navigator.maybeOf(context);
+    if (navigator == null) {
+      a2uiReportOnce(widget.scope, 'navigator', "Its sheet can't open: the surface has no Navigator above it.");
+      return;
+    }
     final surface = A2UISurfaceScope.of(context);
     final theme = surface.theme;
-    final navigator = Navigator.of(context);
     final sheet = _sheet = ModalBottomSheetRoute<void>(
       isScrollControlled: true,
       useSafeArea: true,

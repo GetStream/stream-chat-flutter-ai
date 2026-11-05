@@ -10,14 +10,25 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// date picker and then the time picker, as `enableDate` and `enableTime`
 /// say. With neither, it picks a date.
 ///
-/// What the person picks is written in ISO 8601: a date such as
-/// `2026-10-02`, a time such as `19:30:00`, or a date and time with its
-/// offset from UTC, such as `2026-10-02T19:30:00+02:00`, or `Z` for no
-/// offset. A date and time keeps the offset its value was written with, and
-/// otherwise takes the device's. Nothing is written until the person picks.
+/// A date and time written with an offset from UTC, such as
+/// `2026-10-02T17:30:00Z`, shows as the same moment on the device's clock,
+/// such as 19:30 two hours east of UTC; one written without an offset shows
+/// as it is written.
 ///
-/// The date picker offers only the days from `min` to `max`, when they are
-/// dates. The messages of the input's failing checks show below it.
+/// What the person picks is written in ISO 8601: a date such as
+/// `2026-10-02`, a time such as `19:30:00`, or a date and time with the
+/// device's offset from UTC, such as `2026-10-02T19:30:00+02:00`, or `Z` for
+/// UTC itself. Nothing is written until the person picks.
+///
+/// What the person picks stays from `min` to `max`, read as the value is: the
+/// date picker offers only the days between them, and a time picked before
+/// `min` or after `max` on those days becomes that bound. A time input is
+/// limited by a `min` and `max` that are times, and the other inputs by ones
+/// that are dates or dates and times. A bound that isn't a date or time, or a
+/// `min` after the `max`, limits nothing, and is reported through the
+/// processor's `onError`. An input whose `value` isn't bound to the data
+/// model shows fainter, and a tap opens nothing. The messages of the input's
+/// failing checks show below it.
 ///
 /// Internal to the package.
 @internal
@@ -32,14 +43,17 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
   };
   final label = scope.string('label') ?? '';
   final written = a2uiParseDateTime(scope.string('value'));
+  final local = written == null ? null : a2uiLocalWall(written, kind);
   // A value that isn't one shows as the agent wrote it.
-  final shown = written == null ? scope.string('value') ?? '' : _display(context, written.wall, kind);
+  final shown = local == null ? scope.string('value') ?? '' : _display(context, local, kind);
   final accessibility = a2uiAccessibilityOf(scope);
+  final canEdit = a2uiCanEdit(scope);
   Future<void> handleTap() async {
-    final wall = await _pick(context, theme, kind, written: written, scope: scope);
+    final bounds = _bounds(scope, kind);
+    final wall = await _pick(context, theme, kind, start: local, bounds: bounds);
     if (wall == null) return;
-    final offset = written?.offset ?? wall.timeZoneOffset;
-    scope.write('value', a2uiDateTimeValue(wall, kind, offset: offset));
+    final kept = a2uiClampDateTime(wall, kind, min: bounds.min, max: bounds.max);
+    scope.write('value', a2uiDateTimeValue(kept, kind, offset: kept.timeZoneOffset));
   }
 
   return A2UIInputWidth(
@@ -55,27 +69,30 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
             ),
           ),
         A2UIPressable(
-          onTap: handleTap,
+          onTap: canEdit ? handleTap : null,
           label: [accessibility.label ?? label, shown].where((part) => part.isNotEmpty).join(', '),
           hint: accessibility.description,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: theme.subtleSurface,
-              borderRadius: BorderRadius.circular(theme.controlCornerRadius),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(_padding),
-              child: Row(
-                spacing: _iconSpacing,
-                children: [
-                  Expanded(
-                    child: Text(shown, style: theme.body.copyWith(color: theme.text)),
-                  ),
-                  Icon(
-                    kind == A2UIDateTimeKind.time ? Icons.schedule_rounded : Icons.calendar_today_rounded,
-                    color: theme.secondaryText,
-                  ),
-                ],
+          child: Opacity(
+            opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.subtleSurface,
+                borderRadius: BorderRadius.circular(theme.controlCornerRadius),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(_padding),
+                child: Row(
+                  spacing: _iconSpacing,
+                  children: [
+                    Expanded(
+                      child: Text(shown, style: theme.body.copyWith(color: theme.text)),
+                    ),
+                    Icon(
+                      kind == A2UIDateTimeKind.time ? Icons.schedule_rounded : Icons.calendar_today_rounded,
+                      color: theme.secondaryText,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -110,9 +127,9 @@ enum A2UIDateTimeKind {
   dateTime,
 }
 
-/// A date or time as an agent wrote it: its `wall` clock fields, local and
-/// unconverted, and the `offset` from UTC it was written with, or `null` when
-/// it was written without one.
+/// A date or time as an agent wrote it: its `wall` clock fields, as written
+/// and unconverted, and the `offset` from UTC it was written with, or `null`
+/// when it was written without one.
 ///
 /// Internal to the package.
 @internal
@@ -229,24 +246,105 @@ String _display(BuildContext context, DateTime wall, A2UIDateTimeKind kind) {
   };
 }
 
-// Shows the pickers of [kind], starting at what is [written], and returns
-// what the person picked, as local wall clock fields, or `null` when they
-// closed a picker without picking.
+/// [written] on the device's clock, for an input of [kind]: a date and time
+/// written with an offset becomes the same moment in the device's time zone,
+/// and anything else keeps the fields it was written with.
+///
+/// Internal to the package.
+@internal
+DateTime a2uiLocalWall(A2UIWrittenDateTime written, A2UIDateTimeKind kind) {
+  final (:wall, :offset) = written;
+  if (kind != A2UIDateTimeKind.dateTime || offset == null) return wall;
+  final moment = DateTime.utc(wall.year, wall.month, wall.day, wall.hour, wall.minute, wall.second).subtract(offset);
+  final local = moment.toLocal();
+  return DateTime(local.year, local.month, local.day, local.hour, local.minute, local.second);
+}
+
+/// [picked], what the person picked on an input of [kind], kept from [min]
+/// to [max] on the device's clock, to the minute: a time before [min]
+/// becomes [min], or the minute after it when [min] has seconds, and a time
+/// after [max] becomes [max]. A date input's days are already limited by its
+/// date picker, so it is returned as it is.
+///
+/// Internal to the package.
+@internal
+DateTime a2uiClampDateTime(DateTime picked, A2UIDateTimeKind kind, {DateTime? min, DateTime? max}) {
+  if (kind == A2UIDateTimeKind.date) return picked;
+  // A time is compared as a time of day, on the same day.
+  DateTime align(DateTime bound) => kind == A2UIDateTimeKind.time
+      ? DateTime(picked.year, picked.month, picked.day, bound.hour, bound.minute, bound.second)
+      : bound;
+  if (min != null) {
+    final lowest = align(min);
+    // What is written counts whole minutes, so a bound with seconds is kept
+    // by the next whole minute.
+    final earliest = lowest.second == 0
+        ? lowest
+        : DateTime(lowest.year, lowest.month, lowest.day, lowest.hour, lowest.minute + 1);
+    if (picked.isBefore(earliest)) return earliest;
+  }
+  if (max != null) {
+    final highest = align(max);
+    if (picked.isAfter(highest)) {
+      return DateTime(highest.year, highest.month, highest.day, highest.hour, highest.minute);
+    }
+  }
+  return picked;
+}
+
+// The earliest and latest an input of [kind] picks, on the device's clock,
+// from its `min` and `max`; see [buildA2UIDateTimeInput]. A date that is
+// the `max` counts to the end of its day. A bound that isn't a date or
+// time, or a `min` after the `max`, is reported, and limits nothing.
+({DateTime? min, DateTime? max}) _bounds(A2UIComponentScope scope, A2UIDateTimeKind kind) {
+  DateTime? read(String name) {
+    final text = scope.string(name);
+    if (text == null || text.trim().isEmpty) return null;
+    final written = a2uiParseDateTime(text);
+    if (written == null) {
+      a2uiReportOnce(scope, name, "Its '$name' isn't a date or time in ISO 8601, so it limits nothing.");
+      return null;
+    }
+    final isTime = _timePattern.hasMatch(text.trim());
+    // A time limits a time input, and a date or a date and time limits the
+    // others.
+    if (isTime != (kind == A2UIDateTimeKind.time)) return null;
+    final local = a2uiLocalWall(written, kind == A2UIDateTimeKind.time ? kind : A2UIDateTimeKind.dateTime);
+    if (name == 'max' && !isTime && _datePattern.hasMatch(text.trim())) {
+      return DateTime(local.year, local.month, local.day, 23, 59, 59);
+    }
+    return local;
+  }
+
+  final min = read('min');
+  final max = read('max');
+  if (min != null && max != null && min.isAfter(max)) {
+    a2uiReportOnce(scope, 'min after max', "Its 'min' is after its 'max', so they limit nothing.");
+    return (min: null, max: null);
+  }
+  return (min: min, max: max);
+}
+
+// Shows the pickers of [kind], starting at [start] or now, and returns what
+// the person picked, as local wall clock fields, or `null` when they closed a
+// picker without picking. The date picker offers the days from the day of
+// [bounds]' `min` to the day of its `max`.
 Future<DateTime?> _pick(
   BuildContext context,
   A2UITheme theme,
   A2UIDateTimeKind kind, {
-  required A2UIWrittenDateTime? written,
-  required A2UIComponentScope scope,
+  required DateTime? start,
+  required ({DateTime? min, DateTime? max}) bounds,
 }) async {
-  final start = written?.wall ?? DateTime.now();
+  final from = start ?? DateTime.now();
   Widget themed(BuildContext context, Widget? child) => Theme(data: _pickerTheme(context, theme), child: child!);
-  var day = start;
+  var day = from;
   if (kind != A2UIDateTimeKind.time) {
-    final (:first, :last) = _days(scope);
+    final first = bounds.min == null ? _earliestDay : _dayOf(bounds.min!);
+    final last = bounds.max == null ? _latestDay : _dayOf(bounds.max!);
     final picked = await showDatePicker(
       context: context,
-      initialDate: _clampDay(start, first, last),
+      initialDate: _clampDay(from, first, last),
       firstDate: first,
       lastDate: last,
       builder: themed,
@@ -255,28 +353,15 @@ Future<DateTime?> _pick(
     if (kind == A2UIDateTimeKind.date) return picked;
     day = picked;
   }
-  final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(start), builder: themed);
+  final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(from), builder: themed);
   if (time == null) return null;
   return DateTime(day.year, day.month, day.day, time.hour, time.minute);
 }
 
-// The first and the last day the date picker offers: the days of `min` and
-// `max` when they are dates and `min` isn't after `max`, else a range wide
-// enough for any date a form asks for.
-({DateTime first, DateTime last}) _days(A2UIComponentScope scope) {
-  final min = _dayOf(scope.string('min'));
-  final max = _dayOf(scope.string('max'));
-  final first = min == null ? _earliestDay : DateTime(min.year, min.month, min.day);
-  final last = max == null ? _latestDay : DateTime(max.year, max.month, max.day);
-  if (first.isAfter(last)) return (first: _earliestDay, last: _latestDay);
-  return (first: first, last: last);
-}
+DateTime _dayOf(DateTime moment) => DateTime(moment.year, moment.month, moment.day);
 
-// The day [text] names, or `null` when it names none, such as a time alone.
-DateTime? _dayOf(String? text) {
-  if (text == null || _timePattern.hasMatch(text.trim())) return null;
-  return a2uiParseDateTime(text)?.wall;
-}
+// A date alone.
+final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
 
 // The largest offset from UTC a date and time is read with.
 const _maxOffset = Duration(hours: 18);

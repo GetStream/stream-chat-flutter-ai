@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
@@ -20,12 +21,23 @@ void main() {
     expect(find.text('Ada'), findsOneWidget);
   });
 
-  testWidgets('a field whose value is written as text lets the person type', (tester) async {
-    await pumpSurface(tester, components: [_field(value: 'Fixed')]);
+  testWidgets('a field whose value is written as text shows it read-only, and is reported', (tester) async {
+    final errors = <A2UIError>[];
+    await pumpSurface(
+      tester,
+      components: [_field(value: 'Fixed')],
+      errors: errors,
+    );
 
-    await tester.enterText(find.byType(TextField), 'Changed');
+    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+    expect(find.text('Fixed'), findsOneWidget);
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
+  });
 
-    expect(find.text('Changed'), findsOneWidget);
+  testWidgets('a field bound to the data model can be typed in', (tester) async {
+    await pumpSurface(tester, components: [_field()], data: {'name': 'Ada'});
+
+    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
   });
 
   testWidgets("a field whose value is written as text doesn't write to the data model", (tester) async {
@@ -96,7 +108,7 @@ void main() {
 
     expect(
       tester.widget<TextField>(find.byType(TextField)).keyboardType,
-      const TextInputType.numberWithOptions(decimal: true),
+      const TextInputType.numberWithOptions(signed: true, decimal: true),
     );
   });
 
@@ -170,7 +182,7 @@ void main() {
     expect((border! as OutlineInputBorder).borderSide.color, lightTheme().error);
   });
 
-  testWidgets("what a person types into an obscured field isn't in the form's event", (tester) async {
+  testWidgets("what a person types into an obscured field is in the form's event, as the agent asked", (tester) async {
     final events = <A2UIActionEvent>[];
     await pumpSurface(tester, components: _loginForm, events: events);
 
@@ -178,7 +190,7 @@ void main() {
     await tester.tap(find.text('Log in'));
     await tester.pump();
 
-    expect(events.single.context['password'], isNull);
+    expect(events.single.context['password'], 'hunter2');
   });
 
   testWidgets("a field is read as one text field with the agent's label", (tester) async {

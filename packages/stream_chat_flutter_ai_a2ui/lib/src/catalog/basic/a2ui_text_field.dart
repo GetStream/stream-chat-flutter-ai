@@ -11,14 +11,15 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 ///
 /// The `variant` chooses the field: `longText` for several lines,
 /// `number` for a number keyboard, `obscured` for a secret such as a
-/// password, whose text is hidden, and `shortText`, the default, for one
-/// line. The field shows its `placeholder`, or else its label, while it is
-/// empty.
+/// password, whose text is hidden on screen and never suggested or
+/// corrected, and `shortText`, the default, for one line. The field shows its
+/// `placeholder`, or else its label, while it is empty.
 ///
 /// While the person types, the field keeps what they typed; a change from
-/// elsewhere, such as from the agent, replaces it once the field isn't being
-/// typed in. While the field holds text, a failing check outlines the field
-/// in [A2UITheme.error] and its messages show below it.
+/// elsewhere, such as from the agent, replaces it once the field loses focus.
+/// A field whose `value` isn't bound to the data model shows its value
+/// read-only and fainter. While the field holds text, a failing check
+/// outlines the field in [A2UITheme.error] and its messages show below it.
 ///
 /// Internal to the package.
 @internal
@@ -86,6 +87,7 @@ class _A2UITextFieldState extends State<_A2UITextField> {
     final hasError = a2uiBlocks(failures);
     final isObscured = variant == 'obscured';
     final isLong = variant == 'longText';
+    final canEdit = a2uiCanEdit(scope);
     return A2UIInputWidth(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -100,34 +102,38 @@ class _A2UITextFieldState extends State<_A2UITextField> {
             ),
           Material(
             type: MaterialType.transparency,
-            child: MergeSemantics(
-              child: Semantics(
-                label: accessibility.label ?? label,
-                hint: accessibility.description,
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  onChanged: _handleChange,
-                  obscureText: isObscured,
-                  enableSuggestions: !isObscured,
-                  autocorrect: !isObscured,
-                  keyboardType: switch (variant) {
-                    'number' => const TextInputType.numberWithOptions(decimal: true),
-                    'longText' => TextInputType.multiline,
-                    _ => TextInputType.text,
-                  },
-                  textInputAction: isLong ? TextInputAction.newline : TextInputAction.done,
-                  maxLines: isLong ? null : 1,
-                  minLines: isLong ? _longTextMinLines : 1,
-                  style: theme.body.copyWith(color: theme.text),
-                  cursorColor: theme.accent,
-                  decoration: a2uiFieldDecoration(
-                    theme,
-                    hint: placeholder ?? (label.isEmpty ? null : label),
-                    // The field is read with its label already.
-                    readsHint: placeholder != null,
-                    hasError: hasError,
-                    padding: const EdgeInsets.all(_padding),
+            child: Opacity(
+              opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
+              child: MergeSemantics(
+                child: Semantics(
+                  label: accessibility.label ?? label,
+                  hint: accessibility.description,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    onChanged: _handleChange,
+                    readOnly: !canEdit,
+                    obscureText: isObscured,
+                    enableSuggestions: !isObscured,
+                    autocorrect: !isObscured,
+                    keyboardType: switch (variant) {
+                      'number' => const TextInputType.numberWithOptions(signed: true, decimal: true),
+                      'longText' => TextInputType.multiline,
+                      _ => TextInputType.text,
+                    },
+                    textInputAction: isLong ? TextInputAction.newline : TextInputAction.done,
+                    maxLines: isLong ? null : 1,
+                    minLines: isLong ? _longTextMinLines : 1,
+                    style: theme.body.copyWith(color: theme.text),
+                    cursorColor: theme.accent,
+                    decoration: a2uiFieldDecoration(
+                      theme,
+                      hint: placeholder ?? (label.isEmpty ? null : label),
+                      // The field is read with its label already.
+                      readsHint: placeholder != null,
+                      hasError: hasError,
+                      padding: const EdgeInsets.all(_padding),
+                    ),
                   ),
                 ),
               ),

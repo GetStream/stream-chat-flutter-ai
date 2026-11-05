@@ -18,8 +18,10 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// capitalization.
 ///
 /// An option shows its `label`, or its `value` while a label bound to the
-/// data model isn't there yet. The messages of the picker's failing checks
-/// show below it.
+/// data model isn't there yet. A pick that isn't among the options, which
+/// the person can't see, is left out once they pick. A picker whose `value`
+/// isn't bound to the data model shows fainter, and picks nothing. The
+/// messages of the picker's failing checks show below it.
 ///
 /// Internal to the package.
 @internal
@@ -65,9 +67,12 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
       widget.scope.write('value', [value]);
       return;
     }
+    // Only what the person sees picked stays picked.
+    final options = {for (final option in _options) option.value};
+    final shown = picked.where(options.contains);
     widget.scope.write(
       'value',
-      picked.contains(value) ? [...picked.where((item) => item != value)] : [...picked, value],
+      shown.contains(value) ? [...shown.where((item) => item != value)] : [...shown, value],
     );
   }
 
@@ -81,6 +86,7 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
     final isFilterable = scope.boolean('filterable') ?? false;
     final picked = scope.stringList('value') ?? const [];
     final accessibility = a2uiAccessibilityOf(scope);
+    final canEdit = a2uiCanEdit(scope);
     final query = _filter.text.trim().toLowerCase();
     final shown = [
       for (final option in _options)
@@ -88,7 +94,7 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
     ];
     Widget optionOf(_Option option) {
       final isPicked = picked.contains(option.value);
-      void handleTap() => _toggle(option.value, picked: picked, isMultiple: isMultiple);
+      final handleTap = canEdit ? () => _toggle(option.value, picked: picked, isMultiple: isMultiple) : null;
       if (isChips) {
         return _Chip(option: option, isPicked: isPicked, isMultiple: isMultiple, onTap: handleTap, theme: theme);
       }
@@ -126,7 +132,7 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        picker,
+        Opacity(opacity: canEdit ? 1 : a2uiReadOnlyOpacity, child: picker),
         A2UIValidationMessages(failures: a2uiCheckFailuresOf(scope), theme: theme),
       ],
     );
@@ -175,7 +181,7 @@ class _Row extends StatelessWidget {
   final _Option option;
   final bool isPicked;
   final bool isMultiple;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final A2UITheme theme;
 
   // The space between the radio button or checkbox and the label.
@@ -226,7 +232,7 @@ class _Chip extends StatelessWidget {
   final _Option option;
   final bool isPicked;
   final bool isMultiple;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final A2UITheme theme;
 
   // The space between a chip's edge and its label.

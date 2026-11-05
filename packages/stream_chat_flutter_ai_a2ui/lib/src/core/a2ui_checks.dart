@@ -60,27 +60,42 @@ const _uncheckableMessage = 'This value could not be checked.';
 
 // The checks in [rules] that fail, each condition read with [context]; a
 // condition whose evaluation reports a problem fails, which [failures] counts.
+// A result that is neither a boolean nor a result with one fails too, and is
+// given to [onMalformed].
 List<A2UICheckFailure> _failingChecksOf(
   Object? rules,
   core.DataContext context,
-  int Function() failures,
-) {
+  int Function() failures, {
+  required void Function(Object? value) onMalformed,
+}) {
   if (rules is! List<Object?>) return const [];
   return [
     for (final rule in rules)
       if (rule is Map<String, Object?>)
-        if (_failureOf(rule, context, failures) case final failure?) failure,
+        if (_failureOf(rule, context, failures, onMalformed) case final failure?) failure,
   ];
 }
 
-A2UICheckFailure? _failureOf(Map<String, Object?> rule, core.DataContext context, int Function() failures) {
+A2UICheckFailure? _failureOf(
+  Map<String, Object?> rule,
+  core.DataContext context,
+  int Function() failures,
+  void Function(Object? value) onMalformed,
+) {
   final condition = rule.containsKey('condition') ? rule['condition'] : rule;
   final ownMessage = _nonEmptyString(rule['message']);
   final before = failures();
   final value = _plain(context.resolveDynamicValue(condition));
   if (failures() != before) return A2UICheckFailure(message: ownMessage ?? _uncheckableMessage);
   if (value case {'valid': final Object? valid}) {
-    if (_checkPasses(valid) ?? true) return null;
+    // Nothing to read yet passes, as below.
+    if (valid == null) return null;
+    final passes = _checkPasses(valid);
+    if (passes == null) {
+      onMalformed(valid);
+      return A2UICheckFailure(message: ownMessage ?? _uncheckableMessage);
+    }
+    if (passes) return null;
     final resultMessage = _nonEmptyString(value['message']);
     final code = value['code'];
     return A2UICheckFailure(
@@ -95,10 +110,16 @@ A2UICheckFailure? _failureOf(Map<String, Object?> rule, core.DataContext context
       },
     );
   }
-  // Nothing to read yet, such as data still on its way, passes, so a form
-  // isn't blocked while it streams in, as does a value that isn't a
-  // boolean.
-  if (_checkPasses(value) ?? true) return null;
+  // Nothing to read yet, such as data still on its way or the agent's answer
+  // to a function the condition calls, passes, so a form isn't blocked while
+  // it streams in.
+  if (value == null) return null;
+  final passes = _checkPasses(value);
+  if (passes == null) {
+    onMalformed(value);
+    return A2UICheckFailure(message: ownMessage ?? _uncheckableMessage);
+  }
+  if (passes) return null;
   return A2UICheckFailure(message: ownMessage);
 }
 

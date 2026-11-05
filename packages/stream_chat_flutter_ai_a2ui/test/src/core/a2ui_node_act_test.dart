@@ -48,6 +48,17 @@ void main() {
     expect((await reported.future).code, A2UIErrorCode.expressionError);
   });
 
+  test("act reports the app's own link opener throwing, and completes", () async {
+    final errors = <A2UIError>[];
+    final root = planSurface(components: _openUrlButton, errors: errors).root!;
+
+    await expectLater(root.act('action', onOpenLink: (_) => throw StateError('no browser')), completes);
+    await pumpEventQueue();
+
+    expect(errors.single.code, isIn([A2UIErrorCode.executionError, A2UIErrorCode.expressionError]));
+    expect(errors.single.message, contains('no browser'));
+  });
+
   test('act completes for a link it has nothing to open with', () async {
     final root = planSurface(components: _openUrlButton).root!;
 

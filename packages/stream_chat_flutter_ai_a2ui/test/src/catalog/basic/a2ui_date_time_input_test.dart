@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_date_time_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
@@ -54,7 +55,9 @@ void main() {
     expect(find.byType(TimePickerDialog), findsOneWidget);
   });
 
-  testWidgets('picking a day and a time writes them with the offset the value had', (tester) async {
+  testWidgets("picking a day and a time writes them with the device's offset, at the time the value showed", (
+    tester,
+  ) async {
     final processor = await pumpSurface(
       tester,
       components: [_input(enableDate: true, enableTime: true)],
@@ -65,7 +68,115 @@ void main() {
     await tester.tap(find.text(const DefaultMaterialLocalizations().okButtonLabel));
     await tester.pumpAndSettle();
 
-    expect(_value(processor), '2026-10-15T19:30:00+05:45');
+    final shown = DateTime.utc(2026, 10, 2, 13, 45).toLocal();
+    final picked = DateTime(2026, 10, 15, shown.hour, shown.minute);
+    expect(_value(processor), a2uiDateTimeValue(picked, A2UIDateTimeKind.dateTime, offset: picked.timeZoneOffset));
+  });
+
+  testWidgets('a date and time written in UTC shows as the same moment on the device clock', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_input(enableDate: true, enableTime: true)],
+      data: {'day': '2026-10-02T17:30:00Z'},
+    );
+
+    final local = DateTime.utc(2026, 10, 2, 17, 30).toLocal();
+    const localizations = DefaultMaterialLocalizations();
+    final shown =
+        '${localizations.formatShortDate(local)}, '
+        '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(local))}';
+    expect(find.text(shown), findsOneWidget);
+  });
+
+  testWidgets('a time picked before the minimum on its day becomes the minimum', (tester) async {
+    final processor = await pumpSurface(
+      tester,
+      components: [_input(enableDate: true, enableTime: true, min: '2026-10-15T10:00:00')],
+      data: {'day': '2026-10-15T08:00:00'},
+    );
+
+    await _pickDay(tester, '15');
+    await tester.tap(find.text(const DefaultMaterialLocalizations().okButtonLabel));
+    await tester.pumpAndSettle();
+
+    final kept = DateTime(2026, 10, 15, 10);
+    expect(_value(processor), a2uiDateTimeValue(kept, A2UIDateTimeKind.dateTime, offset: kept.timeZoneOffset));
+  });
+
+  testWidgets('a time picked after the maximum on its day becomes the maximum', (tester) async {
+    final processor = await pumpSurface(
+      tester,
+      components: [_input(enableDate: true, enableTime: true, max: '2026-10-15T17:00:00')],
+      data: {'day': '2026-10-15T19:00:00'},
+    );
+
+    await _pickDay(tester, '15');
+    await tester.tap(find.text(const DefaultMaterialLocalizations().okButtonLabel));
+    await tester.pumpAndSettle();
+
+    final kept = DateTime(2026, 10, 15, 17);
+    expect(_value(processor), a2uiDateTimeValue(kept, A2UIDateTimeKind.dateTime, offset: kept.timeZoneOffset));
+  });
+
+  testWidgets('a time picked on a day before the maximum day keeps its time', (tester) async {
+    final processor = await pumpSurface(
+      tester,
+      components: [_input(enableDate: true, enableTime: true, max: '2026-10-15T17:00:00')],
+      data: {'day': '2026-10-14T19:00:00'},
+    );
+
+    await _pickDay(tester, '14');
+    await tester.tap(find.text(const DefaultMaterialLocalizations().okButtonLabel));
+    await tester.pumpAndSettle();
+
+    final kept = DateTime(2026, 10, 14, 19);
+    expect(_value(processor), a2uiDateTimeValue(kept, A2UIDateTimeKind.dateTime, offset: kept.timeZoneOffset));
+  });
+
+  testWidgets('a time picked before a minimum time becomes the minimum', (tester) async {
+    final processor = await pumpSurface(
+      tester,
+      components: [_input(enableTime: true, min: '09:00:00')],
+      data: {'day': '08:00:00'},
+    );
+    await tester.tap(find.byType(Icon));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(const DefaultMaterialLocalizations().okButtonLabel));
+    await tester.pumpAndSettle();
+
+    expect(_value(processor), '09:00:00');
+  });
+
+  testWidgets("a minimum that isn't a date is reported, and limits nothing", (tester) async {
+    final errors = <A2UIError>[];
+    await pumpSurface(
+      tester,
+      components: [_input(min: 'soon')],
+      data: {'day': '2026-10-10'},
+      errors: errors,
+    );
+
+    await tester.tap(find.byType(Icon));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<DatePickerDialog>(find.byType(DatePickerDialog)).firstDate, DateTime(1900));
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
+  });
+
+  testWidgets('a minimum after the maximum is reported', (tester) async {
+    final errors = <A2UIError>[];
+    await pumpSurface(
+      tester,
+      components: [_input(min: '2026-10-20', max: '2026-10-05')],
+      data: {'day': '2026-10-10'},
+      errors: errors,
+    );
+
+    await tester.tap(find.byType(Icon));
+    await tester.pumpAndSettle();
+
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
   testWidgets("the time picker is themed from the surface's theme", (tester) async {
@@ -220,6 +331,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.widget<DatePickerDialog>(find.byType(DatePickerDialog)).firstDate, DateTime(1900));
+  });
+
+  testWidgets('an input whose value is written as a date opens no picker, and is reported', (tester) async {
+    final errors = <A2UIError>[];
+    await pumpSurface(
+      tester,
+      components: [
+        {..._input(), 'value': '2026-10-02'},
+      ],
+      errors: errors,
+    );
+
+    await tester.tap(find.byType(Icon));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DatePickerDialog), findsNothing);
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
   testWidgets("a value that isn't a date shows as it is written", (tester) async {

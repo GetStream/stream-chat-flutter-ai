@@ -261,6 +261,6 @@ final class _NumericStringFunction extends core.FunctionImplementation {
       return _function.execute({...args, 'value': number}, context, cancellationSignal);
     }
     if (name == 'numeric') return false;
-    throw core.A2uiExpressionError("Function '$name' can't format '$value', which isn't a number.");
+    throw core.A2uiExpressionError("Function '$name' can't format its value, which isn't a number.");
   }
 }

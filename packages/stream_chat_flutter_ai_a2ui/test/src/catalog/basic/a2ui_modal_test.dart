@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
@@ -32,6 +33,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(events.single.name, 'open_details');
+  });
+
+  testWidgets("a modal's button sends its event, and reports the sheet, with no Navigator to open it on", (
+    tester,
+  ) async {
+    final events = <A2UIActionEvent>[];
+    final errors = <A2UIError>[];
+    final processor = A2UIProcessor(catalogs: A2UICatalogs(), onAction: events.add, onError: errors.add);
+    addTearDown(processor.dispose);
+    processor.apply([createSurface(_modal())]);
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Theme(
+            data: ThemeData(extensions: [StreamTheme(brightness: Brightness.light)]),
+            child: Material(child: A2UISurfaceView(surface: processor.surface('s')!)),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Details'));
+    await tester.pump();
+
+    expect(events.single.name, 'open_details');
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
   });
 
   testWidgets("a modal's disabled button doesn't open it", (tester) async {

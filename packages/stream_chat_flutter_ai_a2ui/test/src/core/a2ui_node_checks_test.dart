@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
 import 'a2ui_test_surfaces.dart';
@@ -177,7 +180,7 @@ void main() {
     final field = _field(
       checks: [
         {
-          'condition': {'@call': 'noSuchFunction', 'args': <String, Object?>{}},
+          'condition': _invalidPattern,
           'message': 'Check the code.',
         },
       ],
@@ -190,7 +193,7 @@ void main() {
     final field = _field(
       checks: [
         {
-          'condition': {'@call': 'noSuchFunction', 'args': <String, Object?>{}},
+          'condition': _invalidPattern,
         },
       ],
     );
@@ -226,7 +229,8 @@ void main() {
     expect(field.failingChecks.single.message, 'Not yet.');
   });
 
-  test("a check whose condition reads text that isn't a boolean passes", () {
+  test("a check whose condition reads text that isn't a boolean fails, and is reported", () async {
+    final errors = <A2UIError>[];
     final field = _field(
       checks: [
         {
@@ -234,9 +238,132 @@ void main() {
         },
       ],
       data: {'flag': 'maybe'},
+      errors: errors,
+    );
+
+    expect(field.failingChecks.single.message, 'This value could not be checked.');
+    await pumpEventQueue();
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
+    expect(errors.single.message, isNot(contains('maybe')));
+  });
+
+  test("a result whose valid isn't a boolean fails with the agent's message, and is reported", () async {
+    final errors = <A2UIError>[];
+    final field = _field(
+      checks: [
+        {
+          'condition': {'@path': '/verdict'},
+          'message': 'Check the value.',
+        },
+      ],
+      data: {
+        'verdict': {'valid': 'no'},
+      },
+      errors: errors,
+    );
+
+    expect(field.failingChecks.single.message, 'Check the value.');
+    await pumpEventQueue();
+    expect(errors.single.code, A2UIErrorCode.validationFailed);
+  });
+
+  test('a result whose valid is not there yet passes', () {
+    final field = _field(
+      checks: [
+        {
+          'condition': {'@path': '/verdict'},
+        },
+      ],
+      data: {
+        'verdict': {'valid': null},
+      },
     );
 
     expect(field.failingChecks, isEmpty);
+  });
+
+  group('a check calling a function only the agent answers', () {
+    // A surface whose field's check calls `strength`, which no catalog has,
+    // on a processor whose calls to the agent go to [sent].
+    (A2UIProcessor, A2UINode) agentChecked(List<Map<String, Object?>> sent) {
+      final processor = A2UIProcessor.debug(catalogs: A2UICatalogs(), onOutbound: sent.add);
+      addTearDown(processor.dispose);
+      final surface = planSurface(
+        processor: processor,
+        data: {'email': 'ada@example.com'},
+        components: [
+          _fieldComponent(
+            checks: [
+              {
+                'condition': {
+                  '@call': 'strength',
+                  'args': {
+                    'value': {'@path': '/email'},
+                  },
+                },
+                'message': 'Too weak.',
+              },
+            ],
+          ),
+        ],
+      );
+      return (processor, surface.root!);
+    }
+
+    void answer(A2UIProcessor processor, Map<String, Object?> sent, Map<String, Object?> response) {
+      final call = sent['callAgentFunction']! as Map<String, Object?>;
+      processor.apply([
+        jsonEncode({
+          'version': '1.0',
+          'agentFunctionResponse': {'functionCallId': call['functionCallId'], ...response},
+        }),
+      ]);
+    }
+
+    test('passes while the answer is on its way, and asks the agent once', () async {
+      final sent = <Map<String, Object?>>[];
+      final (_, field) = agentChecked(sent);
+      await pumpEventQueue();
+
+      expect(field.failingChecks, isEmpty);
+      expect(sent, hasLength(1));
+    });
+
+    test('fails once the agent answers that it fails', () async {
+      final sent = <Map<String, Object?>>[];
+      final (processor, field) = agentChecked(sent);
+      await pumpEventQueue();
+      expect(field.failingChecks, isEmpty);
+
+      answer(processor, sent.single, {'value': false});
+      await pumpEventQueue();
+
+      expect(field.failingChecks.single.message, 'Too weak.');
+    });
+
+    test('passes once the agent answers that it passes', () async {
+      final sent = <Map<String, Object?>>[];
+      final (processor, field) = agentChecked(sent);
+      await pumpEventQueue();
+
+      answer(processor, sent.single, {'value': true});
+      await pumpEventQueue();
+
+      expect(field.failingChecks, isEmpty);
+    });
+
+    test("fails when the agent's answer is an error", () async {
+      final sent = <Map<String, Object?>>[];
+      final (processor, field) = agentChecked(sent);
+      await pumpEventQueue();
+
+      answer(processor, sent.single, {
+        'error': {'code': 'NOT_FOUND', 'message': 'No such function.'},
+      });
+      await pumpEventQueue();
+
+      expect(field.failingChecks.single.message, 'Too weak.');
+    });
   });
 
   test('failing checks keep the order the agent wrote them in', () {
@@ -302,6 +429,12 @@ void main() {
   });
 }
 
+// A condition that can't be evaluated: a pattern that doesn't parse.
+const _invalidPattern = {
+  '@call': 'regex',
+  'args': {'value': 'x', 'pattern': '('},
+};
+
 const _email = {
   '@call': 'email',
   'args': {
@@ -320,9 +453,14 @@ Map<String, Object?> _fieldComponent({required List<Map<String, Object?>>? check
 }
 
 // The root of a surface holding one email field with [checks], over [data].
-A2UINode _field({required List<Map<String, Object?>>? checks, Map<String, Object?> data = const {}}) {
+A2UINode _field({
+  required List<Map<String, Object?>>? checks,
+  Map<String, Object?> data = const {},
+  List<A2UIError>? errors,
+}) {
   return planSurface(
     components: [_fieldComponent(checks: checks)],
     data: data,
+    errors: errors,
   ).root!;
 }

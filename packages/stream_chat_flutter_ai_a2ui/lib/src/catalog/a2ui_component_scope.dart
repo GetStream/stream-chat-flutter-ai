@@ -134,21 +134,20 @@ sealed class A2UIComponentScope {
   /// Runs this component's action as the person's own act, such as when they
   /// tap a button.
   ///
+  /// Call it only in response to the person's gesture: it runs as their
+  /// act, so a link the action opens opens only while it runs.
+  ///
   /// An action that names an event lets the agent hear about it, with the
   /// values the agent asked for read from the data model now. An action that
-  /// calls a function runs it, such as one opening a link the agent gave. A
-  /// link opens only while an action runs, so this is called from the
-  /// person's gesture.
+  /// calls a function runs it, such as one opening a link the agent gave.
   ///
   /// A component in the `trigger` of a `Modal` also opens the modal's
   /// content, with or without an action of its own.
   ///
-  /// What the person typed into a field the agent made obscured, such as a
-  /// password, stays on the device: the action reads it as `null`.
-  ///
   /// Completes once the action has run. When this component has no action,
   /// see [hasAction], it runs nothing, and only opens the modal it is the
-  /// trigger of. A problem with the action is reported, not thrown.
+  /// trigger of. A problem with the action, or with opening the modal, is
+  /// reported through the processor's `onError`, not thrown.
   Future<void> performAction();
 
   /// The messages of this component's checks that fail now and block it,
@@ -211,4 +210,37 @@ final class A2UIChild {
 
   @override
   String toString() => '${objectRuntimeType(this, 'A2UIChild')}(id: $id, key: $key)';
+}
+
+/// Whether the person can change the `value` of the input [scope] reads:
+/// whether the agent bound it to the data model, where what the person
+/// enters goes. One the agent wrote as a value instead has nowhere to keep
+/// what the person enters, so it shows its value read-only, and is reported
+/// once.
+///
+/// Internal to the package.
+@internal
+bool a2uiCanEdit(A2UIComponentScope scope) {
+  if (scope.isBound('value')) return true;
+  a2uiReportOnce(scope, 'value', "Its 'value' isn't bound to the data model, so it can't be changed.");
+  return false;
+}
+
+/// How strongly an input that can't be changed shows.
+///
+/// Internal to the package.
+@internal
+const a2uiReadOnlyOpacity = 0.5;
+
+/// Reports [message], a problem with what the agent wrote for the component
+/// [scope] reads, such as a bound value it can't be read as, through the
+/// processor's `onError`, once for each [key] while the component lasts.
+///
+/// Internal to the package.
+@internal
+void a2uiReportOnce(A2UIComponentScope scope, String key, String message) {
+  switch (scope) {
+    case _NodeScope(:final _node):
+      _node.reportOnce(key, message);
+  }
 }
