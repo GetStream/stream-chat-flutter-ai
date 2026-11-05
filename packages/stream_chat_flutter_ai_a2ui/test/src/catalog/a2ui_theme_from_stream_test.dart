@@ -77,13 +77,25 @@ void main() {
     expect(A2UITheme.fromStream(light).label, _sameButColor(light.textTheme.captionDefault));
   });
 
-  test('the headings are the four heading styles, largest first', () {
+  test('the first heading is the largest heading style at the largest text size', () {
+    final light = _light();
+    final typography = light.typography;
+    final heading = A2UITheme.fromStream(light).heading(1);
+
+    expect(heading.fontSize, typography.fontSize.xxl);
+    expect(heading.fontWeight, light.textTheme.headingLg.fontWeight);
+    expect(heading.height, typography.lineHeight.relaxed / typography.fontSize.xxl);
+    expect(heading.color, isNull);
+  });
+
+  test('the headings below the first are the heading styles, largest first, the small one twice', () {
     final light = _light();
     final text = light.textTheme;
 
-    expect(A2UITheme.fromStream(light).headings, [
+    expect(A2UITheme.fromStream(light).headings.skip(1), [
       _sameButColor(text.headingLg),
       _sameButColor(text.headingMd),
+      _sameButColor(text.headingSm),
       _sameButColor(text.headingSm),
       _sameButColor(text.headingXs),
     ]);

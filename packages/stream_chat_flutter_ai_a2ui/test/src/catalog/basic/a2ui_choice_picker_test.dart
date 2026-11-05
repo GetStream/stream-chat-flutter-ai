@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -91,14 +93,40 @@ void main() {
     expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
   });
 
-  testWidgets('a multiple choice shows its options with checkboxes', (tester) async {
+  testWidgets("a multiple choice shows its options with the design system's check boxes", (tester) async {
     await pumpSurface(
       tester,
       components: [_picker(variant: 'multipleSelection')],
       data: _relaxed,
     );
 
-    expect(find.byIcon(Icons.check_box_rounded), findsOneWidget);
+    final boxes = tester.widgetList<StreamCheckbox>(find.byType(StreamCheckbox));
+    expect(boxes, hasLength(2));
+    expect(boxes.where((box) => box.props.value), hasLength(1));
+  });
+
+  testWidgets('a row of a multiple choice is one stop when moving focus with the keyboard', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_picker(variant: 'multipleSelection')],
+      data: _relaxed,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    final first = FocusManager.instance.primaryFocus;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    // Two options, two stops: the third press is back on the first row.
+    expect(FocusManager.instance.primaryFocus, first);
+  });
+
+  testWidgets('a single choice shows no check boxes', (tester) async {
+    await pumpSurface(tester, components: [_picker()], data: _relaxed);
+
+    expect(find.byType(StreamCheckbox), findsNothing);
   });
 
   testWidgets('chips show their options without radio buttons or checkboxes', (tester) async {
@@ -219,6 +247,19 @@ void main() {
     );
 
     expect(find.text('Take it slow'), findsOneWidget);
+  });
+
+  testWidgets('the filter field has no fill', (tester) async {
+    await pumpSurface(tester, components: [_picker(filterable: true)], data: _relaxed);
+
+    expect(tester.widget<TextField>(find.byType(TextField)).decoration!.filled, isFalse);
+  });
+
+  testWidgets('the filter field is outlined in the border color', (tester) async {
+    await pumpSurface(tester, components: [_picker(filterable: true)], data: _relaxed);
+
+    final border = tester.widget<TextField>(find.byType(TextField)).decoration!.enabledBorder! as OutlineInputBorder;
+    expect(border.borderSide.color, lightTheme().border);
   });
 
   testWidgets('a filterable picker shows only the options whose label holds the filter', (tester) async {

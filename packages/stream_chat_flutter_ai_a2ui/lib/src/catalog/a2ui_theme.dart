@@ -63,14 +63,18 @@ final class A2UITheme {
   ///
   /// Its colors are the design system's accent, text, card, surface, border,
   /// error and warning colors. Its text styles are the body, metadata and
-  /// caption styles and the four heading styles; they set no color, so text
-  /// takes [text], or [secondaryText] for captions. Cards, fields, images and
-  /// media players have the extra large corner radius, and buttons are fully
-  /// rounded.
+  /// caption styles, and six heading levels: the large heading style at the
+  /// design system's largest text size, then the large, medium and small
+  /// heading styles, the small one again, and the extra small one. They set no
+  /// color, so text takes [text], or [secondaryText] for captions. Cards,
+  /// fields, images and media players have the extra large corner radius, and
+  /// buttons are fully rounded.
   factory A2UITheme.fromStream(StreamTheme theme) {
     final colors = theme.colorScheme;
     final text = theme.textTheme;
     final radius = theme.radius;
+    final typography = theme.typography;
+    final largest = typography.fontSize.xxl;
     return A2UITheme._(
       accent: colors.accentPrimary,
       onAccent: colors.textOnAccent,
@@ -85,8 +89,14 @@ final class A2UITheme {
       caption: _colorless(text.metadataDefault),
       label: _colorless(text.captionDefault),
       headings: [
+        // A level-two heading is the large heading style, so a level-one
+        // heading stands above it at the largest text size.
+        _colorless(
+          text.headingLg.copyWith(fontSize: largest, height: typography.lineHeight.relaxed / largest),
+        ),
         _colorless(text.headingLg),
         _colorless(text.headingMd),
+        _colorless(text.headingSm),
         _colorless(text.headingSm),
         _colorless(text.headingXs),
       ],

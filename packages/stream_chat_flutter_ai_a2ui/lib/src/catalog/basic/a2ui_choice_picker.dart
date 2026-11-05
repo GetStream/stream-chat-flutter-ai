@@ -5,17 +5,18 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_fill.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `ChoicePicker`: its `label` over its `options`, of which the
 /// person picks one, or several with the `multipleSelection` variant; the
 /// picked values are written to its `value` as a list.
 ///
-/// The options are rows with a radio button, or a checkbox when several can
-/// be picked, or capsules side by side with the `chips` display style, the
-/// picked ones in [A2UITheme.accent]. Picking the picked option of a single
-/// choice keeps it picked. With `filterable`, a search field above the
-/// options shows only those whose label holds what the person typed, in any
-/// capitalization.
+/// The options are rows with a radio button, or with the Stream design system's
+/// [StreamCheckbox], as a `CheckBox` has, when several can be picked, or
+/// capsules side by side with the `chips` display style, the picked ones in
+/// [A2UITheme.accent]. Picking the picked option of a single choice keeps it
+/// picked. With `filterable`, a search field above the options shows only those
+/// whose label holds what the person typed, in any capitalization.
 ///
 /// An option shows its `label`, or its `value` while a label bound to the
 /// data model isn't there yet. A pick that isn't among the options, which
@@ -148,11 +149,10 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
         style: theme.body.copyWith(color: theme.text),
         cursorColor: theme.accent,
         textInputAction: TextInputAction.search,
-        decoration: a2uiFieldDecoration(
-          theme,
+        decoration: a2uiStreamFieldDecoration(
+          context,
           hint: MaterialLocalizations.of(context).searchFieldLabel,
           hasError: false,
-          padding: const EdgeInsets.all(_filterPadding),
         ),
       ),
     );
@@ -164,9 +164,6 @@ const _spacing = 6.0;
 
 // The space between two chips side by side.
 const _chipSpacing = 8.0;
-
-// The space between the filter field's edge and its text.
-const _filterPadding = 8.0;
 
 // One option as a row: its radio button or checkbox and its label.
 class _Row extends StatelessWidget {
@@ -189,12 +186,20 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch ((isMultiple, isPicked)) {
-      (true, true) => Icons.check_box_rounded,
-      (true, false) => Icons.check_box_outline_blank_rounded,
-      (false, true) => Icons.radio_button_checked_rounded,
-      (false, false) => Icons.radio_button_unchecked_rounded,
-    };
+    // The row is read, focused and activated as the option, so the box
+    // itself is neither, as in a check box.
+    final control = isMultiple
+        ? ExcludeFocus(
+            child: ExcludeSemantics(
+              // Drawn enabled when read-only, so the picker's fade alone shows
+              // it; it picks nothing then.
+              child: StreamCheckbox(value: isPicked, onChanged: (_) => onTap?.call()),
+            ),
+          )
+        : Icon(
+            isPicked ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+            color: isPicked ? theme.accent : theme.secondaryText,
+          );
     // The whole row is tapped where the picker has a width; where it has
     // none, such as in a row that scrolls, it is as wide as its label.
     return A2UIFill(
@@ -208,7 +213,7 @@ class _Row extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           spacing: _spacing,
           children: [
-            Icon(icon, color: isPicked ? theme.accent : theme.secondaryText),
+            control,
             Flexible(
               child: Text(option.label, style: theme.body.copyWith(color: theme.text)),
             ),

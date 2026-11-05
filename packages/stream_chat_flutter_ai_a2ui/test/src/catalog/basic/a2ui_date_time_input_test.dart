@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_date_time_inp
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -13,6 +14,45 @@ void main() {
     await pumpSurface(tester, components: [_input()], data: {'day': '2026-10-02'});
 
     expect(find.text(const DefaultMaterialLocalizations().formatShortDate(DateTime(2026, 10, 2))), findsOneWidget);
+  });
+
+  testWidgets('an input has no fill', (tester) async {
+    await pumpSurface(tester, components: [_input()], data: {'day': '2026-10-02'});
+
+    expect(_frameOf(tester).color, isNull);
+  });
+
+  testWidgets('an input is outlined in the border color', (tester) async {
+    await pumpSurface(tester, components: [_input()], data: {'day': '2026-10-02'});
+
+    expect((_frameOf(tester).shape as RoundedSuperellipseBorder).side.color, lightTheme().border);
+  });
+
+  testWidgets('an input is at least as tall as a person can tap', (tester) async {
+    await pumpSurface(tester, components: [_input()], data: {'day': '2026-10-02'});
+
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+  });
+
+  testWidgets('an input is as tall as a text field', (tester) async {
+    await pumpSurface(
+      tester,
+      components: inColumn([
+        _input(id: 'when'),
+        {
+          'id': 'name',
+          'component': 'TextField',
+          'label': 'Name',
+          'value': {'@path': '/name'},
+        },
+      ]),
+      data: {'day': '2026-10-02'},
+    );
+
+    expect(
+      tester.getSize(find.byType(A2UIStreamFieldFrame)).height,
+      tester.getSize(find.byType(StreamTextInput)).height,
+    );
   });
 
   testWidgets('tapping an input of a date opens the date picker', (tester) async {
@@ -431,6 +471,11 @@ Map<String, Object?> _input({
     'min': ?min,
     'max': ?max,
   };
+}
+
+ShapeDecoration _frameOf(WidgetTester tester) {
+  final frame = find.descendant(of: find.byType(A2UIStreamFieldFrame), matching: find.byType(Container));
+  return tester.widget<Container>(frame).decoration! as ShapeDecoration;
 }
 
 Object? _value(A2UIProcessor processor) => processor.surface('s')!.read('/day');

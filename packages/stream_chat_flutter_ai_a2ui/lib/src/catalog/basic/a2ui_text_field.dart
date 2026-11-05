@@ -191,17 +191,6 @@ class _A2UITextFieldState extends State<_A2UITextField> {
   }) {
     final colors = context.streamColorScheme;
     final text = context.streamTextTheme;
-    final spacing = context.streamSpacing;
-    final style = context.streamTextInputTheme.style;
-    final radius = style?.borderRadius ?? BorderRadius.all(context.streamRadius.lg);
-    OutlineInputBorder outline(BorderSide? side, BorderSide fallback) {
-      return OutlineInputBorder(borderRadius: radius.resolve(Directionality.of(context)), borderSide: side ?? fallback);
-    }
-
-    final border = outline(style?.border, BorderSide(color: colors.borderDefault));
-    final focusBorder = outline(style?.focusBorder, BorderSide(color: colors.borderActive));
-    final errorBorder = outline(style?.errorBorder, BorderSide(color: colors.borderError));
-    final hintStyle = text.bodyDefault.copyWith(color: colors.textTertiary);
     return Material(
       type: MaterialType.transparency,
       child: TextField(
@@ -215,19 +204,7 @@ class _A2UITextFieldState extends State<_A2UITextField> {
         textInputAction: TextInputAction.done,
         style: text.bodyDefault.copyWith(color: colors.textPrimary),
         cursorColor: hasError ? colors.accentError : colors.accentPrimary,
-        decoration: InputDecoration(
-          hintText: readsHint ? hint : null,
-          // The field is read with its label already.
-          hint: readsHint || hint == null ? null : ExcludeSemantics(child: Text(hint, style: hintStyle)),
-          hintStyle: hintStyle,
-          filled: style?.fillColor != null,
-          fillColor: style?.fillColor,
-          isDense: true,
-          contentPadding: style?.contentPadding ?? EdgeInsets.symmetric(vertical: spacing.sm, horizontal: spacing.md),
-          border: hasError ? errorBorder : border,
-          enabledBorder: hasError ? errorBorder : border,
-          focusedBorder: hasError ? errorBorder : focusBorder,
-        ),
+        decoration: a2uiStreamFieldDecoration(context, hint: hint, readsHint: readsHint, hasError: hasError),
       ),
     );
   }
