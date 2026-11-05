@@ -25,7 +25,6 @@ void main() {
 
   for (final file in examples) {
     final name = file.uri.pathSegments.last;
-    // testWidgets takes no reason for a skip.
     test('$name builds a root for each of its surfaces', () {
       final processor = A2UIProcessor(catalogs: A2UICatalogs());
       addTearDown(processor.dispose);
@@ -38,10 +37,6 @@ void main() {
       ], everyElement(isNotNull));
     });
 
-    if (_skips[name] case final reason?) {
-      test('$name shows its surfaces without reporting anything', () {}, skip: reason);
-      continue;
-    }
     testWidgets('$name shows its surfaces without reporting anything', (tester) async {
       final errors = <A2UIError>[];
       final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: errors.add);
@@ -70,13 +65,6 @@ void main() {
     });
   }
 }
-
-// Examples that report an error this package can't avoid.
-const _skips = {
-  '32_advanced-form-validator.json':
-      "a2ui_core 0.4.0 rejects the arguments of the `and` in the example's Button check "
-      '(EXPRESSION_ERROR).',
-};
 
 List<Object?> _messages(File file) =>
     (jsonDecode(file.readAsStringSync()) as Map<String, Object?>)['messages']! as List<Object?>;

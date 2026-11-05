@@ -52,10 +52,12 @@ A2UIErrorCode _codeOf(core.A2uiError error) {
 }
 
 // A binding that names a catalog the surface doesn't have is a missing
-// catalog; anything else that keeps an expression from being evaluated is an
+// catalog, and a function that failed while an action ran it an execution
+// error; anything else that keeps an expression from being evaluated is an
 // expression error.
 A2UIErrorCode _expressionCodeOf(core.A2uiExpressionError error) {
   if (error.code == 'CATALOG_ERROR') return A2UIErrorCode.catalogNotFound;
+  if (error.code == 'EXECUTION_ERROR') return A2UIErrorCode.executionError;
   return A2UIErrorCode.expressionError;
 }
 

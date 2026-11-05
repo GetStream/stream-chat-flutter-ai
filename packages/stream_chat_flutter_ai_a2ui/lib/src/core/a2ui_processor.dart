@@ -72,9 +72,10 @@ final class A2UIProcessor extends ChangeNotifier {
   /// A function a surface calls that no catalog has, such as one of the app's
   /// tools, goes to `onAgentFunction`, and what it completes with is the
   /// function's value where the surface uses it; a failure is reported through
-  /// `onError` as `EXECUTION_ERROR`. Without `onAgentFunction`, such a
-  /// function fails, and is reported the same way. An answer that arrives
-  /// after [reset] or [dispose] is dropped.
+  /// `onError` as `EXPRESSION_ERROR`. Without `onAgentFunction`, such a
+  /// function is missing, and is reported the same way. A call whose surface
+  /// is deleted before it is answered is dropped without a report, as is an
+  /// answer that arrives after [reset] or [dispose].
   ///
   /// None of the four is called after [dispose].
   ///
@@ -129,9 +130,6 @@ final class A2UIProcessor extends ChangeNotifier {
   // now, which is when the core sends the functions they call.
   var _userActs = 0;
   bool _disposed = false;
-
-  // The version string the core reads A2UI 1.0 messages by.
-  static const _coreVersion = 'v1.0';
 
   /// The ids of this processor's surfaces, in the order they were created.
   List<String> get surfaceIds => List.unmodifiable(_surfaces.keys);
@@ -396,11 +394,10 @@ final class A2UIProcessor extends ChangeNotifier {
     if (_defaultsCatalog && createSurface is Map<String, Object?> && createSurface['catalogId'] is! String) {
       return {
         ...message,
-        'version': _coreVersion,
         'createSurface': {...createSurface, 'catalogId': _catalogs.catalogId},
       };
     }
-    return {...message, 'version': _coreVersion};
+    return message;
   }
 
   /// Gives `report` what keeps the tree of each surface from being whole: a
@@ -442,7 +439,7 @@ final class A2UIProcessor extends ChangeNotifier {
       validationConfig: _debugChecks?._config,
       onAction: _handleAction,
       outboundListener: switch ((onOutbound, _onAgentFunction)) {
-        (final onOutbound?, _) => (message) => onOutbound(_fromCoreVersion(_plainMap(message.toJson()))),
+        (final onOutbound?, _) => (message) => onOutbound(_plainMap(message.toJson())),
         (null, final onAgentFunction?) => (message) => _handleOutbound(message, processor, onAgentFunction),
         (null, null) => null,
       },
@@ -513,7 +510,7 @@ final class A2UIProcessor extends ChangeNotifier {
 
   static void _answer(core.MessageProcessor<core.ComponentApi> asker, core.A2uiFunctionResponse response) {
     asker.rpc.handleAgentFunctionResponse(
-      core.AgentFunctionResponseMessage(version: _coreVersion, response: response),
+      core.AgentFunctionResponseMessage(version: A2UIVersions.current, response: response),
     );
   }
 
@@ -535,6 +532,12 @@ final class A2UIProcessor extends ChangeNotifier {
     _coreSubscriptions.clear();
     final surfaces = [..._surfaces.values];
     _surfaces.clear();
+    // The core's dispose removes each surface's root, so the surfaces stop
+    // following it first and keep whether they had one; they tell their
+    // listeners themselves when they are disposed.
+    for (final surface in surfaces) {
+      surface._detach();
+    }
     _core.dispose();
     return surfaces;
   }

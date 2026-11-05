@@ -72,11 +72,13 @@ void main() {
     expect(email.runs, hasLength(2));
   });
 
-  testWidgets('a function no tool answers is reported, as a failure of the function', (tester) async {
+  testWidgets('a function no tool answers is reported as an expression error', (
+    tester,
+  ) async {
     final harness = await _pumpSurface(tester, [_textCalling('nowhere', const {})]);
     await _answer(tester);
 
-    expect(harness.errors.single.$1.code, A2UIErrorCode.executionError);
+    expect(harness.errors.single.$1.code, A2UIErrorCode.expressionError);
   });
 
   testWidgets('a tool the UI calls as it shows gets its arguments as the surface holds them', (tester) async {

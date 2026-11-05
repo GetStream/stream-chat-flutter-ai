@@ -117,14 +117,24 @@ final class A2UIDebugCatalog {
     return null;
   }
 
-  core.FunctionApi _signature(A2UIDebugFunction function) {
-    final catalog = core.Catalog.fromJson({
-      'catalogId': 'signature',
-      'protocolVersion': A2UIVersions.current,
-      'components': const <String, Object?>{},
-      'functions': {function.name: _definitionOf(function)},
-    }, protocolVersion: core.A2uiProtocolVersion.v1_0);
-    return catalog.functions[function.name]!;
+  // Built with the constructor, as a catalog in code is, so a case can give
+  // a function the definition a catalog document may not have, such as
+  // `requiresUserActivation` with `rendererOrAgent`.
+  static core.FunctionApi _signature(A2UIDebugFunction function) {
+    final definition = function.definition;
+    final arguments = definition['parameters'] ?? definition['schema'];
+    return core.FunctionApi(
+      name: function.name,
+      argumentSchema: Schema.fromMap(
+        arguments is Map<String, Object?> ? arguments : const <String, Object?>{'type': 'object'},
+      ),
+      returnType: core.A2uiReturnType.fromJson((definition['returnType'] as String?) ?? 'any'),
+      allowedCallers: switch (definition['allowedCallers']) {
+        final String callers => core.AllowedCallers.fromJson(callers),
+        _ => null,
+      },
+      requiresUserActivation: definition['requiresUserActivation'] as bool?,
+    );
   }
 
   static Map<String, Object?> _definitionOf(A2UIDebugFunction function) {
@@ -376,7 +386,7 @@ Map<String, Object?>? debugRendererDataModel(A2UIProcessor processor, {required 
   if (version != A2UIVersions.current) return null;
   final json = processor._core.getRendererDataModel(version: core.A2uiProtocolVersion.v1_0);
   if (json == null) return null;
-  return _fromCoreVersion(_plainMap(json));
+  return _plainMap(json);
 }
 
 /// The components of [surface] as the agent wrote them, by id.
@@ -452,11 +462,4 @@ Future<Object?> debugAct(
     report(_errorFromCore(error, surfaceId: surface.id));
     return null;
   }
-}
-
-// A message the core sent, with A2UI 1.0's version written as A2UI 1.0 writes
-// it rather than as the core does.
-Map<String, Object?> _fromCoreVersion(Map<String, Object?> json) {
-  if (json['version'] != A2UIProcessor._coreVersion) return json;
-  return {...json, 'version': A2UIVersions.current};
 }

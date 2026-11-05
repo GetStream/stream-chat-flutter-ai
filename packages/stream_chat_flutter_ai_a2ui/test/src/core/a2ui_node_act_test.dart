@@ -45,7 +45,7 @@ void main() {
 
     await processor.surface('plan')!.root!.act('action');
 
-    expect((await reported.future).code, A2UIErrorCode.expressionError);
+    expect((await reported.future).code, A2UIErrorCode.executionError);
   });
 
   test("act reports the app's own link opener throwing, and completes", () async {
@@ -71,7 +71,7 @@ void main() {
 
     await root.act('action');
 
-    expect(errors.single.code, A2UIErrorCode.dataError);
+    expect(errors.single.code, A2UIErrorCode.expressionError);
   });
 
   test("act completes for an event whose context reads a path that can't be read", () async {

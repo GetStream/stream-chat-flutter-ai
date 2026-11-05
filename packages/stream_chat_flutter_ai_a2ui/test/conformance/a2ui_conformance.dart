@@ -70,8 +70,9 @@ Set<String> conformanceCaseNames() {
   return {
     for (final file in Directory('$_root/conformance/core').listSync().whereType<File>())
       if (file.path.endsWith('.yaml'))
-        for (final item in _json(loadYaml(file.readAsStringSync()))! as List<Object?>)
-          (item! as Map<String, Object?>)['name']! as String,
+        // Read as YAML, not as JSON: a suite this package skips holds `.nan`.
+        for (final item in loadYaml(file.readAsStringSync())! as List<Object?>)
+          (item! as Map<Object?, Object?>)['name']! as String,
   };
 }
 
