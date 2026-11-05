@@ -63,6 +63,10 @@ final class A2UIProcessor extends ChangeNotifier {
   /// `onUnreadable` instead of `onError`.
   ///
   /// None of the three is called after [dispose].
+  ///
+  /// None of the three may throw: one that does stops [apply] partway, and
+  /// leaves the problem it was given marked as reported. Its creator runs app
+  /// code behind its own guard, as the engine does.
   A2UIProcessor({required this._catalogs, this._onAction, this._onError, this._onUnreadable})
     : _defaultsCatalog = true,
       _debugChecks = null,
