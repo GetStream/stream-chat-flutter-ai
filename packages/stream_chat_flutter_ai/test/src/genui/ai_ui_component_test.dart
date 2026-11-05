@@ -48,7 +48,7 @@ void main() {
     final emitted = <(String, String)>[];
 
     _context(
-      emit: (event, label, _) => emitted.add((event, label)),
+      emit: (event, label, _) async => emitted.add((event, label)),
     ).emit('ask_about', label: 'Tell me more about Ohrid', payload: {'title': 'Ohrid'});
 
     expect(emitted, [('ask_about', 'Tell me more about Ohrid')]);
@@ -58,7 +58,7 @@ void main() {
     final payloads = <Map<String, Object?>>[];
 
     _context(
-      emit: (_, _, payload) => payloads.add(payload),
+      emit: (_, _, payload) async => payloads.add(payload),
     ).emit('ask_about', label: 'Tell me more about Ohrid', payload: {'title': 'Ohrid'});
 
     expect(payloads, [
@@ -69,7 +69,7 @@ void main() {
   test('AIUIComponentContext.emit gives an empty payload when the component gives none', () {
     final payloads = <Map<String, Object?>>[];
 
-    _context(emit: (_, _, payload) => payloads.add(payload)).emit('ask_about', label: 'Tell me more about Ohrid');
+    _context(emit: (_, _, payload) async => payloads.add(payload)).emit('ask_about', label: 'Tell me more about Ohrid');
 
     expect(payloads, [<String, Object?>{}]);
   });
@@ -79,7 +79,7 @@ AIUIComponentContext _context({bool isStreaming = false, AIUIEventEmitter? emit}
   messageId: 'm1',
   isStreaming: isStreaming,
   host: testHost(components: const [PlaceCardComponent()]),
-  emit: emit ?? (_, _, _) {},
+  emit: emit ?? (_, _, _) async {},
 );
 
 List<String> _captureReports() {

@@ -1,8 +1,8 @@
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
 
 /// Reports a component's `event` to the agent, with a `label` describing what
-/// the person did and the event's `payload`.
-typedef AIUIEventEmitter = void Function(String event, String label, Map<String, Object?> payload);
+/// the person did and the event's `payload`, and completes once it is sent.
+typedef AIUIEventEmitter = Future<void> Function(String event, String label, Map<String, Object?> payload);
 
 /// Information and actions a component can use while it builds: which reply
 /// it is in, the conversation's host, and [emit] for reporting events to the
@@ -37,7 +37,10 @@ final class AIUIComponentContext {
   ///
   /// It's sent as the person's next message, whose text is [label], such as
   /// "Tell me more about St. Naum". The [payload] holds the event's details.
-  void emit(String event, {required String label, Map<String, Object?> payload = const {}}) =>
+  ///
+  /// Completes once it is sent, or with the error if sending failed (see
+  /// [AIUIHosting.send]). Ignoring the result is fine.
+  Future<void> emit(String event, {required String label, Map<String, Object?> payload = const {}}) =>
       _emit(event, label, payload);
 
   @override

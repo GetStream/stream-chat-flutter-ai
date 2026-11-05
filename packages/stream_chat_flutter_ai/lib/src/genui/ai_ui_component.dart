@@ -40,6 +40,10 @@ import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 ///   );
 /// }
 /// ```
+///
+/// Extend it rather than implementing it. Members added in later versions come
+/// with a default, so a subclass keeps compiling, while a class that
+/// `implements` it would break.
 abstract class AIUIComponent<T> {
   /// Creates an [AIUIComponent].
   const AIUIComponent();

@@ -60,7 +60,14 @@ final class AIUIDocument {
       reportPartIssue(() => '`$customDataKey` is not an object, so the reply shows its text.');
       return null;
     }
-    if (fields['v'] case final num v when v > supportedVersion) return null;
+    switch (fields['v']) {
+      case final num v when v > supportedVersion:
+        return null;
+      case null || num():
+        break;
+      case final v:
+        reportPartIssue(() => "`$customDataKey.v` is $v, not a number, so its version isn't checked.");
+    }
 
     final read = PartFields(fields, customDataKey);
     final format = read.string('format');
