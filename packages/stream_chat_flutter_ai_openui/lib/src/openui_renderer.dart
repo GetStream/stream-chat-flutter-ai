@@ -62,23 +62,23 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 final class OpenUIRenderer extends AIUIRenderer {
   /// Creates a renderer for OpenUI Lang.
   ///
-  /// The agent writes with [library], or [OpenUILibrary.chat] when it is
-  /// `null`.
-  const OpenUIRenderer({
-    this._library,
+  /// The agent writes with [library], which is [OpenUILibrary.chat] by
+  /// default.
+  ///
+  /// Not `const`: [OpenUILibrary.chat] is built once, when it is first used.
+  OpenUIRenderer({
+    OpenUILibrary? library,
     this.instructions,
     this.theme,
     this.mediaUrl = webUrl,
     this.onError,
-  });
+  }) : library = library ?? OpenUILibrary.chat;
 
   /// The label of the fenced block an agent writes a reply's OpenUI in.
   static const String fence = 'openui-lang';
 
-  final OpenUILibrary? _library;
-
   /// The components the agent writes with, and the builders that draw them.
-  OpenUILibrary get library => _library ?? OpenUILibrary.chat;
+  final OpenUILibrary library;
 
   /// What the agent's model is told before OpenUI's own instructions, such as
   /// which answers to write as UI and when to use the app's components, or
@@ -94,13 +94,14 @@ final class OpenUIRenderer extends AIUIRenderer {
 
   /// The function that gives the URL each image loads from, or `null` to not
   /// load it. By default only web links load; see [webUrl].
-  final Uri? Function(Uri url) mediaUrl;
+  final OpenUIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's OpenUI, with the
   /// reply's message id, or `null` to report them in debug builds only.
   ///
   /// It gets the problems with the program once the reply is written, each
-  /// once, such as a component the library doesn't have or a query whose
+  /// once for as long as the reply is shown (a reply the host drops and shows
+  /// again reports its problems again), such as a component the library doesn't have or a query whose
   /// tool failed, so the app can send them back to the agent. It also gets
   /// what a component's builder throws, as a [OpenUIErrorCode.renderError],
   /// which otherwise goes to [FlutterError.reportError]. Each arrives after

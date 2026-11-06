@@ -16,3 +16,4 @@ export 'src/library/openui_library.dart' show OpenUIComponentBuilder, OpenUILibr
 export 'src/library/openui_theme.dart' show OpenUITheme, OpenUIThemeData;
 export 'src/openui_error.dart' show OpenUIError, OpenUIErrorCode, OpenUIErrorSource;
 export 'src/openui_renderer.dart' show OpenUIErrorHandler, OpenUIRenderer;
+export 'src/view/openui_view_scope.dart' show OpenUIMediaUrl;

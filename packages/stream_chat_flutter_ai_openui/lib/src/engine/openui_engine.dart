@@ -381,7 +381,16 @@ final class _OpenUIReply {
     runtime.update(text == null ? null : openUIProgramOf(text), isStreaming: document.isStreaming);
   }
 
-  void _saveState() => _engine._host.setState(messageId, openUIJsonObject(runtime.state.value));
+  // The state changes while the reply builds too, such as when a field saves
+  // its default, and the host may notify its listeners when it is set, so it
+  // is given once the frame ends. What the reply held when it changed is what
+  // the host gets, also when the reply is removed in between.
+  void _saveState() {
+    final state = openUIJsonObject(runtime.state.value);
+    _engine._whenNotBuilding(() {
+      if (!_engine._disposed) _engine._host.setState(messageId, state);
+    });
+  }
 
   void _reportErrors() => _engine._reportErrors(runtime.errors.value, this);
 

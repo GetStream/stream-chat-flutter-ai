@@ -194,6 +194,30 @@ void main() {
       );
     });
 
+    testWidgets("series from a tool's result keep a name that isn't text, and numeric strings plot as numbers", (
+      tester,
+    ) async {
+      final tools = FakeTools()
+        ..results['series'] = OpenUIValue.fromJson(const [
+          {
+            'category': 2024,
+            'values': ['4', 5],
+          },
+        ]);
+      final runtime = testRuntime(tools: tools);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: 'q = Query("series", {}, [])\nroot = Card([BarChart(["Q1", "Q2"], q)])',
+      );
+      await tester.pump(const Duration(seconds: 1));
+
+      final spec = tester.widget<ChartView>(find.byType(ChartView)).spec;
+      expect([for (final series in spec.series) series.name], ['2024']);
+      expect(_points(spec.series.single), ['Q1: 4.0', 'Q2: 5.0']);
+    });
+
     testWidgets("literal rows and Slice components, which the library's schema drops, draw nothing", (tester) async {
       expect(await _draw(tester, 'BarChart(["Quarter", "Open"], [["Q1", 4], ["Q2", 5]])'), isNull);
       expect(await _draw(tester, 'PieChart([Slice("A", 1), Slice("B", 3)], [])'), isNull);
@@ -230,6 +254,20 @@ void main() {
       expect(await _draw(tester, 'RadialChart(["A"], [0])'), isNull);
       expect(await _draw(tester, 'SingleStackedBarChart(["A"], [0])'), isNull);
       expect(await _draw(tester, 'RadarChart(["A", "B"], [Series("S", [1, 2])])'), isNull);
+    });
+
+    testWidgets("values from a tool's result that are numeric strings are plotted as numbers", (tester) async {
+      final tools = FakeTools()..results['vals'] = OpenUIValue.fromJson(const ['30', 70]);
+      final runtime = testRuntime(tools: tools);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: 'q = Query("vals", {}, [])\nroot = Card([PieChart(["A", "B"], q)])',
+      );
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(_points(tester.widget<ChartView>(find.byType(ChartView)).spec.series.single), ['A: 30.0', 'B: 70.0']);
     });
 
     testWidgets('Slice components from a variable, without values, draw the legacy form', (tester) async {

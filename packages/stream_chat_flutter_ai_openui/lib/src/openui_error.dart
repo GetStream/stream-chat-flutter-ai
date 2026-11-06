@@ -16,9 +16,6 @@ final class OpenUIError {
   /// [toolName] names the tool a query or mutation called, [hint] says how to
   /// fix it, and [isWarning] marks a problem the program still renders
   /// despite.
-  ///
-  /// Internal to the package: the renderer makes the errors it reports.
-  @internal
   const OpenUIError({
     required this.source,
     required this.code,

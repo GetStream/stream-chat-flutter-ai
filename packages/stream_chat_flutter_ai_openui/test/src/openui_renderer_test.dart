@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/stream_chat_flutter_ai_openui.dart';
@@ -19,6 +20,9 @@ final class _Host with AIUIHosting {
   final calls = <({String name, Map<String, Object?> arguments, bool userInitiated})>[];
   final states = <String, Object?>{};
 
+  /// The scheduler phase of each call of [setState].
+  final statePhases = <SchedulerPhase>[];
+
   @override
   Future<void> send(AIUIAction action) async => sent.add(action);
 
@@ -37,7 +41,10 @@ final class _Host with AIUIHosting {
   Object? state(String messageId) => states[messageId];
 
   @override
-  void setState(String messageId, Object? state) => states[messageId] = state;
+  void setState(String messageId, Object? state) {
+    statePhases.add(SchedulerBinding.instance.schedulerPhase);
+    states[messageId] = state;
+  }
 }
 
 AIUIDocument _doc(String content, {bool isStreaming = false}) =>
@@ -107,7 +114,7 @@ final class _Broken extends AIUIComponent<Object?> {
 void main() {
   group('capabilities', () {
     test('give the fence and the instructions, with the app instructions first', () {
-      const renderer = OpenUIRenderer(instructions: 'Answer trips as UI.');
+      final renderer = OpenUIRenderer(instructions: 'Answer trips as UI.');
       final capabilities = renderer.capabilities(const [], const [
         AIToolDefinition(name: 'list_trips', description: 'Lists trips.', isReadOnly: true),
         AIToolDefinition(name: 'book_trip', description: 'Books a trip.'),
@@ -122,7 +129,7 @@ void main() {
     });
 
     test("list the app's components the agent can place, but not one whose name is taken", () {
-      const renderer = OpenUIRenderer();
+      final renderer = OpenUIRenderer();
       final instructions =
           renderer.capabilities(const [_PlaceCard(), _PlaceCard('card')], const [])['instructions']! as String;
 
@@ -131,14 +138,14 @@ void main() {
     });
 
     test('use the chat library by default', () {
-      expect(const OpenUIRenderer().library, OpenUILibrary.chat);
-      expect(const OpenUIRenderer().format, AIUIFormat.openUI);
+      expect(OpenUIRenderer().library, OpenUILibrary.chat);
+      expect(OpenUIRenderer().format, AIUIFormat.openUI);
     });
   });
 
   group('view', () {
     testWidgets('shows nothing while the program has no root, then draws it', (tester) async {
-      final engine = const OpenUIRenderer().createEngine(_Host());
+      final engine = OpenUIRenderer().createEngine(_Host());
       addTearDown(engine.dispose);
 
       expect(await _pump(tester, engine, _doc('root = Ca', isStreaming: true)), isFalse);
@@ -177,7 +184,7 @@ void main() {
       ('a tab-indented', '\t```\n'),
     ]) {
       testWidgets('a fence the backend never closed ($label) keeps the card', (tester) async {
-        final engine = const OpenUIRenderer().createEngine(_Host());
+        final engine = OpenUIRenderer().createEngine(_Host());
         addTearDown(engine.dispose);
 
         expect(await _pump(tester, engine, _doc('$_card\n$fence')), isTrue);
@@ -186,7 +193,7 @@ void main() {
     }
 
     testWidgets('a fence the backend never closed keeps the card when the reply goes on after it', (tester) async {
-      final engine = const OpenUIRenderer().createEngine(_Host());
+      final engine = OpenUIRenderer().createEngine(_Host());
       addTearDown(engine.dispose);
 
       expect(await _pump(tester, engine, _doc('$_card\n```Enjoy!\n\nHave fun.')), isTrue);
@@ -196,7 +203,7 @@ void main() {
     testWidgets('a document received while the conversation builds is applied after the frame, the latest winning', (
       tester,
     ) async {
-      final engine = const OpenUIRenderer().createEngine(_Host());
+      final engine = OpenUIRenderer().createEngine(_Host());
       addTearDown(engine.dispose);
       final view = engine.view(_doc('root = Card([CardHeader("One")])', isStreaming: true), 'r1')!;
 
@@ -220,7 +227,7 @@ void main() {
     });
 
     testWidgets('content in its own fenced block is read as before', (tester) async {
-      final engine = const OpenUIRenderer().createEngine(_Host());
+      final engine = OpenUIRenderer().createEngine(_Host());
       addTearDown(engine.dispose);
 
       expect(await _pump(tester, engine, _doc('```openui-lang\n$_card\n```')), isTrue);
@@ -228,7 +235,7 @@ void main() {
     });
 
     testWidgets('a fence inside a multi-line string keeps the rest of the card', (tester) async {
-      final engine = const OpenUIRenderer().createEngine(_Host());
+      final engine = OpenUIRenderer().createEngine(_Host());
       addTearDown(engine.dispose);
       const program =
           'root = Card([CardHeader("Title"), t, CardHeader("After")])\nt = TextContent("code:\n```\nx\n```\n")';
@@ -365,6 +372,19 @@ void main() {
       expect(find.widgetWithText(TextField, 'b'), findsOneWidget);
     });
 
+    testWidgets('state the program sets while the host builds reaches the host after the frame', (tester) async {
+      final host = _Host();
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      final document = _doc('\$n = "a"\nroot = Stack([TextContent("Body")])');
+
+      await tester.pumpWidget(testApp(Builder(builder: (_) => engine.view(document, 'r1') ?? const SizedBox.shrink())));
+      await tester.pump();
+
+      expect(host.states['r1'], containsPair(r'$n', 'a'));
+      expect(host.statePhases, everyElement(isNot(SchedulerPhase.persistentCallbacks)));
+    });
+
     testWidgets('state kept as a map of any key type is given back', (tester) async {
       final host = _Host()..states['r1'] = <dynamic, dynamic>{r'$n': 'kept'};
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
@@ -432,7 +452,7 @@ void main() {
     });
 
     testWidgets('a builder that throws goes to FlutterError without onError', (tester) async {
-      final engine = const OpenUIRenderer().createEngine(_Host(components: const [_Broken()]));
+      final engine = OpenUIRenderer().createEngine(_Host(components: const [_Broken()]));
       addTearDown(engine.dispose);
 
       await _pump(tester, engine, _doc('root = Card([CardHeader("Title"), Broken()])'));
@@ -444,7 +464,7 @@ void main() {
   group('app components', () {
     testWidgets('are drawn with their arguments, and their events name them', (tester) async {
       final host = _Host(components: const [_PlaceCard()]);
-      final engine = const OpenUIRenderer().createEngine(host);
+      final engine = OpenUIRenderer().createEngine(host);
       addTearDown(engine.dispose);
 
       await _pump(tester, engine, _doc('root = Card([PlaceCard("Ohrid")])'));
@@ -463,7 +483,7 @@ void main() {
     });
 
     testWidgets('draw nothing while their values are still arriving', (tester) async {
-      final engine = const OpenUIRenderer().createEngine(_Host(components: const [_PlaceCard()]));
+      final engine = OpenUIRenderer().createEngine(_Host(components: const [_PlaceCard()]));
       addTearDown(engine.dispose);
 
       await _pump(tester, engine, _doc('root = Card([CardHeader("Title"), PlaceCard(1)])', isStreaming: true));
@@ -476,7 +496,7 @@ void main() {
       final reported = <FlutterErrorDetails>[];
       final previous = FlutterError.onError;
       FlutterError.onError = reported.add;
-      final engine = const OpenUIRenderer().createEngine(_Host(components: const [_PlaceCard('card_header')]));
+      final engine = OpenUIRenderer().createEngine(_Host(components: const [_PlaceCard('card_header')]));
       FlutterError.onError = previous;
       addTearDown(engine.dispose);
 

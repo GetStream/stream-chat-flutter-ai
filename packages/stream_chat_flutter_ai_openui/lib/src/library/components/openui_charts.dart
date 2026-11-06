@@ -202,20 +202,20 @@ List<USeries> _seriesOf(OpenUIValue? labelsValue, OpenUIValue? seriesValue) {
     final props = _propsOf(item);
     if (props == null) continue;
     final (name, values) = (props['category'], props['values']);
-    if (name is! OpenUIString || values is! OpenUIArray) continue;
+    if (values is! OpenUIArray) continue;
     final points = [
       for (final (index, label) in labels.indexed)
         if (index < values.items.length)
           if (_plottable(values.items[index]) case final value?) UPoint(x: label, y: value),
     ];
-    if (points.isNotEmpty) series.add(USeries(name: name.value, points: points));
+    if (points.isNotEmpty) series.add(USeries(name: JS.toStringOrEmpty(name), points: points));
   }
   return series;
 }
 
 // The parts of `labels` and `values`: a part of the whole for each label, a
-// label past the last value, or with a value that isn't a number, counting as
-// nothing.
+// label past the last value counting as nothing, and a value read as a number
+// as elsewhere (`"42"` is 42), and left out when it isn't finite.
 //
 // Without `values`, `labels` holds `Slice(category, value)` components, as
 // OpenUI's legacy form has them, which a program gets from a `$variable`.
@@ -225,8 +225,7 @@ List<UPoint> _slicePoints(OpenUIValue? labelsValue, OpenUIValue? valuesValue) {
   if (labels.isNotEmpty && values.isNotEmpty) {
     return [
       for (final (index, label) in labels.indexed)
-        if (_plottable(index < values.length && values[index] is OpenUINumber ? values[index] : const OpenUINumber(0))
-            case final value?)
+        if (_plottable(index < values.length ? values[index] : const OpenUINumber(0)) case final value?)
           UPoint(x: JS.toStringOrEmpty(label), y: value),
     ];
   }
@@ -260,4 +259,4 @@ double? _plottable(OpenUIValue? value) {
 
 // [value] as the text of a point's x, without a trailing `.0`.
 String _number(double value) =>
-    value == value.roundToDouble() && value.abs() < 1e15 ? value.toInt().toString() : '$value';
+    value == value.roundToDouble() && value.abs() <= _maxMagnitude ? value.toInt().toString() : '$value';

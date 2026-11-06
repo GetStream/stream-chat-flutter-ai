@@ -6,9 +6,6 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 
 /// Signature for the function a reply's media loads through: the URL to load
 /// for [url], or `null` to load nothing.
-///
-/// Internal to the package.
-@internal
 typedef OpenUIMediaUrl = Uri? Function(Uri url);
 
 /// Signature for the function that opens a link a person taps in a reply's
