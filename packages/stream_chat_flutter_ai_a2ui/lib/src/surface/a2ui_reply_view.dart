@@ -32,9 +32,8 @@ class A2UIReplyView extends StatelessWidget {
   /// The builders of the surfaces' components.
   final A2UICatalog catalog;
 
-  /// The look of the surfaces' components, or `null` for the app's Stream
-  /// theme.
-  final A2UITheme? theme;
+  /// Overrides for the look of the surfaces' components, or `null` for none.
+  final A2UIThemeData? theme;
 
   /// The function the surfaces' images, videos and audio clips are loaded
   /// through.

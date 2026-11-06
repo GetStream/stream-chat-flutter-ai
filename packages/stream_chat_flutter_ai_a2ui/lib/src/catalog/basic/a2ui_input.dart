@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
@@ -50,8 +51,8 @@ class _RenderInputWidth extends RenderProxyBox {
 }
 
 /// The messages of the [failures] of an input's checks, one below the other,
-/// each in the color of its severity: errors in [A2UITheme.error], warnings in
-/// [A2UITheme.warning] and information in [A2UITheme.secondaryText].
+/// each in the color of its severity: errors in [A2UIThemeData.error], warnings in
+/// [A2UIThemeData.warning] and information in [A2UIThemeData.secondaryText].
 ///
 /// A failure without a message, else a code, isn't shown. The messages keep
 /// a small space from the input above them; with nothing to show, it
@@ -67,7 +68,7 @@ class A2UIValidationMessages extends StatelessWidget {
   final List<A2UICheckFailure> failures;
 
   /// The look of the messages.
-  final A2UITheme theme;
+  final A2UIResolvedTheme theme;
 
   // The space between two messages.
   static const _spacing = 2.0;
@@ -101,7 +102,7 @@ const _messageSpacing = 4.0;
 ///
 /// Internal to the package.
 @internal
-Color a2uiSeverityColor(A2UITheme theme, A2UICheckSeverity severity) {
+Color a2uiSeverityColor(A2UIResolvedTheme theme, A2UICheckSeverity severity) {
   return switch (severity) {
     A2UICheckSeverity.error => theme.error,
     A2UICheckSeverity.warning => theme.warning,
@@ -118,9 +119,9 @@ bool a2uiBlocks(List<A2UICheckFailure> failures) {
 }
 
 /// The look of a field a person types into, drawn from [theme]: filled with
-/// [A2UITheme.subtleSurface], with [A2UITheme.controlCornerRadius] corners,
+/// [A2UIThemeData.subtleSurface], with [A2UIThemeData.controlCornerRadius] corners,
 /// [padding] around the text, [hint] while it is empty, and a 1-point
-/// [A2UITheme.error] outline when [hasError].
+/// [A2UIThemeData.error] outline when [hasError].
 ///
 /// Assistive technologies read the [hint] with the field, unless [readsHint]
 /// is false, such as for a hint that repeats the field's label.
@@ -128,7 +129,7 @@ bool a2uiBlocks(List<A2UICheckFailure> failures) {
 /// Internal to the package.
 @internal
 InputDecoration a2uiFieldDecoration(
-  A2UITheme theme, {
+  A2UIResolvedTheme theme, {
   required String? hint,
   bool readsHint = true,
   required bool hasError,

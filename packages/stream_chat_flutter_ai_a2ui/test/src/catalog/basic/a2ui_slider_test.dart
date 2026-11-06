@@ -89,15 +89,37 @@ void main() {
     expect(tester.widget<Slider>(find.byType(Slider)).value, 8);
   });
 
-  testWidgets('a value above the maximum is written as the end once it shows', (tester) async {
+  testWidgets('a value above the maximum is left as the agent wrote it', (tester) async {
     final processor = await pumpSurface(tester, components: [_slider()], data: {'size': 20});
     await tester.pump();
 
-    expect(processor.surface('s')!.read('/size'), 8);
+    expect(processor.surface('s')!.read('/size'), 20);
   });
 
-  testWidgets('a value below the minimum is written as the start once it shows', (tester) async {
+  testWidgets('a value below the minimum is left as the agent wrote it', (tester) async {
     final processor = await pumpSurface(tester, components: [_slider()], data: {'size': -3});
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/size'), -3);
+  });
+
+  testWidgets('a value above the maximum keeps its place once a later update raises the maximum', (tester) async {
+    final processor = await pumpSurface(tester, components: [_slider(steps: null)], data: {'size': 50});
+    await tester.pump();
+    processor.apply([
+      updateComponents([
+        {..._slider(steps: null), 'max': 100},
+      ]),
+    ]);
+    await tester.pump();
+
+    expect((processor.surface('s')!.read('/size'), tester.widget<Slider>(find.byType(Slider)).value), (50, 50.0));
+  });
+
+  testWidgets('moving a slider whose value is outside the range writes where it is moved to', (tester) async {
+    final processor = await pumpSurface(tester, components: [_slider()], data: {'size': 20});
+
+    await tester.drag(find.byType(Slider), const Offset(-400, 0));
     await tester.pump();
 
     expect(processor.surface('s')!.read('/size'), 1);
