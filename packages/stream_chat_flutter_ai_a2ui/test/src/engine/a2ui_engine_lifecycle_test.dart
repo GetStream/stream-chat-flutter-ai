@@ -124,6 +124,45 @@ void main() {
     expect(find.text('typed'), findsOneWidget);
   });
 
+  testWidgets('a reply whose view left while the host kept it keeps what the person typed', (tester) async {
+    final reply = TestReply('m1', a2uiDocument([surfaceMessage(_field)]));
+    final harness = await pumpReplies(tester, [reply]);
+    await tester.enterText(find.byType(EditableText), 'typed');
+
+    // The reply scrolls away: the host still has it, but nothing shows it.
+    await tester.pumpWidget(
+      Builder(
+        builder: (context) {
+          harness.host.receive([reply]);
+          return const SizedBox();
+        },
+      ),
+    );
+    expect(find.byType(EditableText), findsNothing);
+    await showReplies(tester, harness, [reply]);
+
+    expect(find.text('typed'), findsOneWidget);
+  });
+
+  testWidgets('a reply whose messages changed starts again without what the person typed', (tester) async {
+    final harness = await pumpReplies(tester, [
+      TestReply('m1', a2uiDocument([surfaceMessage(_field)])),
+    ]);
+    await tester.enterText(find.byType(EditableText), 'typed');
+
+    await showReplies(tester, harness, [
+      TestReply(
+        'm1',
+        a2uiDocument([
+          surfaceMessage(_field, data: {'name': ''}),
+        ]),
+      ),
+    ]);
+
+    expect(find.byType(EditableText), findsOneWidget);
+    expect(find.text('typed'), findsNothing);
+  });
+
   testWidgets('two replies keep their own data', (tester) async {
     final harness = await pumpReplies(tester, [
       TestReply('m1', a2uiDocument([surfaceMessage(_field)])),

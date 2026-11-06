@@ -148,18 +148,38 @@ final class A2UISurface extends ChangeNotifier {
   /// The text is the `text` of the component the button's `child` names:
   /// what the agent wrote, or what it is bound to at an absolute path of the
   /// data model. A path relative to a template's item and a function call
-  /// give `null`, as does a button whose child isn't there.
+  /// give `null`, as does a button whose child isn't there, and so does a
+  /// path that holds, is in or is what an `obscured` `TextField` writes, so
+  /// a secret the person typed never becomes the button's text.
   Object? buttonTextOf(String componentId) {
     if (_disposed) return null;
     final components = _model.componentsModel;
     final childId = components.get(componentId)?.properties['child'];
     if (childId is! String) return null;
     return switch (components.get(childId)?.properties['text']) {
-      {'@path': final String path} when path.startsWith('/') => read(path),
+      {'@path': final String path} when path.startsWith('/') => _readsSecret(path) ? null : read(path),
       final Map<Object?, Object?> _ => null,
       final text => _plain(text),
     };
   }
+
+  // Whether reading the absolute [path] reads what an `obscured` `TextField`
+  // of this surface writes: the same path, one that holds it, or one in it.
+  bool _readsSecret(String path) {
+    final read = _withoutTrailingSlash(path);
+    for (final component in _model.componentsModel.values) {
+      if (component.type != 'TextField' || component.properties['variant'] != 'obscured') continue;
+      final secret = switch (component.properties['value']) {
+        {'@path': final String path} when path.startsWith('/') => _withoutTrailingSlash(path),
+        _ => null,
+      };
+      if (secret == null) continue;
+      if (read == secret || secret.startsWith('$read/') || read.startsWith('$secret/')) return true;
+    }
+    return false;
+  }
+
+  static String _withoutTrailingSlash(String path) => path.endsWith('/') ? path.substring(0, path.length - 1) : path;
 
   // A context that reads this surface's data model at [path] as a component
   // of this surface reads it, with problems going to [onError]. A function no

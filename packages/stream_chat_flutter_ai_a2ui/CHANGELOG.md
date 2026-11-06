@@ -3,26 +3,20 @@
 ✅ Added
 
 - New package for A2UI 1.0, the protocol an agent writes interactive UI in.
-- `A2UIRenderer`, which shows a reply's A2UI in the conversation's generative UI when added to the `AIUIHost`, with
-  its `catalog`, `catalogId`, `theme`, `mediaUrl` and `onError`, and `A2UIRenderer.version`, `fence`,
-  `defaultCatalogId`, `basicCatalogId` and `webUrl`.
-- A button's event reaches the host as an `AIUIAction` labeled with the button's text, or else its event's name in
-  words, with what the action asked for in its payload. Links open through the host, and functions the catalog
-  doesn't have run as the host's tools.
+- The look and components of a reply's A2UI: `A2UITheme` with `A2UIThemeData` overrides that default to the app's
+  Stream theme, and `A2UICatalog`, whose builders read a component through `A2UIComponentScope`.
+- The components a person uses, in `A2UICatalog.basic`: `Button`, `TextField`, `CheckBox`, `ChoicePicker`,
+  `Slider`, `DateTimeInput` and `Modal`.
+- `A2UIRenderer`, which shows a reply's A2UI in the conversation's generative UI when added to an `AIUIHost`, with
+  `A2UIError` for the problems with a reply's A2UI.
+- A function that fails or that no tool answers is reported as an expression error, a catalog function that fails
+  while an action runs as an execution error, and a call whose surface is deleted before it's answered isn't reported.
 - `A2UIRenderer` places the app's components (`AIUIHost.components`) in A2UI replies: the agent names one in
   PascalCase, such as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the
   component.
 - `A2UIRenderer.instructions` and the `instructions` of its `capabilities`: what the agent's model needs to write
   A2UI with the app's catalog, its components and the host's tools, after the app's own instructions. A component
   taken out with `A2UICatalog.removing` is left out of it, and reported as unknown when the agent writes it anyway.
-- `A2UIError`, `A2UIErrorCode` and `A2UIErrorHandler`: the problems with a reply's A2UI, given to the renderer's
-  `onError` with the reply's message id. A function that fails or that no tool answers is reported as an expression
-  error, a catalog function that fails while an action runs as an execution error, and a call whose surface is
-  deleted before it's answered isn't reported.
-- The look and components of a reply's A2UI: `A2UITheme` with `A2UIThemeData` overrides that default to the app's
-  Stream theme, and `A2UICatalog`, whose builders read a component through `A2UIComponentScope`.
-- The components a person uses, in `A2UICatalog.basic`: `Button`, `TextField`, `CheckBox`, `ChoicePicker`,
-  `Slider`, `DateTimeInput` and `Modal`.
 - `A2UICatalog.basic` draws `Video`, with its poster until it plays, and `AudioPlayer`, with its description. Neither
   plays until the person taps play.
 

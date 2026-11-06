@@ -154,7 +154,9 @@ final class A2UIEngine extends AIUIEngine {
   void _send(A2UIActionEvent event, _A2UIReply reply) {
     final surface = reply.processor.surface(event.surfaceId);
     final userMessage = event.userMessage;
-    // The host reports an action it couldn't send.
+    // The host reports an action it couldn't send to FlutterError.onError, and
+    // the app's own `send` can tell the person. It isn't a problem with the
+    // reply's A2UI, so it doesn't go to `onError`.
     unawaited(
       _host.send(
         AIUIAction(
@@ -283,6 +285,11 @@ final class _A2UIReply {
       onError: (error) => _engine._handleError(error, this),
       onUnreadable: () => A2UIEngine._debugReport(_unreadable, messageId),
       onAgentFunction: (call) => _engine._runTool(call, this),
+      onLateAnswer: (name) => A2UIEngine._debugReport(
+        "The tool '$name' answered after it timed out at "
+        '${A2UIProcessor.agentFunctionTimeout.inSeconds} s, so its answer was dropped.',
+        messageId,
+      ),
     );
   }
 
@@ -344,7 +351,8 @@ final class _A2UIReply {
     _setStreaming(document.isStreaming);
     if (document.isStreaming || _checked) return;
     _checked = true;
-    processor.checkTopology((error) => A2UIEngine._debugReport(error, messageId));
+    // Only reported in debug builds, so only checked in them.
+    if (kDebugMode) processor.checkTopology((error) => A2UIEngine._debugReport(error, messageId));
   }
 
   // Tells the app's components whether the agent is still writing the
