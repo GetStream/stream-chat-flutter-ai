@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Overview
 
-This repository holds a single published package, `stream_chat_flutter_ai` — Flutter UI components
+This repository holds one published package, `stream_chat_flutter_ai` — Flutter UI components
 for LLM-driven chat: streaming markdown text, typing indicators, code blocks, charts, an AI
 composer, and speech-to-text input.
 
@@ -26,6 +26,11 @@ components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadin
 (theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
 uses, so a core minor bump is released in step with chat.
 
+A second package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
+plugin for the core package's generative UI. It uses only the core package's public API, and hides
+`a2ui_core` (the A2UI protocol library) inside `lib/src/core/`: no other file imports it, and no
+`a2ui_core` type appears in its API, so the protocol library can be replaced.
+
 The Stream Chat SDK itself lives in the separate
 [GetStream/stream-chat-flutter](https://github.com/GetStream/stream-chat-flutter) repo, and
 backend-connected samples live in
@@ -41,6 +46,7 @@ pubspec.yaml                            # workspace root: `workspace:` member li
 analysis_options.yaml                   # lint + formatter config for every member
 packages/stream_chat_flutter_ai/        # the published package
 packages/stream_chat_flutter_ai/example # showcase app, publish_to: none
+packages/stream_chat_flutter_ai_a2ui/   # the A2UI renderer plugin, publish_to: none until released
 ```
 
 Consequences worth remembering:
@@ -141,7 +147,8 @@ workflows can't tag or publish a `+build` version.
 ## PR & commit conventions
 
 PR titles are enforced as `<type>(<scope>): <description>` with a required scope from:
-`ai`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
-`packages/stream_chat_flutter_ai/CHANGELOG.md` — CI checks this. Changelog entries go under the
+`ai`, `a2ui`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
+`packages/stream_chat_flutter_ai/CHANGELOG.md`, and one scoped `a2ui`
+`packages/stream_chat_flutter_ai_a2ui/CHANGELOG.md` — CI checks this. Changelog entries go under the
 existing emoji headings: `💥 Breaking` (first, one line per breaking change), `✅ Added`, `🔄 Changed`,
 `🐞 Fixed`, `🚀 Performance`.
