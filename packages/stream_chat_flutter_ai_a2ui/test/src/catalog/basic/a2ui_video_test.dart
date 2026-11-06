@@ -25,6 +25,21 @@ void main() {
     expect(_posterImage(tester), _imageAt(_poster));
   });
 
+  testWidgets('a poster that fails to load is logged', (tester) async {
+    await _pumpVideo(tester, video: {'url': _clip, 'posterUrl': _poster});
+    final poster = tester.widget<Image>(find.byType(Image));
+    final printed = <String>[];
+    final previous = debugPrint;
+    debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+    try {
+      poster.errorBuilder!(tester.element(find.byType(Image)), Exception('404'), null);
+    } finally {
+      debugPrint = previous;
+    }
+
+    expect(printed.single, contains(_poster));
+  });
+
   testWidgets('a Video loads nothing but the poster until the person plays it', (tester) async {
     final platform = installFakeVideoPlatform();
 
