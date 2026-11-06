@@ -309,6 +309,79 @@ void main() {
     expect(error.message, contains("Function 'locate' failed: locate failed"));
   });
 
+  testWidgets("a tool that isn't read-only runs from a tap when an argument is another tool's answer", (tester) async {
+    final slot = TestTool('next_free_slot', output: '10:00');
+    final book = TestTool('book_meeting', isReadOnly: false);
+    final harness = await _pumpSurface(
+      tester,
+      [
+        {
+          'id': 'root',
+          'component': 'Button',
+          'child': 'label',
+          'action': {
+            'functionCall': {
+              '@call': 'book_meeting',
+              'args': {
+                'slot': {'@call': 'next_free_slot', 'args': <String, Object?>{}},
+              },
+            },
+          },
+        },
+        {'id': 'label', 'component': 'Text', 'text': 'Send'},
+      ],
+      tools: [slot, book],
+    );
+
+    await tester.tap(find.text('Send'));
+    await _answer(tester);
+    await _answer(tester);
+
+    expect(book.runs, [
+      {'slot': '10:00'},
+    ]);
+    expect(harness.errors, isEmpty);
+  });
+
+  testWidgets('calls that fail the same way are each reported, with their surface', (tester) async {
+    final harness = await _pumpSurface(
+      tester,
+      [
+        _textCalling('weather', {'city': 'Paris'}, id: 'paris'),
+        _textCalling('weather', {'city': 'London'}, id: 'london'),
+      ],
+      tools: [_FailingTool('weather', () async => const AIClientToolFailed('Service down'))],
+    );
+    await _answer(tester);
+
+    expect(harness.errors, hasLength(2));
+    expect(harness.errors.map((error) => error.$1.surfaceId), everyElement('s'));
+  });
+
+  testWidgets("a call whose surface is deleted before it's answered is dropped without a report", (tester) async {
+    final city = TestTool('city', holds: true);
+    final shown = surfaceMessage(_column([_textCalling('city', const {})]));
+    final harness = await pumpReplies(
+      tester,
+      [
+        TestReply('m1', a2uiDocument([shown], isStreaming: true)),
+      ],
+      tools: [city],
+    );
+    await _answer(tester);
+
+    await showReplies(tester, harness, [
+      TestReply('m1', a2uiDocument([shown, deleteMessage()], isStreaming: true)),
+    ]);
+    await _answer(tester);
+    city.pending!.complete(AIClientToolCompleted('Ohrid'));
+    await _answer(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Ohrid'), findsNothing);
+    expect(harness.errors, isEmpty);
+  });
+
   testWidgets('a tool started while the screen builds runs after the frame', (tester) async {
     final phases = <SchedulerPhase>[];
 

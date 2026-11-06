@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,6 +15,7 @@ part 'conformance_functions.dart';
 part 'conformance_harness.dart';
 part 'conformance_matching.dart';
 part 'conformance_messages.dart';
+part 'conformance_routing.dart';
 part 'conformance_rpc.dart';
 
 // Runs the A2UI conformance suites, vendored under `upstream/`, against this
@@ -89,8 +91,13 @@ List<Map<String, Object?>> _cases(String suite) {
   return [for (final item in _json(yaml)! as List<Object?>) item! as Map<String, Object?>];
 }
 
-// YAML as plain JSON values.
-Object? _json(Object? yaml) => jsonDecode(jsonEncode(yaml));
+// YAML as plain JSON values, keeping the numbers JSON has no form for, such
+// as `.nan`.
+Object? _json(Object? yaml) => switch (yaml) {
+  final Map<Object?, Object?> map => {for (final MapEntry(:key, :value) in map.entries) key! as String: _json(value)},
+  final List<Object?> list => [for (final item in list) _json(item)],
+  _ => yaml,
+};
 
 Future<void> _run(Map<String, Object?> testCase) => switch (testCase['action']) {
   'validate' || 'process_messages' => _runProcessMessages(testCase),
@@ -101,5 +108,6 @@ Future<void> _run(Map<String, Object?> testCase) => switch (testCase['action']) 
   'handle_rpc' => _runHandleRpc(testCase),
   'dispatch_action' => _runDispatchAction(testCase),
   'get_renderer_data_model' => _runRendererDataModel(testCase),
+  'route_agent_function' => _runRouteAgentFunction(testCase),
   final action => fail('No runner for the action $action.'),
 };
