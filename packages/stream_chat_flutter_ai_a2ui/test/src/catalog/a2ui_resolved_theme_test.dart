@@ -142,13 +142,26 @@ void main() {
     expect(_resolve(light).label, _sameButColor(light.textTheme.captionDefault));
   });
 
-  test('the headings are the four heading styles, largest first', () {
+  test("the first heading is the largest heading style at the largest text size, with that style's line spacing", () {
+    final light = _light();
+    final typography = light.typography;
+    final heading = _resolve(light).heading(1);
+
+    expect(heading.fontSize, typography.fontSize.xxl);
+    expect(heading.fontWeight, light.textTheme.headingLg.fontWeight);
+    expect(heading.height, light.textTheme.headingLg.height);
+    expect(heading.height, greaterThan(1));
+    expect(heading.color, isNull);
+  });
+
+  test('the headings below the first are the heading styles, largest first, the small one twice', () {
     final light = _light();
     final text = light.textTheme;
 
-    expect(_resolve(light).headings, [
+    expect(_resolve(light).headings.skip(1), [
       _sameButColor(text.headingLg),
       _sameButColor(text.headingMd),
+      _sameButColor(text.headingSm),
       _sameButColor(text.headingSm),
       _sameButColor(text.headingXs),
     ]);

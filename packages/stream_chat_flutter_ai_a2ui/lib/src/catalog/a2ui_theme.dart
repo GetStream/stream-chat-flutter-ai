@@ -119,8 +119,9 @@ class A2UIThemeData with Diagnosticable {
   /// `captionDefault`.
   final TextStyle? label;
 
-  /// The styles of headings in text, from level 1 down. Defaults to the
-  /// Stream theme's `headingLg`, `headingMd`, `headingSm` and `headingXs`.
+  /// The styles of headings in text, from level 1 down. Defaults to six
+  /// levels: `headingLg` at the Stream theme's largest text size, then
+  /// `headingLg`, `headingMd`, `headingSm`, `headingSm` again and `headingXs`.
   ///
   /// A level deeper than it has uses the last one.
   final List<TextStyle>? headings;

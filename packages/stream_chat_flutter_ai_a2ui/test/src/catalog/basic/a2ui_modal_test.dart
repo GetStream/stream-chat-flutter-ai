@@ -145,12 +145,20 @@ void main() {
     expect(find.byType(StreamSheet), findsNothing);
   });
 
+  testWidgets("the sheet starts with the design system's sheet header", (tester) async {
+    await pumpSurface(tester, components: _modal());
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: find.byType(StreamSheet), matching: find.byType(StreamSheetHeader)), findsOneWidget);
+  });
+
   testWidgets("the sheet's close button closes it", (tester) async {
     await pumpSurface(tester, components: _modal());
     await tester.tap(find.text('Details'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel(const DefaultMaterialLocalizations().closeButtonLabel));
+    await tester.tap(find.byTooltip(const DefaultMaterialLocalizations().closeButtonTooltip));
     await tester.pumpAndSettle();
 
     expect(find.byType(StreamSheet), findsNothing);
@@ -223,7 +231,7 @@ void main() {
     final controller = await _pumpInList(tester);
     await tester.tap(find.text('Details'));
     await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel(const DefaultMaterialLocalizations().closeButtonLabel));
+    await tester.tap(find.byTooltip(const DefaultMaterialLocalizations().closeButtonTooltip));
     await tester.pumpAndSettle();
 
     controller.jumpTo(2500);
