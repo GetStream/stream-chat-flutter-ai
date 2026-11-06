@@ -147,8 +147,9 @@ workflows can't tag or publish a `+build` version.
 ## PR & commit conventions
 
 PR titles are enforced as `<type>(<scope>): <description>` with a required scope from:
-`ai`, `openui`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
-`packages/stream_chat_flutter_ai/CHANGELOG.md`, and one scoped `openui`
+`ai`, `a2ui`, `openui`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
+`packages/stream_chat_flutter_ai/CHANGELOG.md`, one scoped `a2ui`
+`packages/stream_chat_flutter_ai_a2ui/CHANGELOG.md`, and one scoped `openui`
 `packages/stream_chat_flutter_ai_openui/CHANGELOG.md` — CI checks this. Changelog entries go under the
 existing emoji headings: `💥 Breaking` (first, one line per breaking change), `✅ Added`, `🔄 Changed`,
 `🐞 Fixed`, `🚀 Performance`.
