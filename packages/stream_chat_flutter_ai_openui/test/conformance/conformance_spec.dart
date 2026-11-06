@@ -161,7 +161,13 @@ List<String> specCaseNames(String area) {
 
 const _specRoot = 'test/conformance/upstream/spec/fixtures/1.0';
 
-String _specInput(Directory directory) => File('${directory.path}/input.oui').readAsStringSync();
+// The program of a case: its `input.oui`, with its `patch.oui`, an edit-mode
+// answer, applied when it has one.
+String _specInput(Directory directory) {
+  final input = File('${directory.path}/input.oui').readAsStringSync();
+  final patch = File('${directory.path}/patch.oui');
+  return patch.existsSync() ? debugMergeStatements(input, patch.readAsStringSync()) : input;
+}
 
 // The chunks a streaming case is read in, or null when the case is read in
 // one piece.
