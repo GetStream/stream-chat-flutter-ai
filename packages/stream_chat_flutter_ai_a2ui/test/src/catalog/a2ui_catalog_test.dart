@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
 import '../a2ui_test_app.dart';
@@ -111,6 +112,22 @@ void main() {
 
   test('catalogs with another builder for a type are not equal', () {
     expect(A2UICatalog.basic.replacing('Text', (context, scope) => const SizedBox()), isNot(A2UICatalog.basic));
+  });
+
+  test('builders added to a catalog draw the types it has no builder for', () {
+    Widget place(BuildContext context, A2UIComponentScope scope) => const SizedBox();
+
+    final catalog = a2uiCatalogAdding(A2UICatalog.basic, {'PlaceCard': place});
+
+    expect(catalog['PlaceCard'], same(place));
+  });
+
+  test("a builder added for a type the catalog has keeps the catalog's own", () {
+    Widget card(BuildContext context, A2UIComponentScope scope) => const SizedBox();
+
+    final catalog = a2uiCatalogAdding(A2UICatalog.basic, {'Card': card});
+
+    expect(catalog['Card'], same(A2UICatalog.basic['Card']));
   });
 }
 

@@ -2,6 +2,10 @@
 // published with A2UI's basic catalog, both shown by the package's
 // `A2UIRenderer`. Each action an agent would get is listed below them, and
 // the gallery also lists each link that would open.
+//
+// The app has one component of its own, `place_card`, which the agent places
+// as `PlaceCard` in the Ohrid reply. Its other components there, `TripMap` and
+// `CalendarCheck`, aren't the app's, so they are listed as unknown.
 
 import 'dart:async';
 import 'dart:convert';
@@ -10,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
+import 'package:stream_core_flutter/core.dart' show StreamButton;
 
 void main() => runApp(const GalleryApp());
 
@@ -49,8 +54,8 @@ class Example {
   final String file;
   final List<String> messages;
 
-  /// The component types the example uses that the catalog has no builder
-  /// for.
+  /// The component types the example uses that neither the catalog nor the
+  /// app's own components draw.
   final List<String> missing;
 
   static List<String> _missingOf(List<String> messages) {
@@ -64,7 +69,7 @@ class Example {
     messages.map(jsonDecode).forEach(walk);
     return [
       for (final type in types)
-        if (A2UICatalog.basic[type] == null) type,
+        if (A2UICatalog.basic[type] == null && type != PlaceCardComponent.type) type,
     ]..sort();
   }
 }
@@ -189,6 +194,7 @@ class _ExamplePageState extends State<ExamplePage> {
   final _log = _ActionLog();
   late final AIUIHost _host = AIUIHost(
     renderers: [A2UIRenderer(onError: (error, _) => _log.addError(error))],
+    components: const [PlaceCardComponent()],
     send: (action) async => _log.addAction(action),
     // The gallery has nowhere to open a link, so it only shows it.
     open: (link) => _log.add('Opened $link'),
@@ -301,6 +307,7 @@ class _ConversationPageState extends State<ConversationPage> {
   final _log = _ActionLog();
   late final AIUIHost _host = AIUIHost(
     renderers: [A2UIRenderer(onError: (error, _) => _log.addError(error))],
+    components: const [PlaceCardComponent()],
     send: _send,
   );
   late final List<_Message> _history = [
@@ -434,6 +441,77 @@ class _Note extends StatelessWidget {
       child: Text(
         text,
         style: context.streamTextTheme.captionDefault.copyWith(color: context.streamColorScheme.textSecondary),
+      ),
+    );
+  }
+}
+
+// What the agent writes for a place: its title and an optional note.
+typedef _Place = ({String title, String? note});
+
+// A place on a trip, which the agent places as `PlaceCard`, with a button
+// that asks the agent about it.
+class PlaceCardComponent extends AIUIComponent<_Place> {
+  const PlaceCardComponent();
+
+  /// The A2UI type the agent places it by.
+  static const type = 'PlaceCard';
+
+  @override
+  AIUIComponentDefinition get definition => const AIUIComponentDefinition(
+    name: 'place_card',
+    description: 'A place to visit, with a short note such as when to go.',
+    parameters: [
+      AIUIParameter.required('title', AIUIParameterType.string, description: "The place's name."),
+      AIUIParameter.optional('note', AIUIParameterType.string, description: 'A short tip, such as how long to stay.'),
+    ],
+    events: [AIUIComponentEvent(name: 'ask_about', description: 'The person asks about the place.')],
+  );
+
+  @override
+  _Place readArguments(AIUIArguments arguments) =>
+      (title: arguments.string('title'), note: arguments.optional('note', arguments.string));
+
+  @override
+  Widget build(BuildContext context, _Place place, AIUIComponentContext ui) {
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
+    final spacing = context.streamSpacing;
+    final icons = context.streamIcons;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.backgroundSurface,
+        borderRadius: BorderRadius.all(context.streamRadius.lg),
+      ),
+      child: Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(spacing.sm, spacing.xs, spacing.xxs, spacing.xs),
+        child: Row(
+          spacing: spacing.xs,
+          children: [
+            Icon(icons.location, color: colors.accentPrimary),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(place.title, style: text.bodyEmphasis.copyWith(color: colors.textPrimary)),
+                  if (place.note case final note?)
+                    Text(note, style: text.captionDefault.copyWith(color: colors.textSecondary)),
+                ],
+              ),
+            ),
+            StreamButton.icon(
+              onPressed: () => ui.emit(
+                'ask_about',
+                label: 'Tell me more about ${place.title}',
+                payload: {'title': place.title},
+              ),
+              style: .secondary,
+              type: .ghost,
+              icon: Icon(icons.messageBubble),
+              tooltip: 'Ask about ${place.title}',
+            ),
+          ],
+        ),
       ),
     );
   }

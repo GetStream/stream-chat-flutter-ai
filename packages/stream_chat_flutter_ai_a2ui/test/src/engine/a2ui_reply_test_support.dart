@@ -125,12 +125,14 @@ Future<ReplyHarness> pumpReplies(
   List<TestReply> replies, {
   A2UIRenderer Function(A2UIErrorHandler onError)? renderer,
   List<AIResultClientTool> tools = const [],
+  List<AIUIComponent<Object?>> components = const [],
 }) async {
   late final ReplyHarness harness;
   void onError(A2UIError error, String messageId) => harness.errors.add((error, messageId));
   final host = AIUIHost(
     renderers: [renderer?.call(onError) ?? A2UIRenderer(onError: onError)],
     tools: tools,
+    components: components,
     send: (action) async => harness.actions.add(action),
     open: (url) => harness.links.add(url),
   );

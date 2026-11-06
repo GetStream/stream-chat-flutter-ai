@@ -38,6 +38,9 @@ final class A2UINode extends ChangeNotifier {
   /// The id of this node's component, as the agent wrote it.
   String get id => _node.componentId;
 
+  /// The id of the surface this node's component is in.
+  String get surfaceId => _surface.id;
+
   /// A key that tells apart the nodes of one component, such as the items of a
   /// list drawn from one template.
   String get key => _node.instanceId;

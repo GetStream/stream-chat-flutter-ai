@@ -152,3 +152,14 @@ final class A2UICatalog {
   @override
   String toString() => '${objectRuntimeType(this, 'A2UICatalog')}(types: ${types.join(', ')})';
 }
+
+/// A copy of [catalog] in which [builders] also draw the components of their
+/// types, such as the app's own components; a type [catalog] has keeps its
+/// own builder.
+///
+/// Internal to the package.
+@internal
+A2UICatalog a2uiCatalogAdding(A2UICatalog catalog, Map<String, A2UIComponentBuilder> builders) {
+  if (builders.isEmpty) return catalog;
+  return A2UICatalog._(Map.unmodifiable({...builders, ...catalog._builders}));
+}
