@@ -11,9 +11,9 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// Builds a `Button`: its child in a button of its `variant`, which runs its
 /// action when the person taps it.
 ///
-/// A `primary` button is drawn in [A2UITheme.accent], a `borderless` one as
+/// A `primary` button is drawn in [A2UIThemeData.accent], a `borderless` one as
 /// its child in the accent color, and any other on
-/// [A2UITheme.subtleSurface]. While one of its checks fails and blocks it, it
+/// [A2UIThemeData.subtleSurface]. While one of its checks fails and blocks it, it
 /// is disabled and fainter, and the messages of its failing checks show
 /// below it.
 ///

@@ -18,21 +18,20 @@
 /// );
 /// ```
 ///
-/// An `A2UITheme` holds the look of the components, and an `A2UICatalog`
-/// their builders, each of which can be drawn another way. A builder draws
+/// An `A2UIThemeData` overrides the look of the components, whose unset values
+/// come from the Stream theme, and an `A2UICatalog` holds their builders, each of which can be drawn another way. A builder draws
 /// with the surface's theme through `A2UITheme.of`:
 ///
 /// ```dart
 /// // In a `static final` field: a catalog made in `build` is a new one each
 /// // time, so everything drawn with it is built again.
 /// static final catalog = A2UICatalog.basic.replacing('Divider', (context, scope) {
-///   return Container(height: 1, color: A2UITheme.of(context).border);
+///   final border = A2UITheme.of(context).border ?? context.streamColorScheme.borderDefault;
+///   return Container(height: 1, color: border);
 /// });
 ///
 /// final renderer = A2UIRenderer(
-///   theme: A2UITheme.fromStream(StreamTheme.of(context)).copyWith(
-///     cornerRadius: 8,
-///   ),
+///   theme: A2UIThemeData(cornerRadius: 8),
 ///   catalog: catalog,
 /// );
 /// ```
@@ -42,4 +41,4 @@ export 'src/a2ui_error.dart' show A2UIError, A2UIErrorCode;
 export 'src/a2ui_renderer.dart' show A2UIErrorHandler, A2UIRenderer;
 export 'src/catalog/a2ui_catalog.dart' show A2UICatalog, A2UIComponentBuilder;
 export 'src/catalog/a2ui_component_scope.dart' show A2UIChild, A2UIComponentScope;
-export 'src/catalog/a2ui_theme.dart' show A2UITheme;
+export 'src/catalog/a2ui_theme.dart' show A2UITheme, A2UIThemeData;
