@@ -1,0 +1,15 @@
+{
+  "name": "place_card",
+  "description": "A photo and a short summary of a place.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": { "type": "string", "description": "The place's Wikipedia title." },
+      "visit_on": { "type": "string", "format": "date" },
+      "tags": { "type": "array", "items": { "type": "string", "enum": ["sight", "food", "nature"] } }
+    },
+    "required": ["title"],
+    "x-order": ["title", "visit_on", "tags"]
+  },
+  "events": [{ "name": "ask_about", "description": "The person asks about the place." }]
+}

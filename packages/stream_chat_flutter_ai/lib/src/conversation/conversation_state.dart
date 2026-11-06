@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
+import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
 
 /// A row of the conversation: a message, or one the person sent that is on its
 /// way.
@@ -58,10 +59,25 @@ class ConversationEntry {
   ConversationEntry asLatestReply() => ConversationEntry._(id, message, pending, sentAttachments, true);
 }
 
-/// Whether [message] is a reply that has nothing to show yet.
+/// Whether the generated UI [document] of the reply [messageId] shows, such as
+/// when one of the conversation host's renderers built a widget for it.
 @internal
-bool showsNothing(AIMessage message) =>
-    message.role != AIMessageRole.user && message.text.isEmpty && message.parts.isEmpty && message.attachments.isEmpty;
+typedef CanShowUI = bool Function(AIUIDocument document, String messageId);
+
+/// A [CanShowUI] for a conversation without generated UI.
+@internal
+bool showsNoUI(AIUIDocument document, String messageId) => false;
+
+/// Whether [message] is a reply with nothing to show yet: no text, steps or
+/// attachments, and no generated UI that [canShowUI] accepts.
+@internal
+bool showsNothing(AIMessage message, {CanShowUI canShowUI = showsNoUI}) {
+  if (message.role == AIMessageRole.user) return false;
+  if (message.text.isNotEmpty || message.parts.isNotEmpty || message.attachments.isNotEmpty) return false;
+  final document = message.uiDocument;
+  if (document == null) return true;
+  return !canShowUI(document, message.id);
+}
 
 /// A message the person sent and the replies after it. Messages before their
 /// first one, such as a greeting, make a turn of their own.
@@ -107,7 +123,13 @@ class PendingMessageTracker {
 
   /// The rows of a conversation: its messages, apart from replies with nothing
   /// to show yet, and a message on its way until its copy arrives.
-  List<ConversationEntry> entries(List<AIMessage> messages, AIPendingMessage? pending) {
+  ///
+  /// A reply's UI shows when [canShowUI] says.
+  List<ConversationEntry> entries(
+    List<AIMessage> messages,
+    AIPendingMessage? pending, {
+    CanShowUI canShowUI = showsNoUI,
+  }) {
     var showsPending = pending != null;
     // A copy that arrives in the update that stops passing its pending message
     // still takes over its row. Only then: a message sent later is not the copy
@@ -131,7 +153,7 @@ class PendingMessageTracker {
 
     final entries = <ConversationEntry>[
       for (final message in messages)
-        if (!showsNothing(message))
+        if (!showsNothing(message, canShowUI: canShowUI))
           switch (_copies[message.id]) {
             final taken? => ConversationEntry.message(taken.id, message, sentAttachments: taken.attachments),
             null => ConversationEntry.message(message.id, message),
@@ -165,9 +187,9 @@ class PendingMessageTracker {
   /// nothing yet: it is on its way, it is the copy of the one on its way, or its
   /// reply is being written but shows nothing. Call it after [entries], which
   /// matches the copies.
-  bool isAwaitingReply(List<AIMessage> messages, AIPendingMessage? pending) {
+  bool isAwaitingReply(List<AIMessage> messages, AIPendingMessage? pending, {CanShowUI canShowUI = showsNoUI}) {
     final last = messages.lastOrNull;
-    if (last != null && last.role != AIMessageRole.user && last.isGenerating && showsNothing(last)) return true;
+    if (last != null && last.isGenerating && showsNothing(last, canShowUI: canShowUI)) return true;
     if (pending == null) return false;
     final copy = _copies.entries.where((e) => e.value.id == pending.id).firstOrNull?.key;
     if (copy == null) return true;

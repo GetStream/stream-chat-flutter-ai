@@ -15,6 +15,18 @@ void main() {
       expect(() => AIToolDefinition(name: '', description: 'Nameless'), throwsAssertionError);
     });
 
+    test('is not read-only unless it says so', () {
+      const definition = AIToolDefinition(name: 'sendEmail', description: 'Send an email');
+
+      expect(definition.isReadOnly, isFalse);
+    });
+
+    test('is not equal to a definition that differs only in being read-only', () {
+      const definition = AIToolDefinition(name: 'listEvents', description: 'List events');
+
+      expect(definition, isNot(definition.copyWith(isReadOnly: true)));
+    });
+
     group('toJson', () {
       test('emits every field, with camelCase keys', () {
         const definition = AIToolDefinition(
@@ -50,6 +62,12 @@ void main() {
         const definition = AIToolDefinition(name: 'greetUser', description: 'Greet the user');
 
         expect(definition.toJson().containsKey('instructions'), isFalse);
+      });
+
+      test('leaves isReadOnly out of the registration payload', () {
+        const definition = AIToolDefinition(name: 'listEvents', description: 'List events', isReadOnly: true);
+
+        expect(definition.toJson().containsKey('isReadOnly'), isFalse);
       });
 
       test('emits showExternalSourcesIndicator even when false', () {
@@ -146,6 +164,14 @@ void main() {
 
       test('keeps every field when given nothing', () {
         expect(definition.copyWith().toJson(), definition.toJson());
+      });
+
+      test('replaces isReadOnly', () {
+        expect(definition.copyWith(isReadOnly: true).isReadOnly, isTrue);
+      });
+
+      test('keeps isReadOnly when given nothing', () {
+        expect(definition.copyWith(isReadOnly: true).copyWith().isReadOnly, isTrue);
       });
     });
   });

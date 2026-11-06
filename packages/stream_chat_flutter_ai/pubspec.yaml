@@ -52,6 +52,9 @@ dependencies:
   share_plus: ^13.3.1
   speech_to_text: ^7.0.0
   stream_core_flutter: ^0.5.3
+  # Opens the web and email links of a reply's generated UI, unless the app
+  # opens them itself.
+  url_launcher: ^6.3.2
   uuid: ^4.5.1
   # Keeps the install id in `localStorage` on the web.
   web: ^1.1.0
@@ -65,6 +68,7 @@ dev_dependencies:
   plugin_platform_interface: ^2.1.0
   share_plus_platform_interface: ^7.2.0
   speech_to_text_platform_interface: ^2.4.0
+  url_launcher_platform_interface: ^2.3.2
 
 # This package supports all platforms listed below.
 flutter:

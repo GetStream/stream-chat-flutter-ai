@@ -56,6 +56,7 @@ melos:
         # Stream's design system: theme tokens, the component factory and the
         # base components (buttons, sheets, list tiles, icons) this package builds on.
         stream_core_flutter: ^0.5.3
+        url_launcher: ^6.3.2
         uuid: ^4.5.1
         web: ^1.1.0
 
@@ -74,6 +75,9 @@ melos:
         # `SpeechToTextPlatform`; it arrives transitively via `speech_to_text`,
         # but importing it without declaring it fails `melos run lint:pub`.
         speech_to_text_platform_interface: ^2.4.0
+        # Direct because the generated UI tests substitute their own
+        # `UrlLauncherPlatform`; it arrives transitively via `url_launcher`.
+        url_launcher_platform_interface: ^2.3.2
 
   scripts:
     lint:all:
