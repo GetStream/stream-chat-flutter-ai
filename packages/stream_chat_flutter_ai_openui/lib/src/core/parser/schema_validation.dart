@@ -9,6 +9,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/materialization_cache.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
@@ -28,7 +29,12 @@ final class MaterializeContext {
     required this.partial,
     required this.currentStatementId,
     required Iterable<String> unreached,
+    this.cache,
   }) : unreached = LinkedHashSet.of(unreached);
+
+  /// What earlier passes resolved each statement to, reused while it still
+  /// holds, or `null` when nothing is kept between passes.
+  final MaterializationCache? cache;
 
   /// The expression each statement's name stands for.
   final Map<String, AstNode> symbols;
@@ -60,6 +66,41 @@ final class MaterializeContext {
 
   /// How many nodes have been resolved, each use of a reference counted again.
   int nodes = 0;
+
+  /// How many nodes this pass resolved itself rather than reused.
+  ///
+  /// Only the tests read it.
+  int debugResolvedNodes = 0;
+
+  /// How many references led back to a statement being resolved.
+  int cycles = 0;
+
+  /// How many nodes were left out for being past the depth or node budget.
+  int truncations = 0;
+
+  /// The deepest level resolving has reached since the statement being
+  /// resolved started.
+  int deepest = 0;
+
+  /// The statements looked up, in order, with the version each had, kept
+  /// only with a [cache].
+  final List<StatementRead> reads = [];
+
+  /// The statements reached, in order, kept only with a [cache].
+  final List<String> reachedLog = [];
+
+  /// The expression of the statement named `name`, or `null` when nothing
+  /// defines it.
+  AstNode? lookUp(String name) {
+    if (cache case final cache?) reads.add((name: name, version: cache.versions[name]));
+    return symbols[name];
+  }
+
+  /// Marks the statement named `name` as reached, so it isn't an orphan.
+  void markReached(String name) {
+    unreached.remove(name);
+    if (cache != null) reachedLog.add(name);
+  }
 
   /// Records `code` in `component` at `path`, attributed to
   /// [currentStatementId].

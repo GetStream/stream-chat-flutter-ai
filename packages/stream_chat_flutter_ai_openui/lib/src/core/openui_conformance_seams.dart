@@ -17,6 +17,7 @@ library;
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_lang_parser.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_stream_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parser_errors.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/upstream_shape.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
@@ -36,4 +37,27 @@ Map<String, Object?> debugParse(OpenUILibrarySchema schema, String text) {
 /// Only the conformance tests use it.
 List<OpenUIError> debugParseErrors(OpenUILibrarySchema schema, String text) {
   return parserErrors(OpenUILangParser(schema).parse(text), schema);
+}
+
+/// What reading `chunks` one after another against `schema` gives after each
+/// of them, as OpenUI's own parser writes it, while the stream hasn't ended.
+///
+/// Only the conformance tests use it.
+List<Map<String, Object?>> debugStreamParseSteps(OpenUILibrarySchema schema, List<String> chunks) {
+  final parser = OpenUIStreamParser(schema);
+  return [for (final chunk in chunks) parseResultJson(parser.push(chunk))];
+}
+
+/// What reading `chunks` one after another against `schema` gives once the
+/// stream ends with the last of them, as OpenUI's own parser writes it; with
+/// no chunks, what an ended stream of no text gives.
+///
+/// Only the conformance tests use it.
+Map<String, Object?> debugStreamParseComplete(OpenUILibrarySchema schema, List<String> chunks) {
+  final parser = OpenUIStreamParser(schema);
+  var result = parser.result(complete: true);
+  for (final (index, chunk) in chunks.indexed) {
+    result = parser.push(chunk, complete: index == chunks.length - 1);
+  }
+  return parseResultJson(result);
 }

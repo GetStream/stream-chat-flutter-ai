@@ -60,6 +60,79 @@ void runParserConformance() {
   }
 }
 
+/// Registers a test for each case of `generated/parser-conformance.json`
+/// comparing what streaming its `chunks` gives at each of its `checkpoints`
+/// with the `streamResults` it records, and one comparing what the stream
+/// gives once it ends with its `completeResult`, and the checks that the
+/// streaming keys were read.
+void runParserStreamingConformance() {
+  final cases = _parserCases();
+
+  test('the parser suite has 1,636 streaming checkpoints', () {
+    final checkpoints = cases.fold(0, (sum, testCase) => sum + (testCase['checkpoints']! as List<Object?>).length);
+
+    expect(checkpoints, 1636);
+  });
+
+  test('every parser case records one stream result per checkpoint', () {
+    final mismatched = [
+      for (final testCase in cases)
+        if ((testCase['checkpoints']! as List<Object?>).length != (testCase['streamResults']! as List<Object?>).length)
+          testCase['name'],
+    ];
+
+    expect(mismatched, isEmpty);
+  });
+
+  test("a stream result differs from another program's expected complete result", () {
+    final first = cases.first;
+    final other = cases.firstWhere(
+      (testCase) => testCase['library'] == first['library'] && testCase['input'] != first['input'],
+    );
+    final chunks = (first['chunks']! as List<Object?>).cast<String>();
+    final actual = debugStreamParseComplete(conformanceLibraries()[first['library']]!, chunks);
+
+    expect(firstDifference(actual, other['completeResult']), isNotNull);
+  });
+
+  test("a stream checkpoint differs from another program's checkpoint", () {
+    final first = cases.firstWhere((testCase) => (testCase['checkpoints']! as List<Object?>).isNotEmpty);
+    final other = cases.firstWhere(
+      (testCase) => testCase['library'] == first['library'] && testCase['input'] != first['input'],
+    );
+    final chunks = (first['chunks']! as List<Object?>).cast<String>();
+    final step = (first['checkpoints']! as List<Object?>).cast<int>().last;
+    final actual = debugStreamParseSteps(conformanceLibraries()[first['library']]!, chunks)[step];
+
+    expect(firstDifference(actual, (other['streamResults']! as List<Object?>).last), isNotNull);
+  });
+
+  for (final testCase in cases) {
+    final name = testCase['name']! as String;
+    final chunks = (testCase['chunks']! as List<Object?>).cast<String>();
+
+    test('$name: streamed, at each checkpoint', () {
+      final schema = conformanceLibraries()[testCase['library']]!;
+      final steps = debugStreamParseSteps(schema, chunks);
+      final checkpoints = (testCase['checkpoints']! as List<Object?>).cast<int>();
+      final expected = testCase['streamResults']! as List<Object?>;
+      final differences = [
+        for (final (index, step) in checkpoints.indexed)
+          if (firstDifference(steps[step], expected[index]) case final difference?) 'step $step: $difference',
+      ];
+
+      expect(differences, isEmpty);
+    });
+
+    test('$name: streamed to the end', () {
+      final schema = conformanceLibraries()[testCase['library']]!;
+      final actual = debugStreamParseComplete(schema, chunks);
+
+      expect(firstDifference(actual, testCase['completeResult']), isNull);
+    });
+  }
+}
+
 /// Registers one skipped test for the suite named `suite`, which isn't run,
 /// giving `reason`.
 void skipConformanceSuite(String suite, {required String reason}) {
