@@ -170,16 +170,35 @@ bool _hasShape(USpec spec) {
   };
 }
 
-// The series of `labels` and `series`: `Series(category, values)`
-// components, whose value at the index of a label belongs to it. A value that
-// isn't a finite number is left out.
+// The series of `labels` and `series`.
 //
-// OpenUI's schema takes only `Series` components there, so the tabular rows,
-// `[[label, v1, v2…]]`, that iOS and Android also read are never given.
+// `series` is `Series(category, values)` components, whose value at the index
+// of a label belongs to it, or, as iOS and Android also read it, tabular rows,
+// `[[label, v1, v2…]]`, which a program gets from a tool's result or a
+// `$variable`: the series are then named by `labels` after its first, and a
+// row's first cell is its category. A value that isn't a finite number is
+// left out.
 List<USeries> _seriesOf(OpenUIValue? labelsValue, OpenUIValue? seriesValue) {
   final labels = [for (final label in _items(labelsValue)) JS.toStringOrEmpty(label)];
+  final items = _items(seriesValue);
+  if (items.isNotEmpty && items.first is OpenUIArray) {
+    final names = labels.skip(1).toList();
+    final byName = <String, List<UPoint>>{for (final name in names) name: []};
+    for (final row in items) {
+      final cells = _items(row);
+      final category = cells.isEmpty ? '' : JS.toStringOrEmpty(cells.first);
+      for (final (index, name) in names.indexed) {
+        final value = _plottable(index + 1 < cells.length ? cells[index + 1] : null);
+        if (value != null) byName[name]!.add(UPoint(x: category, y: value));
+      }
+    }
+    return [
+      for (final MapEntry(:key, :value) in byName.entries)
+        if (value.isNotEmpty) USeries(name: key, points: value),
+    ];
+  }
   final series = <USeries>[];
-  for (final item in _items(seriesValue)) {
+  for (final item in items) {
     final props = _propsOf(item);
     if (props == null) continue;
     final (name, values) = (props['category'], props['values']);
@@ -198,17 +217,23 @@ List<USeries> _seriesOf(OpenUIValue? labelsValue, OpenUIValue? seriesValue) {
 // label past the last value, or with a value that isn't a number, counting as
 // nothing.
 //
-// OpenUI's schema takes only strings as labels, so the `Slice` components that
-// iOS and Android also read there are never given.
+// Without `values`, `labels` holds `Slice(category, value)` components, as
+// OpenUI's legacy form has them, which a program gets from a `$variable`.
 List<UPoint> _slicePoints(OpenUIValue? labelsValue, OpenUIValue? valuesValue) {
   final labels = _items(labelsValue);
   final values = _items(valuesValue);
-  if (values.isEmpty) return const [];
+  if (labels.isNotEmpty && values.isNotEmpty) {
+    return [
+      for (final (index, label) in labels.indexed)
+        if (_plottable(index < values.length && values[index] is OpenUINumber ? values[index] : const OpenUINumber(0))
+            case final value?)
+          UPoint(x: JS.toStringOrEmpty(label), y: value),
+    ];
+  }
   return [
-    for (final (index, label) in labels.indexed)
-      if (_plottable(index < values.length && values[index] is OpenUINumber ? values[index] : const OpenUINumber(0))
-          case final value?)
-        UPoint(x: JS.toStringOrEmpty(label), y: value),
+    for (final label in labels)
+      if (_propsOf(label) case final slice?)
+        if (_plottable(slice['value']) case final value?) UPoint(x: JS.toStringOrEmpty(slice['category']), y: value),
   ];
 }
 

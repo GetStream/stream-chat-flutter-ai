@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 
+import '../../core/runtime/fake_tools.dart';
 import '../../openui_test_app.dart';
 
 // Draws `root = Card([program])` and returns the chart it shows, or `null`
@@ -12,10 +14,17 @@ Future<ChartView?> _draw(
   String program, {
   bool isStreaming = false,
   OpenUIThemeData? theme,
+  String before = '',
 }) async {
   final runtime = testRuntime();
   addTearDown(runtime.dispose);
-  await pumpOpenUI(tester, runtime, program: 'root = Card([$program])', isStreaming: isStreaming, theme: theme);
+  await pumpOpenUI(
+    tester,
+    runtime,
+    program: '$before\nroot = Card([$program])',
+    isStreaming: isStreaming,
+    theme: theme,
+  );
   await tester.pump();
   final charts = find.byType(ChartView).evaluate();
   return charts.isEmpty ? null : charts.single.widget as ChartView;
@@ -137,7 +146,55 @@ void main() {
       expect(tester.widget<ChartView>(find.byType(ChartView)).spec.series.single.points, hasLength(2));
     });
 
-    testWidgets("rows and Slice components, which the library's schema doesn't take, draw nothing", (tester) async {
+    testWidgets("rows from a tool's result give a series for each label after the first", (tester) async {
+      final tools = FakeTools()
+        ..results['rows'] = OpenUIValue.fromJson(const [
+          ['Q1', 4, 1],
+          ['Q2', 5, 2],
+        ]);
+      final runtime = testRuntime(tools: tools);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: 'q = Query("rows", {}, [])\nroot = Card([BarChart(["Quarter", "Open", "Closed"], q)])',
+      );
+      await tester.pump(const Duration(seconds: 1));
+
+      final spec = tester.widget<ChartView>(find.byType(ChartView)).spec;
+      expect([for (final series in spec.series) series.name], ['Open', 'Closed']);
+      expect(_points(spec.series.first), ['Q1: 4.0', 'Q2: 5.0']);
+      expect(_points(spec.series.last), ['Q1: 1.0', 'Q2: 2.0']);
+    });
+
+    testWidgets('a row cell that is not a number, or is missing, is a zero, as the language coerces it', (
+      tester,
+    ) async {
+      final tools = FakeTools()
+        ..results['rows'] = OpenUIValue.fromJson(const [
+          ['Q1', 'x', 1],
+          ['Q2', 5],
+        ]);
+      final runtime = testRuntime(tools: tools);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: 'q = Query("rows", {}, [])\nroot = Card([BarChart(["Quarter", "Open", "Closed"], q)])',
+      );
+      await tester.pump(const Duration(seconds: 1));
+
+      final spec = tester.widget<ChartView>(find.byType(ChartView)).spec;
+      expect(
+        [for (final series in spec.series) _points(series)],
+        [
+          ['Q1: 0.0', 'Q2: 5.0'],
+          ['Q1: 1.0', 'Q2: 0.0'],
+        ],
+      );
+    });
+
+    testWidgets("literal rows and Slice components, which the library's schema drops, draw nothing", (tester) async {
       expect(await _draw(tester, 'BarChart(["Quarter", "Open"], [["Q1", 4], ["Q2", 5]])'), isNull);
       expect(await _draw(tester, 'PieChart([Slice("A", 1), Slice("B", 3)], [])'), isNull);
     });
@@ -173,6 +230,12 @@ void main() {
       expect(await _draw(tester, 'RadialChart(["A"], [0])'), isNull);
       expect(await _draw(tester, 'SingleStackedBarChart(["A"], [0])'), isNull);
       expect(await _draw(tester, 'RadarChart(["A", "B"], [Series("S", [1, 2])])'), isNull);
+    });
+
+    testWidgets('Slice components from a variable, without values, draw the legacy form', (tester) async {
+      final chart = await _draw(tester, r'PieChart($d, [])', before: r'$d = [Slice("A", 1), Slice("B", 3)]');
+
+      expect(_points(chart!.spec.series.single), ['A: 1.0', 'B: 3.0']);
     });
 
     testWidgets('a RadialChart and a SingleStackedBarChart draw their parts', (tester) async {
