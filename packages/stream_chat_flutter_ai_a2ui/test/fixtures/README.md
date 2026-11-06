@@ -11,5 +11,12 @@
   `A2UIFlex.offsets` for 12 cases each, produced by running them (stream-chat-swift `develop` @ `be3e9db`,
   `Sources/StreamChatA2UI/Catalog/Components/A2UIFlexLayout.swift`, `enum A2UIFlex` copied unchanged into a Swift
   driver).
+- `ios_date_values.json` — the ISO 8601 values a `DateTimeInput` writes and the dates it reads:
+  StreamChatA2UI's `A2UIDateTimeInputView.format` and `A2UIDateParser.date` for 3 instants and 12 texts in 4 time
+  zones, produced by running them (stream-chat-swift `develop` @ `be3e9db`,
+  `Sources/StreamChatA2UI/Catalog/Components/InputComponents.swift`, `Catalog/Functions/FormatFunctions.swift`,
+  `Model/RendererMessage.swift` `A2UITimestamp`, copied unchanged into a Swift driver). `kind` is `format` (with
+  `epoch`, `enableDate`, `enableTime` and the `value` written) or `parse` (with the `input` and the `epoch` read, or
+  `null`).
 - `upstream_examples/` — the 43 examples published with the A2UI 1.0 basic catalog (a2ui-project/a2ui @ `d378d20`,
   `catalogs/basic/v1/examples/`), unchanged.

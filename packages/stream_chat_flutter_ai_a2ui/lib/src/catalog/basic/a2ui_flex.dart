@@ -36,7 +36,9 @@ Widget _flexOf(A2UIComponentScope scope, Axis axis) {
         ListenableBuilder(
           key: ValueKey(child.key),
           listenable: a2uiListenableOf(child),
-          builder: (context, _) => A2UIFlexChild(weight: child.weight, child: scope.build(child)),
+          builder: (context, _) {
+            return A2UIFlexChild(weight: child.weight, fills: a2uiFillsWidth(child), child: scope.build(child));
+          },
         ),
     ],
   );
@@ -168,16 +170,25 @@ List<double> a2uiFlexOffsets({
 @internal
 class A2UIFlexChild extends ParentDataWidget<_A2UIFlexParentData> {
   /// Creates an [A2UIFlexChild].
-  const A2UIFlexChild({super.key, required this.weight, required super.child});
+  ///
+  /// A child that [fills] the width it is given, such as a text field, takes
+  /// a share of the free space of a row with a width as if its weight were 1
+  /// when it has no weight of its own.
+  const A2UIFlexChild({super.key, required this.weight, this.fills = false, required super.child});
 
   /// The child's share of the free space, or `null` when it has none.
   final double? weight;
 
+  /// Whether the child fills the width it is given.
+  final bool fills;
+
   @override
   void applyParentData(RenderObject renderObject) {
     final parentData = renderObject.parentData! as _A2UIFlexParentData;
-    if (parentData.weight == weight) return;
-    parentData.weight = weight;
+    if (parentData.weight == weight && parentData.fills == fills) return;
+    parentData
+      ..weight = weight
+      ..fills = fills;
     renderObject.parent?.markNeedsLayout();
   }
 
@@ -227,12 +238,15 @@ class A2UIFlex extends MultiChildRenderObjectWidget {
 
 class _A2UIFlexParentData extends ContainerBoxParentData<RenderBox> {
   double? weight;
+  bool fills = false;
 }
 
 // The layout of a `Row` or a `Column`.
 //
-// When a child has a weight, or `justify` is `stretch`, the children share
-// the free space: children without a weight keep their natural length, the
+// When a child has a weight, or `justify` is `stretch`, or a row with a width
+// has a child that fills its width, which counts as a weight of 1, the
+// children share the free space: children without a weight keep their
+// natural length, the
 // length they take with no limit, shrinking together when they don't fit,
 // and weighted children share the rest. Otherwise each child keeps its
 // natural length, and when they don't fit, only the children that can be
@@ -291,10 +305,22 @@ class _RenderA2UIFlex extends RenderBox
     if (child.parentData is! _A2UIFlexParentData) child.parentData = _A2UIFlexParentData();
   }
 
-  double _weightOf(RenderBox child) {
-    final weight = (child.parentData! as _A2UIFlexParentData).weight;
+  // The share of the free space [child] takes, when the main axis is
+  // [bounded]. A child that fills its width would be as wide as the row, so
+  // in a row with a width it shares what the others leave instead.
+  double _weightOf(RenderBox child, {required bool bounded}) {
+    final parentData = child.parentData! as _A2UIFlexParentData;
+    final weight = parentData.weight;
     if (weight != null && weight > 0) return weight;
-    return _justify == 'stretch' ? 1.0 : 0.0;
+    if (_justify == 'stretch') return 1;
+    if (_isRow && bounded && parentData.fills) return 1;
+    return 0;
+  }
+
+  bool _fillsWithoutWeight(RenderBox child) {
+    final parentData = child.parentData! as _A2UIFlexParentData;
+    final weight = parentData.weight;
+    return parentData.fills && (weight == null || weight <= 0);
   }
 
   double _main(Size size) => _isRow ? size.width : size.height;
@@ -323,16 +349,22 @@ class _RenderA2UIFlex extends RenderBox
     final maxCross = _isRow ? constraints.maxHeight : constraints.maxWidth;
     final availableMain = maxMain.isFinite ? maxMain : null;
     final availableCross = maxCross.isFinite ? maxCross : double.infinity;
-    final weights = [for (final child in children) _weightOf(child)];
+    final weights = [for (final child in children) _weightOf(child, bounded: availableMain != null)];
     final sharesFreeSpace = weights.any((weight) => weight > 0);
     final shares = sharesFreeSpace && availableMain != null;
     // A child's natural length is the length it takes when nothing limits it.
+    // Beside a child that fills its width, an unweighted child takes at most
+    // an equal share of the row, so a long text wraps rather than leaving the
+    // field no width.
+    final naturalLimit = shares && _isRow && children.any(_fillsWithoutWeight)
+        ? math.max<double>(0, availableMain - a2uiSpacing * (children.length - 1)) / children.length
+        : double.infinity;
     final natural = [
       for (var index = 0; index < children.length; index += 1)
         if (shares && weights[index] > 0)
           0.0
         else
-          _main(layoutChild(children[index], _constraints(maxMain: double.infinity, maxCross: availableCross))),
+          _main(layoutChild(children[index], _constraints(maxMain: naturalLimit, maxCross: availableCross))),
     ];
     final List<double> maxLengths;
     if (availableMain == null) {

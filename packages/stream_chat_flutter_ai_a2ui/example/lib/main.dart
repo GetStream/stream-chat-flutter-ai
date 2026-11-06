@@ -1,6 +1,8 @@
 // The package can't show a reply's A2UI in a conversation yet, so the gallery
 // reaches inside it for the pieces it is built from: the message processor,
 // the splitter and the surface view. The package's renderer replaces them.
+// What a person's actions do, the events an agent would get and the links
+// that would open, is listed under each example.
 // ignore_for_file: implementation_imports, invalid_use_of_internal_member
 
 import 'dart:convert';
@@ -9,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
@@ -158,8 +161,18 @@ class ExamplePage extends StatefulWidget {
 
 class _ExamplePageState extends State<ExamplePage> {
   final _errors = <A2UIError>[];
-  late final A2UIProcessor _processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: _handleError);
-  late final AIUIHost _host = AIUIHost(renderers: [_GalleryRenderer(_processor)], send: (action) async {});
+  // What the person's actions did: each event an agent would get, with its
+  // values, and each link that would open, newest last.
+  final _log = <String>[];
+  late final A2UIProcessor _processor = A2UIProcessor(
+    catalogs: A2UICatalogs(),
+    onAction: _handleAction,
+    onError: _handleError,
+  );
+  late final AIUIHost _host = AIUIHost(
+    renderers: [_GalleryRenderer(_processor, onOpenLink: _handleOpenLink)],
+    send: (action) async {},
+  );
 
   // How many of the example's messages are applied, and whether they are
   // being written one by one, as an agent streams them.
@@ -189,6 +202,16 @@ class _ExamplePageState extends State<ExamplePage> {
     });
   }
 
+  void _handleAction(A2UIActionEvent event) {
+    final userMessage = event.userMessage == null ? '' : ' “${event.userMessage}”';
+    setState(() => _log.add('Sent ${event.name}$userMessage ${jsonEncode(event.context)}'));
+  }
+
+  // The gallery has nowhere to open a link, so it only shows it.
+  void _handleOpenLink(Uri link) {
+    setState(() => _log.add('Opened $link'));
+  }
+
   @override
   void dispose() {
     _host.dispose();
@@ -202,6 +225,7 @@ class _ExamplePageState extends State<ExamplePage> {
     setState(() {
       _processor.reset();
       _errors.clear();
+      _log.clear();
       _applied = 0;
       _isStreaming = true;
     });
@@ -230,18 +254,24 @@ class _ExamplePageState extends State<ExamplePage> {
           IconButton(onPressed: widget.onToggleMode, icon: const Icon(Icons.brightness_6), tooltip: 'Light or dark'),
         ],
       ),
-      body: ListView(
+      // Not a lazy list: a form scrolled out of view keeps what the person
+      // typed in it.
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          if (missing.isNotEmpty) _Note('Not drawn yet: ${missing.join(', ')}'),
-          AIUIView(
-            key: ValueKey(_replay),
-            host: _host,
-            document: document,
-            messageId: widget.example.file,
-          ),
-          for (final error in _errors) _Note('${error.code}: ${error.message}'),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (missing.isNotEmpty) _Note('Not drawn yet: ${missing.join(', ')}'),
+            AIUIView(
+              key: ValueKey(_replay),
+              host: _host,
+              document: document,
+              messageId: widget.example.file,
+            ),
+            for (final entry in _log) _Note(entry),
+            for (final error in _errors) _Note('${error.code}: ${error.message}'),
+          ],
+        ),
       ),
     );
   }
@@ -266,21 +296,23 @@ class _Note extends StatelessWidget {
 
 // Shows the surfaces of one processor as a reply's UI, 12 apart.
 class _GalleryRenderer extends AIUIRenderer {
-  _GalleryRenderer(this.processor);
+  _GalleryRenderer(this.processor, {required this.onOpenLink});
 
   final A2UIProcessor processor;
+  final A2UIOpenLink onOpenLink;
 
   @override
   AIUIFormat get format => AIUIFormat.a2ui;
 
   @override
-  AIUIEngine createEngine(AIUIHosting host) => _GalleryEngine(processor);
+  AIUIEngine createEngine(AIUIHosting host) => _GalleryEngine(processor, onOpenLink: onOpenLink);
 }
 
 class _GalleryEngine extends AIUIEngine {
-  _GalleryEngine(this.processor);
+  _GalleryEngine(this.processor, {required this.onOpenLink});
 
   final A2UIProcessor processor;
+  final A2UIOpenLink onOpenLink;
 
   @override
   Widget? view(AIUIDocument document, String messageId) {
@@ -291,7 +323,11 @@ class _GalleryEngine extends AIUIEngine {
         spacing: 12,
         children: [
           for (final surfaceId in processor.surfaceIds)
-            A2UISurfaceView(key: ValueKey(processor.surface(surfaceId)), surface: processor.surface(surfaceId)!),
+            A2UISurfaceView(
+              key: ValueKey(processor.surface(surfaceId)),
+              surface: processor.surface(surfaceId)!,
+              onOpenLink: onOpenLink,
+            ),
         ],
       ),
     );

@@ -8,6 +8,13 @@ typedef A2UIActionCallback = void Function(A2UIActionEvent event);
 /// finds.
 typedef A2UIErrorCallback = void Function(A2UIError error);
 
+/// Signature for the callback that opens a link a person's action opens, such
+/// as one an agent's `openUrl` names.
+typedef A2UIOpenLink = void Function(Uri link);
+
+// The zone value through which a running action reaches its [A2UIOpenLink].
+final _openLinkKey = Object();
+
 /// Signature for the callback that receives what a processor sends the agent,
 /// as A2UI writes it.
 ///

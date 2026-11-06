@@ -85,10 +85,11 @@ A2UISurface planSurface({
   Map<String, Object?> data = planData,
   List<A2UIActionEvent>? events,
   List<A2UIError>? errors,
+  A2UIProcessor? processor,
 }) {
-  final processor = testProcessor(events: events, errors: errors)
+  final target = (processor ?? testProcessor(events: events, errors: errors))
     ..apply([createPlanSurface(data: data), updatePlanComponents(components: components)]);
-  return processor.surface('plan')!;
+  return target.surface('plan')!;
 }
 
 // The child with [id] of the root of [surface].

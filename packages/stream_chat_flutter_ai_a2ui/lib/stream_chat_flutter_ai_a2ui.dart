@@ -2,11 +2,12 @@
 /// replies, for the generative UI of `stream_chat_flutter_ai`.
 ///
 /// A reply's A2UI is drawn from a catalog of components, such as text, images,
-/// rows, columns, cards and tabs, with a theme made from the app's Stream
-/// design system. An `A2UITheme` overrides its look with an `A2UIThemeData`,
-/// whose unset values come from the Stream theme, and an `A2UICatalog` holds
-/// its components, each of which can be drawn another way. A builder draws
-/// with the surface's theme through `A2UITheme.of`:
+/// rows, columns, cards and tabs, and the fields, choices and buttons a person
+/// uses, with a theme made from the app's Stream design system. An
+/// `A2UITheme` overrides its look with an `A2UIThemeData`, whose unset values
+/// come from the Stream theme, and an `A2UICatalog` holds its components, each
+/// of which can be drawn another way. A builder draws with the surface's theme
+/// through `A2UITheme.of`:
 ///
 /// ```dart
 /// A2UITheme(data: A2UIThemeData(cornerRadius: 8), child: child);
