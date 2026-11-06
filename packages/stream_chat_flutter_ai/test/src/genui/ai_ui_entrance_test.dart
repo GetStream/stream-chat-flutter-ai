@@ -189,7 +189,7 @@ class _PartsRenderer extends AIUIRenderer {
   AIUIFormat get format => AIUIFormat.openUI;
 
   @override
-  AIUIEngine makeEngine(AIUIHosting host) => engine;
+  AIUIEngine createEngine(AIUIHosting host) => engine;
 }
 
 AIUIHost _host({AIUIEngine? engine}) {

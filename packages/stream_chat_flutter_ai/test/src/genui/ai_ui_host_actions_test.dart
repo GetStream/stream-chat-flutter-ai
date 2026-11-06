@@ -49,6 +49,20 @@ void main() {
     expect(sent, ['second']);
   });
 
+  test('AIUIHost.send completes once the action is sent', () async {
+    final sent = <AIUIAction>[];
+
+    await testHost(send: (action) async => sent.add(action)).send(_action('ask_about'));
+
+    expect(sent, [_action('ask_about')]);
+  });
+
+  test('AIUIHost.send completes with the error of a send that failed', () async {
+    _captureErrors();
+
+    await expectLater(_failingFirst(<String>[]).send(_action('first')), throwsStateError);
+  });
+
   test('AIUIHost.send reports a send that failed', () async {
     final reported = _captureErrors();
 
@@ -76,6 +90,8 @@ void main() {
       'sms:+15550100',
       'facetime:a@b.co',
       'otherapp://pay?to=x',
+      'javascript:alert(1)',
+      'intent://scan/#Intent;scheme=zxing;end',
       'file:///etc/hosts',
       'https:getstream.io',
       'https://',
@@ -88,6 +104,16 @@ void main() {
     await pumpEventQueue();
 
     expect(launcher.launched, ['https://getstream.io', 'http://getstream.io', 'mailto:a@b.co']);
+  });
+
+  test('AIUIHost.open reports a link no app could open', () async {
+    final reports = <String>[];
+    _installFakeLauncher(opens: false, reports: reports);
+
+    testHost().open(Uri.parse('https://getstream.io'));
+    await pumpEventQueue();
+
+    expect(reports.single, contains('No app could open https://getstream.io'));
   });
 
   test('AIUIHost.open opens a web link outside the app by default', () async {
@@ -173,6 +199,44 @@ void main() {
     expect(tool.calls, hasLength(1));
   });
 
+  test('AIUIHost.runTool throws an AIUIToolException when the tool throws', () async {
+    _captureErrors();
+    final host = testHost(
+      tools: [_ListEventsTool(AIClientToolResult.completed(null), throws: StateError('No calendar'))],
+    );
+
+    await expectLater(host.runTool('list_events'), throwsA(isA<AIUIToolException>()));
+  });
+
+  test('AIUIHost.runTool reports what a tool threw', () async {
+    final reported = _captureErrors();
+    final host = testHost(
+      tools: [_ListEventsTool(AIClientToolResult.completed(null), throws: StateError('No calendar'))],
+    );
+
+    await expectLater(host.runTool('list_events'), throwsA(anything));
+
+    expect(reported.single.exception, isA<StateError>());
+  });
+
+  test('AIUIHost.runTool throws once the host is disposed', () async {
+    final tool = _ListEventsTool(AIClientToolResult.completed(null));
+    final host = AIUIHost(renderers: [TestRenderer()], tools: [tool], send: (_) async {})..dispose();
+
+    await expectLater(host.runTool('list_events'), throwsA(isA<AIUIToolException>()));
+    expect(tool.calls, isEmpty);
+  });
+
+  test("AIUIHost.send doesn't send once the host is disposed", () async {
+    final sent = <AIUIAction>[];
+    AIUIHost(renderers: [TestRenderer()], send: (action) async => sent.add(action))
+      ..dispose()
+      ..send(_action('first'));
+    await pumpEventQueue();
+
+    expect(sent, isEmpty);
+  });
+
   test('AIUIHost.runTool throws for a tool the app has not given it', () async {
     final host = testHost(tools: [_ListEventsTool(AIClientToolResult.completed(null))]);
 
@@ -235,10 +299,11 @@ List<FlutterErrorDetails> _captureErrors() {
 // A tool called `list_events`, read-only unless [isReadOnly] says otherwise,
 // that answers every call with [result].
 class _ListEventsTool extends AIResultClientTool {
-  _ListEventsTool(this.result, {this.isReadOnly = true});
+  _ListEventsTool(this.result, {this.isReadOnly = true, this.throws});
 
   final AIClientToolResult result;
   final bool isReadOnly;
+  final Error? throws;
   final calls = <AIToolCallPart>[];
 
   @override
@@ -248,23 +313,28 @@ class _ListEventsTool extends AIResultClientTool {
   @override
   Future<AIClientToolResult> run(AIToolCallPart call) async {
     calls.add(call);
+    if (throws case final error?) throw error;
     return result;
   }
 }
 
 // A launcher that records the links it is asked to open, in place of the
 // platform's until the test ends. Refused links are reported quietly.
-_FakeUrlLauncher _installFakeLauncher() {
-  final launcher = _FakeUrlLauncher();
+_FakeUrlLauncher _installFakeLauncher({bool opens = true, List<String>? reports}) {
+  final launcher = _FakeUrlLauncher(opens: opens);
   final previous = UrlLauncherPlatform.instance;
   UrlLauncherPlatform.instance = launcher;
   addTearDown(() => UrlLauncherPlatform.instance = previous);
-  debugPartIssueReporter = (_) {};
+  debugPartIssueReporter = reports?.add ?? (_) {};
   addTearDown(() => debugPartIssueReporter = null);
   return launcher;
 }
 
 final class _FakeUrlLauncher extends Fake with MockPlatformInterfaceMixin implements UrlLauncherPlatform {
+  _FakeUrlLauncher({required this.opens});
+
+  // Whether an app can open the links, as `launchUrl` answers.
+  final bool opens;
   final launched = <String>[];
   final modes = <PreferredLaunchMode>[];
 
@@ -272,6 +342,6 @@ final class _FakeUrlLauncher extends Fake with MockPlatformInterfaceMixin implem
   Future<bool> launchUrl(String url, LaunchOptions options) async {
     launched.add(url);
     modes.add(options.mode);
-    return true;
+    return opens;
   }
 }
