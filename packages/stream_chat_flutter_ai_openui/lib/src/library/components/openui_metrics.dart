@@ -28,14 +28,14 @@ Widget buildOpenUIMetricIndicatorWithStrikethrough(BuildContext context, OpenUIC
 
 Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool previous}) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
-  final value = Text(scope.text('value') ?? '', style: theme.textStyles!.metric!.copyWith(color: colors.textPrimary));
+  final colors = theme;
+  final value = Text(scope.text('value') ?? '', style: theme.metric!.copyWith(color: colors.text));
   final previousValue = previous ? scope.text('previousValue') ?? '' : '';
   final subtext = scope.text('subtext') ?? '';
   final trend = _TrendBadge.of(scope.value('trend'));
   return Row(
     mainAxisSize: MainAxisSize.min,
-    spacing: theme.spacing!.s!,
+    spacing: theme.sSpacing!,
     children: [
       Flexible(
         child: Column(
@@ -45,7 +45,7 @@ Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool 
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: theme.spacing!.s!,
+              spacing: theme.sSpacing!,
               children: [
                 Flexible(
                   child: previous
@@ -55,15 +55,14 @@ Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool 
                 if (previousValue.isNotEmpty)
                   Text(
                     previousValue,
-                    style: theme.textStyles!.bodySmall!.copyWith(
-                      color: colors.textTertiary,
+                    style: theme.bodySmall!.copyWith(
+                      color: colors.tertiaryText,
                       decoration: TextDecoration.lineThrough,
                     ),
                   ),
               ],
             ),
-            if (subtext.isNotEmpty)
-              Text(subtext, style: theme.textStyles!.caption!.copyWith(color: colors.textSecondary)),
+            if (subtext.isNotEmpty) Text(subtext, style: theme.caption!.copyWith(color: colors.secondaryText)),
           ],
         ),
       ),
@@ -96,7 +95,7 @@ class _TrendBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final color = up ? theme.colors!.success! : theme.colors!.danger!;
+    final color = up ? theme.success! : theme.error!;
     final number = value == value.truncateToDouble() ? value.toInt().toString() : value.toStringAsFixed(1);
     final icons = context.streamIcons;
     return Semantics(
@@ -106,7 +105,7 @@ class _TrendBadge extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(theme.radius!.pill!),
+          borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -120,7 +119,7 @@ class _TrendBadge extends StatelessWidget {
               ),
               Text(
                 '$number%',
-                style: theme.textStyles!.caption!.copyWith(
+                style: theme.caption!.copyWith(
                   fontWeight: FontWeight.w600,
                   color: color,
                   fontFeatures: const [FontFeature.tabularFigures()],

@@ -17,16 +17,16 @@ void main() {
 
         final box = find.byType(DecoratedBox).first;
         final decoration = tester.widget<DecoratedBox>(box).decoration as BoxDecoration;
-        expect(decoration.color, theme.colors!.surface);
-        expect(decoration.borderRadius, BorderRadius.circular(theme.radius!.large!));
+        expect(decoration.color, theme.surface);
+        expect(decoration.borderRadius, BorderRadius.circular(theme.cornerRadius!));
         final border = (decoration.border! as Border).top;
         expect(border.width, 0.5);
-        expect(border.color, theme.colors!.border!.withValues(alpha: theme.colors!.border!.a * 0.6));
+        expect(border.color, theme.border!.withValues(alpha: theme.border!.a * 0.6));
         expect(tester.getSize(box).width, 360);
-        final padding = theme.spacing!.l!;
+        final padding = theme.lSpacing!;
         expect(tester.getTopLeft(find.text('A')), tester.getTopLeft(box) + Offset(padding, padding));
         final gap = tester.getTopLeft(find.text('B')).dy - tester.getBottomLeft(find.text('A')).dy;
-        expect(gap, theme.spacing!.m);
+        expect(gap, theme.mSpacing);
       });
 
       testWidgets('CardHeader draws its title and subtitle in their styles', (tester) async {
@@ -35,14 +35,14 @@ void main() {
         await pumpOpenUI(tester, runtime, stream: stream, program: 'root = Card([CardHeader("Title", "Sub")])');
 
         final title = _styleOf(tester, 'Title');
-        expect(title.color, theme.colors!.textPrimary);
-        expect(title.fontSize, theme.textStyles!.title!.fontSize);
-        expect(title.fontWeight, theme.textStyles!.title!.fontWeight);
+        expect(title.color, theme.text);
+        expect(title.fontSize, theme.title!.fontSize);
+        expect(title.fontWeight, theme.title!.fontWeight);
         final subtitle = _styleOf(tester, 'Sub');
-        expect(subtitle.color, theme.colors!.textSecondary);
-        expect(subtitle.fontSize, theme.textStyles!.bodySmall!.fontSize);
+        expect(subtitle.color, theme.secondaryText);
+        expect(subtitle.fontSize, theme.bodySmall!.fontSize);
         final gap = tester.getTopLeft(find.text('Sub')).dy - tester.getBottomLeft(find.text('Title')).dy;
-        expect(gap, theme.spacing!.xs);
+        expect(gap, theme.xsSpacing);
       });
 
       testWidgets('TextContent draws its Markdown in body text of the primary color', (tester) async {
@@ -51,18 +51,19 @@ void main() {
         await pumpOpenUI(tester, runtime, stream: stream, program: 'root = Card([TextContent("Hello")])');
 
         final style = _styleOf(tester, 'Hello');
-        expect(style.color, theme.colors!.textPrimary);
-        expect(style.fontSize, theme.textStyles!.body!.fontSize);
-        expect(style.fontWeight, theme.textStyles!.body!.fontWeight);
+        expect(style.color, theme.text);
+        expect(style.fontSize, theme.body!.fontSize);
+        expect(style.fontWeight, theme.body!.fontWeight);
       });
     });
   }
 
   testWidgets('a theme given to the view restyles the components', (tester) async {
     const teal = Color(0xFF008080);
-    const theme = OpenUIThemeData(
-      colors: OpenUIColors(surface: teal, textPrimary: teal),
-      textStyles: OpenUITextStyles(body: TextStyle(fontSize: 23)),
+    final theme = OpenUIThemeData(
+      surface: teal,
+      text: teal,
+      body: const TextStyle(fontSize: 23),
     );
     final runtime = testRuntime();
     addTearDown(runtime.dispose);
@@ -89,7 +90,7 @@ void main() {
   });
 
   group('TextContent', () {
-    final styles = OpenUIThemeData.defaults(StreamTheme.light()).textStyles!;
+    final styles = OpenUIThemeData.defaults(StreamTheme.light());
 
     for (final (size, expected, weight) in [
       ('small', styles.bodySmall!, styles.bodySmall!.fontWeight),
@@ -149,7 +150,7 @@ void main() {
       await pumpOpenUI(
         tester,
         runtime,
-        theme: const OpenUIThemeData(colors: OpenUIColors(accent: red)),
+        theme: OpenUIThemeData(accent: red),
       );
       expect(_styleOf(tester, 'go').color, red);
     });

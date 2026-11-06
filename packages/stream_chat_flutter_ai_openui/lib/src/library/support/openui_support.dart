@@ -11,13 +11,13 @@ import 'package:stream_core_flutter/core.dart';
 ///
 /// Internal to the package.
 @internal
-Color openUIVariantColor(OpenUIColors colors, String? name) {
+Color openUIVariantColor(OpenUIThemeData theme, String? name) {
   return switch (name) {
-    'success' => colors.success!,
-    'warning' => colors.warning!,
-    'danger' || 'error' => colors.danger!,
-    'info' => colors.info!,
-    _ => colors.neutral!,
+    'success' => theme.success!,
+    'warning' => theme.warning!,
+    'danger' || 'error' => theme.error!,
+    'info' => theme.info!,
+    _ => theme.neutral!,
   };
 }
 
@@ -39,7 +39,7 @@ class OpenUISurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     final (color, border) = switch (variant) {
       'card' => (colors.surface!, Border.all(color: colors.border!, width: 0.5)),
       'sunk' => (colors.sunkenSurface!, null),
@@ -50,9 +50,9 @@ class OpenUISurface extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         border: border,
-        borderRadius: BorderRadius.circular(theme.radius!.medium!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
       ),
-      child: Padding(padding: EdgeInsets.all(theme.spacing!.m!), child: child),
+      child: Padding(padding: EdgeInsets.all(theme.mSpacing!), child: child),
     );
   }
 }
@@ -78,12 +78,8 @@ class OpenUIMarkdownText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final styles = theme.textStyles!;
     return OpenUIStreamTheme(
-      theme: theme.copyWith(
-        textStyles: style == null ? styles : styles.copyWith(body: style),
-        colors: color == null ? theme.colors : theme.colors!.copyWith(textPrimary: color),
-      ),
+      theme: theme.copyWith(body: style, text: color),
       child: AIMarkdownBody(data: data, onTapLink: (text, href, title) => openOpenUILink(context, href)),
     );
   }
@@ -142,28 +138,28 @@ class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     return ColoredBox(
       color: colors.sunkenSurface!,
       // Scaled down to fit when the box is small, as the picture of a thumbnail.
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Padding(
-          padding: EdgeInsets.all(theme.spacing!.s!),
+          padding: EdgeInsets.all(theme.sSpacing!),
           child: loading
               ? StreamLoadingSpinner()
               : Column(
                   mainAxisSize: MainAxisSize.min,
-                  spacing: theme.spacing!.xs!,
+                  spacing: theme.xsSpacing!,
                   children: [
-                    Icon(context.streamIcons.image, color: colors.textTertiary),
+                    Icon(context.streamIcons.image, color: colors.tertiaryText),
                     if (alt.isNotEmpty)
                       Text(
                         alt,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: theme.textStyles!.caption!.copyWith(color: colors.textTertiary),
+                        style: theme.caption!.copyWith(color: colors.tertiaryText),
                       ),
                   ],
                 ),
@@ -231,18 +227,18 @@ class OpenUITagPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     final neutral = variant == null || variant == 'neutral';
-    final color = neutral ? colors.textSecondary! : openUIVariantColor(colors, variant);
+    final color = neutral ? colors.secondaryText! : openUIVariantColor(colors, variant);
     final (horizontal, vertical, iconSize, style) = switch (size) {
-      'lg' => (12.0, 6.0, 16.0, theme.textStyles!.bodySmall!),
-      'md' => (10.0, 4.0, 14.0, theme.textStyles!.caption!.copyWith(fontSize: 13)),
-      _ => (8.0, 3.0, 12.0, theme.textStyles!.caption!),
+      'lg' => (12.0, 6.0, 16.0, theme.bodySmall!),
+      'md' => (10.0, 4.0, 14.0, theme.caption!.copyWith(fontSize: 13)),
+      _ => (8.0, 3.0, 12.0, theme.caption!),
     };
     return DecoratedBox(
       decoration: BoxDecoration(
         color: neutral ? colors.subtleFill : color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(theme.radius!.pill!),
+        borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: horizontal, vertical: vertical),

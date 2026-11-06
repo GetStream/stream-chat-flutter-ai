@@ -32,14 +32,10 @@ void main() {
 }
 
 const _expectedNames = {
-  'OpenUIColors',
   'OpenUIComponentBuilder',
   'OpenUIComponentName',
   'OpenUIComponentScope',
   'OpenUILibrary',
-  'OpenUIRadius',
-  'OpenUISpacing',
-  'OpenUITextStyles',
   'OpenUITheme',
   'OpenUIThemeData',
 };

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
@@ -23,6 +24,146 @@ Future<OpenUIThemeData> _resolve(WidgetTester tester, {StreamTheme? stream, Open
 const _red = Color(0xFFFF0000);
 const _blue = Color(0xFF0000FF);
 
+const _black = Color(0xFF000000);
+const _white = Color(0xFFFFFFFF);
+
+// Every color, size and style of an OpenUIThemeData, by field name.
+OpenUIThemeData _all({Color color = _red, double size = 1, TextStyle style = const TextStyle(fontSize: 1)}) {
+  return OpenUIThemeData(
+    accent: color,
+    onAccent: color,
+    text: color,
+    secondaryText: color,
+    tertiaryText: color,
+    surface: color,
+    sunkenSurface: color,
+    subtleFill: color,
+    border: color,
+    success: color,
+    warning: color,
+    error: color,
+    info: color,
+    neutral: color,
+    chartPalette: [color],
+    xsSpacing: size,
+    sSpacing: size,
+    mSpacing: size,
+    lSpacing: size,
+    xlSpacing: size,
+    xxlSpacing: size,
+    smallCornerRadius: size,
+    mediumCornerRadius: size,
+    cornerRadius: size,
+    pillCornerRadius: size,
+    title: style,
+    heading: style,
+    body: style,
+    bodyLarge: style,
+    bodySmall: style,
+    caption: style,
+    code: style,
+    metric: style,
+  );
+}
+
+// [data] with the field [name] replaced by [value], through copyWith.
+OpenUIThemeData _with(OpenUIThemeData data, String name, Object value) {
+  return switch (name) {
+    'accent' => data.copyWith(accent: value as Color),
+    'onAccent' => data.copyWith(onAccent: value as Color),
+    'text' => data.copyWith(text: value as Color),
+    'secondaryText' => data.copyWith(secondaryText: value as Color),
+    'tertiaryText' => data.copyWith(tertiaryText: value as Color),
+    'surface' => data.copyWith(surface: value as Color),
+    'sunkenSurface' => data.copyWith(sunkenSurface: value as Color),
+    'subtleFill' => data.copyWith(subtleFill: value as Color),
+    'border' => data.copyWith(border: value as Color),
+    'success' => data.copyWith(success: value as Color),
+    'warning' => data.copyWith(warning: value as Color),
+    'error' => data.copyWith(error: value as Color),
+    'info' => data.copyWith(info: value as Color),
+    'neutral' => data.copyWith(neutral: value as Color),
+    'chartPalette' => data.copyWith(chartPalette: value as List<Color>),
+    'xsSpacing' => data.copyWith(xsSpacing: value as double),
+    'sSpacing' => data.copyWith(sSpacing: value as double),
+    'mSpacing' => data.copyWith(mSpacing: value as double),
+    'lSpacing' => data.copyWith(lSpacing: value as double),
+    'xlSpacing' => data.copyWith(xlSpacing: value as double),
+    'xxlSpacing' => data.copyWith(xxlSpacing: value as double),
+    'smallCornerRadius' => data.copyWith(smallCornerRadius: value as double),
+    'mediumCornerRadius' => data.copyWith(mediumCornerRadius: value as double),
+    'cornerRadius' => data.copyWith(cornerRadius: value as double),
+    'pillCornerRadius' => data.copyWith(pillCornerRadius: value as double),
+    'title' => data.copyWith(title: value as TextStyle),
+    'heading' => data.copyWith(heading: value as TextStyle),
+    'body' => data.copyWith(body: value as TextStyle),
+    'bodyLarge' => data.copyWith(bodyLarge: value as TextStyle),
+    'bodySmall' => data.copyWith(bodySmall: value as TextStyle),
+    'caption' => data.copyWith(caption: value as TextStyle),
+    'code' => data.copyWith(code: value as TextStyle),
+    'metric' => data.copyWith(metric: value as TextStyle),
+    _ => throw ArgumentError(name),
+  };
+}
+
+// The value of the field [name] of [data].
+Object? _read(OpenUIThemeData d, String name) => switch (name) {
+  'accent' => d.accent,
+  'onAccent' => d.onAccent,
+  'text' => d.text,
+  'secondaryText' => d.secondaryText,
+  'tertiaryText' => d.tertiaryText,
+  'surface' => d.surface,
+  'sunkenSurface' => d.sunkenSurface,
+  'subtleFill' => d.subtleFill,
+  'border' => d.border,
+  'success' => d.success,
+  'warning' => d.warning,
+  'error' => d.error,
+  'info' => d.info,
+  'neutral' => d.neutral,
+  'chartPalette' => d.chartPalette,
+  'xsSpacing' => d.xsSpacing,
+  'sSpacing' => d.sSpacing,
+  'mSpacing' => d.mSpacing,
+  'lSpacing' => d.lSpacing,
+  'xlSpacing' => d.xlSpacing,
+  'xxlSpacing' => d.xxlSpacing,
+  'smallCornerRadius' => d.smallCornerRadius,
+  'mediumCornerRadius' => d.mediumCornerRadius,
+  'cornerRadius' => d.cornerRadius,
+  'pillCornerRadius' => d.pillCornerRadius,
+  'title' => d.title,
+  'heading' => d.heading,
+  'body' => d.body,
+  'bodyLarge' => d.bodyLarge,
+  'bodySmall' => d.bodySmall,
+  'caption' => d.caption,
+  'code' => d.code,
+  'metric' => d.metric,
+  _ => throw ArgumentError(name),
+};
+
+const _colorNames = [
+  'accent', 'onAccent', 'text', 'secondaryText', 'tertiaryText', 'surface', 'sunkenSurface', 'subtleFill', 'border',
+  'success', 'warning', 'error', 'info', 'neutral', //
+];
+const _sizeNames = [
+  'xsSpacing', 'sSpacing', 'mSpacing', 'lSpacing', 'xlSpacing', 'xxlSpacing', 'smallCornerRadius',
+  'mediumCornerRadius', 'cornerRadius', 'pillCornerRadius', //
+];
+const _styleNames = ['title', 'heading', 'body', 'bodyLarge', 'bodySmall', 'caption', 'code', 'metric'];
+
+// A value to replace the field [name] with, different from [_all]'s.
+Object _other(String name) {
+  if (name == 'chartPalette') return [_blue];
+  if (_colorNames.contains(name)) return _blue;
+  if (_sizeNames.contains(name)) return 9.0;
+  return const TextStyle(fontSize: 9);
+}
+
+final _allNames = [..._colorNames, 'chartPalette', ..._sizeNames, ..._styleNames];
+
 void main() {
   for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {
     group('defaults ($name)', () {
@@ -30,26 +171,26 @@ void main() {
       final text = stream.textTheme;
 
       testWidgets('the colors come from the color scheme', (tester) async {
-        final c = (await _resolve(tester, stream: stream)).colors!;
+        final c = await _resolve(tester, stream: stream);
         expect(c.accent, colors.accentPrimary);
         expect(c.onAccent, colors.textOnAccent);
-        expect(c.textPrimary, colors.textPrimary);
-        expect(c.textSecondary, colors.textSecondary);
-        expect(c.textTertiary, colors.textTertiary);
+        expect(c.text, colors.textPrimary);
+        expect(c.secondaryText, colors.textSecondary);
+        expect(c.tertiaryText, colors.textTertiary);
         expect(c.surface, colors.backgroundSurfaceCard);
         expect(c.sunkenSurface, colors.backgroundSurface);
         expect(c.subtleFill, colors.backgroundSurfaceSubtle);
         expect(c.border, colors.borderDefault);
         expect(c.success, colors.accentSuccess);
         expect(c.warning, colors.accentWarning);
-        expect(c.danger, colors.accentError);
+        expect(c.error, colors.accentError);
         expect(c.info, colors.accentPrimary);
         expect(c.neutral, colors.accentNeutral);
         expect(c.chartPalette, hasLength(8));
       });
 
       testWidgets('the text styles come from the text theme, without colors', (tester) async {
-        final s = (await _resolve(tester, stream: stream)).textStyles!;
+        final s = await _resolve(tester, stream: stream);
         void same(TextStyle? actual, TextStyle token, {FontWeight? weight}) {
           expect(actual!.fontSize, token.fontSize);
           expect(actual.fontWeight, weight ?? token.fontWeight);
@@ -74,13 +215,19 @@ void main() {
     });
   }
 
-  testWidgets('the defaults the docs give hold for the default Stream theme', (tester) async {
+  testWidgets('every value is set', (tester) async {
     final theme = await _resolve(tester);
-    final spacing = theme.spacing!;
-    final radius = theme.radius!;
 
-    expect([spacing.xs, spacing.s, spacing.m, spacing.l, spacing.xl, spacing.xxl], [4, 8, 12, 16, 24, 32]);
-    expect([radius.small, radius.medium, radius.large], [8, 12, 16]);
+    for (final name in _allNames) {
+      expect(_read(theme, name), isNotNull, reason: name);
+    }
+  });
+
+  testWidgets('the defaults the docs give hold for the default Stream theme', (tester) async {
+    final t = await _resolve(tester);
+
+    expect([t.xsSpacing, t.sSpacing, t.mSpacing, t.lSpacing, t.xlSpacing, t.xxlSpacing], [4, 8, 12, 16, 24, 32]);
+    expect([t.smallCornerRadius, t.mediumCornerRadius, t.cornerRadius], [8, 12, 16]);
   });
 
   testWidgets('spacing and radii come from the Stream tokens', (tester) async {
@@ -95,58 +242,40 @@ void main() {
               ),
             )
             as StreamTheme;
-    final theme = await _resolve(tester, stream: stream);
+    final t = await _resolve(tester, stream: stream);
 
-    final s = theme.spacing!;
-    expect([s.xs, s.s, s.m, s.l, s.xl, s.xxl], [1, 2, 3, 4, 5, 6]);
-    final r = theme.radius!;
-    expect([r.small, r.medium, r.large, r.pill], [7, 8, 9, 10]);
+    expect([t.xsSpacing, t.sSpacing, t.mSpacing, t.lSpacing, t.xlSpacing, t.xxlSpacing], [1, 2, 3, 4, 5, 6]);
+    expect([t.smallCornerRadius, t.mediumCornerRadius, t.cornerRadius, t.pillCornerRadius], [7, 8, 9, 10]);
   });
 
   testWidgets('code, metric and the chart palette are the same for every Stream theme', (tester) async {
     final light = await _resolve(tester, stream: StreamTheme.light());
     final dark = await _resolve(tester, stream: StreamTheme.dark());
 
-    expect(dark.textStyles!.code, light.textStyles!.code);
-    expect(dark.textStyles!.metric, light.textStyles!.metric);
-    expect(dark.colors!.chartPalette, light.colors!.chartPalette);
+    expect(dark.code, light.code);
+    expect(dark.metric, light.metric);
+    expect(dark.chartPalette, light.chartPalette);
   });
 
   testWidgets('of fills only what the nearest OpenUITheme leaves null', (tester) async {
     final defaults = await _resolve(tester);
     final theme = await _resolve(
       tester,
-      data: const OpenUIThemeData(
-        colors: OpenUIColors(accent: _red),
-        spacing: OpenUISpacing(m: 99),
-        textStyles: OpenUITextStyles(body: TextStyle(fontSize: 31)),
-      ),
+      data: OpenUIThemeData(accent: _red, mSpacing: 99, body: const TextStyle(fontSize: 31)),
     );
 
-    expect(theme.colors!.accent, _red);
-    expect(theme.colors!.surface, defaults.colors!.surface);
-    expect(theme.spacing!.m, 99);
-    expect(theme.spacing!.l, defaults.spacing!.l);
-    expect(theme.radius, defaults.radius);
-    expect(theme.textStyles!.body, const TextStyle(fontSize: 31));
-    expect(theme.textStyles!.title, defaults.textStyles!.title);
+    expect(theme.accent, _red);
+    expect(theme.surface, defaults.surface);
+    expect(theme.mSpacing, 99);
+    expect(theme.lSpacing, defaults.lSpacing);
+    expect(theme.cornerRadius, defaults.cornerRadius);
+    expect(theme.body, const TextStyle(fontSize: 31));
+    expect(theme.title, defaults.title);
   });
 
   testWidgets('a change of the OpenUITheme rebuilds what reads it', (tester) async {
-    expect(
-      (await _resolve(
-        tester,
-        data: const OpenUIThemeData(colors: OpenUIColors(accent: _red)),
-      )).colors!.accent,
-      _red,
-    );
-    expect(
-      (await _resolve(
-        tester,
-        data: const OpenUIThemeData(colors: OpenUIColors(accent: _blue)),
-      )).colors!.accent,
-      _blue,
-    );
+    expect((await _resolve(tester, data: OpenUIThemeData(accent: _red))).accent, _red);
+    expect((await _resolve(tester, data: OpenUIThemeData(accent: _blue))).accent, _blue);
   });
 
   testWidgets('wrap carries the theme to another route', (tester) async {
@@ -154,7 +283,7 @@ void main() {
     await tester.pumpWidget(
       testApp(
         OpenUITheme(
-          data: const OpenUIThemeData(colors: OpenUIColors(accent: _red)),
+          data: OpenUIThemeData(accent: _red),
           child: Builder(
             builder: (context) {
               captured = InheritedTheme.capture(from: context, to: null);
@@ -178,312 +307,212 @@ void main() {
       ),
     );
 
-    expect(resolved.colors!.accent, _red);
+    expect(resolved.accent, _red);
+  });
+
+  group('OpenUITheme.merge', () {
+    testWidgets('layers its data over the enclosing theme', (tester) async {
+      late OpenUIThemeData resolved;
+      await tester.pumpWidget(
+        testApp(
+          OpenUITheme(
+            data: OpenUIThemeData(accent: _red, border: _red),
+            child: OpenUITheme.merge(
+              data: OpenUIThemeData(accent: _blue),
+              child: Builder(
+                builder: (context) {
+                  resolved = OpenUITheme.of(context);
+                  return const SizedBox();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(resolved.accent, _blue);
+      expect(resolved.border, _red);
+    });
+
+    testWidgets('stands alone without an enclosing theme', (tester) async {
+      late OpenUIThemeData resolved;
+      await tester.pumpWidget(
+        testApp(
+          OpenUITheme.merge(
+            data: OpenUIThemeData(accent: _blue),
+            child: Builder(
+              builder: (context) {
+                resolved = OpenUITheme.of(context);
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(resolved.accent, _blue);
+    });
+  });
+
+  group('empty', () {
+    test('overrides nothing', () {
+      const empty = OpenUIThemeData.empty();
+
+      for (final name in _allNames) {
+        expect(_read(empty, name), isNull, reason: name);
+      }
+      expect(empty, OpenUIThemeData());
+    });
+  });
+
+  test('the chart palette is copied and not empty', () {
+    final palette = [_red];
+    final data = OpenUIThemeData(chartPalette: palette);
+    palette.add(_blue);
+
+    expect(data.chartPalette, [_red]);
+    expect(() => data.chartPalette!.add(_blue), throwsUnsupportedError);
+    expect(() => OpenUIThemeData(chartPalette: const []), throwsAssertionError);
   });
 
   group('merge', () {
-    test('takes what the other sets, group by group and value by value', () {
-      const a = OpenUIThemeData(
-        colors: OpenUIColors(accent: _red, border: _red),
-        spacing: OpenUISpacing(xs: 1, s: 2),
-        radius: OpenUIRadius(small: 1),
-        textStyles: OpenUITextStyles(body: TextStyle(fontSize: 1)),
+    test('takes what the other sets and keeps the rest', () {
+      final a = OpenUIThemeData(
+        accent: _red,
+        border: _red,
+        xsSpacing: 1,
+        sSpacing: 2,
+        body: const TextStyle(fontSize: 1),
       );
-      const b = OpenUIThemeData(
-        colors: OpenUIColors(accent: _blue),
-        spacing: OpenUISpacing(s: 9),
-        radius: OpenUIRadius(large: 9),
-      );
+      final b = OpenUIThemeData(accent: _blue, sSpacing: 9, cornerRadius: 9);
       final merged = a.merge(b);
 
-      expect(merged.colors, const OpenUIColors(accent: _blue, border: _red));
-      expect(merged.spacing, const OpenUISpacing(xs: 1, s: 9));
-      expect(merged.radius, const OpenUIRadius(small: 1, large: 9));
-      expect(merged.textStyles, a.textStyles);
-      expect(const OpenUIThemeData().merge(b), b);
+      expect(merged.accent, _blue);
+      expect(merged.border, _red);
+      expect(merged.xsSpacing, 1);
+      expect(merged.sSpacing, 9);
+      expect(merged.cornerRadius, 9);
+      expect(merged.body, a.body);
+      expect(const OpenUIThemeData.empty().merge(b), b);
       expect(a.merge(null), same(a));
+      expect(a.merge(a), same(a));
     });
 
-    test('of each group replaces each value the other sets', () {
-      final colors = const OpenUIColors().merge(_allColors(_red));
-      expect(colors, _allColors(_red));
-      expect(_allColors(_blue).merge(const OpenUIColors()), _allColors(_blue));
-      const spacing = OpenUISpacing(xs: 1, s: 2, m: 3, l: 4, xl: 5, xxl: 6);
-      expect(const OpenUISpacing().merge(spacing), spacing);
-      const radius = OpenUIRadius(small: 1, medium: 2, large: 3, pill: 4);
-      expect(const OpenUIRadius().merge(radius), radius);
-      final styles = _allStyles(const TextStyle(fontSize: 5));
-      expect(const OpenUITextStyles().merge(styles), styles);
-      expect(
-        const OpenUITextStyles(
-          body: TextStyle(fontWeight: FontWeight.bold),
-        ).merge(const OpenUITextStyles(body: TextStyle(fontSize: 5))).body,
-        const TextStyle(fontSize: 5),
-      );
+    test('replaces each value the other sets', () {
+      expect(const OpenUIThemeData.empty().merge(_all(color: _red)), _all(color: _red));
+      expect(_all(color: _blue).merge(const OpenUIThemeData.empty()), _all(color: _blue));
+    });
+
+    test('replaces a text style as a whole', () {
+      final merged = OpenUIThemeData(
+        body: const TextStyle(fontWeight: FontWeight.bold),
+      ).merge(OpenUIThemeData(body: const TextStyle(fontSize: 5)));
+
+      expect(merged.body, const TextStyle(fontSize: 5));
     });
   });
 
   group('copyWith', () {
-    test('replaces each value and keeps the others', () {
-      final c = _allColors(_red);
-      expect(_colorFields(c.copyWith(accent: _blue)).first, _blue);
-      expect(
-        [
-          c.copyWith(onAccent: _blue).onAccent,
-          c.copyWith(textPrimary: _blue).textPrimary,
-          c.copyWith(textSecondary: _blue).textSecondary,
-          c.copyWith(textTertiary: _blue).textTertiary,
-          c.copyWith(surface: _blue).surface,
-          c.copyWith(sunkenSurface: _blue).sunkenSurface,
-          c.copyWith(subtleFill: _blue).subtleFill,
-          c.copyWith(border: _blue).border,
-          c.copyWith(success: _blue).success,
-          c.copyWith(warning: _blue).warning,
-          c.copyWith(danger: _blue).danger,
-          c.copyWith(info: _blue).info,
-          c.copyWith(neutral: _blue).neutral,
-        ],
-        everyElement(_blue),
-      );
-      expect(c.copyWith(chartPalette: [_blue]).chartPalette, [_blue]);
-      expect(c.copyWith(accent: _blue).border, _red);
-      const s = OpenUISpacing();
-      expect(
-        [
-          s.copyWith(xs: 9).xs,
-          s.copyWith(s: 9).s,
-          s.copyWith(m: 9).m,
-          s.copyWith(l: 9).l,
-          s.copyWith(xl: 9).xl,
-          s.copyWith(xxl: 9).xxl,
-        ],
-        everyElement(9),
-      );
-      const r = OpenUIRadius();
-      expect(
-        [
-          r.copyWith(small: 9).small,
-          r.copyWith(medium: 9).medium,
-          r.copyWith(large: 9).large,
-          r.copyWith(pill: 9).pill,
-        ],
-        everyElement(9),
-      );
-      const style = TextStyle(fontSize: 9);
-      expect(
-        _styleFields(
-          const OpenUITextStyles().copyWith(
-            title: style,
-            heading: style,
-            body: style,
-            bodyLarge: style,
-            bodySmall: style,
-            caption: style,
-            code: style,
-            metric: style,
-          ),
-        ),
-        everyElement(style),
-      );
-      const data = OpenUIThemeData();
-      expect(data.copyWith(colors: c).colors, c);
-      expect(data.copyWith(spacing: s).spacing, s);
-      expect(data.copyWith(radius: r).radius, r);
-      expect(data.copyWith(textStyles: const OpenUITextStyles()).textStyles, const OpenUITextStyles());
-      expect(data.copyWith(colors: c).copyWith(), data.copyWith(colors: c));
+    for (final name in _allNames) {
+      test('replaces $name and keeps the others', () {
+        final base = _all();
+        final copy = _with(base, name, _other(name));
+
+        expect(_read(copy, name), _other(name));
+        for (final other in _allNames.where((n) => n != name)) {
+          expect(_read(copy, other), _read(base, other), reason: other);
+        }
+      });
+    }
+
+    test('keeps every value for null arguments', () {
+      expect(_all().copyWith(), _all());
     });
   });
 
   group('lerp', () {
     test('blends values set on both sides and switches the others at the middle', () {
-      const a = OpenUIThemeData(
-        colors: OpenUIColors(accent: Color(0xFF000000), border: _red, chartPalette: [Color(0xFF000000)]),
-        spacing: OpenUISpacing(m: 0, l: 1),
-        radius: OpenUIRadius(small: 0),
-        textStyles: OpenUITextStyles(body: TextStyle(fontSize: 10)),
+      final a = OpenUIThemeData(
+        accent: _black,
+        border: _red,
+        chartPalette: const [_black],
+        mSpacing: 0,
+        lSpacing: 1,
+        smallCornerRadius: 0,
+        body: const TextStyle(fontSize: 10),
       );
-      const b = OpenUIThemeData(
-        colors: OpenUIColors(accent: Color(0xFFFFFFFF), chartPalette: [Color(0xFFFFFFFF)]),
-        spacing: OpenUISpacing(m: 10),
-        radius: OpenUIRadius(small: 10),
-        textStyles: OpenUITextStyles(body: TextStyle(fontSize: 20)),
+      final b = OpenUIThemeData(
+        accent: _white,
+        chartPalette: const [_white],
+        mSpacing: 10,
+        smallCornerRadius: 10,
+        body: const TextStyle(fontSize: 20),
       );
 
       final half = OpenUIThemeData.lerp(a, b, 0.5);
-      expect(half.colors!.accent, Color.lerp(const Color(0xFF000000), const Color(0xFFFFFFFF), 0.5));
-      expect(half.colors!.chartPalette!.single, Color.lerp(const Color(0xFF000000), const Color(0xFFFFFFFF), 0.5));
-      expect(half.colors!.border, isNull);
-      expect(OpenUIThemeData.lerp(a, b, 0.4).colors!.border, _red);
-      expect(half.spacing!.m, 5);
-      expect(half.spacing!.l, isNull);
-      expect(OpenUIThemeData.lerp(a, b, 0.4).spacing!.l, 1);
-      expect(half.radius!.small, 5);
-      expect(half.textStyles!.body!.fontSize, 15);
+      final mid = Color.lerp(_black, _white, 0.5);
+      expect(half.accent, mid);
+      expect(half.chartPalette, [mid]);
+      expect(half.border, isNull);
+      expect(OpenUIThemeData.lerp(a, b, 0.4).border, _red);
+      expect(half.mSpacing, 5);
+      expect(half.lSpacing, isNull);
+      expect(OpenUIThemeData.lerp(a, b, 0.4).lSpacing, 1);
+      expect(half.smallCornerRadius, 5);
+      expect(half.body!.fontSize, 15);
       expect(OpenUIThemeData.lerp(a, a, 0.5), same(a));
     });
 
     test('a palette whose length changes switches at the middle', () {
-      const a = OpenUIColors(chartPalette: [_red]);
-      const b = OpenUIColors(chartPalette: [_blue, _blue]);
+      final a = OpenUIThemeData(chartPalette: const [_red]);
+      final b = OpenUIThemeData(chartPalette: const [_blue, _blue]);
 
-      expect(OpenUIColors.lerp(a, b, 0.4).chartPalette, [_red]);
-      expect(OpenUIColors.lerp(a, b, 0.5).chartPalette, [_blue, _blue]);
+      expect(OpenUIThemeData.lerp(a, b, 0.4).chartPalette, [_red]);
+      expect(OpenUIThemeData.lerp(a, b, 0.5).chartPalette, [_blue, _blue]);
     });
 
-    test('a group set on only one side switches at the middle', () {
-      const a = OpenUIThemeData(colors: OpenUIColors(accent: _red));
-      const b = OpenUIThemeData();
+    test('every value blends', () {
+      final from = _all(color: _black, size: 0, style: const TextStyle(fontSize: 0));
+      final to = _all(color: _white, size: 10, style: const TextStyle(fontSize: 10));
+      final half = OpenUIThemeData.lerp(from, to, 0.5);
 
-      expect(OpenUIThemeData.lerp(a, b, 0.4).colors, a.colors);
-      expect(OpenUIThemeData.lerp(a, b, 0.5).colors, isNull);
-    });
-
-    test('each color, size, radius and style blends', () {
-      final colors = OpenUIColors.lerp(_allColors(const Color(0xFF000000)), _allColors(const Color(0xFFFFFFFF)), 1);
-      expect(_colorFields(colors), everyElement(const Color(0xFFFFFFFF)));
-      const s0 = OpenUISpacing(xs: 0, s: 0, m: 0, l: 0, xl: 0, xxl: 0);
-      const s1 = OpenUISpacing(xs: 1, s: 1, m: 1, l: 1, xl: 1, xxl: 1);
-      expect(OpenUISpacing.lerp(s0, s1, 1), s1);
-      const r0 = OpenUIRadius(small: 0, medium: 0, large: 0, pill: 0);
-      const r1 = OpenUIRadius(small: 1, medium: 1, large: 1, pill: 1);
-      expect(OpenUIRadius.lerp(r0, r1, 1), r1);
-      final styles = OpenUITextStyles.lerp(
-        _allStyles(const TextStyle(fontSize: 0)),
-        _allStyles(const TextStyle(fontSize: 10)),
-        0.5,
-      );
-      expect(_styleFields(styles).map((style) => style!.fontSize), everyElement(5));
+      for (final name in _colorNames) {
+        expect(_read(half, name), Color.lerp(_black, _white, 0.5), reason: name);
+      }
+      expect(half.chartPalette, [Color.lerp(_black, _white, 0.5)]);
+      for (final name in _sizeNames) {
+        expect(_read(half, name), 5, reason: name);
+      }
+      for (final name in _styleNames) {
+        expect((_read(half, name)! as TextStyle).fontSize, 5, reason: name);
+      }
     });
   });
 
   group('equality', () {
     test('equal values are equal and share a hash code', () {
-      OpenUIThemeData build() => OpenUIThemeData(
-        colors: _allColors(_red).copyWith(chartPalette: [_red, _blue]),
-        spacing: const OpenUISpacing(m: 1),
-        radius: const OpenUIRadius(pill: 2),
-        textStyles: _allStyles(const TextStyle(fontSize: 3)),
-      );
-      final (a, b) = (build(), build());
+      final (a, b) = (_all().copyWith(chartPalette: [_red, _blue]), _all().copyWith(chartPalette: [_red, _blue]));
 
       expect(a, b);
       expect(a.hashCode, b.hashCode);
-      expect(a.colors.hashCode, b.colors.hashCode);
-      expect(a.textStyles.hashCode, b.textStyles.hashCode);
     });
 
-    test('a difference in any value makes values unequal', () {
-      final c = _allColors(_red);
-      expect([
-        c.copyWith(accent: _blue),
-        c.copyWith(onAccent: _blue),
-        c.copyWith(textPrimary: _blue),
-        c.copyWith(textSecondary: _blue),
-        c.copyWith(textTertiary: _blue),
-        c.copyWith(surface: _blue),
-        c.copyWith(sunkenSurface: _blue),
-        c.copyWith(subtleFill: _blue),
-        c.copyWith(border: _blue),
-        c.copyWith(success: _blue),
-        c.copyWith(warning: _blue),
-        c.copyWith(danger: _blue),
-        c.copyWith(info: _blue),
-        c.copyWith(neutral: _blue),
-        c.copyWith(chartPalette: [_blue]),
-      ], everyElement(isNot(_allColors(_red))));
-      const s = OpenUISpacing(xs: 1, s: 1, m: 1, l: 1, xl: 1, xxl: 1);
-      expect([
-        s.copyWith(xs: 2),
-        s.copyWith(s: 2),
-        s.copyWith(m: 2),
-        s.copyWith(l: 2),
-        s.copyWith(xl: 2),
-        s.copyWith(xxl: 2),
-      ], everyElement(isNot(s)));
-      const r = OpenUIRadius(small: 1, medium: 1, large: 1, pill: 1);
-      expect([
-        r.copyWith(small: 2),
-        r.copyWith(medium: 2),
-        r.copyWith(large: 2),
-        r.copyWith(pill: 2),
-      ], everyElement(isNot(r)));
-      final t = _allStyles(const TextStyle(fontSize: 1));
-      const style = TextStyle(fontSize: 2);
-      expect([
-        t.copyWith(title: style),
-        t.copyWith(heading: style),
-        t.copyWith(body: style),
-        t.copyWith(bodyLarge: style),
-        t.copyWith(bodySmall: style),
-        t.copyWith(caption: style),
-        t.copyWith(code: style),
-        t.copyWith(metric: style),
-      ], everyElement(isNot(t)));
-      const data = OpenUIThemeData();
-      expect([
-        data.copyWith(colors: c),
-        data.copyWith(spacing: s),
-        data.copyWith(radius: r),
-        data.copyWith(textStyles: t),
-      ], everyElement(isNot(data)));
-    });
+    for (final name in _allNames) {
+      test('a different $name makes values unequal', () {
+        final base = _all();
+        final changed = _with(base, name, _other(name));
+
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      });
+    }
+  });
+
+  test('debugFillProperties lists the set values only', () {
+    final builder = DiagnosticPropertiesBuilder();
+    OpenUIThemeData(accent: _red, cornerRadius: 4).debugFillProperties(builder);
+    final shown = builder.properties.where((p) => !p.isFiltered(DiagnosticLevel.info)).map((p) => p.name);
+
+    expect(shown, ['accent', 'cornerRadius']);
   });
 }
-
-OpenUIColors _allColors(Color color) => OpenUIColors(
-  accent: color,
-  onAccent: color,
-  textPrimary: color,
-  textSecondary: color,
-  textTertiary: color,
-  surface: color,
-  sunkenSurface: color,
-  subtleFill: color,
-  border: color,
-  success: color,
-  warning: color,
-  danger: color,
-  info: color,
-  neutral: color,
-  chartPalette: [color],
-);
-
-List<Color?> _colorFields(OpenUIColors c) => [
-  c.accent,
-  c.onAccent,
-  c.textPrimary,
-  c.textSecondary,
-  c.textTertiary,
-  c.surface,
-  c.sunkenSurface,
-  c.subtleFill,
-  c.border,
-  c.success,
-  c.warning,
-  c.danger,
-  c.info,
-  c.neutral,
-  ...?c.chartPalette,
-];
-
-OpenUITextStyles _allStyles(TextStyle style) => OpenUITextStyles(
-  title: style,
-  heading: style,
-  body: style,
-  bodyLarge: style,
-  bodySmall: style,
-  caption: style,
-  code: style,
-  metric: style,
-);
-
-List<TextStyle?> _styleFields(OpenUITextStyles s) => [
-  s.title,
-  s.heading,
-  s.body,
-  s.bodyLarge,
-  s.bodySmall,
-  s.caption,
-  s.code,
-  s.metric,
-];

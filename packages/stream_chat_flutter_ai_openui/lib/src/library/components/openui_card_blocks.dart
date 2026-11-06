@@ -23,8 +23,8 @@ Widget buildOpenUISnippetCardBlock(BuildContext context, OpenUIComponentScope sc
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: OpenUITheme.of(context).spacing!.s!,
-        runSpacing: OpenUITheme.of(context).spacing!.s!,
+        spacing: OpenUITheme.of(context).sSpacing!,
+        runSpacing: OpenUITheme.of(context).sSpacing!,
         children: [
           if (lhs != null) item.scope.buildNode(lhs),
           if (rhs != null) item.scope.buildNode(withOpenUIProps(rhs, {'size': const OpenUIString('xs')})),
@@ -48,7 +48,7 @@ Widget buildOpenUIOverviewCardBlock(BuildContext context, OpenUIComponentScope s
     return _Surface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: OpenUITheme.of(context).spacing!.m!,
+        spacing: OpenUITheme.of(context).mSpacing!,
         children: [
           if (top != null) item.scope.buildNode(top),
           const Spacer(),
@@ -91,13 +91,13 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
         ? null
         : Text(
             titleText,
-            style: theme.textStyles!.caption!.copyWith(
+            style: theme.caption!.copyWith(
               fontWeight: FontWeight.w600,
-              color: image ? onImage!.withValues(alpha: 0.9) : theme.colors!.textSecondary,
+              color: image ? onImage!.withValues(alpha: 0.9) : theme.secondaryText,
             ),
           );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(theme.radius!.medium!),
+      borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
       child: Stack(
         fit: StackFit.passthrough,
         children: [
@@ -118,16 +118,16 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
                       ),
                     ],
                   )
-                : ColoredBox(color: theme.colors!.sunkenSurface!),
+                : ColoredBox(color: theme.sunkenSurface!),
           ),
           ConstrainedBox(
             constraints: BoxConstraints(minHeight: image ? 150 : 100),
             child: Padding(
-              padding: EdgeInsets.all(theme.spacing!.m!),
+              padding: EdgeInsets.all(theme.mSpacing!),
               child: IntrinsicHeight(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: theme.spacing!.s!,
+                  spacing: theme.sSpacing!,
                   children: [
                     ?title,
                     Expanded(
@@ -136,8 +136,8 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
                     if (body.isNotEmpty)
                       OpenUIMarkdownText(
                         data: body,
-                        style: theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w600),
-                        color: onImage ?? theme.colors!.textPrimary,
+                        style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+                        color: onImage ?? theme.text,
                       ),
                   ],
                 ),
@@ -160,7 +160,7 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
 @internal
 Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope scope) {
   return _block(context, scope, minItem: 250, carouselItem: 270, equalHeight: true, (context, item) {
-    final spacing = OpenUITheme.of(context).spacing!.m!;
+    final spacing = OpenUITheme.of(context).mSpacing!;
     final header = item.element('header');
     final footerPrice = item.scope.elementField('footer', 'price');
     final footerButton = item.scope.elementField('footer', 'button');
@@ -204,7 +204,7 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
     final tag = item.element('tag');
     const white = Color(0xFFFFFFFF);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(theme.radius!.medium!),
+      borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
       child: Stack(
         fit: StackFit.passthrough,
         children: [
@@ -228,7 +228,7 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
           ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 190),
             child: Padding(
-              padding: EdgeInsets.all(theme.spacing!.m!),
+              padding: EdgeInsets.all(theme.mSpacing!),
               child: IntrinsicHeight(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,8 +236,8 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
                     if (tag != null)
                       DecoratedBox(
                         decoration: BoxDecoration(
-                          color: theme.colors!.surface!.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(theme.radius!.pill!),
+                          color: theme.surface!.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
                         ),
                         child: item.scope.buildNode(tag),
                       ),
@@ -245,12 +245,12 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
                     if (bodyScope != null) ...[
                       Text(
                         bodyScope.text('value') ?? '',
-                        style: theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w600, color: white),
+                        style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w600, color: white),
                       ),
                       if ((bodyScope.text('subtext') ?? '').isNotEmpty)
                         Text(
                           bodyScope.text('subtext')!,
-                          style: theme.textStyles!.caption!.copyWith(color: white.withValues(alpha: 0.85)),
+                          style: theme.caption!.copyWith(color: white.withValues(alpha: 0.85)),
                         ),
                     ],
                   ],
@@ -387,16 +387,16 @@ Widget _block(
 // The gap a block's `gap` prop gives: a number (0 to 48), a spacing name, or
 // the medium spacing.
 double _gap(OpenUIThemeData theme, Object? value) {
-  final spacing = theme.spacing!;
+  final spacing = theme;
   return switch (value) {
     num() when value.isFinite => value.toDouble().clamp(0.0, 48.0),
     'none' => 0,
-    'xs' => spacing.xs!,
-    's' => spacing.s!,
-    'l' => spacing.l!,
-    'xl' => spacing.xl!,
-    '2xl' => spacing.xxl!,
-    _ => spacing.m!,
+    'xs' => spacing.xsSpacing!,
+    's' => spacing.sSpacing!,
+    'l' => spacing.lSpacing!,
+    'xl' => spacing.xlSpacing!,
+    '2xl' => spacing.xxlSpacing!,
+    _ => spacing.mSpacing!,
   };
 }
 
@@ -410,10 +410,10 @@ class _Surface extends StatelessWidget {
     final theme = OpenUITheme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colors!.sunkenSurface,
-        borderRadius: BorderRadius.circular(theme.radius!.medium!),
+        color: theme.sunkenSurface,
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
       ),
-      child: Padding(padding: EdgeInsets.all(theme.spacing!.m!), child: child),
+      child: Padding(padding: EdgeInsets.all(theme.mSpacing!), child: child),
     );
   }
 }

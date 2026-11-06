@@ -13,7 +13,7 @@ Widget buildOpenUILabel(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
   return Text(
     scope.text('text') ?? '',
-    style: theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w500, color: theme.colors!.textPrimary),
+    style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w500, color: theme.text),
   );
 }
 
@@ -29,20 +29,20 @@ Widget buildOpenUIInlineHeader(BuildContext context, OpenUIComponentScope scope)
     child: Semantics(
       header: true,
       child: Padding(
-        padding: EdgeInsets.only(top: theme.spacing!.xs!),
+        padding: EdgeInsets.only(top: theme.xsSpacing!),
         child: SizedBox(
           width: double.infinity,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: theme.spacing!.xs! / 2,
+            spacing: theme.xsSpacing! / 2,
             children: [
-              OpenUIMarkdownText(data: scope.text('heading') ?? '', style: theme.textStyles!.heading),
+              OpenUIMarkdownText(data: scope.text('heading') ?? '', style: theme.heading),
               if (description.isNotEmpty)
                 OpenUIMarkdownText(
                   data: description,
-                  style: theme.textStyles!.caption,
-                  color: theme.colors!.textSecondary,
+                  style: theme.caption,
+                  color: theme.secondaryText,
                 ),
             ],
           ),
@@ -58,7 +58,7 @@ Widget buildOpenUIInlineHeader(BuildContext context, OpenUIComponentScope scope)
 /// Internal to the package.
 @internal
 Widget buildOpenUISeparator(BuildContext context, OpenUIComponentScope scope) {
-  final color = OpenUITheme.of(context).colors!.border!;
+  final color = OpenUITheme.of(context).border!;
   if (scope.string('orientation') == 'vertical') {
     // Aligned, so a parent that stretches its children doesn't stretch the line.
     return Align(
@@ -99,16 +99,16 @@ Widget buildOpenUICodeBlock(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUITextCallout(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final color = openUIVariantColor(theme.colors!, scope.string('variant') ?? 'neutral');
+  final color = openUIVariantColor(theme, scope.string('variant') ?? 'neutral');
   final title = scope.text('title') ?? '';
   final description = scope.text('description') ?? '';
   return DecoratedBox(
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(theme.radius!.small!),
+      borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
     ),
     child: ClipRRect(
-      borderRadius: BorderRadius.circular(theme.radius!.small!),
+      borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,24 +119,24 @@ Widget buildOpenUITextCallout(BuildContext context, OpenUIComponentScope scope) 
             ),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.all(theme.spacing!.m!),
+                padding: EdgeInsets.all(theme.mSpacing!),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: theme.spacing!.xs!,
+                  spacing: theme.xsSpacing!,
                   children: [
                     if (title.isNotEmpty)
                       Text(
                         title,
-                        style: theme.textStyles!.bodySmall!.copyWith(
+                        style: theme.bodySmall!.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: theme.colors!.textPrimary,
+                          color: theme.text,
                         ),
                       ),
                     if (description.isNotEmpty)
                       OpenUIMarkdownText(
                         data: description,
-                        style: theme.textStyles!.bodySmall,
-                        color: theme.colors!.textSecondary,
+                        style: theme.bodySmall,
+                        color: theme.secondaryText,
                       ),
                   ],
                 ),

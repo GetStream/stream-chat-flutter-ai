@@ -27,7 +27,7 @@ part 'openui_node_view.dart';
 ///   final theme = OpenUITheme.of(context);
 ///   return Text(
 ///     scope.text('label') ?? '',
-///     style: theme.textStyles!.caption!.copyWith(color: theme.colors!.accent),
+///     style: theme.caption!.copyWith(color: theme.accent),
 ///   );
 /// }
 /// ```
@@ -89,7 +89,7 @@ abstract base class OpenUIComponentScope {
   /// The widget of the prop [name], such as a card's `children`.
   ///
   /// A component is built with its type's builder. A list is drawn as a
-  /// column of its items, [OpenUISpacing.m] apart, each as wide as the
+  /// column of its items, [OpenUIThemeData.mSpacing] apart, each as wide as the
   /// column; an item that is `null`, an empty string, or a component whose
   /// type has no builder is left out. A string, number or
   /// boolean is drawn as text, read as [text] reads it. Anything else, such as

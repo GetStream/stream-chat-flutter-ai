@@ -18,7 +18,7 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 @internal
 Widget buildOpenUIChatCard(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final sources = [
     for (final source in openUIJsonList(scope.value('sources')))
       if (source is Map<String, Object?>) source,
@@ -34,15 +34,15 @@ Widget buildOpenUIChatCard(BuildContext context, OpenUIComponentScope scope) {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.surface,
-          borderRadius: BorderRadius.circular(theme.radius!.large!),
+          borderRadius: BorderRadius.circular(theme.cornerRadius!),
           border: Border.all(color: colors.border!.withValues(alpha: colors.border!.a * _borderOpacity), width: 0.5),
         ),
         child: Padding(
-          padding: EdgeInsets.all(theme.spacing!.l!),
+          padding: EdgeInsets.all(theme.lSpacing!),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: theme.spacing!.m!,
+            spacing: theme.mSpacing!,
             children: [
               scope.buildProp('children'),
               if (sources.isNotEmpty) _Sources(sources: sources),
@@ -65,10 +65,10 @@ class _Sources extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: theme.spacing!.s!,
+      spacing: theme.sSpacing!,
       children: [
         SizedBox(
           width: double.infinity,
@@ -77,14 +77,14 @@ class _Sources extends StatelessWidget {
         ),
         Text(
           OpenUIStrings.sourcesTitle,
-          style: theme.textStyles!.caption!.copyWith(fontWeight: FontWeight.w600, color: colors.textSecondary),
+          style: theme.caption!.copyWith(fontWeight: FontWeight.w600, color: colors.secondaryText),
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: theme.spacing!.s!,
+              spacing: theme.sSpacing!,
               children: [for (final (index, source) in sources.indexed) _Source(number: index + 1, source: source)],
             ),
           ),
@@ -103,8 +103,8 @@ class _Source extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final styles = theme.textStyles!;
+    final colors = theme;
+    final styles = theme;
     final url = source['url'] is String ? source['url']! as String : '';
     final title = source['title'] is String ? source['title']! as String : OpenUIStrings.untitledSource;
     final name = source['sourceName'] is String ? source['sourceName']! as String : '';
@@ -121,10 +121,10 @@ class _Source extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colors.sunkenSurface,
-              borderRadius: BorderRadius.circular(theme.radius!.small!),
+              borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
             ),
             child: Padding(
-              padding: EdgeInsets.all(theme.spacing!.s!),
+              padding: EdgeInsets.all(theme.sSpacing!),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: 6,
@@ -152,14 +152,14 @@ class _Source extends StatelessWidget {
                           title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: styles.caption!.copyWith(fontWeight: FontWeight.w500, color: colors.textPrimary),
+                          style: styles.caption!.copyWith(fontWeight: FontWeight.w500, color: colors.text),
                         ),
                         if (name.isNotEmpty)
                           Text(
                             name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: styles.caption!.copyWith(color: colors.textSecondary),
+                            style: styles.caption!.copyWith(color: colors.secondaryText),
                           ),
                       ],
                     ),

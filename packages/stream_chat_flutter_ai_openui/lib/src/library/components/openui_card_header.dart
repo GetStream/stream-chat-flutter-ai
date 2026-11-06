@@ -22,11 +22,11 @@ Widget buildOpenUICardHeader(BuildContext context, OpenUIComponentScope scope) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: theme.spacing!.xs!,
+        spacing: theme.xsSpacing!,
         children: [
-          if (title.isNotEmpty) OpenUIMarkdownText(data: title, style: theme.textStyles!.title),
+          if (title.isNotEmpty) OpenUIMarkdownText(data: title, style: theme.title),
           if (subtitle.isNotEmpty)
-            OpenUIMarkdownText(data: subtitle, style: theme.textStyles!.bodySmall, color: theme.colors!.textSecondary),
+            OpenUIMarkdownText(data: subtitle, style: theme.bodySmall, color: theme.secondaryText),
         ],
       ),
     ),

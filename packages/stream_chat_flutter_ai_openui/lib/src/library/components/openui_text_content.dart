@@ -15,7 +15,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support
 /// Internal to the package.
 @internal
 Widget buildOpenUITextContent(BuildContext context, OpenUIComponentScope scope) {
-  final styles = OpenUITheme.of(context).textStyles!;
+  final styles = OpenUITheme.of(context);
   final style = switch (scope.string('size')) {
     'small' => styles.bodySmall!,
     'large' => styles.bodyLarge!,

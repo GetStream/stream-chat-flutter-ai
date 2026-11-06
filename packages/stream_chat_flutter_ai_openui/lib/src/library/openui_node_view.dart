@@ -68,14 +68,14 @@ class _OpenUIValueView extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: theme.spacing!.m!,
+          spacing: theme.mSpacing!,
           children: [
             for (final (index, item) in items.indexed)
               if (_draws(item, view)) _OpenUIValueView(item, key: _keyOf(item, index, items)),
           ],
         );
       case OpenUIString() || OpenUINumber() || OpenUIBool():
-        return Text(JS.stringOf(value), style: TextStyle(color: theme.colors!.textPrimary));
+        return Text(JS.stringOf(value), style: TextStyle(color: theme.text));
       case OpenUINull() || OpenUIObject() || OpenUIExpression() || null:
         return const SizedBox.shrink();
     }
