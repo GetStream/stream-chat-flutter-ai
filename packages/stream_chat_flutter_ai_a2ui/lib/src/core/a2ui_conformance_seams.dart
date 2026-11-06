@@ -122,12 +122,14 @@ final class A2UIDebugCatalog {
   // `requiresUserActivation` with `rendererOrAgent`.
   static core.FunctionApi _signature(A2UIDebugFunction function) {
     final definition = function.definition;
-    final arguments = definition['parameters'] ?? definition['schema'];
+    final arguments = definition['parameters'] ?? definition['schema'] ?? const <String, Object?>{'type': 'object'};
+    // A malformed fixture fails instead of passing against any arguments.
+    if (arguments is! Map<String, Object?>) {
+      throw ArgumentError.value(arguments, 'parameters', "Function '${function.name}' has no schema object");
+    }
     return core.FunctionApi(
       name: function.name,
-      argumentSchema: Schema.fromMap(
-        arguments is Map<String, Object?> ? arguments : const <String, Object?>{'type': 'object'},
-      ),
+      argumentSchema: Schema.fromMap(arguments),
       returnType: core.A2uiReturnType.fromJson((definition['returnType'] as String?) ?? 'any'),
       allowedCallers: switch (definition['allowedCallers']) {
         final String callers => core.AllowedCallers.fromJson(callers),
@@ -458,8 +460,76 @@ Future<Object?> debugAct(
     }
     await model.dispatchAction(resolved, sourceComponentId);
     return null;
-  } on core.A2uiError catch (error) {
-    report(_errorFromCore(error, surfaceId: surface.id));
+  } catch (error) {
+    // As a person's act reports it.
+    if (_errorFromAct(error, surfaceId: surface.id, componentId: sourceComponentId) case final error?) report(error);
     return null;
   }
+}
+
+/// Binds [value] to a component of [surface] named [componentId], as a
+/// component's property is bound, or as the condition of a check rule when
+/// [check] is true. `read` gives its current value: the property's value, or
+/// whether the rule passes, with a rule that waits on the agent passing.
+/// Reading the value is what evaluates it.
+///
+/// The caller calls `dispose` when done. Problems are reported through the
+/// processor's `onError`. Only the conformance tests use it.
+({Object? Function() read, VoidCallback dispose}) debugBind(
+  A2UISurface surface,
+  Object? value, {
+  required String componentId,
+  bool check = false,
+}) {
+  final model = surface._model;
+  if (!check) {
+    final signal = core.ComponentContext(
+      model,
+      core.ComponentModel(componentId, 'Probe', const {}),
+    ).dataContext.resolveSignal(value);
+    return (read: () => signal.value, dispose: () {});
+  }
+  final component = core.ComponentModel(componentId, 'Probe', {
+    'checks': [
+      {'condition': value, 'message': 'Check failed'},
+    ],
+  });
+  model.componentsModel.addComponent(component);
+  final binder = core.GenericBinder(core.ComponentContext(model, component), core.CommonSchemas.checkable);
+  return (read: () => binder.resolvedProps.value['isValid'], dispose: binder.dispose);
+}
+
+/// Binds [action], a raw `action`, to a component of [surface] named
+/// [componentId], as a button's action is bound, and returns what runs it as
+/// the person's own act, as [A2UINode.act] does. The component is drawn from
+/// [catalogId], or else the surface's default catalog.
+///
+/// The caller calls `dispose` when done. Problems are reported through the
+/// processor's `onError`. Only the conformance tests use it.
+({Future<void> Function() run, VoidCallback dispose}) debugBindAction(
+  A2UISurface surface,
+  Object? action, {
+  required String componentId,
+  String? catalogId,
+}) {
+  final model = surface._model;
+  final component = core.ComponentModel(componentId, 'Probe', {'action': action}, catalog: catalogId);
+  model.componentsModel.addComponent(component);
+  final binder = core.GenericBinder(
+    core.ComponentContext(model, component),
+    Schema.object(properties: {'action': core.CommonSchemas.action}),
+  );
+  Future<void> run() async {
+    final callback = binder.resolvedProps.peek()['action'];
+    if (callback is! Future<void> Function()) return;
+    try {
+      await runZoned(callback, zoneValues: {_userActKey: true});
+    } catch (error) {
+      if (_errorFromAct(error, surfaceId: surface.id, componentId: componentId) case final error?) {
+        surface._processor._report(error);
+      }
+    }
+  }
+
+  return (run: run, dispose: binder.dispose);
 }

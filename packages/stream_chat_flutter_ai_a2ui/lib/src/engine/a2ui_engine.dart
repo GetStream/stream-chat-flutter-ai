@@ -39,7 +39,7 @@ final class A2UIEngine extends AIUIEngine {
       basicTypes: _renderer.catalog.types,
       locale: WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
       appComponents: {
-        for (final (:type, :component) in _appComponents) type: component.definition.parametersSchema,
+        for (final (:type, :definition, component: _) in _appComponents) type: definition.parametersSchema,
       },
     );
   }
@@ -48,7 +48,7 @@ final class A2UIEngine extends AIUIEngine {
   final AIUIHosting _host;
   // The host's components the agent can place, read once, as the catalogs
   // that hold them are made once for every reply.
-  late final List<({String type, AIUIComponent<Object?> component})> _appComponents;
+  late final List<({String type, AIUIComponent<Object?> component, AIUIComponentDefinition definition})> _appComponents;
   late final A2UICatalogs _catalogs;
   final Map<String, _A2UIReply> _replies = {};
   // The latest document of each reply that [receive] got during a frame, to
@@ -60,6 +60,11 @@ final class A2UIEngine extends AIUIEngine {
 
   // The key of an app component's action payload that names the component.
   static const _componentKey = 'component';
+
+  // The keys of an app component's action payload that name the surface
+  // and the component that reported it, as a `Button`'s action does.
+  static const _surfaceIdKey = 'surfaceId';
+  static const _sourceComponentIdKey = 'sourceComponentId';
 
   @override
   void receive(AIUIDocument document, String messageId) {
@@ -213,15 +218,24 @@ final class A2UIEngine extends AIUIEngine {
 
   // The widget of the app's [component] that a reply's surface places, with
   // the values [scope] reads for its parameters.
-  Widget _buildAppComponent(A2UIComponentScope scope, AIUIComponent<Object?> component, _A2UIReply reply) {
+  //
+  // Values that don't fit the component's parameters draw nothing; once the
+  // reply is written they are reported through `onError`, as is anything the
+  // component throws reading or building them, so the agent can correct it.
+  Widget _buildAppComponent(
+    A2UIComponentScope scope,
+    AIUIComponent<Object?> component,
+    AIUIComponentDefinition definition,
+    _A2UIReply reply,
+  ) {
     return ValueListenableBuilder<bool>(
       valueListenable: reply.isStreaming,
       builder: (context, isStreaming, _) {
         final arguments = {
-          for (final parameter in component.definition.parameters)
+          for (final parameter in definition.parameters)
             if (scope.value(parameter.name) case final value?) parameter.name: value,
         };
-        final context = AIUIComponentContext(
+        final ui = AIUIComponentContext(
           messageId: reply.messageId,
           isStreaming: isStreaming,
           host: _host,
@@ -236,14 +250,66 @@ final class A2UIEngine extends AIUIEngine {
                 format: AIUIFormat.a2ui,
                 name: event,
                 label: label,
-                payload: {...payload, _componentKey: component.name},
+                payload: {
+                  ...payload,
+                  _componentKey: definition.name,
+                  _surfaceIdKey: a2uiSurfaceIdOf(scope),
+                  _sourceComponentIdKey: scope.id,
+                },
               ),
             );
           },
         );
-        return component.view(arguments, context) ?? const SizedBox.shrink();
+        final Object? read;
+        try {
+          read = component.readArguments(AIUIArguments(arguments));
+        } on FormatException catch (error) {
+          if (!isStreaming) {
+            a2uiReportOnce(
+              scope,
+              'arguments: ${error.message}',
+              "Its values don't fit the parameters of the app's component '${definition.name}' (${error.message}).",
+            );
+          }
+          return const SizedBox.shrink();
+        } on Object catch (error, stack) {
+          _reportAppComponentError(scope, component, error, stack, 'reading the arguments of');
+          return const SizedBox.shrink();
+        }
+        return AIUIEntrance(
+          child: Builder(
+            builder: (context) {
+              try {
+                return component.build(context, read, ui);
+              } on Object catch (error, stack) {
+                _reportAppComponentError(scope, component, error, stack, 'building');
+                return const SizedBox.shrink();
+              }
+            },
+          ),
+        );
       },
     );
+  }
+
+  // Reports [error], which the app's [component] threw while [doing] what
+  // [scope] places, to [FlutterError.onError] and through `onError`.
+  static void _reportAppComponentError(
+    A2UIComponentScope scope,
+    AIUIComponent<Object?> component,
+    Object error,
+    StackTrace stack,
+    String doing,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'stream_chat_flutter_ai_a2ui',
+        context: ErrorDescription("while $doing the app's component '${component.name}'"),
+      ),
+    );
+    a2uiReportBuildError(scope, error);
   }
 
   static void _debugReportLeftOut(String message) {
@@ -294,8 +360,8 @@ final class _A2UIReply {
   // The builders of the reply's components: the renderer's, and the app's
   // drawn for this reply.
   late final A2UICatalog catalog = a2uiCatalogAdding(_engine._renderer.catalog, {
-    for (final (:type, :component) in _engine._appComponents)
-      type: (context, scope) => _engine._buildAppComponent(scope, component, this),
+    for (final (:type, :component, :definition) in _engine._appComponents)
+      type: (context, scope) => _engine._buildAppComponent(scope, component, definition, this),
   });
   List<String> _applied = const [];
   // Whether the tree of each surface was checked since its messages last
