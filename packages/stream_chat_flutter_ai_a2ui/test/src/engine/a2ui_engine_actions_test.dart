@@ -56,6 +56,28 @@ void main() {
     expect(harness.actions.single.label, 'Reserve a table');
   });
 
+  for (final (name, path) in [('the path', '/password'), ('a path holding', '/')]) {
+    testWidgets("a button reading $name an obscured field's value is labeled with its event's name", (tester) async {
+      final harness = await _pumpButton(
+        tester,
+        _signIn(variant: 'obscured', labelText: {'@path': path}),
+        data: {'password': 'hunter2'},
+      );
+
+      await tester.tap(find.byType(GestureDetector).last);
+
+      expect(harness.actions.single.label, 'Sign in');
+    });
+  }
+
+  testWidgets("a button reading a field that isn't obscured shows its value as the label", (tester) async {
+    final harness = await _pumpButton(tester, _signIn(labelText: {'@path': '/password'}), data: {'password': 'pv'});
+
+    await tester.tap(find.byType(GestureDetector).last);
+
+    expect(harness.actions.single.label, 'pv');
+  });
+
   testWidgets("an action's label is the number a button shows from the data model", (tester) async {
     final harness = await _pumpButton(
       tester,
@@ -272,7 +294,7 @@ Future<ReplyHarness> _pumpButton(
 }
 
 // A password field and a Sign in button, the field of [variant].
-List<Map<String, Object?>> _signIn({String? variant}) => [
+List<Map<String, Object?>> _signIn({String? variant, Object labelText = 'Sign in'}) => [
   {
     'id': 'root',
     'component': 'Column',
@@ -293,5 +315,5 @@ List<Map<String, Object?>> _signIn({String? variant}) => [
       'event': {'name': 'sign_in'},
     },
   },
-  {'id': 'label', 'component': 'Text', 'text': 'Sign in'},
+  {'id': 'label', 'component': 'Text', 'text': labelText},
 ];
