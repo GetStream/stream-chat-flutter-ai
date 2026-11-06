@@ -8,6 +8,23 @@ import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'a2ui_test_surfaces.dart';
 
 void main() {
+  test("an action dispatched after the processor is disposed doesn't reach onAction", () async {
+    final events = <A2UIActionEvent>[];
+    // A core that still sends actions after it is disposed, as one still
+    // running an action would.
+    final processor = A2UIProcessor(catalogs: A2UICatalogs(), onAction: events.add, debugCoreFactory: FaultyCore.new)
+      // The core fails the first message.
+      ..apply([createPlanSurface(), createPlanSurface()]);
+    final surface = processor.surface('plan')!;
+
+    processor.dispose();
+    await debugAct(surface, {
+      'event': {'name': 'update_plan'},
+    });
+
+    expect(events, isEmpty);
+  });
+
   test('act runs an event action, which reaches onAction', () async {
     final events = <A2UIActionEvent>[];
     final update = rootChild(planSurface(events: events), 'update');
