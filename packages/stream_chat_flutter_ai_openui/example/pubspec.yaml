@@ -1,0 +1,30 @@
+name: stream_chat_flutter_ai_openui_example
+description: "A conversation whose replies are OpenUI, shown by stream_chat_flutter_ai_openui."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+# This app is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Resolves to the local `packages/stream_chat_flutter_ai` member of this
+  # workspace: the Stream theme and the generative UI host.
+  stream_chat_flutter_ai: any
+  # Resolves to the local `packages/stream_chat_flutter_ai_openui` member of
+  # this workspace.
+  stream_chat_flutter_ai_openui: any
+  stream_core_flutter: ^0.5.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    # The Ohrid trip example the Stream agent backend gives its model, as in
+    # the package's `test/fixtures`.
+    - assets/ohrid_prompt_example.oui

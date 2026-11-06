@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart' show StateField;
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_json.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 part 'openui_node_view.dart';

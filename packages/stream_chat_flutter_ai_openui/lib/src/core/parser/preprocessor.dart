@@ -82,6 +82,38 @@ abstract final class Preprocessor {
     return blocks.join('\n');
   }
 
+  /// `text` up to a fence that a backend left in it after the program, or
+  /// `text` unchanged.
+  ///
+  /// A backend that takes a reply's program out of its fenced block closes
+  /// the block only on a bare ```` ``` ```` line, so a block ending in
+  /// ```` ```Enjoy! ````, four backticks or an indented fence keeps that
+  /// fence, and whatever the reply says after it, in the program.
+  /// [stripFences] would read the fence as the opening of a block and lose
+  /// the program. So when the first fence outside a `"…"` string comes after
+  /// a statement, a line such as `root = …` or `$name = …`, the text before
+  /// the fence is returned. Prose before an opening fence has no statement,
+  /// so a program in its own fenced block is kept.
+  static String withoutTrailingFence(String text) {
+    var i = 0;
+    while (i < text.length) {
+      final next = _skipString(text, i);
+      if (next > i) {
+        i = next;
+        continue;
+      }
+      if (_isFence(text, i)) break;
+      i += 1;
+    }
+    if (i >= text.length) return text;
+    final before = text.substring(0, i);
+    return _statement.hasMatch(before) ? before : text;
+  }
+
+  // A line that starts a statement: a name or `$variable`, then `=` but not
+  // `==`.
+  static final _statement = RegExp(r'^[ \t]*\$?[A-Za-z_][A-Za-z0-9_]*[ \t]*=(?!=)', multiLine: true);
+
   /// `text` without its `//` and `#` comments.
   ///
   /// A comment runs to the end of its line, and the line is trimmed at its

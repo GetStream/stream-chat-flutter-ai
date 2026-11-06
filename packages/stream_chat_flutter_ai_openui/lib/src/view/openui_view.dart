@@ -32,7 +32,9 @@ class OpenUIView extends StatelessWidget {
   ///
   /// Media loads from the URL [mediaUrl] gives for it; only web links load
   /// unless it is given another function. A web or email link a person taps
-  /// goes to [onOpenLink]; without it, no link opens.
+  /// goes to [onOpenLink]; without it, no link opens. What a component's
+  /// builder throws goes to [onBuildError], or to [FlutterError.reportError]
+  /// without it.
   const OpenUIView({
     super.key,
     required this.runtime,
@@ -40,6 +42,7 @@ class OpenUIView extends StatelessWidget {
     this.theme,
     this.mediaUrl = openUIWebMediaUrl,
     this.onOpenLink,
+    this.onBuildError,
   });
 
   /// The runtime of the reply's program.
@@ -56,6 +59,9 @@ class OpenUIView extends StatelessWidget {
 
   /// The function that opens the links a person taps, or `null`.
   final OpenUIOpenLink? onOpenLink;
+
+  /// The function that gets what a component's builder threw, or `null`.
+  final OpenUIBuildErrorHandler? onBuildError;
 
   // The component types without a builder each runtime has reported.
   static final _unknownTypes = Expando<Set<String>>();
@@ -85,6 +91,7 @@ class OpenUIView extends StatelessWidget {
                   openLink: onOpenLink,
                   isStreaming: runtime.isStreaming,
                   unknownTypes: _unknownTypes[runtime] ??= {},
+                  onBuildError: onBuildError,
                   child: _QueryLoading(
                     isLoading: runtime.isQueryLoading,
                     spacing: theme.spacing!.s!,

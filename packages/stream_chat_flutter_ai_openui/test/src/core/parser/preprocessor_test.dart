@@ -71,4 +71,44 @@ void main() {
   test('a fence with no line break after it yields nothing, even when it closes', () {
     expect(Preprocessor.stripFences('```a = 1```'), '');
   });
+
+  group('withoutTrailingFence', () {
+    test('cuts a fence that ends the program unclosed', () {
+      expect(Preprocessor.withoutTrailingFence('a = 1\n```Enjoy!'), 'a = 1\n');
+      expect(Preprocessor.withoutTrailingFence('a = 1\n````\n'), 'a = 1\n');
+      expect(Preprocessor.withoutTrailingFence('a = 1\n\t```\n  '), 'a = 1\n\t');
+    });
+
+    test('keeps text that starts with a fence', () {
+      expect(Preprocessor.withoutTrailingFence('```openui\na = 1\n```'), '```openui\na = 1\n```');
+      expect(Preprocessor.withoutTrailingFence(' \n```Enjoy!'), ' \n```Enjoy!');
+      expect(Preprocessor.withoutTrailingFence('Plan:\n```Enjoy!'), 'Plan:\n```Enjoy!');
+    });
+
+    test('cuts a fence the reply goes on after', () {
+      expect(Preprocessor.withoutTrailingFence('a = 1\n```Enjoy!\n\nHave fun.'), 'a = 1\n');
+    });
+
+    test('keeps prose before a program in its own fenced block', () {
+      const text = 'Here:\n```openui\na = 1';
+
+      expect(Preprocessor.withoutTrailingFence(text), text);
+    });
+
+    test('a comparison before the fence is no statement', () {
+      const text = 'x == 1\n```openui\na = 1';
+
+      expect(Preprocessor.withoutTrailingFence(text), text);
+    });
+
+    test('keeps a fence inside a string', () {
+      const text = 'a = "x\n```\n"';
+
+      expect(Preprocessor.withoutTrailingFence(text), text);
+    });
+
+    test('keeps text without a fence', () {
+      expect(Preprocessor.withoutTrailingFence('a = 1'), 'a = 1');
+    });
+  });
 }

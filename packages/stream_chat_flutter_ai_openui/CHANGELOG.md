@@ -39,3 +39,14 @@
   reply ends and can't be changed while it streams; a password never leaves the reply's state.
 - Buttons are drawn: `Button`, `Buttons` and `IconButton`. They run their actions once the reply has ended, and a
   primary button checks its form first.
+- `OpenUIRenderer` shows OpenUI replies in a conversation: added to an `AIUIHost`, it draws a reply's program as it
+  streams, keeps what the person entered while the host keeps the reply, sends a tap as an `AIUIAction` (its label,
+  context, message, form and values, never a password), opens web and email links with the host's `open`, and runs
+  queries and mutations as the host's tools. It takes a `library`, `instructions`, a `theme`, a `mediaUrl` and an
+  `onError`, which gets each `OpenUIError` with the reply's message id; `OpenUIError`, `OpenUIErrorSource` and
+  `OpenUIErrorCode` are public.
+- The renderer's `capabilities` give the agent's backend the `openui-lang` fence and the instructions its model needs:
+  the library's system prompt with the app's components and tools.
+- The app's own components, the host's `components`, can be placed by the agent wherever the library's content goes,
+  by their name in PascalCase; their events are sent with the component's name.
+- A program whose closing fence wasn't a bare line, such as one ending in ```` ```Enjoy! ````, keeps its card.
