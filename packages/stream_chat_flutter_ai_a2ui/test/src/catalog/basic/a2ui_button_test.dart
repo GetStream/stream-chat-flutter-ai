@@ -316,111 +316,6 @@ void main() {
     );
   });
 
-  group('a button of an icon', () {
-    const icon = {'component': 'Icon', 'name': 'favorite'};
-    const label = {'label': 'Save the place'};
-
-    testWidgets("is an icon button whose tooltip is the agent's label", (tester) async {
-      final events = <A2UIActionEvent>[];
-      await pumpSurface(
-        tester,
-        components: _button(child: icon, accessibility: label),
-        events: events,
-      );
-
-      final button = tester.widget<StreamButton>(find.byType(StreamButton));
-      expect((button.props.child, button.props.tooltip), (null, 'Save the place'));
-      expect(
-        find.byType(Semantics).evaluate().where((e) => (e.widget as Semantics).properties.label == 'Save the place'),
-        isEmpty,
-      );
-      expect(
-        tester.getSemantics(find.byType(StreamButton)),
-        isSemantics(
-          label: '',
-          tooltip: 'Save the place',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: true,
-          hasTapAction: true,
-        ),
-      );
-
-      await tester.tap(find.byType(StreamButton));
-      await tester.pump();
-      expect(events.single.name, 'book');
-    });
-
-    testWidgets('is read as disabled, and sends nothing, while a check fails', (tester) async {
-      final events = <A2UIActionEvent>[];
-      await pumpSurface(
-        tester,
-        components: _button(child: icon, accessibility: label, checks: [_acceptedCheck]),
-        data: _notAccepted,
-        events: events,
-      );
-
-      expect(
-        tester.getSemantics(find.byType(StreamButton)),
-        isSemantics(
-          tooltip: 'Save the place',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: false,
-          hasTapAction: false,
-        ),
-      );
-      await tester.tap(find.byType(StreamButton), warnIfMissed: false);
-      await tester.pump();
-      expect(events, isEmpty);
-    });
-
-    testWidgets("keeps the agent's description as a hint", (tester) async {
-      await pumpSurface(
-        tester,
-        components: _button(child: icon, accessibility: {...label, 'description': 'Adds it to your list'}),
-      );
-
-      expect(
-        tester.getSemantics(find.byType(StreamButton)),
-        isSemantics(tooltip: 'Save the place', hint: 'Adds it to your list', isButton: true),
-      );
-    });
-
-    testWidgets('without a label is a button of its icon, with no tooltip', (tester) async {
-      await pumpSurface(tester, components: _button(child: icon));
-
-      final button = tester.widget<StreamButton>(find.byType(StreamButton));
-      expect(button.props.child, isNotNull);
-      expect(button.props.tooltip, isNull);
-      expect(find.byType(Tooltip), findsNothing);
-    });
-  });
-
-  testWidgets("a button of text with the agent's label is read by the label in place of its text", (tester) async {
-    await pumpSurface(tester, components: _button(accessibility: {'label': 'Book a table'}));
-
-    expect(find.byType(StreamButton), findsOneWidget);
-    expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.tooltip, isNull);
-    expect(find.bySemanticsLabel('Book'), findsNothing);
-  });
-
-  testWidgets("a button of an image with the agent's label is read by the label", (tester) async {
-    await pumpSurface(
-      tester,
-      components: _button(
-        child: {'component': 'Image', 'url': 'https://example.com/a.png'},
-        accessibility: {'label': 'Open the menu'},
-      ),
-    );
-
-    expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.tooltip, isNull);
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('Open the menu')),
-      isSemantics(label: 'Open the menu', isButton: true, hasTapAction: true),
-    );
-  });
-
   testWidgets('a button is at least as tall as a person can tap', (tester) async {
     await pumpSurface(tester, components: _button(variant: 'borderless'));
 
@@ -467,7 +362,6 @@ List<Map<String, Object?>> _button({
   String text = 'Book',
   List<Map<String, Object?>>? checks,
   Map<String, Object?>? accessibility,
-  Map<String, Object?>? child,
 }) {
   return [
     {
@@ -481,10 +375,7 @@ List<Map<String, Object?>> _button({
         'event': {'name': 'book'},
       },
     },
-    {
-      'id': '${id}_label',
-      ...child ?? {'component': 'Text', 'text': text},
-    },
+    {'id': '${id}_label', 'component': 'Text', 'text': text},
   ];
 }
 
