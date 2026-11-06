@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dar
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 import 'package:video_player/video_player.dart';
 
 /// Builds a `Video`: its poster with a play button until the person plays it,
@@ -174,11 +175,13 @@ class _A2UIVideoState extends State<_A2UIVideo> {
       color: poster == null ? theme.subtleSurface : _videoBackground,
       children: [
         if (poster != null)
-          Image(
-            image: a2uiImageProvider(poster),
+          StreamNetworkImage(
+            poster.toString(),
+            cacheWidth: a2uiDecodeWidth(context, width: null, height: _height, fit: BoxFit.contain),
             fit: BoxFit.contain,
             excludeFromSemantics: true,
-            errorBuilder: (context, error, stackTrace) {
+            placeholderBuilder: (context) => const SizedBox.shrink(),
+            errorBuilder: (context, error, retry) {
               a2uiDebugLogOnce("The Video's poster '$poster' failed to load: $error");
               return const SizedBox.shrink();
             },

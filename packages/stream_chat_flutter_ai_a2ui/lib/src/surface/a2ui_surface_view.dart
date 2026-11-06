@@ -6,6 +6,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dar
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_stream_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// Shows one surface of a reply's A2UI: its components from the root down,
@@ -70,17 +71,21 @@ class A2UISurfaceView extends StatelessWidget {
       theme: theme,
       mediaUrl: mediaUrl,
       onOpenLink: onOpenLink,
-      child: DefaultTextStyle.merge(
-        style: theme.body.copyWith(color: theme.text),
-        child: IconTheme.merge(
-          data: IconThemeData(color: theme.text, size: _iconSize),
-          child: ListenableBuilder(
-            listenable: surface,
-            builder: (context, _) {
-              final root = surface.root;
-              if (root == null) return const SizedBox.shrink();
-              return A2UINodeView(node: root);
-            },
+      child: A2UIStreamTheme(
+        theme: theme,
+        data: A2UITheme.of(context).merge(override),
+        child: DefaultTextStyle.merge(
+          style: theme.body.copyWith(color: theme.text),
+          child: IconTheme.merge(
+            data: IconThemeData(color: theme.text, size: _iconSize),
+            child: ListenableBuilder(
+              listenable: surface,
+              builder: (context, _) {
+                final root = surface.root;
+                if (root == null) return const SizedBox.shrink();
+                return A2UINodeView(node: root);
+              },
+            ),
           ),
         ),
       ),

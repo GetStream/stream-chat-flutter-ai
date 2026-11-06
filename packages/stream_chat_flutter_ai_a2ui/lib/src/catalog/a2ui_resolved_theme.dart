@@ -48,6 +48,8 @@ final class A2UIResolvedTheme {
     final colors = stream.colorScheme;
     final textTheme = stream.textTheme;
     final radius = stream.radius;
+    final typography = stream.typography;
+    final largest = typography.fontSize.xxl;
     return A2UIResolvedTheme(
       accent: data.accent ?? colors.accentPrimary,
       onAccent: data.onAccent ?? colors.textOnAccent,
@@ -64,8 +66,13 @@ final class A2UIResolvedTheme {
       headings:
           data.headings ??
           [
+            // A level-two heading is the large heading style, so a level-one
+            // heading stands above it at the largest text size, with the
+            // large style's line spacing.
+            _colorless(textTheme.headingLg.copyWith(fontSize: largest)),
             _colorless(textTheme.headingLg),
             _colorless(textTheme.headingMd),
+            _colorless(textTheme.headingSm),
             _colorless(textTheme.headingSm),
             _colorless(textTheme.headingXs),
           ],

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
+import 'package:stream_core_flutter/core.dart' show StreamButton;
 
 void main() => runApp(const GalleryApp());
 
@@ -146,7 +147,7 @@ class _ExamplesPageState extends State<ExamplesPage> {
               final missing = example.missing;
               return ListTile(
                 title: Text(example.name),
-                subtitle: Text(missing.isEmpty ? example.file : '${example.file} · later: ${missing.join(', ')}'),
+                subtitle: Text(missing.isEmpty ? example.file : '${example.file} · unknown: ${missing.join(', ')}'),
                 onTap: () => _open(ExamplePage(example: example, onToggleMode: widget.onToggleMode)),
               );
             },
@@ -259,7 +260,7 @@ class _ExamplePageState extends State<ExamplePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (missing.isNotEmpty) _Note('Not drawn yet: ${missing.join(', ')}'),
+            if (missing.isNotEmpty) _Note('Unknown components: ${missing.join(', ')}'),
             if (view.canShow) view else const _Note('No surface yet.'),
             ListenableBuilder(
               listenable: _log,
@@ -475,17 +476,19 @@ class PlaceCardComponent extends AIUIComponent<_Place> {
   Widget build(BuildContext context, _Place place, AIUIComponentContext ui) {
     final colors = context.streamColorScheme;
     final text = context.streamTextTheme;
+    final spacing = context.streamSpacing;
+    final icons = context.streamIcons;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.backgroundSurface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.all(context.streamRadius.lg),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        padding: EdgeInsetsDirectional.fromSTEB(spacing.sm, spacing.xs, spacing.xxs, spacing.xs),
         child: Row(
+          spacing: spacing.xs,
           children: [
-            Icon(Icons.place, color: colors.accentPrimary),
-            const SizedBox(width: 8),
+            Icon(icons.location, color: colors.accentPrimary),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,14 +499,16 @@ class PlaceCardComponent extends AIUIComponent<_Place> {
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chat_bubble_outline),
-              tooltip: 'Ask about ${place.title}',
+            StreamButton.icon(
               onPressed: () => ui.emit(
                 'ask_about',
                 label: 'Tell me more about ${place.title}',
                 payload: {'title': place.title},
               ),
+              style: .secondary,
+              type: .ghost,
+              icon: Icon(icons.messageBubble),
+              tooltip: 'Ask about ${place.title}',
             ),
           ],
         ),

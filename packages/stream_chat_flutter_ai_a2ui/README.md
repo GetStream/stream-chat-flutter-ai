@@ -3,7 +3,15 @@
 Shows the interactive UI that an agent writes in [A2UI](https://a2ui.org) 1.0 in its replies, through the
 generative UI of [`stream_chat_flutter_ai`](../stream_chat_flutter_ai).
 
-This package is in development and isn't published.
+## Installation
+
+```yaml
+dependencies:
+  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai_a2ui: ^0.1.0
+```
+
+Both packages are released together, with the same version.
 
 ## Showing replies
 
@@ -75,16 +83,17 @@ final ui = AIUIHost(
 ```
 
 The component shows nothing while its values don't fit its parameters, such as while the agent is still writing them,
-and one the agent wrote without a required value, or with `null` for it, is reported to `onError`. A parameter's value
+and once the reply is written, values that don't fit, a required value that is missing or `null`, and anything the
+component throws reading or building them are reported to `onError`. A parameter's value
 is passed as written or as the binding or function resolves it; the component itself decides whether it fits.
 
 An event the component reports with `emit` is sent as an `AIUIAction` named after the event, with the label the
-component gave, and its payload with `component` set to the component's name. An app component holds no other
+component gave, and its payload, to which `component` (the app's name for it, such as `place_card`), `surfaceId` and
+`sourceComponentId` are added. An app component holds no other
 components and no `action` of the agent's.
 
-A component the agent can't place is left out, and reported in debug builds: one whose name in PascalCase isn't an
-A2UI identifier, is `Surface`, or is the name of one of the basic catalog's components or of an earlier app
-component, and one with a parameter whose name isn't an identifier or is `id` or `component`.
+A component the agent can't place, such as one named like a basic component or with a parameter named `id` or
+`weight`, is left out, and reported in debug builds.
 
 ## The look
 
@@ -98,6 +107,11 @@ final renderer = A2UIRenderer(theme: A2UIThemeData(cornerRadius: 8));
 
 The renderer's `theme` stays as it was given. An override that depends on the context, such as on the app's own
 theme, goes in an `A2UITheme` above the conversation instead, which is read each time the reply is built too.
+
+Buttons, check boxes, fields, images and sheets are the design system's own components, so the component builders an
+app registers with `StreamComponentFactory` (`button`, `checkbox`, `textInput`, `networkImage`) draw them in A2UI
+replies too, and its component themes apply to them. Around each surface, the design system's colors, body text and
+corners are the A2UI theme's. A secret field is never given to the `textInput` builder, so it stays hidden.
 
 ## The components
 
@@ -149,4 +163,5 @@ and on iOS follows the app's audio session and background modes.
 
 The A2UI conformance suites it is tested against are vendored, unchanged, under
 [`test/conformance/upstream`](test/conformance/upstream), with their license. The examples published with the basic
-catalog are under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples).
+catalog are under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples). Why the suites are kept is in
+[`test/conformance/README.md`](test/conformance/README.md).

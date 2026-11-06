@@ -181,8 +181,9 @@ final class A2UIChild {
 
   final A2UINode _node;
 
-  /// A key that tells this child apart from its siblings and stays the same
-  /// while the agent updates the surface, such as for a widget's [Key].
+  /// A string that tells this child apart from its siblings and stays the
+  /// same while the agent updates the surface, such as for a widget's
+  /// `ValueKey(child.key)`.
   String get key => _node.key;
 
   /// The id of the child component.
@@ -243,5 +244,28 @@ void a2uiReportOnce(A2UIComponentScope scope, String key, String message) {
   switch (scope) {
     case _NodeScope(:final _node):
       _node.reportOnce(key, message);
+  }
+}
+
+/// The id of the surface the component [scope] reads is in.
+///
+/// Internal to the package.
+@internal
+String a2uiSurfaceIdOf(A2UIComponentScope scope) {
+  return switch (scope) {
+    _NodeScope(:final _node) => _node.surfaceId,
+  };
+}
+
+/// Reports [error], which code drawing the component [scope] reads threw,
+/// through the processor's `onError` as an `EXECUTION_ERROR`, after the
+/// frame, as the app may rebuild in its `onError`.
+///
+/// Internal to the package.
+@internal
+void a2uiReportBuildError(A2UIComponentScope scope, Object error) {
+  switch (scope) {
+    case _NodeScope(:final _node):
+      WidgetsBinding.instance.addPostFrameCallback((_) => _node.reportBuildError(error));
   }
 }

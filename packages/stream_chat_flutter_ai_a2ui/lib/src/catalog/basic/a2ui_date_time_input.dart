@@ -48,6 +48,8 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
   final shown = local == null ? scope.string('value') ?? '' : _display(context, local, kind);
   final accessibility = a2uiAccessibilityOf(scope);
   final canEdit = a2uiCanEdit(scope);
+  final failures = a2uiCheckFailuresOf(scope);
+  final hasError = a2uiBlocks(failures);
   Future<void> handleTap() async {
     final bounds = _bounds(scope, kind);
     final wall = await _pick(context, theme, kind, start: local, bounds: bounds);
@@ -65,22 +67,21 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
           Padding(
             padding: const EdgeInsets.only(bottom: _labelSpacing),
             child: ExcludeSemantics(
-              child: Text(label, style: theme.label.copyWith(color: theme.secondaryText)),
+              child: Text(label, style: theme.label.copyWith(color: hasError ? theme.error : theme.secondaryText)),
             ),
           ),
         A2UIPressable(
           onTap: canEdit ? handleTap : null,
           label: [accessibility.label ?? label, shown].where((part) => part.isNotEmpty).join(', '),
           hint: accessibility.description,
+          // The field is as tall as a text field, inside the taller area a
+          // person can tap.
           child: Opacity(
             opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: theme.subtleSurface,
-                borderRadius: BorderRadius.circular(theme.controlCornerRadius),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(_padding),
+            child: Center(
+              heightFactor: 1,
+              child: A2UIStreamFieldFrame(
+                hasError: hasError,
                 child: Row(
                   spacing: _iconSpacing,
                   children: [
@@ -89,6 +90,7 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
                     ),
                     Icon(
                       kind == A2UIDateTimeKind.time ? Icons.schedule_rounded : Icons.calendar_today_rounded,
+                      size: _iconSize,
                       color: theme.secondaryText,
                     ),
                   ],
@@ -97,7 +99,7 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
             ),
           ),
         ),
-        A2UIValidationMessages(failures: a2uiCheckFailuresOf(scope), theme: theme),
+        A2UIValidationMessages(failures: failures, theme: theme),
       ],
     ),
   );
@@ -106,8 +108,8 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
 // The space between the label and the field.
 const _labelSpacing = 4.0;
 
-// The space between the field's edge and its value.
-const _padding = 10.0;
+// The size of the icon, which keeps the field as tall as a text field.
+const _iconSize = 20.0;
 
 // The space between the value and the icon.
 const _iconSpacing = 8.0;

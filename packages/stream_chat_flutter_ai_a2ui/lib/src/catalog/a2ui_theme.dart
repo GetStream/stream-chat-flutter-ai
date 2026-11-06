@@ -3,7 +3,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 // Imported for the doc links below only.
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Overrides for the look of a reply's A2UI: the colors, fonts and corners its
 /// components are drawn with.
@@ -19,6 +19,15 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 ///   child: child,
 /// )
 /// ```
+///
+/// Buttons, check boxes, fields, images and sheets are drawn with the Stream
+/// design system's components, such as [StreamButton] and
+/// [StreamNetworkImage], so the builders an app registers through
+/// [StreamComponentFactory] for buttons, check boxes, text inputs and network
+/// images draw them in A2UI too. Around each surface the design system's
+/// colors, body text and corner radii are this theme's, so those components
+/// follow it; component themes the app sets for them still apply. A field for
+/// a secret never goes to the app's text input builder.
 ///
 /// [copyWith] cannot unset a field: a `null` argument keeps the current value.
 @immutable
@@ -110,21 +119,26 @@ class A2UIThemeData with Diagnosticable {
   /// `captionDefault`.
   final TextStyle? label;
 
-  /// The styles of headings in text, from level 1 down. Defaults to the
-  /// Stream theme's `headingLg`, `headingMd`, `headingSm` and `headingXs`.
+  /// The styles of headings in text, from level 1 down. Defaults to six
+  /// levels: `headingLg` at the Stream theme's largest text size, then
+  /// `headingLg`, `headingMd`, `headingSm`, `headingSm` again and `headingXs`.
   ///
   /// A level deeper than it has uses the last one.
   final List<TextStyle>? headings;
 
-  /// The corner radius of cards. Defaults to the Stream theme's `xl` radius.
+  /// The corner radius of cards, and of the top of sheets. Defaults to the
+  /// Stream theme's `xl` radius for cards, and leaves sheets as the app's
+  /// sheet theme draws them.
   final double? cornerRadius;
 
   /// The corner radius of buttons. Defaults to the Stream theme's `max`
-  /// radius, which fully rounds them.
+  /// radius, which fully rounds them; unset, buttons are drawn as the app's
+  /// button theme draws them.
   final double? buttonCornerRadius;
 
   /// The corner radius of fields, images and players. Defaults to the Stream
-  /// theme's `xl` radius.
+  /// theme's `xl` radius for images and players, and leaves fields as the
+  /// app's text input theme draws them.
   final double? controlCornerRadius;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the

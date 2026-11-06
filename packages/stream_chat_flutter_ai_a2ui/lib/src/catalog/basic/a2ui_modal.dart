@@ -6,17 +6,18 @@ import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `Modal`: its `trigger` in place, which opens its `content` in a
 /// sheet from the bottom of the screen.
 ///
-/// A `Button` in the trigger opens the sheet when tapped and still runs its
-/// own action; a disabled one opens nothing. A trigger that isn't a button
-/// opens the sheet when the person taps it. The sheet scrolls when its
-/// content is taller than it, and closes with its close button, a swipe down
-/// or a tap outside it; it also closes when the modal leaves the surface. A
-/// modal with its sheet open stays while a list it is in scrolls it out of
-/// view.
+/// A `Button` in the trigger opens the sheet when tapped and still runs its own
+/// action; a disabled one opens nothing. A trigger that isn't a button opens
+/// the sheet when the person taps it. The sheet is the Stream design system's
+/// sheet; it scrolls when its content is taller than it, and closes with the
+/// close button at its top, a swipe down or a tap outside it; it also closes
+/// when the modal leaves the surface. A modal with its sheet open stays while a
+/// list it is in scrolls it out of view.
 ///
 /// Internal to the package.
 @internal
@@ -72,7 +73,7 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
     widget.scope,
     widget.content,
   ));
-  ModalBottomSheetRoute<void>? _sheet;
+  StreamSheetRoute<void>? _sheet;
 
   @override
   void didUpdateWidget(_A2UIModal oldWidget) {
@@ -108,24 +109,24 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
       a2uiReportOnce(widget.scope, 'navigator', "Its sheet can't open: the surface has no Navigator above it.");
       return;
     }
-    final surface = A2UISurfaceScope.of(context);
-    final theme = surface.theme;
-    final sheet = _sheet = ModalBottomSheetRoute<void>(
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: theme.surface,
-      barrierLabel: MaterialLocalizations.of(context).scrimLabel,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(theme.cornerRadius))),
+    final localizations = MaterialLocalizations.of(context);
+    // The app's component builders aren't a theme, so they are given to the
+    // sheet apart from the themes.
+    final factory = context.getInheritedWidgetOfExactType<StreamComponentFactory>();
+    final sheet = _sheet = StreamSheetRoute<void>(
+      isDismissible: true,
+      barrierColor: StreamSheetTheme.of(context).barrierColor ?? context.streamColorScheme.backgroundScrim,
+      barrierLabel: localizations.scrimLabel,
+      barrierOnTapHint: localizations.scrimOnTapHint(localizations.bottomSheetLabel),
       // The sheet is built apart from the surface, so it is given what the
-      // surface's components are drawn with again.
+      // surface's components are drawn with, the surface's scope among it,
+      // again.
       capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
-      builder: (sheetContext) => A2UISurfaceScope(
-        catalog: surface.catalog,
-        theme: theme,
-        mediaUrl: surface.mediaUrl,
-        onOpenLink: surface.onOpenLink,
-        child: _A2UIModalSheet(content: _content),
-      ),
+      builder: (sheetContext, scrollController) {
+        final sheet = _A2UIModalSheet(content: _content, scrollController: scrollController);
+        if (factory == null) return sheet;
+        return StreamComponentFactory(builders: factory.builders, child: sheet);
+      },
     );
     navigator.push(sheet);
     updateKeepAlive();
@@ -172,9 +173,13 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
 }
 
 class _A2UIModalSheet extends StatelessWidget {
-  const _A2UIModalSheet({required this.content});
+  const _A2UIModalSheet({required this.content, required this.scrollController});
 
   final ValueListenable<(A2UIComponentScope, A2UIChild?)> content;
+
+  // Scrolls the content, and closes the sheet when it is dragged down from
+  // its top.
+  final ScrollController scrollController;
 
   // The space around the content of a sheet.
   static const _padding = 16.0;
@@ -190,19 +195,11 @@ class _A2UIModalSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: A2UIPressable(
-                onTap: () => Navigator.of(context).pop(),
-                label: MaterialLocalizations.of(context).closeButtonLabel,
-                child: const SizedBox.square(
-                  dimension: A2UIPressable.minHeight,
-                  child: Icon(Icons.close_rounded),
-                ),
-              ),
-            ),
+            // The design system's header, with no title: its close button.
+            StreamSheetHeader(),
             Flexible(
               child: SingleChildScrollView(
+                controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(_padding, 0, _padding, _padding),
                 child: ValueListenableBuilder(
                   valueListenable: content,

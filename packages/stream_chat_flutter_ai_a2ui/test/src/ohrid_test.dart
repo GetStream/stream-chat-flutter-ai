@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
 
 // The Ohrid weekend example an agent is shown when it learns to write A2UI:
 // seven messages, one per line, creating the surface `ohrid-weekend` in the

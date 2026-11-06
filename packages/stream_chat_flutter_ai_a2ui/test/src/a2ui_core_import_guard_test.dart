@@ -18,7 +18,7 @@ void main() {
   test('the walk finds the files outside lib/src/core/', () {
     final paths = _dartFiles().map((file) => file.path);
 
-    expect(paths, containsAll(['lib/stream_chat_flutter_ai_a2ui.dart', 'lib/src/engine/a2ui_stream.dart']));
+    expect(paths, containsAll(['lib/stream_chat_flutter_ai_a2ui.dart', 'lib/src/engine/a2ui_engine.dart']));
   });
 
   test('the adapter library is where package:a2ui_core is imported', () {
