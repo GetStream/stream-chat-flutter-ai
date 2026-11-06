@@ -174,18 +174,26 @@ void main() {
     expect(_props(tester).cacheWidth, (2 * 72 * tester.view.devicePixelRatio).ceil());
   });
 
-  testWidgets('an image that fits by none is decoded at its own size', (tester) async {
+  testWidgets('an image that fits by none is decoded no wider than the ceiling', (tester) async {
     await _pumpImage(tester, fit: 'none');
 
-    expect(_props(tester).cacheWidth, isNull);
+    expect(_props(tester).cacheWidth, a2uiMaxDecodeWidth);
   });
 
   testWidgets('a header image is decoded as wide as the screen', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1800);
+    addTearDown(tester.view.resetPhysicalSize);
     await _pumpImage(tester, variant: 'header', fit: 'contain');
 
-    final screenWidth = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(_props(tester).cacheWidth, 1200);
+  });
 
-    expect(_props(tester).cacheWidth, (screenWidth * tester.view.devicePixelRatio).ceil());
+  testWidgets('an image is decoded no wider than the ceiling, however wide its box', (tester) async {
+    tester.view.physicalSize = const Size(3000, 1800);
+    addTearDown(tester.view.resetPhysicalSize);
+    await _pumpImage(tester, variant: 'header', fit: 'cover');
+
+    expect(_props(tester).cacheWidth, a2uiMaxDecodeWidth);
   });
 
   testWidgets('an image is decoded with its aspect ratio kept', (tester) async {

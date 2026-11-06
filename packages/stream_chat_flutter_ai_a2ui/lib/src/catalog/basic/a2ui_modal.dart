@@ -110,6 +110,9 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
       return;
     }
     final localizations = MaterialLocalizations.of(context);
+    // The app's component builders aren't a theme, so they are given to the
+    // sheet apart from the themes.
+    final factory = context.getInheritedWidgetOfExactType<StreamComponentFactory>();
     final sheet = _sheet = StreamSheetRoute<void>(
       isDismissible: true,
       barrierColor: StreamSheetTheme.of(context).barrierColor ?? context.streamColorScheme.backgroundScrim,
@@ -119,8 +122,11 @@ class _A2UIModalState extends State<_A2UIModal> with AutomaticKeepAliveClientMix
       // surface's components are drawn with, the surface's scope among it,
       // again.
       capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
-      builder: (sheetContext, scrollController) =>
-          _A2UIModalSheet(content: _content, scrollController: scrollController),
+      builder: (sheetContext, scrollController) {
+        final sheet = _A2UIModalSheet(content: _content, scrollController: scrollController);
+        if (factory == null) return sheet;
+        return StreamComponentFactory(builders: factory.builders, child: sheet);
+      },
     );
     navigator.push(sheet);
     updateKeepAlive();

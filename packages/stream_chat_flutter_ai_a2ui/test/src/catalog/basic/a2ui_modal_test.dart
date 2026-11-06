@@ -25,6 +25,29 @@ void main() {
     expect(find.descendant(of: find.byType(StreamSheet), matching: find.text('Open daily, 9 to 5.')), findsOneWidget);
   });
 
+  testWidgets("the app's component builders draw the components in a modal's sheet", (tester) async {
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([createSurface(_modal(contentIsButton: true))]);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: [StreamTheme.light()]),
+        home: StreamComponentFactory(
+          builders: StreamComponentBuilders(
+            button: (context, props) => GestureDetector(onTap: props.onPressed, child: props.child),
+          ),
+          child: Material(child: A2UISurfaceView(surface: processor.surface('s')!)),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: find.byType(StreamSheet), matching: find.byType(ElevatedButton)), findsNothing);
+    expect(find.descendant(of: find.byType(StreamSheet), matching: find.text('Book')), findsOneWidget);
+  });
+
   testWidgets("a modal's button still sends its event", (tester) async {
     final events = <A2UIActionEvent>[];
     await pumpSurface(tester, components: _modal(), events: events);

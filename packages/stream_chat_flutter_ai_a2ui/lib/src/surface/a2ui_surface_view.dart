@@ -73,6 +73,7 @@ class A2UISurfaceView extends StatelessWidget {
       onOpenLink: onOpenLink,
       child: A2UIStreamTheme(
         theme: theme,
+        data: A2UITheme.of(context).merge(override),
         child: DefaultTextStyle.merge(
           style: theme.body.copyWith(color: theme.text),
           child: IconTheme.merge(

@@ -127,6 +127,7 @@ class _A2UITextFieldState extends State<_A2UITextField> {
                     context,
                     label: semanticLabel,
                     hint: [?accessibility.description, ?placeholder].join('\n'),
+                    canEdit: canEdit,
                     child: StreamTextInput(
                       controller: _controller,
                       focusNode: _focusNode,
@@ -157,8 +158,15 @@ class _A2UITextFieldState extends State<_A2UITextField> {
 
   // The field, read as one text field with [label] and [hint]. The field
   // shows its label as its hint while it has no placeholder, and that isn't
-  // read twice.
-  Widget _buildInput(BuildContext context, {required String label, required String hint, required Widget child}) {
+  // read twice. A field that [canEdit] is false for is read as read-only, and
+  // can't be focused through assistive technologies.
+  Widget _buildInput(
+    BuildContext context, {
+    required String label,
+    required String hint,
+    required bool canEdit,
+    required Widget child,
+  }) {
     return ListenableBuilder(
       listenable: Listenable.merge([_focusNode, _controller]),
       builder: (context, child) => Semantics(
@@ -169,8 +177,9 @@ class _A2UITextFieldState extends State<_A2UITextField> {
         label: label,
         hint: hint.isEmpty ? null : hint,
         value: _controller.text,
-        onTap: _focusNode.requestFocus,
-        onFocus: _focusNode.requestFocus,
+        readOnly: !canEdit,
+        onTap: canEdit ? _focusNode.requestFocus : null,
+        onFocus: canEdit ? _focusNode.requestFocus : null,
         child: child,
       ),
       // The field needs a Material around it, which a surface may not have.
@@ -181,7 +190,8 @@ class _A2UITextFieldState extends State<_A2UITextField> {
   }
 
   // A secret field, drawn as the design system draws fields from its theme,
-  // but never by an app's text input builder, which could show the secret.
+  // with the design system's defaults where the theme sets nothing, but never
+  // by an app's text input builder, which could show the secret.
   Widget _buildObscured(
     BuildContext context, {
     required String? hint,
@@ -201,7 +211,10 @@ class _A2UITextFieldState extends State<_A2UITextField> {
     final border = outline(style?.border, BorderSide(color: colors.borderDefault));
     final focusBorder = outline(style?.focusBorder, BorderSide(color: colors.borderActive));
     final errorBorder = outline(style?.errorBorder, BorderSide(color: colors.borderError));
-    final hintStyle = text.bodyDefault.copyWith(color: colors.textTertiary);
+    final textStyle = WidgetStateProperty.resolveAs<TextStyle?>(style?.textStyle, const {});
+    final hintStyle =
+        WidgetStateProperty.resolveAs<TextStyle?>(style?.hintStyle, const {}) ??
+        text.bodyDefault.copyWith(color: colors.textTertiary);
     return Material(
       type: MaterialType.transparency,
       child: TextField(
@@ -213,8 +226,13 @@ class _A2UITextFieldState extends State<_A2UITextField> {
         enableSuggestions: false,
         autocorrect: false,
         textInputAction: TextInputAction.done,
-        style: text.bodyDefault.copyWith(color: colors.textPrimary),
-        cursorColor: hasError ? colors.accentError : colors.accentPrimary,
+        style: textStyle ?? text.bodyDefault.copyWith(color: colors.textPrimary),
+        cursorColor: hasError
+            ? style?.cursorErrorColor ?? colors.accentError
+            : style?.cursorColor ?? colors.accentPrimary,
+        cursorWidth: style?.cursorWidth ?? 2,
+        cursorHeight: style?.cursorHeight,
+        cursorRadius: style?.cursorRadius,
         decoration: InputDecoration(
           hintText: readsHint ? hint : null,
           // The field is read with its label already.
