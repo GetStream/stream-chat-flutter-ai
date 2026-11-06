@@ -122,13 +122,6 @@ final class A2UICatalogs {
 
   /// Why an app component of [type] whose parameters are [parametersSchema]
   /// can't join the catalogs, or `null` when it can.
-  ///
-  /// The [type] must be an A2UI identifier, and must be neither `Surface` nor
-  /// the type of one of the basic catalog's components. The name of each
-  /// parameter must be an A2UI identifier other than `id` and `component`,
-  /// the keys that hold a component's id and type, and `weight` and
-  /// `accessibility`, which every component may hold for its layout and
-  /// accessibility.
   static String? appComponentProblem(String type, Map<String, Object?> parametersSchema) {
     if (!core.isValidUax31Identifier(type)) return "its type '$type' isn't an A2UI identifier";
     if (type == _surfaceType) return "its type '$type' is the surface's own";

@@ -38,7 +38,7 @@ final class A2UIEngine extends AIUIEngine {
       catalogId: _renderer.catalogId,
       locale: WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
       appComponents: {
-        for (final (:type, :component) in _appComponents) type: component.definition.parametersSchema,
+        for (final (:type, :definition, component: _) in _appComponents) type: definition.parametersSchema,
       },
     );
   }
@@ -47,7 +47,7 @@ final class A2UIEngine extends AIUIEngine {
   final AIUIHosting _host;
   // The host's components the agent can place, read once, as the catalogs
   // that hold them are made once for every reply.
-  late final List<({String type, AIUIComponent<Object?> component})> _appComponents;
+  late final List<({String type, AIUIComponent<Object?> component, AIUIComponentDefinition definition})> _appComponents;
   late final A2UICatalogs _catalogs;
   final Map<String, _A2UIReply> _replies = {};
   // The latest document of each reply that [receive] got during a frame, to
@@ -228,12 +228,17 @@ final class A2UIEngine extends AIUIEngine {
   // Values that don't fit the component's parameters draw nothing; once the
   // reply is written they are reported through `onError`, as is anything the
   // component throws reading or building them, so the agent can correct it.
-  Widget _buildAppComponent(A2UIComponentScope scope, AIUIComponent<Object?> component, _A2UIReply reply) {
+  Widget _buildAppComponent(
+    A2UIComponentScope scope,
+    AIUIComponent<Object?> component,
+    AIUIComponentDefinition definition,
+    _A2UIReply reply,
+  ) {
     return ValueListenableBuilder<bool>(
       valueListenable: reply.isStreaming,
       builder: (context, isStreaming, _) {
         final arguments = {
-          for (final parameter in component.definition.parameters)
+          for (final parameter in definition.parameters)
             if (scope.value(parameter.name) case final value?) parameter.name: value,
         };
         final ui = AIUIComponentContext(
@@ -253,7 +258,7 @@ final class A2UIEngine extends AIUIEngine {
                 label: label,
                 payload: {
                   ...payload,
-                  _componentKey: component.name,
+                  _componentKey: definition.name,
                   _surfaceIdKey: a2uiSurfaceIdOf(scope),
                   _sourceComponentIdKey: scope.id,
                 },
@@ -269,7 +274,7 @@ final class A2UIEngine extends AIUIEngine {
             a2uiReportOnce(
               scope,
               'arguments: ${error.message}',
-              "Its values don't fit the parameters of the app's component '${component.name}' (${error.message}).",
+              "Its values don't fit the parameters of the app's component '${definition.name}' (${error.message}).",
             );
           }
           return const SizedBox.shrink();
@@ -364,8 +369,8 @@ final class _A2UIReply {
   // The builders of the reply's components: the renderer's, and the app's
   // drawn for this reply.
   late final A2UICatalog catalog = a2uiCatalogAdding(_engine._renderer.catalog, {
-    for (final (:type, :component) in _engine._appComponents)
-      type: (context, scope) => _engine._buildAppComponent(scope, component, this),
+    for (final (:type, :component, :definition) in _engine._appComponents)
+      type: (context, scope) => _engine._buildAppComponent(scope, component, definition, this),
   });
   List<String> _applied = const [];
   // Whether the tree of each surface was checked since its messages last

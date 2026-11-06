@@ -6,6 +6,10 @@ import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 /// split at `_`, `-` and spaces, each starting with a capital letter and
 /// joined, such as `PlaceCard` for `place_card`.
 ///
+/// A first letter whose capital is more than one letter, such as `ß`, is
+/// kept as written, so the type is the same on every platform: Dart gives
+/// `SS` for it on the web but keeps it elsewhere.
+///
 /// Internal to the package.
 @internal
 String a2uiTypeNameOf(String name) {
@@ -17,7 +21,9 @@ String a2uiTypeNameOf(String name) {
 
 String _capitalized(String word) {
   final first = String.fromCharCode(word.runes.first);
-  return first.toUpperCase() + word.substring(first.length);
+  final capital = first.toUpperCase();
+  if (capital.runes.length != 1) return word;
+  return capital + word.substring(first.length);
 }
 
 final _wordBreak = RegExp('[_ -]');
@@ -25,29 +31,36 @@ final _wordBreak = RegExp('[_ -]');
 /// The app's [components] an agent can place in a reply's A2UI, each with the
 /// A2UI type it is placed by, in their order.
 ///
-/// A component that can't join the catalogs (see
+/// A component whose definition throws, that can't join the catalogs (see
 /// [A2UICatalogs.appComponentProblem]), or whose type an earlier one already
 /// has, is left out, and [onLeftOut] gets a message that says which and why.
 ///
 /// Internal to the package.
 @internal
-List<({String type, AIUIComponent<Object?> component})> a2uiPlaceableComponents(
+List<({String type, AIUIComponent<Object?> component, AIUIComponentDefinition definition})> a2uiPlaceableComponents(
   List<AIUIComponent<Object?>> components, {
   required void Function(String message) onLeftOut,
 }) {
-  final placeable = <({String type, AIUIComponent<Object?> component})>[];
+  final placeable = <({String type, AIUIComponent<Object?> component, AIUIComponentDefinition definition})>[];
   final types = <String>{};
   for (final component in components) {
-    final type = a2uiTypeNameOf(component.name);
+    final AIUIComponentDefinition definition;
+    try {
+      definition = component.definition;
+    } on Object catch (error) {
+      onLeftOut("An app's component can't be placed in A2UI replies: its definition threw ($error).");
+      continue;
+    }
+    final type = a2uiTypeNameOf(definition.name);
     final problem = types.contains(type)
         ? "an earlier component of the app is already placed as '$type'"
-        : A2UICatalogs.appComponentProblem(type, component.definition.parametersSchema);
+        : A2UICatalogs.appComponentProblem(type, definition.parametersSchema);
     if (problem != null) {
-      onLeftOut("The app's component '${component.name}' can't be placed in A2UI replies: $problem.");
+      onLeftOut("The app's component '${definition.name}' can't be placed in A2UI replies: $problem.");
       continue;
     }
     types.add(type);
-    placeable.add((type: type, component: component));
+    placeable.add((type: type, component: component, definition: definition));
   }
   return placeable;
 }

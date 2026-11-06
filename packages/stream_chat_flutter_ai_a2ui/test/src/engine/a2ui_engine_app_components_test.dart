@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_flex.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
 import 'a2ui_reply_test_support.dart';
@@ -52,23 +53,48 @@ void main() {
   });
 
   testWidgets("a value bound to the surface's data follows the data", (tester) async {
-    final first = _surface(
+    await _pumpReply(
+      tester,
       [
-        _placeCard(title: {'@path': '/place'}),
+        {
+          'id': 'root',
+          'component': 'Column',
+          'children': ['field', 'card'],
+        },
+        {
+          'id': 'field',
+          'component': 'TextField',
+          'label': 'Place',
+          'value': {'@path': '/place'},
+        },
+        {
+          ..._placeCard(title: {'@path': '/place'}),
+          'id': 'card',
+        },
       ],
       data: {'place': 'Bay of Bones'},
     );
-    final update = jsonEncode({
-      'version': '1.0',
-      'updateDataModel': {'surfaceId': 's', 'path': '/place', 'value': 'Plaošnik'},
-    });
-    final harness = await _pumpMessages(tester, [first]);
 
-    await showReplies(tester, harness, [
-      TestReply('m1', a2uiDocument([first, update])),
-    ]);
+    await tester.enterText(find.byType(EditableText), 'Plaošnik');
+    await tester.pump();
 
     expect(find.text('Place: Plaošnik'), findsOneWidget);
+  });
+
+  testWidgets("the component's action in a later reply carries that reply's id", (tester) async {
+    final message = _surface([_placeCard()]);
+    final harness = await pumpReplies(
+      tester,
+      [
+        TestReply('m1', a2uiDocument([message])),
+        TestReply('m2', a2uiDocument([message])),
+      ],
+      components: const [_PlaceCard()],
+    );
+
+    await tester.tap(find.text('Ask').last);
+
+    expect(harness.actions.single.messageId, 'm2');
   });
 
   testWidgets("a value written as a function call reads the function's result", (tester) async {
@@ -125,7 +151,7 @@ void main() {
       _placeCard(title: 42),
     ], isStreaming: true);
 
-    expect(reports.stop(), isEmpty);
+    expect(reports.stop(text: 'place_card'), isEmpty);
     expect(harness.errors, isEmpty);
     expect(find.textContaining('Place:'), findsNothing);
   });
@@ -147,7 +173,7 @@ void main() {
     final harness = await _pumpReply(tester, [_placeCard()], components: const [_Throwing(inRead: true)]);
     await tester.pump();
 
-    expect(reports.stop(), isNotEmpty);
+    expect(reports.stop(text: 'failed'), hasLength(1));
     final (error, messageId) = harness.errors.single;
     expect((error.code, error.surfaceId, messageId), (A2UIErrorCode.executionError, 's', 'm1'));
     expect(error.message, contains('read failed'));
@@ -159,7 +185,7 @@ void main() {
     final harness = await _pumpReply(tester, [_placeCard()], components: const [_Throwing(inRead: false)]);
     await tester.pump();
 
-    expect(reports.stop(), isNotEmpty);
+    expect(reports.stop(text: 'failed'), hasLength(1));
     final (error, _) = harness.errors.single;
     expect((error.code, error.surfaceId), (A2UIErrorCode.executionError, 's'));
     expect(error.message, contains('build failed'));
@@ -277,6 +303,7 @@ void main() {
     expect(harness.actions, isEmpty);
   });
 
+  // The host's own check; the engine's is covered by the test above.
   testWidgets('an event the component reports after the host is disposed sends nothing', (tester) async {
     final contexts = <AIUIComponentContext>[];
     final harness = await _pumpReply(tester, [_placeCard()], components: [_ContextKeeper(contexts)]);
@@ -288,12 +315,18 @@ void main() {
     expect(harness.actions, isEmpty);
   });
 
-  testWidgets('an optional value the agent wrote as null is left out, and the component shows', (tester) async {
-    final harness = await _pumpReply(tester, [
-      {..._placeCard(), 'note': null},
-    ]);
+  testWidgets('an optional value the agent wrote as null is left out of the values', (tester) async {
+    final seen = <Map<String, Object?>>[];
 
-    expect(find.text('Place: St. Naum'), findsOneWidget);
+    final harness = await _pumpReply(
+      tester,
+      [
+        {..._placeCard(), 'note': null},
+      ],
+      components: [_RecordingComponent(seen)],
+    );
+
+    expect(seen.last, {'title': 'St. Naum'});
     expect(harness.errors, isEmpty);
   });
 
@@ -435,7 +468,7 @@ void main() {
       ],
     );
 
-    expect(reports.stop().single, contains("The app's component 'card' can't be placed"));
+    expect(reports.stop(text: "The app's component 'card' can't be placed"), hasLength(1));
     expect(harness.errors, isEmpty);
   });
 
@@ -464,10 +497,12 @@ void main() {
       {'id': 'other', 'component': 'Text', 'text': 'x', 'weight': 1},
     ]);
 
+    // Each child starts its slot; [a2uiSpacing] lies between the two.
     final row = tester.getRect(find.byType(AIUIView));
-    final other = tester.getTopLeft(find.text('x'));
-    // Within the space between the row's children.
-    expect(other.dx - row.left, moreOrLessEquals(row.width * 3 / 4, epsilon: 8));
+    final otherStart = tester.getTopLeft(find.text('x')).dx;
+    final cardSlot = otherStart - a2uiSpacing - row.left;
+    final otherSlot = row.right - otherStart;
+    expect(cardSlot / otherSlot, moreOrLessEquals(3, epsilon: 0.001));
   });
 }
 
@@ -548,11 +583,15 @@ final class _Reports {
   final DebugPrintCallback _debugPrint;
   final messages = <String>[];
 
-  // Stops capturing, giving the test framework its handlers back.
-  List<String> stop() {
+  // Stops capturing, giving the test framework its handlers back, and
+  // returns the messages that contain [text], or all of them.
+  List<String> stop({String text = ''}) {
     FlutterError.onError = _onError;
     debugPrint = _debugPrint;
-    return messages;
+    return [
+      for (final message in messages)
+        if (message.contains(text)) message,
+    ];
   }
 }
 

@@ -61,14 +61,12 @@ component throws reading or building them are reported to `onError`. A parameter
 is passed as written or as the binding or function resolves it; the component itself decides whether it fits.
 
 An event the component reports with `emit` is sent as an `AIUIAction` named after the event, with the label the
-component gave, and its payload with `component` set to the component's name (`place_card`), and `surfaceId` and
-`sourceComponentId` set to where it is. An app component holds no other
+component gave, and its payload, to which `component` (the app's name for it, such as `place_card`), `surfaceId` and
+`sourceComponentId` are added. An app component holds no other
 components and no `action` of the agent's.
 
-A component the agent can't place is left out, and reported in debug builds: one whose name in PascalCase isn't an
-A2UI identifier, is `Surface`, or is the name of one of the basic catalog's components or of an earlier app
-component, and one with a parameter whose name isn't an identifier or is `id`, `component`, `weight` or
-`accessibility`.
+A component the agent can't place, such as one named like a basic component or with a parameter named `id` or
+`weight`, is left out, and reported in debug builds.
 
 ## The look
 
