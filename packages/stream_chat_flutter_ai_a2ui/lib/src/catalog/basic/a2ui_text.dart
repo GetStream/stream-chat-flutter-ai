@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// Builds a `Text`: its `text` as Markdown, in the body style, or in the
@@ -60,7 +60,7 @@ class _A2UIText extends StatelessWidget {
     );
   }
 
-  static MarkdownStyleSheet _styleSheet(BuildContext context, A2UITheme theme, TextStyle base) {
+  static MarkdownStyleSheet _styleSheet(BuildContext context, A2UIResolvedTheme theme, TextStyle base) {
     TextStyle heading(int level) => theme.heading(level).copyWith(color: base.color);
     return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
       p: base,

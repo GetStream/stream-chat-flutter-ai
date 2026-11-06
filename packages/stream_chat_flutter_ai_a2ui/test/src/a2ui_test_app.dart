@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
@@ -18,7 +19,7 @@ Future<A2UIProcessor> pumpSurface(
   required List<Map<String, Object?>> components,
   Map<String, Object?> data = const {},
   A2UICatalog catalog = A2UICatalog.basic,
-  A2UITheme? theme,
+  A2UIThemeData? theme,
   A2UIMediaUrl mediaUrl = a2uiWebMediaUrl,
   List<A2UIError>? errors,
   TextDirection direction = TextDirection.ltr,
@@ -47,7 +48,7 @@ Future<A2UIProcessor> pumpSurface(
 Widget surfaceApp(
   A2UISurface surface, {
   A2UICatalog catalog = A2UICatalog.basic,
-  A2UITheme? theme,
+  A2UIThemeData? theme,
   A2UIMediaUrl mediaUrl = a2uiWebMediaUrl,
   TextDirection direction = TextDirection.ltr,
   double width = 400,
@@ -105,7 +106,7 @@ String updateData(String path, Object? value) {
 }
 
 // The theme a surface under a light Stream theme is drawn with.
-A2UITheme lightTheme() => A2UITheme.fromStream(StreamTheme.light());
+A2UIResolvedTheme lightTheme() => A2UIResolvedTheme.fromData(const A2UIThemeData.empty(), StreamTheme.light());
 
 // A root column of [children], each given as a component.
 List<Map<String, Object?>> inColumn(List<Map<String, Object?>> children) => [

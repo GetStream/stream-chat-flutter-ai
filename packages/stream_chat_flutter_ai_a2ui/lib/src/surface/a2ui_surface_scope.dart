@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 
 /// Signature for a function that gives the URL to load an image from, given
 /// the URL the agent wrote, or `null` to not load it.
@@ -43,7 +43,7 @@ class A2UISurfaceScope extends InheritedWidget {
   final A2UICatalog catalog;
 
   /// The look of the surface's components.
-  final A2UITheme theme;
+  final A2UIResolvedTheme theme;
 
   /// The function the surface's images are loaded through.
   final A2UIMediaUrl mediaUrl;
