@@ -168,13 +168,25 @@ final class A2UINode extends ChangeNotifier {
   ///
   /// A link the action opens, such as with `openUrl`, goes to [onOpenLink],
   /// and only while the action runs. Without [onOpenLink], the link is
-  /// reported as not opened.
+  /// reported as not opened. A function no catalog has that the action calls
+  /// reaches the processor's `onAgentFunction` as the person's own act.
   Future<void> act(String name, {A2UIOpenLink? onOpenLink}) async {
     if (_disposed) return;
     final action = _node.props.peek()[name];
     if (action is! Future<void> Function()) return;
+    final processor = _surface._processor;
     try {
-      await runZoned(action, zoneValues: {_openLinkKey: onOpenLink});
+      final Future<void> running;
+      // The core sends a function the action calls to the agent before the
+      // action first waits, so only that part counts as the person's act;
+      // what the action starts to run later doesn't.
+      processor._userActs += 1;
+      try {
+        running = runZoned(action, zoneValues: {_openLinkKey: onOpenLink});
+      } finally {
+        processor._userActs -= 1;
+      }
+      await running;
     } on core.A2uiError catch (error) {
       _surface._processor._report(_errorFromCore(error, surfaceId: _surface.id));
     } catch (error) {

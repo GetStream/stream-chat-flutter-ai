@@ -1,14 +1,15 @@
 import 'package:flutter/foundation.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_renderer.dart';
 
-/// A problem with a reply's A2UI that keeps part of it from showing: a message
-/// A2UI doesn't allow, a component or function its catalog doesn't have, or a
-/// value its data model can't take.
+/// A problem with a reply's A2UI: a message A2UI doesn't allow, a component
+/// or function its catalog doesn't have or that fails, or a value its data
+/// model can't take.
 ///
-/// Problems are reported as values, never thrown. Two errors are `==` when all
-/// their fields are.
-///
-/// Internal to the package.
-@internal
+/// Problems are reported as values, never thrown, and reach
+/// [A2UIRenderer.onError] with the id of the reply they are in; see
+/// [A2UIRenderer.new] for the ones reported in debug builds only. Two errors
+/// are `==` when all their fields are.
 @immutable
 final class A2UIError {
   /// Creates an [A2UIError].
@@ -53,9 +54,6 @@ final class A2UIError {
 ///
 /// The constants are the codes this package reports. Any other string is a
 /// valid code too, such as one A2UI adds later.
-///
-/// Internal to the package.
-@internal
 extension type const A2UIErrorCode(String _) implements String {
   /// A message, component or value that doesn't match what A2UI or the catalog
   /// allows.
@@ -84,7 +82,8 @@ extension type const A2UIErrorCode(String _) implements String {
   /// doesn't have.
   static const catalogNotFound = A2UIErrorCode('CATALOG_NOT_FOUND');
 
-  /// Components that hold each other, so their tree never ends.
+  /// Components that hold each other, so their tree never ends, or that
+  /// nest or expand too far to build.
   static const recursionLimitExceeded = A2UIErrorCode('RECURSION_LIMIT_EXCEEDED');
 
   /// A component whose type its catalog doesn't have.

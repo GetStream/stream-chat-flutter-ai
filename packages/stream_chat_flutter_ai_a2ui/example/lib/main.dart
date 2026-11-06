@@ -1,20 +1,14 @@
-// The package can't show a reply's A2UI in a conversation yet, so the gallery
-// reaches inside it for the pieces it is built from: the message processor,
-// the splitter and the surface view. The package's renderer replaces them.
-// What a person's actions do, the events an agent would get and the links
-// that would open, is listed under each example.
-// ignore_for_file: implementation_imports, invalid_use_of_internal_member
+// A conversation whose replies are A2UI, and a gallery of the examples
+// published with A2UI's basic catalog, both shown by the package's
+// `A2UIRenderer`. Each action an agent would get is listed below them, and
+// the gallery also lists each link that would open.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
 void main() => runApp(const GalleryApp());
@@ -78,14 +72,18 @@ class Example {
 Future<List<Example>> _loadExamples() async {
   final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
   final files = manifest.listAssets().where((path) => path.startsWith('assets/examples/')).toList()..sort();
+  final ohrid = await rootBundle.loadString('assets/ohrid_prompt_example.jsonl');
   final examples = <Example>[
     Example(
       name: 'A weekend in Ohrid',
       file: 'ohrid_prompt_example.jsonl',
-      messages: A2UIStream.messages(await rootBundle.loadString('assets/ohrid_prompt_example.jsonl')),
+      messages: [
+        for (final line in const LineSplitter().convert(ohrid))
+          if (line.trim().isNotEmpty) line,
+      ],
     ),
   ];
-  for (final path in [...files, 'assets/media_example.json']) {
+  for (final path in [...files, 'assets/media_example.json', 'assets/link_example.json']) {
     final json = jsonDecode(await rootBundle.loadString(path)) as Map<String, Object?>;
     examples.add(
       Example(
@@ -110,6 +108,8 @@ class ExamplesPage extends StatefulWidget {
 class _ExamplesPageState extends State<ExamplesPage> {
   late final Future<List<Example>> _examples = _loadExamples();
 
+  void _open(Widget page) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (context) => page));
+
   @override
   Widget build(BuildContext context) {
     final colors = context.streamColorScheme;
@@ -127,25 +127,51 @@ class _ExamplesPageState extends State<ExamplesPage> {
           final examples = snapshot.data;
           if (examples == null) return const Center(child: CircularProgressIndicator());
           return ListView.separated(
-            itemCount: examples.length,
+            itemCount: examples.length + 1,
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              final example = examples[index];
+              if (index == 0) {
+                return ListTile(
+                  leading: const Icon(Icons.forum_outlined),
+                  title: const Text('Conversation'),
+                  subtitle: const Text('The Ohrid reply as it streams, and replies from history'),
+                  onTap: () => _open(ConversationPage(examples: examples, onToggleMode: widget.onToggleMode)),
+                );
+              }
+              final example = examples[index - 1];
               final missing = example.missing;
               return ListTile(
                 title: Text(example.name),
                 subtitle: Text(missing.isEmpty ? example.file : '${example.file} · later: ${missing.join(', ')}'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => ExamplePage(example: example, onToggleMode: widget.onToggleMode),
-                  ),
-                ),
+                onTap: () => _open(ExamplePage(example: example, onToggleMode: widget.onToggleMode)),
               );
             },
           );
         },
       ),
     );
+  }
+}
+
+// What a person's actions did, newest last, as lines to show.
+class _ActionLog extends ChangeNotifier {
+  final lines = <String>[];
+
+  void add(String line) {
+    lines.add(line);
+    notifyListeners();
+  }
+
+  void addAction(AIUIAction action) {
+    final json = const JsonEncoder.withIndent('  ').convert(action.toJson());
+    add('Sent “${action.label}”\n$json');
+  }
+
+  void addError(A2UIError error) => add('${error.code}: ${error.message}');
+
+  void clear() {
+    lines.clear();
+    notifyListeners();
   }
 }
 
@@ -160,91 +186,58 @@ class ExamplePage extends StatefulWidget {
 }
 
 class _ExamplePageState extends State<ExamplePage> {
-  final _errors = <A2UIError>[];
-  // What the person's actions did: each event an agent would get, with its
-  // values, and each link that would open, newest last.
-  final _log = <String>[];
-  late final A2UIProcessor _processor = A2UIProcessor(
-    catalogs: A2UICatalogs(),
-    onAction: _handleAction,
-    onError: _handleError,
-  );
+  final _log = _ActionLog();
   late final AIUIHost _host = AIUIHost(
-    renderers: [_GalleryRenderer(_processor, onOpenLink: _handleOpenLink)],
-    send: (action) async {},
+    renderers: [A2UIRenderer(onError: (error, _) => _log.addError(error))],
+    send: (action) async => _log.addAction(action),
+    // The gallery has nowhere to open a link, so it only shows it.
+    open: (link) => _log.add('Opened $link'),
   );
 
-  // How many of the example's messages are applied, and whether they are
-  // being written one by one, as an agent streams them.
-  int _applied = 0;
+  // How many of the example's messages show, and whether they are being
+  // written one by one, as an agent streams them.
+  late int _shown = widget.example.messages.length;
   bool _isStreaming = false;
-  int _replay = 0;
+  Timer? _replay;
 
   // The pause between two messages of a replay.
   static const _messagePause = Duration(milliseconds: 600);
 
   @override
-  void initState() {
-    super.initState();
-    _processor.apply(widget.example.messages);
-    _applied = widget.example.messages.length;
-  }
-
-  // A problem can be reported while messages apply, during a build or before
-  // the page is on screen, so the page shows it after the frame.
-  void _handleError(A2UIError error) {
-    _errors.add(error);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() {
-        // The problem was added to _errors.
-      });
-    });
-  }
-
-  void _handleAction(A2UIActionEvent event) {
-    final userMessage = event.userMessage == null ? '' : ' “${event.userMessage}”';
-    setState(() => _log.add('Sent ${event.name}$userMessage ${jsonEncode(event.context)}'));
-  }
-
-  // The gallery has nowhere to open a link, so it only shows it.
-  void _handleOpenLink(Uri link) {
-    setState(() => _log.add('Opened $link'));
-  }
-
-  @override
   void dispose() {
+    _replay?.cancel();
     _host.dispose();
-    _processor.dispose();
+    _log.dispose();
     super.dispose();
   }
 
-  Future<void> _replayMessages() async {
-    _replay += 1;
-    final replay = _replay;
+  void _replayMessages() {
+    _replay?.cancel();
+    _log.clear();
     setState(() {
-      _processor.reset();
-      _errors.clear();
-      _log.clear();
-      _applied = 0;
+      _shown = 0;
       _isStreaming = true;
     });
-    for (final message in widget.example.messages) {
-      await Future<void>.delayed(_messagePause);
-      if (!mounted || replay != _replay) return;
+    _replay = Timer.periodic(_messagePause, (timer) {
       setState(() {
-        _processor.apply([message]);
-        _applied += 1;
+        _shown += 1;
+        _isStreaming = _shown < widget.example.messages.length;
       });
-    }
-    setState(() => _isStreaming = false);
+      if (!_isStreaming) timer.cancel();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.streamColorScheme;
     final missing = widget.example.missing;
-    final document = AIUIDocument(format: AIUIFormat.a2ui, isStreaming: _isStreaming, content: '$_applied');
+    final document = AIUIDocument(
+      format: AIUIFormat.a2ui,
+      version: A2UIRenderer.version,
+      isStreaming: _isStreaming,
+      content: widget.example.messages.take(_shown).join('\n'),
+    );
+    final view = AIUIView(host: _host, document: document, messageId: widget.example.file);
     return Scaffold(
       backgroundColor: colors.backgroundApp,
       appBar: AppBar(
@@ -262,16 +255,168 @@ class _ExamplePageState extends State<ExamplePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (missing.isNotEmpty) _Note('Not drawn yet: ${missing.join(', ')}'),
-            AIUIView(
-              key: ValueKey(_replay),
-              host: _host,
-              document: document,
-              messageId: widget.example.file,
+            if (view.canShow) view else const _Note('No surface yet.'),
+            ListenableBuilder(
+              listenable: _log,
+              builder: (context, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [for (final line in _log.lines) _Note(line)],
+              ),
             ),
-            for (final entry in _log) _Note(entry),
-            for (final error in _errors) _Note('${error.code}: ${error.message}'),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// A message of the example conversation.
+class _Message with AIMessage {
+  _Message(this.id, {required this.role, this.text = '', this.uiDocument});
+
+  @override
+  final String id;
+
+  @override
+  final AIMessageRole role;
+
+  @override
+  final String text;
+
+  @override
+  final AIUIDocument? uiDocument;
+}
+
+class ConversationPage extends StatefulWidget {
+  const ConversationPage({super.key, required this.examples, required this.onToggleMode});
+
+  final List<Example> examples;
+  final VoidCallback onToggleMode;
+
+  @override
+  State<ConversationPage> createState() => _ConversationPageState();
+}
+
+class _ConversationPageState extends State<ConversationPage> {
+  final _log = _ActionLog();
+  late final AIUIHost _host = AIUIHost(
+    renderers: [A2UIRenderer(onError: (error, _) => _log.addError(error))],
+    send: _send,
+  );
+  late final List<_Message> _history = [
+    for (final file in const [
+      '20_restaurant-card.json',
+      '01_flight-status.json',
+      '09_login-form.json',
+      'link_example.json',
+    ])
+      if (_example(file) case final example?) ...[
+        _Message('ask-$file', role: AIMessageRole.user, text: 'Show me ${example.name}.'),
+        _Message('reply-$file', role: AIMessageRole.assistant, text: example.name, uiDocument: _document(example)),
+      ],
+  ];
+  final _sent = <_Message>[];
+  late final Example _ohrid = widget.examples.first;
+
+  // How many of the Ohrid reply's lines the agent has written so far.
+  int _written = 0;
+  Timer? _writing;
+
+  // The pause between two lines the agent writes.
+  static const _linePause = Duration(milliseconds: 700);
+
+  @override
+  void initState() {
+    super.initState();
+    _writeOhrid();
+  }
+
+  @override
+  void dispose() {
+    _writing?.cancel();
+    _host.dispose();
+    _log.dispose();
+    super.dispose();
+  }
+
+  Example? _example(String file) {
+    for (final example in widget.examples) {
+      if (example.file == file) return example;
+    }
+    return null;
+  }
+
+  static AIUIDocument _document(Example example, {int? lines, bool isStreaming = false}) {
+    return AIUIDocument(
+      format: AIUIFormat.a2ui,
+      version: A2UIRenderer.version,
+      isStreaming: isStreaming,
+      content: example.messages.take(lines ?? example.messages.length).join('\n'),
+    );
+  }
+
+  void _writeOhrid() {
+    _writing?.cancel();
+    setState(() => _written = 0);
+    _writing = Timer.periodic(_linePause, (timer) {
+      setState(() => _written += 1);
+      if (_written >= _ohrid.messages.length) timer.cancel();
+    });
+  }
+
+  Future<void> _send(AIUIAction action) async {
+    _log.addAction(action);
+    setState(() => _sent.add(_Message('sent-${_sent.length}', role: AIMessageRole.user, text: action.label)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.streamColorScheme;
+    final messages = [
+      ..._history,
+      _Message('ask-ohrid', role: AIMessageRole.user, text: 'Plan a weekend in Ohrid'),
+      if (_written > 0)
+        _Message(
+          'reply-ohrid',
+          role: AIMessageRole.assistant,
+          text: 'Here is a plan for a weekend in Ohrid.',
+          uiDocument: _document(_ohrid, lines: _written, isStreaming: _written < _ohrid.messages.length),
+        ),
+      ..._sent,
+    ];
+    return Scaffold(
+      backgroundColor: colors.backgroundApp,
+      appBar: AppBar(
+        title: const Text('Conversation'),
+        actions: [
+          IconButton(onPressed: _writeOhrid, icon: const Icon(Icons.replay), tooltip: 'Write the Ohrid reply again'),
+          IconButton(onPressed: widget.onToggleMode, icon: const Icon(Icons.brightness_6), tooltip: 'Light or dark'),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: AIConversationView(
+              messages: messages,
+              isThinking: _written == 0,
+              ui: _host,
+            ),
+          ),
+          ListenableBuilder(
+            listenable: _log,
+            builder: (context, _) {
+              if (_log.lines.isEmpty) return const SizedBox.shrink();
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  reverse: true,
+                  children: [for (final line in _log.lines.reversed) _Note(line)],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -289,46 +434,6 @@ class _Note extends StatelessWidget {
       child: Text(
         text,
         style: context.streamTextTheme.captionDefault.copyWith(color: context.streamColorScheme.textSecondary),
-      ),
-    );
-  }
-}
-
-// Shows the surfaces of one processor as a reply's UI, 12 apart.
-class _GalleryRenderer extends AIUIRenderer {
-  _GalleryRenderer(this.processor, {required this.onOpenLink});
-
-  final A2UIProcessor processor;
-  final A2UIOpenLink onOpenLink;
-
-  @override
-  AIUIFormat get format => AIUIFormat.a2ui;
-
-  @override
-  AIUIEngine createEngine(AIUIHosting host) => _GalleryEngine(processor, onOpenLink: onOpenLink);
-}
-
-class _GalleryEngine extends AIUIEngine {
-  _GalleryEngine(this.processor, {required this.onOpenLink});
-
-  final A2UIProcessor processor;
-  final A2UIOpenLink onOpenLink;
-
-  @override
-  Widget? view(AIUIDocument document, String messageId) {
-    return ListenableBuilder(
-      listenable: processor,
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 12,
-        children: [
-          for (final surfaceId in processor.surfaceIds)
-            A2UISurfaceView(
-              key: ValueKey(processor.surface(surfaceId)),
-              surface: processor.surface(surfaceId)!,
-              onOpenLink: onOpenLink,
-            ),
-        ],
       ),
     );
   }

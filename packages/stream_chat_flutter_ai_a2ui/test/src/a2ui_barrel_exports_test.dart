@@ -37,6 +37,10 @@ const _expectedNames = {
   'A2UIChild',
   'A2UIComponentBuilder',
   'A2UIComponentScope',
+  'A2UIError',
+  'A2UIErrorCode',
+  'A2UIErrorHandler',
+  'A2UIRenderer',
   'A2UITheme',
   'A2UIThemeData',
 };

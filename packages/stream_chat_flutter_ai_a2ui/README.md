@@ -3,34 +3,66 @@
 Shows the interactive UI that an agent writes in [A2UI](https://a2ui.org) 1.0 in its replies, through the
 generative UI of [`stream_chat_flutter_ai`](../stream_chat_flutter_ai).
 
-This package is in development and isn't published. It has the components a reply's A2UI is drawn with, and their
-look, but can't show a reply's A2UI in a conversation yet: the renderer that does, and that takes the theme and catalog
-below, comes in a later version.
+This package is in development and isn't published.
+
+## Showing replies
+
+With an `A2UIRenderer` in the conversation's `AIUIHost`, a reply whose UI is A2UI shows its surfaces in place of its
+text:
+
+```dart
+final ui = AIUIHost(
+  renderers: [A2UIRenderer()],
+  send: (action) => channel.sendMessage(Message(text: action.label, extraData: action.toCustomData())),
+);
+
+AIConversationView(messages: messages, ui: ui)
+```
+
+A backend that takes what the person did beside their message, rather than in the message's custom data, gets
+`action.label` as the message's text and `action.toJson()` as the action.
+
+While the agent is still writing a reply, its text shows until the first surface arrives, and each part comes in as
+it arrives. A reply keeps its surfaces while the host keeps the reply, so what the person enters survives scrolling.
+
+When the person taps a button, the host's `send` gets an `AIUIAction` named after the button's event. Its `label`,
+the person's message, is the text of the button's child, or else the event's name in words ("Submit form" for
+`submit_form`), never the agent's own words for the action. Its payload holds `surfaceId`, `sourceComponentId`,
+`context`, the agent's `userMessage` when it wrote one, and the surface's `dataModel` when the agent asked for it.
+
+A web link the person's tap opens goes to the host's `open`. A function the agent's UI calls that no catalog has runs
+as one of the host's `tools`: a read-only one whenever the UI calls it, any other only from the person's tap.
+
+Problems with a reply's A2UI, such as a component the catalog doesn't have, go to the renderer's `onError` with the
+reply's message id; without it they are reported in debug builds only. Messages that aren't JSON objects, and a
+finished reply whose components don't form a whole tree, are reported in debug builds only.
 
 ## The look
 
-A reply's A2UI is drawn with the app's Stream design system, so it follows light and dark mode. An `A2UITheme` overrides
-any of its values; the ones it leaves unset still come from the Stream theme:
+A reply's A2UI is drawn with the app's Stream design system, so it follows light and dark mode. An `A2UIThemeData`
+given to the renderer, or an `A2UITheme` above the conversation, overrides any of its values; the ones it leaves unset
+still come from the Stream theme, read each time the reply is built:
 
 ```dart
-A2UITheme(
-  data: A2UIThemeData(accent: const Color(0xFFE65100), cornerRadius: 8),
-  child: child,
-);
+final renderer = A2UIRenderer(theme: A2UIThemeData(cornerRadius: 8));
 ```
+
+The renderer's `theme` stays as it was given. An override that depends on the context, such as on the app's own
+theme, goes in an `A2UITheme` above the conversation instead, which is read each time the reply is built too.
 
 ## The components
 
 `A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`, `Column`, `List`,
 `Card`, `Divider`, `Tabs` and `Modal`, and the components a person uses: `Button`, `TextField`, `CheckBox`,
 `ChoicePicker`, `Slider` and `DateTimeInput`. To draw one of them another way, replace its builder; the agent still
-writes the component as A2UI describes it:
+writes the component as A2UI describes it, and the renderer takes the catalog:
 
 ```dart
 final catalog = A2UICatalog.basic.replacing('Card', (context, scope) {
   final child = scope.child();
   return BrandCard(child: child == null ? null : scope.build(child));
 });
+final renderer = A2UIRenderer(catalog: catalog);
 ```
 
 A builder of a component a person uses writes what they enter to the surface's data model, and runs the component's
@@ -45,16 +77,17 @@ final catalog = A2UICatalog.basic.replacing('CheckBox', (context, scope) {
 });
 ```
 
-The [example](example) is a gallery of the examples published with A2UI's basic catalog, which lists what a person's
-actions in them do: each event an agent would get, with its values, and each link that would open.
+The [example](example) shows a conversation whose replies are A2UI, one of them written part by part as an agent
+would, and a gallery of the examples published with A2UI's basic catalog. Both list each action the agent would get,
+and the gallery also lists each link that would open.
 
 ## Video and audio
 
 A `Video` shows its poster and an `AudioPlayer` its description; neither loads its media until the person taps play.
-Media loads only from web links. An app that plays media needs the `INTERNET` permission in its Android manifest
-(Flutter adds it only to debug and profile builds), and a sandboxed macOS app needs the
-`com.apple.security.network.client` entitlement. Media over `https` needs nothing more. Media over plain `http` also
-needs `android:usesCleartextTraffic="true"` on the Android manifest's `<application>`, and
+Media loads only from web links, unless the renderer is given another `mediaUrl`. An app that plays media needs the
+`INTERNET` permission in its Android manifest (Flutter adds it only to debug and profile builds), and a sandboxed macOS
+app needs the `com.apple.security.network.client` entitlement. Media over `https` needs nothing more. Media over plain
+`http` also needs `android:usesCleartextTraffic="true"` on the Android manifest's `<application>`, and
 `NSAllowsArbitraryLoadsForMedia` under `NSAppTransportSecurity` in the `Info.plist` of an iOS or macOS app. That
 covers the video and audio, not a video's poster or an `Image`, which need an ATS exception for their domain.
 
