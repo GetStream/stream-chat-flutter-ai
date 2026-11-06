@@ -28,7 +28,13 @@ part of 'a2ui_adapter.dart';
 @internal
 final class A2UISurface extends ChangeNotifier {
   A2UISurface._(this._model, this._processor, {required bool isTooLarge}) : id = _model.id {
-    _errors = _model.onError.subscribe((error) => _processor._report(_errorFromSurface(error)));
+    // A failed call in a binding names its call and no surface.
+    _errors = _model.onError.subscribe(
+      (error) => _processor._report(
+        _errorFromSurface(error, surfaceId: id),
+        dedupe: error.functionCallId == null,
+      ),
+    );
     if (!isTooLarge) _buildTree();
   }
 
@@ -41,6 +47,10 @@ final class A2UISurface extends ChangeNotifier {
   void Function()? _unsubscribeRoot;
   final Expando<A2UINode> _nodes = Expando();
   bool _disposed = false;
+
+  // Whether this surface had a root when it stopped following the core's
+  // surface, or `null` while it follows it.
+  bool? _hadRootWhenDetached;
 
   /// The id the agent gave this surface.
   final String id;
@@ -217,11 +227,19 @@ final class A2UISurface extends ChangeNotifier {
     _processor._checkSize(id);
   }
 
+  // Stops following the root of the core's surface, which the core is about
+  // to dispose.
+  void _detach() {
+    _hadRootWhenDetached = root != null;
+    _unsubscribeRoot?.call();
+    _unsubscribeRoot = null;
+  }
+
   // Releases this surface. When [notify] is true, listeners hear first that
   // its root is gone, so a view of a surface the agent deleted shows nothing.
   void _dispose({required bool notify}) {
     if (_disposed) return;
-    final hadRoot = root != null;
+    final hadRoot = _hadRootWhenDetached ?? root != null;
     _disposed = true;
     _errors.unsubscribe();
     _unsubscribeRoot?.call();

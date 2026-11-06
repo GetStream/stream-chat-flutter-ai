@@ -68,6 +68,9 @@ Future<void> _runDataModel(Map<String, Object?> testCase) async {
   for (final path in (testCase['watch'] as List<Object?>?) ?? const []) {
     if (path is String) model.watch(path, () => notified.add(path));
   }
+  // The value the last `set` was given, which `mutate_input` changes after
+  // the model took it.
+  Object? lastInput;
   for (final step in (testCase['steps'] as List<Object?>?) ?? const []) {
     if (step is! Map<String, Object?>) continue;
     notified.clear();
@@ -75,8 +78,9 @@ Future<void> _runDataModel(Map<String, Object?> testCase) async {
     final expectError = step['expect_error'] ?? step['expectError'];
     final error = switch (step['op']) {
       'get' => _checkGet(model.get(path), step),
-      'set' => model.set(path, step['value']),
+      'set' => model.set(path, lastInput = _json(step['value'])),
       'delete' => model.set(path, null),
+      'mutate_input' => _mutate(lastInput, path, step['value']),
       'dispose' => _dispose(model),
       final op => fail('No data model operation $op.'),
     };
@@ -105,6 +109,30 @@ A2UIError? _checkGet(Object? value, Map<String, Object?> step) {
       expect(value, isA<List<Object?>>());
     case 'object':
       expect(value, isA<Map<String, Object?>>());
+  }
+  return null;
+}
+
+// Writes [value] at the JSON pointer [path] inside [input], a value given to
+// the model before, as a caller holding on to it would.
+A2UIError? _mutate(Object? input, String path, Object? value) {
+  final keys = [for (final key in path.split('/').skip(1)) key.replaceAll('~1', '/').replaceAll('~0', '~')];
+  if (keys.isEmpty) fail('mutate_input needs a path inside the value.');
+  var target = input;
+  for (final key in keys.take(keys.length - 1)) {
+    target = switch (target) {
+      final Map<String, Object?> map => map[key],
+      final List<Object?> list => list[int.parse(key)],
+      _ => fail('mutate_input path $path is not inside the value.'),
+    };
+  }
+  switch (target) {
+    case final Map<String, Object?> map:
+      map[keys.last] = value;
+    case final List<Object?> list:
+      list[int.parse(keys.last)] = value;
+    default:
+      fail('mutate_input path $path is not inside the value.');
   }
   return null;
 }

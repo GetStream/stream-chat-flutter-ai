@@ -108,12 +108,12 @@ final class FaultyCore extends core.MessageProcessor<core.ComponentApi> {
   bool _failed = false;
 
   @override
-  void processMessages(Object? payload, {bool isUserActivated = false}) {
+  void processMessages(Object? payload, {bool isUserActivated = false, core.ValidationConfig? validationConfig}) {
     if (!_failed) {
       _failed = true;
       throw StateError('core fault');
     }
-    super.processMessages(payload, isUserActivated: isUserActivated);
+    super.processMessages(payload, isUserActivated: isUserActivated, validationConfig: validationConfig);
   }
 
   @override
