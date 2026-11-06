@@ -350,6 +350,7 @@ root = Stack([DatePicker("r", "range", null, {from: "2026-01-02", to: "2026-01-0
     test('reads the day a string starts with, and no impossible day', () {
       expect(openUIParseDate('2026-02-03T10:00:00Z'), DateTime(2026, 2, 3));
       expect(openUIParseDate('2026-02-30'), isNull);
+      expect(openUIParseDate('0005-03-01'), isNull);
       expect(openUIParseDate('03/02/2026'), isNull);
       expect(openUIDateString(DateTime(7, 1, 9)), '0007-01-09');
     });
