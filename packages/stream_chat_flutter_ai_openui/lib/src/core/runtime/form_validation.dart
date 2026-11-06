@@ -29,7 +29,8 @@ final class ValidationRule {
 
 /// The validation rules of OpenUI Lang 1.0 (specification §5.4), as
 /// OpenUI's `utils/validation.ts` checks them: `required`, `email`, `url`,
-/// `numeric`, `min`, `max`, `minLength`, `maxLength` and `pattern`.
+/// `numeric`, `min`, `max`, `minLength` and `maxLength`. `pattern` is read
+/// but not checked yet: a field with a `pattern` rule accepts any value.
 ///
 /// Every rule but `required` lets an empty value pass — `null`, `""`, an
 /// empty list, or an object with no keys — and the first rule that fails
