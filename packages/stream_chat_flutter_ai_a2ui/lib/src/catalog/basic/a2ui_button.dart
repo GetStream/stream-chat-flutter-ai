@@ -64,7 +64,7 @@ Widget buildA2UIButton(BuildContext context, A2UIComponentScope scope) {
   );
 }
 
-// TODO: Drop this wrapper once `StreamButton` has a `semanticLabel` in
+// TODO(FLU-1232): Drop this wrapper once `StreamButton` has a `semanticLabel` in
 // stream_core_flutter, and pass the agent's label to it.
 //
 // The button, read with the agent's accessibility label in place of its
