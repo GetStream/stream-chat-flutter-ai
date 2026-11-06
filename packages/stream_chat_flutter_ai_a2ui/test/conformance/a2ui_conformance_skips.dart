@@ -11,7 +11,24 @@ const _callConfig = 'Per-call validation config of the optional agent_renderer_a
 const _functionCallErrors =
     'Expects the error to name the function call, and the errors of this package name no function call.';
 
+const _reportedOnce =
+    'Expects the same problem reported again by a later step; this package reports each distinct problem once, '
+    'until the processor is reset.';
+const _liveCancel =
+    "Cancels a live surface's calls to the agent, which this package never does: its calls are cancelled only with "
+    'their surface.';
+const _schemaOnly =
+    'Declares a function without an implementation (schema-only), which a catalog of a2ui_core, holding '
+    'implementations, cannot declare.';
+
 const _byName = <String, String>{
+  'test_agent_routing_no_default_catalog_is_catalog_error': _reportedOnce,
+  'test_agent_routing_non_json_argument_fails_locally': _reportedOnce,
+  'test_agent_routing_template_part_never_routes': _reportedOnce,
+  'test_agent_routing_refused_call_in_action_is_expression_error': _reportedOnce,
+  'test_agent_routing_malformed_event_context_value': _reportedOnce,
+  'test_agent_routing_cancelled_call_is_sent_again_when_its_value_is_rewritten': _liveCancel,
+  'test_agent_routing_cancelled_call_is_sent_again_on_unrelated_change': _liveCancel,
   'test_action_event_with_data_binding': _v09Syntax,
   'test_action_event_with_relative_scope': _v09Syntax,
   'test_action_direct_name_shorthand': _v09Syntax,
@@ -80,6 +97,12 @@ bool isConformanceCoreGap(String name) => _coreGaps.containsKey(name);
 String? conformanceSkipReason(String suite, String name, Map<String, Object?> testCase) {
   if (_byName[name] case final String reason) return reason;
   if (_coreGaps[name] case final String reason) return reason;
+  if ((testCase['catalogs'] as List<Object?>?)?.any(
+        (catalog) => catalog is Map && catalog.containsKey('agentFunctions'),
+      ) ??
+      false) {
+    return _schemaOnly;
+  }
   final version = testCase['protocolVersion'];
   if (_otherVersions.contains(version)) return 'A2UI $version: this package reads A2UI 1.0.';
   if (version != null || !_usesOtherVersion(testCase)) return null;

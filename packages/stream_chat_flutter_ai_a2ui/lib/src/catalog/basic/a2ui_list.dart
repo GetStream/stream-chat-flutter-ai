@@ -16,7 +16,12 @@ Widget buildA2UIList(BuildContext context, A2UIComponentScope scope) {
   final isHorizontal = scope.hint('direction') == 'horizontal';
   final children = [
     for (final child in scope.children())
-      A2UIFlexChild(key: ValueKey(child.key), weight: null, child: scope.build(child)),
+      A2UIFlexChild(
+        key: ValueKey(child.key),
+        weight: null,
+        fillsHeight: isHorizontal && a2uiFillsHeight(child),
+        child: scope.build(child),
+      ),
   ];
   final list = A2UIFlex(
     axis: isHorizontal ? Axis.horizontal : Axis.vertical,

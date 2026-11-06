@@ -28,12 +28,27 @@ A2UIError _errorFromCore(core.A2uiError error, {Map<String, Object?> message = c
   );
 }
 
+// What a person's act on component [componentId] of surface [surfaceId]
+// failed with, or `null` for a call cancelled because its surface was deleted,
+// which isn't a problem. Anything but a core error, such as the app's own
+// `onOpenLink` throwing, is an execution error of the action.
+A2UIError? _errorFromAct(Object error, {required String surfaceId, required String componentId}) {
+  if (error is core.A2uiRpcError && error.rpcCode == core.RpcErrorCode.cancelled) return null;
+  if (error is core.A2uiError) return _errorFromCore(error, surfaceId: surfaceId);
+  return A2UIError(
+    code: A2UIErrorCode.executionError,
+    message: "The action of component '$componentId' failed: $error",
+    surfaceId: surfaceId,
+  );
+}
+
 // A problem a surface found while its components were resolved.
-A2UIError _errorFromSurface(core.A2uiRendererError error) {
+// The surface it names, else [surfaceId], the surface that found it.
+A2UIError _errorFromSurface(core.A2uiRendererError error, {String? surfaceId}) {
   return A2UIError(
     code: A2UIErrorCode(error.code),
     message: error.message,
-    surfaceId: _nonEmpty(error.surfaceId),
+    surfaceId: _nonEmpty(error.surfaceId) ?? surfaceId,
     path: error.path,
   );
 }

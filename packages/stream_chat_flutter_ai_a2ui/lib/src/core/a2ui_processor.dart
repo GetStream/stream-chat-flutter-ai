@@ -15,6 +15,11 @@ typedef A2UIOpenLink = void Function(Uri link);
 // The zone value through which a running action reaches its [A2UIOpenLink].
 final _openLinkKey = Object();
 
+// The zone value that is `true` while a person's own act runs, including what
+// it waits for, such as a nested call the core awaits before the call it is an
+// argument of.
+final _userActKey = Object();
+
 /// Signature for the callback that receives what a processor sends the agent,
 /// as A2UI writes it.
 ///
@@ -89,7 +94,9 @@ final class A2UIProcessor extends ChangeNotifier {
   ///
   /// A function that hasn't answered after [agentFunctionTimeout] fails as
   /// timed out, reported through `onError`. Its answer, if it comes later, is
-  /// dropped, and the function's name goes to `onLateAnswer`.
+  /// dropped, and the function's name goes to `onLateAnswer`. A call that
+  /// failed, timed out or not, is asked again only once its arguments change,
+  /// so a binding it fills stays empty until then.
   ///
   /// None of these is called after [dispose].
   ///
@@ -161,9 +168,6 @@ final class A2UIProcessor extends ChangeNotifier {
   // The core creates a surface from inside `processMessages`, and tells this
   // processor of it with no way to say it is too large, so it is said here.
   String? _tooLargeSurfaceId;
-  // How many of the person's own acts are running their synchronous part
-  // now, which is when the core sends the functions they call.
-  var _userActs = 0;
   bool _disposed = false;
 
   /// The ids of this processor's surfaces, in the order they were created.
@@ -193,17 +197,14 @@ final class A2UIProcessor extends ChangeNotifier {
     final before = [..._surfaces.values];
     // Messages that arrive while the person's act runs, such as from the app's
     // code that the act calls, aren't the person's act.
-    final userActs = _userActs;
-    _userActs = 0;
-    try {
+    runZoned(() {
       for (final text in messages) {
         _applyText(text);
         // A callback may have disposed this processor.
         if (_disposed) return;
       }
-    } finally {
-      _userActs = userActs;
-    }
+    }, zoneValues: {_userActKey: false});
+    if (_disposed) return;
     if (!_isSame(before)) notifyListeners();
   }
 
@@ -526,7 +527,7 @@ final class A2UIProcessor extends ChangeNotifier {
       name: call.call,
       surfaceId: message.surfaceId,
       arguments: _plainMap(call.args),
-      isUserInitiated: _userActs > 0,
+      isUserInitiated: Zone.current[_userActKey] == true,
     );
     final functionCallId = message.functionCallId;
     // The core fails the call once this long has passed, and drops what
@@ -571,9 +572,12 @@ final class A2UIProcessor extends ChangeNotifier {
 
   // Reports [error] unless it was reported already, since a surface finds the
   // same problem each time its components are resolved again.
-  void _report(A2UIError error) {
+  //
+  // A failed call carries the id of that call, and each call fails once, so
+  // its failure is reported even when another call failed the same way.
+  void _report(A2UIError error, {bool dedupe = true}) {
     if (_disposed) return;
-    if (!_reported.add((error.code, error.message, error.surfaceId, error.path))) return;
+    if (dedupe && !_reported.add((error.code, error.message, error.surfaceId, error.path))) return;
     _onError?.call(error);
   }
 

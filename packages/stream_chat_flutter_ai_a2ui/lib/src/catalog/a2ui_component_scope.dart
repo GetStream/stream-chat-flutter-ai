@@ -246,3 +246,26 @@ void a2uiReportOnce(A2UIComponentScope scope, String key, String message) {
       _node.reportOnce(key, message);
   }
 }
+
+/// The id of the surface the component [scope] reads is in.
+///
+/// Internal to the package.
+@internal
+String a2uiSurfaceIdOf(A2UIComponentScope scope) {
+  return switch (scope) {
+    _NodeScope(:final _node) => _node.surfaceId,
+  };
+}
+
+/// Reports [error], which code drawing the component [scope] reads threw,
+/// through the processor's `onError` as an `EXECUTION_ERROR`, after the
+/// frame, as the app may rebuild in its `onError`.
+///
+/// Internal to the package.
+@internal
+void a2uiReportBuildError(A2UIComponentScope scope, Object error) {
+  switch (scope) {
+    case _NodeScope(:final _node):
+      WidgetsBinding.instance.addPostFrameCallback((_) => _node.reportBuildError(error));
+  }
+}

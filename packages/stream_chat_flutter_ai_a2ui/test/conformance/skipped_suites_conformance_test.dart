@@ -24,10 +24,6 @@ const _skipped = {
   'accessibility': _drawn,
   'adapter_conformance': _drawn,
   'message_processor_scaling': "Compares how long processing takes, and this package's tests don't measure time.",
-  'agent_function_routing':
-      "Evaluates function calls on a surface's bare data context and cancels calls through the core's RPC handler, "
-      "neither of which this package exposes; a2ui_core's own tests run it. This package's calls to the agent are "
-      "covered by the rpc_functions UI scenarios and the package's own tests.",
 };
 
 void main() {

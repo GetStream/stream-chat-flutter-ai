@@ -28,7 +28,13 @@ part of 'a2ui_adapter.dart';
 @internal
 final class A2UISurface extends ChangeNotifier {
   A2UISurface._(this._model, this._processor, {required bool isTooLarge}) : id = _model.id {
-    _errors = _model.onError.subscribe((error) => _processor._report(_errorFromSurface(error)));
+    // A failed call in a binding names its call and no surface.
+    _errors = _model.onError.subscribe(
+      (error) => _processor._report(
+        _errorFromSurface(error, surfaceId: id),
+        dedupe: error.functionCallId == null,
+      ),
+    );
     if (!isTooLarge) _buildTree();
   }
 
