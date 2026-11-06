@@ -118,7 +118,7 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
             ExcludeSemantics(
               child: Text(label, style: theme.label.copyWith(color: theme.secondaryText)),
             ),
-          if (isFilterable) _filterField(context, theme),
+          if (isFilterable) _filterField(context),
           if (isChips)
             Wrap(spacing: _chipSpacing, children: [for (final option in shown) optionOf(option)])
           else
@@ -142,19 +142,16 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
     return A2UIInputWidth(child: content);
   }
 
-  Widget _filterField(BuildContext context, A2UIResolvedTheme theme) {
+  // The search field above the options: the design system's text input, with
+  // the app's text input builder and theme.
+  Widget _filterField(BuildContext context) {
+    // The input needs a Material around it, which a surface may not have.
     return Material(
       type: MaterialType.transparency,
-      child: TextField(
+      child: StreamTextInput(
         controller: _filter,
-        style: theme.body.copyWith(color: theme.text),
-        cursorColor: theme.accent,
+        hintText: MaterialLocalizations.of(context).searchFieldLabel,
         textInputAction: TextInputAction.search,
-        decoration: a2uiStreamFieldDecoration(
-          context,
-          hint: MaterialLocalizations.of(context).searchFieldLabel,
-          hasError: false,
-        ),
       ),
     );
   }

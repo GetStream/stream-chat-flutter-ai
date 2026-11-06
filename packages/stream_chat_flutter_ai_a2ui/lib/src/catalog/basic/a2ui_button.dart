@@ -54,8 +54,6 @@ Widget buildA2UIButton(BuildContext context, A2UIComponentScope scope) {
           onPressed: isEnabled ? handleTap : null,
           style: style,
           type: type,
-          // A button grows with what it holds, which may be taller than a
-          // line of text, such as an icon over a caption.
           themeStyle: themeStyle,
           // What the button holds doesn't open the modal again.
           child: A2UIModalOpener(onOpen: null, child: child == null ? const SizedBox.shrink() : scope.build(child)),

@@ -30,6 +30,7 @@ Future<A2UIProcessor> pumpSurface(
   double width = 400,
   Brightness brightness = Brightness.light,
   StreamComponentBuilders? builders,
+  StreamTheme? streamTheme,
 }) async {
   final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: errors?.add, onAction: events?.add);
   addTearDown(processor.dispose);
@@ -45,14 +46,15 @@ Future<A2UIProcessor> pumpSurface(
       width: width,
       brightness: brightness,
       builders: builders,
+      streamTheme: streamTheme,
     ),
   );
   return processor;
 }
 
 // An app that shows [surface] at the top of a box at most [width] wide, under
-// a Stream theme of [brightness], with the component [builders] of the app, if
-// any.
+// a Stream theme of [brightness], or [streamTheme], with the component
+// [builders] of the app, if any.
 Widget surfaceApp(
   A2UISurface surface, {
   A2UICatalog catalog = A2UICatalog.basic,
@@ -63,11 +65,12 @@ Widget surfaceApp(
   double width = 400,
   Brightness brightness = Brightness.light,
   StreamComponentBuilders? builders,
+  StreamTheme? streamTheme,
 }) {
   return MaterialApp(
     theme: ThemeData(
       brightness: brightness,
-      extensions: [StreamTheme(brightness: brightness)],
+      extensions: [streamTheme ?? StreamTheme(brightness: brightness)],
     ),
     builder: (context, child) => StreamComponentFactory(builders: builders ?? StreamComponentBuilders(), child: child!),
     home: Directionality(

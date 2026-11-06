@@ -7,9 +7,13 @@ part of 'a2ui_component_scope.dart';
 /// It draws nothing while the component is on its way or its type has no
 /// builder; a type with no builder, such as one the app took out of the
 /// catalog, is logged once in debug builds. It builds again when the component's properties or children
-/// change. A builder that throws draws nothing either: the error goes to
-/// [FlutterError.reportError], and to the processor's `onError` as an
-/// `EXECUTION_ERROR` once the frame is done.
+/// change. A builder that throws while it builds the component draws nothing
+/// either: the error goes to [FlutterError.reportError], and to the
+/// processor's `onError` as an `EXECUTION_ERROR` once the frame is done. A
+/// builder the app registers through `StreamComponentFactory` runs when the
+/// design system's component builds, after the component's builder has
+/// returned, so what it throws isn't reported to `onError`; it shows as a
+/// Flutter build error instead.
 ///
 /// Internal to the package.
 @internal

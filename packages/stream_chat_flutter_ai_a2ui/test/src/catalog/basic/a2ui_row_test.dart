@@ -127,6 +127,31 @@ void main() {
     expect(tester.getSize(find.byWidgetPredicate((widget) => widget is SizedBox && widget.width == 1)).height, 48);
   });
 
+  testWidgets('a vertical divider whose axis is bound in a centered row is as tall as the row', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [
+        {
+          'id': 'root',
+          'component': 'Row',
+          'children': ['a', 'line'],
+          'align': 'center',
+        },
+        iconImage('a', variant: 'avatar'),
+        {
+          'id': 'line',
+          'component': 'Divider',
+          'axis': {'@path': '/axis'},
+        },
+      ],
+      data: {'axis': 'vertical'},
+      width: 300,
+      mediaUrl: (url) => null,
+    );
+
+    expect(tester.getSize(find.byWidgetPredicate((widget) => widget is SizedBox && widget.width == 1)).height, 48);
+  });
+
   testWidgets('an icon image next to long text keeps its width', (tester) async {
     await _pumpRow(tester, children: [iconImage('a'), _text('b', _longText())]);
 

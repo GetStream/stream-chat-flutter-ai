@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
 import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
@@ -103,6 +104,42 @@ void main() {
     final boxes = tester.widgetList<StreamCheckbox>(find.byType(StreamCheckbox));
     expect(boxes, hasLength(2));
     expect(boxes.where((box) => box.props.value), hasLength(1));
+  });
+
+  testWidgets("a row of a multiple choice is read as one node, without its box's own", (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_picker(variant: 'multipleSelection')],
+      data: _relaxed,
+    );
+
+    final row = tester.getSemantics(find.bySemanticsLabel('Relaxed'));
+    expect(row, isSemantics(hasCheckedState: true, isChecked: true));
+    expect(row.childrenCount, 0);
+  });
+
+  testWidgets('a multiple choice draws its boxes under Material 3 in a Material 2 app with no Material', (
+    tester,
+  ) async {
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([
+      createSurface([_picker(variant: 'multipleSelection')], data: _relaxed),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: false, extensions: [StreamTheme.light()]),
+        home: A2UISurfaceView(surface: processor.surface('s')!),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    // The box's look, its fill and border, is drawn only under Material 3.
+    for (final box in find.byType(StreamCheckbox).evaluate()) {
+      expect(Theme.of(box).useMaterial3, isTrue);
+    }
+    expect(find.byType(StreamCheckbox), findsNWidgets(2));
   });
 
   testWidgets('a row of a multiple choice is one stop when moving focus with the keyboard', (tester) async {
@@ -249,17 +286,10 @@ void main() {
     expect(find.text('Take it slow'), findsOneWidget);
   });
 
-  testWidgets('the filter field has no fill', (tester) async {
+  testWidgets("the filter field is the design system's text input", (tester) async {
     await pumpSurface(tester, components: [_picker(filterable: true)], data: _relaxed);
 
-    expect(tester.widget<TextField>(find.byType(TextField)).decoration!.filled, isFalse);
-  });
-
-  testWidgets('the filter field is outlined in the border color', (tester) async {
-    await pumpSurface(tester, components: [_picker(filterable: true)], data: _relaxed);
-
-    final border = tester.widget<TextField>(find.byType(TextField)).decoration!.enabledBorder! as OutlineInputBorder;
-    expect(border.borderSide.color, lightTheme().border);
+    expect(find.byType(StreamTextInput), findsOneWidget);
   });
 
   testWidgets('a filterable picker shows only the options whose label holds the filter', (tester) async {
@@ -307,7 +337,7 @@ void main() {
       data: _relaxed,
     );
 
-    expect(tester.getTopRight(find.byType(TextField)).dx, 400);
+    expect(tester.getTopRight(find.byType(StreamTextInput)).dx, 400);
   });
 
   testWidgets('a picker shows the messages of its failing checks', (tester) async {

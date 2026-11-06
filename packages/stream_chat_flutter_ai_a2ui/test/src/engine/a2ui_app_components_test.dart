@@ -86,6 +86,31 @@ void main() {
     expect(leftOut.single, contains("'id' is the key that holds a component's id"));
   });
 
+  for (final name in ['weight', 'accessibility']) {
+    test('a component with a parameter named $name is left out and reported', () {
+      final leftOut = <String>[];
+
+      final placeable = a2uiPlaceableComponents([
+        _component('badge', parameters: [AIUIParameter.required(name, AIUIParameterType.string)]),
+      ], onLeftOut: leftOut.add);
+
+      expect(placeable, isEmpty);
+      expect(leftOut.single, contains("'$name' is a property every component may hold"));
+    });
+  }
+
+  test('a component whose definition throws is left out and reported, and the rest are placed', () {
+    final leftOut = <String>[];
+
+    final placeable = a2uiPlaceableComponents([
+      const _ThrowingDefinition(),
+      _component('place_card'),
+    ], onLeftOut: leftOut.add);
+
+    expect(placeable.map((entry) => entry.type), ['PlaceCard']);
+    expect(leftOut.single, contains('its definition threw'));
+  });
+
   test('of two components placed by one type, the first is kept and the second reported', () {
     final first = _component('place_card');
     final second = _component('place-card');
@@ -108,6 +133,8 @@ void main() {
 
 // Where the type differs from the fixture's: a word starting with `ß` keeps
 // it, as Dart has no capital for it, where the fixture writes `SS`.
+// iOS gives `SSetaCard`; a first letter whose capital is more than one
+// letter is kept as written, so the type is the same on the web.
 const _differences = {'ßeta_card': 'ßetaCard'};
 
 AIUIComponent<Object?> _component(String name, {List<AIUIParameter> parameters = const []}) {
@@ -119,6 +146,19 @@ final class _TestComponent extends AIUIComponent<Object?> {
 
   @override
   final AIUIComponentDefinition definition;
+
+  @override
+  Object? readArguments(AIUIArguments arguments) => null;
+
+  @override
+  Widget build(BuildContext context, Object? arguments, AIUIComponentContext ui) => const SizedBox.shrink();
+}
+
+final class _ThrowingDefinition extends AIUIComponent<Object?> {
+  const _ThrowingDefinition();
+
+  @override
+  AIUIComponentDefinition get definition => throw StateError('no definition');
 
   @override
   Object? readArguments(AIUIArguments arguments) => null;

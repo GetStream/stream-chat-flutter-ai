@@ -67,10 +67,9 @@ final class A2UIResolvedTheme {
           data.headings ??
           [
             // A level-two heading is the large heading style, so a level-one
-            // heading stands above it at the largest text size.
-            _colorless(
-              textTheme.headingLg.copyWith(fontSize: largest, height: typography.lineHeight.relaxed / largest),
-            ),
+            // heading stands above it at the largest text size, with the
+            // large style's line spacing.
+            _colorless(textTheme.headingLg.copyWith(fontSize: largest)),
             _colorless(textTheme.headingLg),
             _colorless(textTheme.headingMd),
             _colorless(textTheme.headingSm),
