@@ -133,6 +133,47 @@ abstract final class JS {
     return scanned.$1;
   }
 
+  /// The number JavaScript's `parseFloat(string)` gives: the longest decimal
+  /// number, `Infinity` included, at the start of `string` after leading
+  /// white space; `NaN` when there is none.
+  ///
+  /// So `"12abc"` is `12`, `" .5e1x"` is `5`, and `"0x10"` is `0`.
+  static double parseFloat(String string) => _scanDecimalLiteral(trimStart(string))?.$1 ?? double.nan;
+
+  /// The number JavaScript's `Math.round(value)` gives: the nearest integer,
+  /// with halves rounded up, so `2.5` is `3` and `-2.5` is `-2`; `NaN` and
+  /// the infinities stay as they are, and `-0.4` is `-0`.
+  static double round(double value) {
+    if (!value.isFinite) return value;
+    final floor = value.floorToDouble();
+    final rounded = value - floor >= 0.5 ? floor + 1 : floor;
+    return rounded == 0 && value.isNegative ? -0.0 : rounded;
+  }
+
+  /// The smaller of `a` and `b`, as JavaScript's `Math.min`: `NaN` when either
+  /// is, and `-0` below `0`.
+  static double min(double a, double b) {
+    if (a.isNaN || b.isNaN) return double.nan;
+    if (a == b) return a.isNegative ? a : b;
+    return a < b ? a : b;
+  }
+
+  /// The larger of `a` and `b`, as JavaScript's `Math.max`: `NaN` when either
+  /// is, and `0` above `-0`.
+  static double max(double a, double b) {
+    if (a.isNaN || b.isNaN) return double.nan;
+    if (a == b) return a.isNegative ? b : a;
+    return a > b ? a : b;
+  }
+
+  /// JavaScript's `a % b`: the remainder of truncating division, with the
+  /// sign of `a`, so `-7 % 3` is `-1`.
+  static double remainder(double a, double b) => a.remainder(b);
+
+  /// JavaScript's `String(value ?? "")`: the empty string for a nullish
+  /// value, otherwise [stringOf].
+  static String toStringOrEmpty(OpenUIValue? value) => isNullish(value) ? '' : stringOf(value);
+
   // The longest ECMAScript `StrDecimalLiteral` at the start of `text`,
   // `Infinity` included, as its value and length; `null` when there is none.
   static (double, int)? _scanDecimalLiteral(String text) {

@@ -2,44 +2,40 @@
 // reason. iOS and Android run every case of the parser fixtures and have no
 // skip list; this package runs all of those too. The skips below are of the
 // specification's own fixtures, which the platforms reach only through the
-// parser fixtures' `v1-spec/*` cases.
+// parser fixtures' `v1-spec/*` cases, and of the one evaluator case whose
+// result needs the locale's collation.
 
 /// The areas of the specification's fixtures this package runs.
-const specAreasRun = ['grammar', 'entry', 'errors', 'streaming'];
+const specAreasRun = ['grammar', 'entry', 'errors', 'streaming', 'evaluation', 'actions', 'state'];
 
 /// The areas of the specification's fixtures this package doesn't run yet,
 /// each with the reason.
 const specAreasSkipped = {
-  'actions': _needsRuntime,
-  'state': _needsRuntime,
-  'evaluation': 'Evaluating programs is not part of the package yet.',
   'editing': "Merging an edit into an earlier program isn't part of the package.",
 };
 
-const _needsRuntime = "Running a program's state, forms and actions is not part of the package yet.";
+const _needsPatternMatcher =
+    "A `pattern` rule needs a regular expression matcher that can't freeze the app, which the package doesn't have yet.";
 
-const _needsEvaluating =
-    "The tree's values come from evaluating it (operators, member reads, a ternary entry, a library function), "
-    'which the evaluator does.';
+/// Why the validation case with [rules] isn't run, or `null` when it is.
+String? specValidationSkipReason(Object? rules) =>
+    rules is Map<String, Object?> && rules.containsKey('pattern') ? _needsPatternMatcher : null;
 
-const _rootNeedsEvaluating = {
-  'grammar/006-lex-minus-and-skip',
-  'grammar/008-expr-precedence-and-keys',
-  'grammar/009-member-digits-field',
-  'entry/006-ternary-root-multiline',
-  'errors/002-unknown-function-null',
-  'errors/014-function-literal-args',
-  'streaming/001-worked-example',
-  'streaming/003-multiline-ternary-across-chunks',
-};
+const _needsCollation =
+    "@Sort orders text with the locale's collation, which puts accented letters next to their base letter; "
+    "the package doesn't collate by locale yet.";
 
-/// The names of the specification's cases whose rendered tree isn't compared
-/// yet.
-Set<String> get specRootSkips => _rootNeedsEvaluating;
+/// The specification's cases whose rendered tree isn't compared, by name,
+/// with the reason.
+const _rootSkips = {'evaluation/008-builtin-sort-locale': _needsCollation};
 
 /// Why the rendered tree of the specification's case [name] isn't compared,
 /// or `null` when it is.
-String? specRootSkipReason(String name) => _rootNeedsEvaluating.contains(name) ? _needsEvaluating : null;
+String? specRootSkipReason(String name) => _rootSkips[name];
+
+/// Why the evaluator case [name] isn't run, or `null` when it is.
+String? evaluatorCaseSkipReason(String name) =>
+    name == 'corpus-v1-spec/evaluation/008-builtin-sort-locale' ? _needsCollation : null;
 
 /// Why the second half of the specification's case [name], serializing the
 /// tree and reading it back, isn't run, or `null` when the case has none.
