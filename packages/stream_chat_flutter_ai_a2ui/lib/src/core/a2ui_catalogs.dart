@@ -17,6 +17,11 @@ part of 'a2ui_adapter.dart';
 /// formats, such as a `DateTimeInput`'s `min` being a date or a time, is kept
 /// whichever it is. Every other property is checked as the catalog lists it.
 ///
+/// Only the basic components the app draws are in them: a basic component
+/// the app's `A2UICatalog` has no builder for, such as one taken out with
+/// `A2UICatalog.removing`, is unknown, as it is to the agent, which
+/// [describe] leaves it out for.
+///
 /// The app's own components join both catalogs too, each under the A2UI type
 /// it is placed by; see [A2UICatalogs.new]. They hold no other components and
 /// no action.
@@ -38,10 +43,14 @@ final class A2UICatalogs {
   /// be there. What each parameter's schema says about its value isn't
   /// checked here. Each type must be one
   /// [appComponentProblem] finds nothing wrong with.
+  ///
+  /// Of the basic catalog's components, only those of [basicTypes] are in the
+  /// catalogs, or all of them when it is `null`.
   A2UICatalogs({
     this.catalogId = defaultCatalogId,
     String locale = defaultLocale,
     Map<String, Map<String, Object?>> appComponents = const {},
+    Iterable<String>? basicTypes,
   }) : assert(
          appComponents.entries.every((entry) => appComponentProblem(entry.key, entry.value) == null),
          "A2UICatalogs was given app components that can't join the catalogs: ${[
@@ -49,7 +58,7 @@ final class A2UICatalogs {
              if (appComponentProblem(key, value) case final problem?) '$key ($problem)',
          ].join(', ')}.",
        ),
-       _catalogs = _assemble(catalogId, locale, appComponents);
+       _catalogs = _assemble(catalogId, locale, appComponents, basicTypes?.toSet());
 
   /// The catalogs a conformance case needs, the first of which is the app's.
   ///
@@ -168,10 +177,12 @@ final class A2UICatalogs {
     String catalogId,
     String locale,
     Map<String, Map<String, Object?>> appComponents,
+    Set<String>? basicTypes,
   ) {
     final basic = core.BasicCatalog.v1_0(locale: locale, openUrl: _openUrl);
     final components = [
-      for (final component in basic.components.values) _withLooseStyle(component),
+      for (final component in basic.components.values)
+        if (basicTypes == null || basicTypes.contains(component.name)) _withLooseStyle(component),
       for (final MapEntry(:key, :value) in appComponents.entries) _appComponent(key, value),
     ];
     core.Catalog<core.ComponentApi, core.FunctionImplementation> named(String id) {
@@ -190,6 +201,65 @@ final class A2UICatalogs {
 
     if (catalogId == basic.id) return [named(basic.id)];
     return [named(catalogId), named(basic.id)];
+  }
+
+  /// The catalog the agent writes with, as it is told about it: the JSON
+  /// Schema document of the catalog named [catalogId], without guidelines.
+  ///
+  /// It holds the basic catalog's components of [basicTypes], or all of them
+  /// when it is `null`, its functions, and [appComponents], each under the
+  /// A2UI type it is placed by, with the parameters of its `parameters`
+  /// schema as its properties, as they are written there, and its
+  /// `description`. The basic components are described as the basic catalog
+  /// lists them, not as loosely as [A2UICatalogs.new] reads them, so the
+  /// agent writes the values the catalog lists.
+  static Map<String, Object?> describe({
+    String catalogId = defaultCatalogId,
+    Iterable<String>? basicTypes,
+    Map<String, ({String description, Map<String, Object?> parameters})> appComponents = const {},
+  }) {
+    final types = basicTypes?.toSet();
+    final basic = core.BasicCatalog.v1_0();
+    final catalog = core.Catalog<core.ComponentApi, core.FunctionImplementation>(
+      id: catalogId,
+      components: [
+        for (final component in basic.components.values)
+          if (types == null || types.contains(component.name)) component,
+        for (final MapEntry(:key, :value) in appComponents.entries) _describedAppComponent(key, value),
+      ],
+      functions: basic.functions.values.toList(),
+      themeSchema: basic.themeSchema,
+      title: basic.title,
+      description: basic.description,
+      protocolVersion: basic.protocolVersion,
+      definitions: basic.definitions,
+    );
+    return catalog.toJson();
+  }
+
+  // An app component of [type] as the agent is told about it: its parameters'
+  // own schemas as its properties, as iOS and Android describe it.
+  static core.ComponentApi _describedAppComponent(
+    String type,
+    ({String description, Map<String, Object?> parameters}) component,
+  ) {
+    final parameters = component.parameters['properties'];
+    final required = switch (component.parameters['required']) {
+      final List<Object?> names => names.whereType<String>(),
+      _ => const <String>[],
+    };
+    return core.ComponentApi(
+      name: type,
+      schema: Schema.fromMap({
+        'type': 'object',
+        if (component.description.isNotEmpty) 'description': component.description,
+        'properties': {
+          if (parameters is Map<String, Object?>) ...parameters,
+          _typeKey: {'const': type},
+        },
+        'required': ({_typeKey, ...required}.toList()..sort()),
+      }),
+    );
   }
 
   static core.ComponentApi _withLooseStyle(core.ComponentApi component) {
