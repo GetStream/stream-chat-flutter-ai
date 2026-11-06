@@ -14,6 +14,16 @@ typedef A2UIErrorCallback = void Function(A2UIError error);
 /// Only the conformance tests use it.
 typedef A2UIDebugOutboundCallback = void Function(Map<String, Object?> message);
 
+/// Signature for a function that makes the A2UI core a processor applies
+/// messages with, holding `catalogs` and sending its actions to `onAction`.
+///
+/// Only tests use it, to stand in a core that fails.
+typedef A2UIDebugCoreFactory =
+    core.MessageProcessor<core.ComponentApi> Function(
+      List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> catalogs,
+      void Function(core.A2uiRendererAction action) onAction,
+    );
+
 /// One reply's A2UI surfaces, built from the messages applied to it.
 ///
 /// A reply's agent writes A2UI as a series of messages: one creates a surface,
@@ -67,10 +77,18 @@ final class A2UIProcessor extends ChangeNotifier {
   /// None of the three may throw: one that does stops [apply] partway, and
   /// leaves the problem it was given marked as reported. Its creator runs app
   /// code behind its own guard, as the engine does.
-  A2UIProcessor({required this._catalogs, this._onAction, this._onError, this._onUnreadable})
-    : _defaultsCatalog = true,
-      _debugChecks = null,
-      _debugOnOutbound = null {
+  ///
+  /// A test can pass a `debugCoreFactory` to make the core it applies messages
+  /// with.
+  A2UIProcessor({
+    required this._catalogs,
+    this._onAction,
+    this._onError,
+    this._onUnreadable,
+    @visibleForTesting this._debugCoreFactory,
+  }) : _defaultsCatalog = true,
+       _debugChecks = null,
+       _debugOnOutbound = null {
     _core = _makeCore();
   }
 
@@ -87,6 +105,7 @@ final class A2UIProcessor extends ChangeNotifier {
     A2UIDebugChecks? checks,
     A2UIDebugOutboundCallback? onOutbound,
   }) : _onUnreadable = null,
+       _debugCoreFactory = null,
        _defaultsCatalog = false,
        _debugChecks = checks,
        _debugOnOutbound = onOutbound {
@@ -97,6 +116,7 @@ final class A2UIProcessor extends ChangeNotifier {
   final A2UIActionCallback? _onAction;
   final A2UIErrorCallback? _onError;
   final VoidCallback? _onUnreadable;
+  final A2UIDebugCoreFactory? _debugCoreFactory;
   final bool _defaultsCatalog;
   final A2UIDebugChecks? _debugChecks;
   final A2UIDebugOutboundCallback? _debugOnOutbound;
@@ -394,14 +414,16 @@ final class A2UIProcessor extends ChangeNotifier {
 
   core.MessageProcessor<core.ComponentApi> _makeCore() {
     final onOutbound = _debugOnOutbound;
-    final processor = core.MessageProcessor<core.ComponentApi>(
-      catalogs: _catalogs._catalogs,
-      validationConfig: _debugChecks?._config,
-      onAction: _handleAction,
-      outboundListener: onOutbound == null
-          ? null
-          : (message) => onOutbound(_fromCoreVersion(_plainMap(message.toJson()))),
-    );
+    final processor =
+        _debugCoreFactory?.call(_catalogs._catalogs, _handleAction) ??
+        core.MessageProcessor<core.ComponentApi>(
+          catalogs: _catalogs._catalogs,
+          validationConfig: _debugChecks?._config,
+          onAction: _handleAction,
+          outboundListener: onOutbound == null
+              ? null
+              : (message) => onOutbound(_fromCoreVersion(_plainMap(message.toJson()))),
+        );
     _coreSubscriptions
       ..add(processor.model.onSurfaceCreated.subscribe(_handleSurfaceCreated))
       ..add(processor.model.onSurfaceDeleted.subscribe(_handleSurfaceDeleted));
