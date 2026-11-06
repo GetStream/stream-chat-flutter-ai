@@ -8,8 +8,8 @@ import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 /// an audio clip from, given the URL the agent wrote, or `null` to not load
 /// it.
 ///
-/// Internal to the package.
-@internal
+/// An `A2UIRenderer` loads each image, video and audio clip of a reply from
+/// the URL its `mediaUrl` gives.
 typedef A2UIMediaUrl = Uri? Function(Uri url);
 
 /// The URL to load the media at [url] from: the URL the agent wrote, parsed,
@@ -56,7 +56,7 @@ class A2UISurfaceScope extends InheritedTheme {
     required this.catalog,
     required this.theme,
     required this.mediaUrl,
-    this.onOpenLink,
+    required this.onOpenLink,
     required super.child,
   });
 

@@ -126,15 +126,19 @@ class A2UIThemeData with Diagnosticable {
   /// A level deeper than it has uses the last one.
   final List<TextStyle>? headings;
 
-  /// The corner radius of cards. Defaults to the Stream theme's `xl` radius.
+  /// The corner radius of cards, and of the top of sheets. Defaults to the
+  /// Stream theme's `xl` radius for cards, and leaves sheets as the app's
+  /// sheet theme draws them.
   final double? cornerRadius;
 
   /// The corner radius of buttons. Defaults to the Stream theme's `max`
-  /// radius, which fully rounds them.
+  /// radius, which fully rounds them; unset, buttons are drawn as the app's
+  /// button theme draws them.
   final double? buttonCornerRadius;
 
   /// The corner radius of fields, images and players. Defaults to the Stream
-  /// theme's `xl` radius.
+  /// theme's `xl` radius for images and players, and leaves fields as the
+  /// app's text input theme draws them.
   final double? controlCornerRadius;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the

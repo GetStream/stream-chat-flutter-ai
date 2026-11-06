@@ -13,9 +13,11 @@ import 'package:stream_core_flutter/core.dart';
 ///
 /// The image is drawn with the Stream design system's [StreamNetworkImage], so
 /// the builder an app registers for network images through
-/// [StreamComponentFactory] loads and draws it instead. It is decoded at a
-/// width its box needs rather than at its own size, unless its `fit` is
-/// `none`, which shows it at its own size.
+/// [StreamComponentFactory] loads and draws it instead; a builder that
+/// ignores the props' `errorBuilder` draws its own failure, and the failure
+/// isn't logged. It is decoded at a width its box needs rather than at its
+/// own size, and never wider than [a2uiMaxDecodeWidth] (see
+/// [a2uiDecodeWidth]).
 ///
 /// The box shows the subtle surface color, with a spinner while the image
 /// loads. An image that can't load, whose URL has no scheme, or whose URL the
@@ -169,28 +171,39 @@ class A2UIImageView extends StatelessWidget {
   }
 }
 
-/// The width, in pixels, an image shown with [fit] in a box [height] tall and
-/// [width] wide is decoded at, or `null` to decode it at its own size.
-///
-/// A box with no [width] is taken to be as wide as the screen.
-///
-/// The image keeps its proportions. An image that only has to fit in the box
-/// needs no more pixels than the box's longest side; one that covers or fills
-/// the box needs more when it is wider than the box, so it gets twice that,
-/// which keeps images up to twice as wide as tall sharp. With [BoxFit.none]
-/// it is shown at its own size, so it is decoded at its own size.
+/// The widest, in pixels, an image is ever decoded at, whatever its box and
+/// its `fit`.
 ///
 /// Internal to the package.
 @internal
-int? a2uiDecodeWidth(BuildContext context, {required double? width, required double height, required BoxFit fit}) {
+const a2uiMaxDecodeWidth = 2048;
+
+/// The width, in pixels, an image shown with [fit] in a box [height] tall and
+/// [width] wide is decoded at.
+///
+/// A box with no [width] is taken to be as wide as the screen.
+///
+/// Only the width is given, so the image is decoded with its proportions:
+/// the image loaders scale a decode given both sides to exactly those sides.
+/// An image that only has to fit in the box needs no more pixels than the
+/// box's longest side; one that covers or fills the box needs more when it is
+/// wider than the box, so it gets twice that, which keeps images up to twice
+/// as wide as tall sharp. With [BoxFit.none] it is shown at its own size, so
+/// only the ceiling applies. No image is decoded wider than
+/// [a2uiMaxDecodeWidth]; a very tall image that fits by `contain` is still
+/// decoded as tall as that width makes it.
+///
+/// Internal to the package.
+@internal
+int a2uiDecodeWidth(BuildContext context, {required double? width, required double height, required BoxFit fit}) {
   final factor = switch (fit) {
     BoxFit.none => null,
     BoxFit.contain || BoxFit.scaleDown => 1,
     BoxFit.cover || BoxFit.fill || BoxFit.fitWidth || BoxFit.fitHeight => 2,
   };
-  if (factor == null) return null;
-  // A box without a width is at most as wide as the screen.
+  if (factor == null) return a2uiMaxDecodeWidth;
   final boxWidth = width ?? MediaQuery.sizeOf(context).width;
   final longestSide = boxWidth > height ? boxWidth : height;
-  return (longestSide * MediaQuery.devicePixelRatioOf(context) * factor).ceil();
+  final decodeWidth = (longestSide * MediaQuery.devicePixelRatioOf(context) * factor).ceil();
+  return decodeWidth < a2uiMaxDecodeWidth ? decodeWidth : a2uiMaxDecodeWidth;
 }

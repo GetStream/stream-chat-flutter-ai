@@ -53,17 +53,82 @@ void main() {
     expect(_stream(tester).textTheme.bodyEmphasis.fontSize, _theme.body.fontSize);
   });
 
-  for (final (name, token, value) in [
-    ('button', (StreamRadius radius) => radius.max, _theme.buttonCornerRadius),
-    ('field', (StreamRadius radius) => radius.lg, _theme.controlCornerRadius),
-    ('sheet', (StreamRadius radius) => radius.xxxxl, _theme.cornerRadius),
-  ]) {
-    testWidgets("the design system's $name corners in a surface are the A2UI theme's", (tester) async {
-      await _pumpThemed(tester);
+  testWidgets("the design system's corner radii in a surface stay the app's when the A2UI theme sets them", (
+    tester,
+  ) async {
+    await _pumpThemed(tester);
 
-      expect(token(_stream(tester).radius), Radius.circular(value));
-    });
-  }
+    expect(_stream(tester).radius, StreamTheme.light().radius);
+  });
+
+  testWidgets("buttons in a surface have the A2UI theme's button corners", (tester) async {
+    await _pumpThemed(tester);
+
+    final buttons = _stream(tester).buttonTheme;
+    for (final type in [buttons.primary, buttons.secondary, buttons.destructive]) {
+      for (final style in [type?.solid, type?.outline, type?.ghost]) {
+        final shape = style?.shape?.resolve({}) as RoundedSuperellipseBorder?;
+        expect(shape?.borderRadius, BorderRadius.all(Radius.circular(_theme.buttonCornerRadius)));
+      }
+    }
+  });
+
+  testWidgets("fields in a surface have the A2UI theme's control corners", (tester) async {
+    await _pumpThemed(tester);
+
+    expect(
+      _stream(tester).textInputTheme.style?.borderRadius,
+      BorderRadius.all(Radius.circular(_theme.controlCornerRadius)),
+    );
+  });
+
+  testWidgets("sheets in a surface have the A2UI theme's corners at their top", (tester) async {
+    await _pumpThemed(tester);
+
+    expect(_stream(tester).sheetTheme.borderRadius, BorderRadius.vertical(top: Radius.circular(_theme.cornerRadius)));
+  });
+
+  testWidgets("the app's button theme stays in a surface besides the A2UI theme's button corners", (tester) async {
+    const minimumSize = WidgetStatePropertyAll<Size?>(Size(1, 1));
+    const app = StreamButtonThemeData(
+      primary: StreamButtonTypeStyle(solid: StreamButtonThemeStyle(minimumSize: minimumSize)),
+    );
+    await pumpSurface(
+      tester,
+      components: _text,
+      theme: A2UIThemeData(buttonCornerRadius: 2),
+      streamTheme: StreamTheme(buttonTheme: app),
+    );
+
+    final solid = _stream(tester).buttonTheme.primary?.solid;
+
+    expect(solid?.minimumSize, minimumSize);
+    expect(solid?.shape, isNotNull);
+  });
+
+  testWidgets("only buttons in a surface get the A2UI theme's button corners, not other fully round parts", (
+    tester,
+  ) async {
+    await pumpSurface(tester, components: _text, theme: A2UIThemeData(buttonCornerRadius: 2));
+
+    expect(_stream(tester).radius.max, StreamTheme.light().radius.max);
+    expect(_stream(tester).textInputTheme, StreamTheme.light().textInputTheme);
+    expect(_stream(tester).sheetTheme, StreamTheme.light().sheetTheme);
+  });
+
+  testWidgets("the design system's components in a surface without an A2UI theme have the app's corners", (
+    tester,
+  ) async {
+    await pumpSurface(tester, components: _text);
+
+    final outside = StreamTheme.light();
+    final inside = _stream(tester);
+
+    expect(inside.radius, outside.radius);
+    expect(inside.buttonTheme, outside.buttonTheme);
+    expect(inside.textInputTheme, outside.textInputTheme);
+    expect(inside.sheetTheme, outside.sheetTheme);
+  });
 
   testWidgets("the design system's other values in a surface are the app's", (tester) async {
     const spacing = StreamSpacing(md: 13);

@@ -41,21 +41,21 @@ typedef A2UIErrorHandler = void Function(A2UIError error, String messageId);
 /// placed by the agent too. It names one in PascalCase, `PlaceCard` for
 /// `place_card`, with the component's parameters as its properties, each
 /// written as a value or bound to the surface's data, and it is drawn with
-/// [AIUIComponent.view]. Nothing shows while its values don't fit its
-/// parameters, such as while the agent is still writing them, and one the
-/// agent wrote without a value a required parameter needs, or with `null`
-/// for it, is reported as a problem of the reply.
+/// its [AIUIComponent.readArguments] and [AIUIComponent.build]. Nothing
+/// shows while its values don't fit its parameters, such as while the agent
+/// is still writing them; once the reply is written, values that don't fit,
+/// a required value that is missing or `null`, and anything the component
+/// throws reading or building them are reported through [onError].
 ///
 /// An event an app component reports with [AIUIComponentContext.emit] is
 /// sent as an [AIUIAction] named after the event, with the label the
-/// component gave and its payload, in which `component` is the component's
-/// name. An app component holds no other components and no `action`.
+/// component gave and its payload, to which `component` (the app's name for
+/// it, such as `place_card`), `surfaceId` and `sourceComponentId` are added.
+/// An app component holds no other components and no `action`.
 ///
-/// A component the agent can't place is left out, and reported in debug
-/// builds: one whose name in PascalCase isn't an A2UI identifier, is
-/// `Surface`, or is the name of one of the basic catalog's components or of
-/// an earlier one of the app's, and one with a parameter whose name isn't an
-/// identifier or is `id` or `component`.
+/// A component the agent can't place, such as one named like a basic
+/// component or with a parameter named `id` or `weight`, is left out, and
+/// reported in debug builds.
 ///
 /// See also:
 ///
@@ -107,7 +107,7 @@ final class A2UIRenderer extends AIUIRenderer {
   /// The function that gives the URL each image, video and audio clip loads
   /// from, or `null` to not load it. By default only web links load; see
   /// [webUrl].
-  final Uri? Function(Uri url) mediaUrl;
+  final A2UIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's A2UI, with the
   /// reply's message id, or `null` to report them in debug builds only.
@@ -149,10 +149,10 @@ final class A2UIRenderer extends AIUIRenderer {
       catalogId: catalogId,
       basicTypes: catalog.types,
       appComponents: {
-        for (final (:type, :component) in placeable)
+        for (final (:type, :definition, component: _) in placeable)
           type: (
-            description: a2uiComponentDescription(component.definition),
-            parameters: component.definition.parametersSchema,
+            description: a2uiComponentDescription(definition),
+            parameters: definition.parametersSchema,
           ),
       },
     );

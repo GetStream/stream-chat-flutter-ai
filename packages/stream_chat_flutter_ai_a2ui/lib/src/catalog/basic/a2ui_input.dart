@@ -150,7 +150,9 @@ InputDecoration a2uiStreamFieldDecoration(
   final focusBorder = outline(style?.focusBorder, BorderSide(color: colors.borderActive));
   final errorBorder = outline(style?.errorBorder, BorderSide(color: colors.borderError));
   final shown = hasError ? errorBorder : border;
-  final hintStyle = context.streamTextTheme.bodyDefault.copyWith(color: colors.textTertiary);
+  final hintStyle =
+      WidgetStateProperty.resolveAs<TextStyle?>(style?.hintStyle, const {}) ??
+      context.streamTextTheme.bodyDefault.copyWith(color: colors.textTertiary);
   return InputDecoration(
     hintText: readsHint ? hint : null,
     hint: readsHint || hint == null ? null : ExcludeSemantics(child: Text(hint, style: hintStyle)),

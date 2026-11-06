@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
@@ -40,17 +40,20 @@ Widget buildA2UICheckBox(BuildContext context, A2UIComponentScope scope) {
             mainAxisSize: MainAxisSize.min,
             spacing: _labelSpacing,
             children: [
-              // The row is read, focused and activated as the check box, with
-              // its label, so the box itself is neither.
+              // The row is read and focused as the check box, with its label,
+              // so the box itself is neither; a tap on the box still writes.
               ExcludeFocus(
                 child: ExcludeSemantics(
-                  // Drawn enabled when read-only, so the fade alone shows
-                  // it, as for the other inputs; it writes nothing then.
-                  child: StreamCheckbox(
-                    value: isChecked,
-                    onChanged: (value) {
-                      if (canEdit) scope.write('value', value);
-                    },
+                  // The box needs a Material around it, which a surface may
+                  // not have.
+                  child: Material(
+                    type: MaterialType.transparency,
+                    // With no value to write, the box is drawn disabled, so
+                    // an app's check box builder draws it read-only too.
+                    child: StreamCheckbox(
+                      value: isChecked,
+                      onChanged: canEdit ? (value) => scope.write('value', value) : null,
+                    ),
                   ),
                 ),
               ),
