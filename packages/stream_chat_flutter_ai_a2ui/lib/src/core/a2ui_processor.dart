@@ -86,9 +86,13 @@ final class A2UIProcessor extends ChangeNotifier {
   /// function fails, and is reported the same way. An answer that arrives
   /// after [reset] or [dispose] is dropped.
   ///
-  /// None of the four is called after [dispose].
+  /// A function that hasn't answered after [agentFunctionTimeout] fails as
+  /// timed out, reported through `onError`. Its answer, if it comes later, is
+  /// dropped, and the function's name goes to `onLateAnswer`.
   ///
-  /// None of the four may throw: one that does stops [apply] partway, and
+  /// None of these is called after [dispose].
+  ///
+  /// None of these may throw: one that does stops [apply] partway, and
   /// leaves the problem it was given marked as reported. Its creator runs app
   /// code behind its own guard, as the engine does.
   ///
@@ -100,6 +104,7 @@ final class A2UIProcessor extends ChangeNotifier {
     this._onError,
     this._onUnreadable,
     this._onAgentFunction,
+    this._onLateAnswer,
     @visibleForTesting this._debugCoreFactory,
   }) : _defaultsCatalog = true,
        _debugChecks = null,
@@ -121,6 +126,7 @@ final class A2UIProcessor extends ChangeNotifier {
     A2UIDebugOutboundCallback? onOutbound,
   }) : _onUnreadable = null,
        _onAgentFunction = null,
+       _onLateAnswer = null,
        _debugCoreFactory = null,
        _defaultsCatalog = false,
        _debugChecks = checks,
@@ -133,10 +139,18 @@ final class A2UIProcessor extends ChangeNotifier {
   final A2UIErrorCallback? _onError;
   final VoidCallback? _onUnreadable;
   final A2UIAgentFunctionCallback? _onAgentFunction;
+  final void Function(String functionName)? _onLateAnswer;
   final A2UIDebugCoreFactory? _debugCoreFactory;
   final bool _defaultsCatalog;
   final A2UIDebugChecks? _debugChecks;
   final A2UIDebugOutboundCallback? _debugOnOutbound;
+
+  // The timers of the functions the core is waiting on, which end with it.
+  final Set<Timer> _callTimeouts = {};
+
+  /// How long a function no catalog has may take to answer before it fails
+  /// as timed out, as on Stream's iOS and Android SDKs.
+  static const agentFunctionTimeout = Duration(seconds: 30);
 
   late core.MessageProcessor<core.ComponentApi> _core;
   final List<core.Subscription> _coreSubscriptions = [];
@@ -464,6 +478,7 @@ final class A2UIProcessor extends ChangeNotifier {
           catalogs: _catalogs._catalogs,
           validationConfig: _debugChecks?._config,
           onAction: _handleAction,
+          defaultTimeout: agentFunctionTimeout,
           outboundListener: switch ((onOutbound, _onAgentFunction)) {
             (final onOutbound?, _) => (message) => onOutbound(_fromCoreVersion(_plainMap(message.toJson()))),
             (null, final onAgentFunction?) => (message) => _handleOutbound(message, processor, onAgentFunction),
@@ -517,11 +532,28 @@ final class A2UIProcessor extends ChangeNotifier {
       isUserInitiated: _userActs > 0,
     );
     final functionCallId = message.functionCallId;
+    // The core fails the call once this long has passed, and drops what
+    // answers it after that.
+    var isLate = false;
+    late final Timer timeout;
+    timeout = Timer(agentFunctionTimeout, () {
+      isLate = true;
+      _callTimeouts.remove(timeout);
+    });
+    _callTimeouts.add(timeout);
+    void answer(core.A2uiFunctionResponse response) {
+      timeout.cancel();
+      _callTimeouts.remove(timeout);
+      // A core that was reset or disposed meanwhile dropped the call on
+      // purpose; only an answer the timeout beat is worth telling about.
+      if (isLate && identical(asker, _core) && !_disposed) _onLateAnswer?.call(call.call);
+      _answer(asker, response);
+    }
+
     unawaited(
       Future.sync(() => onAgentFunction(agentCall)).then(
-        (value) => _answer(asker, core.A2uiFunctionResponse.value(functionCallId, value)),
-        onError: (Object error) => _answer(
-          asker,
+        (value) => answer(core.A2uiFunctionResponse.value(functionCallId, value)),
+        onError: (Object error) => answer(
           core.A2uiFunctionResponse.error(
             functionCallId,
             core.A2uiFunctionResponseError(
@@ -556,6 +588,11 @@ final class A2UIProcessor extends ChangeNotifier {
       subscription.unsubscribe();
     }
     _coreSubscriptions.clear();
+    // The core's calls end with it, so none of them can be late any more.
+    for (final timeout in _callTimeouts) {
+      timeout.cancel();
+    }
+    _callTimeouts.clear();
     final surfaces = [..._surfaces.values];
     _surfaces.clear();
     _core.dispose();

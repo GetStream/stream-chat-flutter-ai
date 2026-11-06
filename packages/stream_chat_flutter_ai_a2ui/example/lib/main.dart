@@ -1,7 +1,7 @@
 // A conversation whose replies are A2UI, and a gallery of the examples
 // published with A2UI's basic catalog, both shown by the package's
-// `A2UIRenderer`. What a person's actions do, each action an agent would get
-// and each link that would open, is listed below them.
+// `A2UIRenderer`. Each action an agent would get is listed below them, and
+// the gallery also lists each link that would open.
 
 import 'dart:async';
 import 'dart:convert';
