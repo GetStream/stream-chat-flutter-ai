@@ -31,3 +31,6 @@ flutter:
     # The Ohrid trip example the Stream agent backend gives its model, as in
     # the package's `test/fixtures`.
     - assets/ohrid_prompt_example.jsonl
+    # A Video and an AudioPlayer, with the links of the basic catalog's movie
+    # and podcast examples.
+    - assets/media_example.json

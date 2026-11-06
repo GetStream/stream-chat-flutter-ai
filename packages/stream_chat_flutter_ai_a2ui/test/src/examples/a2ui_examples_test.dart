@@ -19,8 +19,8 @@ void main() {
     expect(examples, hasLength(43));
   });
 
-  test('41 of them use only the components the catalog draws', () {
-    expect(examples.where(_drawsWhole), hasLength(41));
+  test('all 43 of them use only the components the catalog draws', () {
+    expect(examples.where(_drawsWhole), hasLength(43));
   });
 
   for (final file in examples) {

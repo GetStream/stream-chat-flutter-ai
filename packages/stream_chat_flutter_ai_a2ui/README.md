@@ -21,10 +21,10 @@ A2UITheme(
 
 ## The components
 
-`A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Divider`, `Tabs`
-and `Modal`, and the components a person uses: `Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider` and
-`DateTimeInput`. To draw one of them another way, replace its builder; the agent still writes the component as A2UI
-describes it:
+`A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`, `Column`, `List`,
+`Card`, `Divider`, `Tabs` and `Modal`, and the components a person uses: `Button`, `TextField`, `CheckBox`,
+`ChoicePicker`, `Slider` and `DateTimeInput`. To draw one of them another way, replace its builder; the agent still
+writes the component as A2UI describes it:
 
 ```dart
 final catalog = A2UICatalog.basic.replacing('Card', (context, scope) {
@@ -47,6 +47,21 @@ final catalog = A2UICatalog.basic.replacing('CheckBox', (context, scope) {
 
 The [example](example) is a gallery of the examples published with A2UI's basic catalog, which lists what a person's
 actions in them do: each event an agent would get, with its values, and each link that would open.
+
+## Video and audio
+
+A `Video` shows its poster and an `AudioPlayer` its description; neither loads its media until the person taps play.
+Media loads only from web links. An app that plays media needs the `INTERNET` permission in its Android manifest
+(Flutter adds it only to debug and profile builds), and a sandboxed macOS app needs the
+`com.apple.security.network.client` entitlement. Media over `https` needs nothing more. Media over plain `http` also
+needs `android:usesCleartextTraffic="true"` on the Android manifest's `<application>`, and
+`NSAllowsArbitraryLoadsForMedia` under `NSAppTransportSecurity` in the `Info.plist` of an iOS or macOS app. That
+covers the video and audio, not a video's poster or an `Image`, which need an ATS exception for their domain.
+
+A player is let go, and starts again from the beginning, when another screen is pushed over it, but it plays on under a
+bottom sheet or a dialog, such as a `Modal`.
+Players don't pause each other. When the app goes to the background, a video pauses; audio keeps playing on Android,
+and on iOS follows the app's audio session and background modes.
 
 ## Tests
 

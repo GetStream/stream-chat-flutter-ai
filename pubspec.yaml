@@ -38,6 +38,8 @@ melos:
         a2ui_core: ">=0.4.0 <0.5.0"
         # The images of A2UI replies, kept in a disk cache.
         cached_network_image: ^3.4.1
+        # The controls host of an A2UI reply's videos, as in `stream_chat_flutter`.
+        chewie: ^1.13.1
         # A sign-in's expiry reads `clock.now()`, so tests can fake the time.
         clock: ^1.1.2
         # Deep and list equality for the package's public value types.
@@ -52,6 +54,8 @@ melos:
         # The icons an A2UI agent draws with an SVG path.
         flutter_svg: ^2.3.0
         image_picker: ^1.2.2
+        # The audio of an A2UI reply's `AudioPlayer`, as in `stream_chat_flutter`.
+        just_audio: ^0.10.5
         # The schema type `a2ui_core` takes for a catalog's components but doesn't
         # export; used only inside `stream_chat_flutter_ai_a2ui`'s `lib/src/core/`.
         json_schema_builder: ^0.1.7
@@ -70,11 +74,16 @@ melos:
         stream_core_flutter: ^0.5.3
         url_launcher: ^6.3.2
         uuid: ^4.5.1
+        # The videos of A2UI replies, as in `stream_chat_flutter`.
+        video_player: ^2.11.1
         web: ^1.1.0
 
       # List of all the dev_dependencies used in the project.
       dev_dependencies:
         alchemist: ^0.14.0
+        # Direct because the A2UI `AudioPlayer` tests substitute their own
+        # `JustAudioPlatform`; it arrives transitively via `just_audio`.
+        just_audio_platform_interface: ^4.6.0
         mocktail: ^1.0.5
         # Direct because the install id tests substitute a fake
         # `PathProviderPlatform`.
@@ -90,6 +99,9 @@ melos:
         # Direct because the generated UI tests substitute their own
         # `UrlLauncherPlatform`; it arrives transitively via `url_launcher`.
         url_launcher_platform_interface: ^2.3.2
+        # Direct because the A2UI `Video` tests substitute their own
+        # `VideoPlayerPlatform`; it arrives transitively via `video_player`.
+        video_player_platform_interface: ^6.9.0
         # Reads the A2UI conformance suites, which are YAML.
         yaml: ^3.1.3
 

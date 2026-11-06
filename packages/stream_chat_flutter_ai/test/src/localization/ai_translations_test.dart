@@ -443,6 +443,14 @@ void main() {
       expect(translations.toolAuthorizationNotOpened, "The sign-in couldn't be opened. Try again.");
       expect(translations.toolAuthorizationExpired, 'This sign-in expired.');
     });
+
+    test('labels the button that plays media "Play"', () {
+      expect(const DefaultAITranslations().playMedia, 'Play');
+    });
+
+    test('labels the button that pauses media "Pause"', () {
+      expect(const DefaultAITranslations().pauseMedia, 'Pause');
+    });
   });
 }
 

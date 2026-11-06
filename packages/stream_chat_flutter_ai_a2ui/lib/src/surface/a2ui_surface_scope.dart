@@ -4,12 +4,28 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
-/// Signature for a function that gives the URL to load an image from, given
-/// the URL the agent wrote, or `null` to not load it.
+/// Signature for a function that gives the URL to load an image, a video or
+/// an audio clip from, given the URL the agent wrote, or `null` to not load
+/// it.
 ///
 /// Internal to the package.
 @internal
 typedef A2UIMediaUrl = Uri? Function(Uri url);
+
+/// The URL to load the media at [url] from: the URL the agent wrote, parsed,
+/// as [mediaUrl] gives it, or `null` when nothing loads.
+///
+/// Nothing loads for a missing or empty [url], one that doesn't parse, or one
+/// without a scheme, such as a file name; [mediaUrl] isn't called for those.
+///
+/// Internal to the package.
+@internal
+Uri? a2uiMediaSourceOf(String? url, A2UIMediaUrl mediaUrl) {
+  if (url == null || url.isEmpty) return null;
+  final uri = Uri.tryParse(url);
+  if (uri == null || !uri.hasScheme) return null;
+  return mediaUrl(uri);
+}
 
 /// The URL itself when it is a web link, `http` or `https` in any
 /// capitalization, or `null` for any other, such as a `file` or `data` URL.
@@ -47,7 +63,8 @@ class A2UISurfaceScope extends InheritedWidget {
   /// The look of the surface's components.
   final A2UIResolvedTheme theme;
 
-  /// The function the surface's images are loaded through.
+  /// The function the surface's images, videos and audio clips are loaded
+  /// through.
   final A2UIMediaUrl mediaUrl;
 
   /// The function that opens a link a person's action in the surface opens,

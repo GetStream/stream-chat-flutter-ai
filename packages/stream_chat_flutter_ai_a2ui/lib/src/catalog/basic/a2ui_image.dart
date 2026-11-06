@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_fill.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// Builds an `Image`: the image at its `url`, in a box whose size its
@@ -111,9 +112,6 @@ class A2UIImageView extends StatelessWidget {
   /// The size and shape of the box.
   final A2UIImageFootprint footprint;
 
-  // The longest side an image is decoded at, whatever size it was sent at.
-  static const _maxPixels = 1200;
-
   @override
   Widget build(BuildContext context) {
     final scope = A2UISurfaceScope.of(context);
@@ -135,37 +133,27 @@ class A2UIImageView extends StatelessWidget {
     return Semantics(image: true, label: description, excludeSemantics: true, child: clipped);
   }
 
-  // The URL to load the image from: the agent's, when it has a scheme, as
-  // [mediaUrl] gives it. A name without a scheme loads nothing. A URL that
+  // The URL to load the image from (see [a2uiMediaSourceOf]). A URL that
   // loads nothing is logged in debug builds.
   static Uri? _sourceOf(String? url, A2UIMediaUrl mediaUrl) {
-    if (url == null || url.isEmpty) return null;
-    final uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasScheme) {
-      a2uiDebugLogOnce("The Image URL '$url' is not loaded: it is not a URL with a scheme.");
-      return null;
-    }
-    final source = mediaUrl(uri);
-    if (source == null) {
+    final source = a2uiMediaSourceOf(url, mediaUrl);
+    if (source != null || url == null || url.isEmpty) return source;
+    if (Uri.tryParse(url) case final uri? when uri.hasScheme) {
       a2uiDebugLogOnce("The Image URL '$url' is not loaded: the surface's media URL function refused it.");
+    } else {
+      a2uiDebugLogOnce("The Image URL '$url' is not loaded: it is not a URL with a scheme.");
     }
     return source;
   }
 
   Widget _image(BuildContext context, Uri source) {
     return Image(
-      image: ResizeImage(
-        CachedNetworkImageProvider(source.toString()),
-        width: _maxPixels,
-        height: _maxPixels,
-        policy: ResizeImagePolicy.fit,
-        allowUpscaling: false,
-      ),
+      image: a2uiImageProvider(source),
       fit: fit,
       width: footprint.width,
       height: footprint.height,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (frame == null && !wasSynchronouslyLoaded) return const _Loading();
+        if (frame == null && !wasSynchronouslyLoaded) return const A2UISpinner();
         return child;
       },
       errorBuilder: (context, error, stackTrace) {
@@ -176,21 +164,20 @@ class A2UIImageView extends StatelessWidget {
   }
 }
 
-// A small spinner in the secondary text color.
-class _Loading extends StatelessWidget {
-  const _Loading();
-
-  static const _size = 20.0;
-  static const _stroke = 2.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = A2UISurfaceScope.of(context).theme;
-    return Center(
-      child: SizedBox.square(
-        dimension: _size,
-        child: CircularProgressIndicator(strokeWidth: _stroke, color: theme.secondaryText),
-      ),
-    );
-  }
+/// The image at [source], loaded and kept in the disk cache, and decoded at
+/// no more than 1200 pixels on its longest side, whatever size it was sent at.
+///
+/// Internal to the package.
+@internal
+ImageProvider<Object> a2uiImageProvider(Uri source) {
+  return ResizeImage(
+    CachedNetworkImageProvider(source.toString()),
+    width: _maxPixels,
+    height: _maxPixels,
+    policy: ResizeImagePolicy.fit,
+    allowUpscaling: false,
+  );
 }
+
+// The longest side an image is decoded at.
+const _maxPixels = 1200;

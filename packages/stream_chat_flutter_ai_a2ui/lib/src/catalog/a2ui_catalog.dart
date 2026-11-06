@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_audio_player.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_button.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_card.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_check_box.dart';
@@ -17,6 +18,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_slider.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_tabs.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_text.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_text_field.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_video.dart';
 
 /// Signature for a function that builds the widget of one component of a
 /// reply's A2UI, from what [scope] reads of it.
@@ -70,13 +72,15 @@ final class A2UICatalog {
   const A2UICatalog._(this._builders);
 
   /// The components of A2UI's basic catalog that this package draws: `Text`,
-  /// `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Divider`, `Tabs`,
-  /// `Modal`, `Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider` and
-  /// `DateTimeInput`.
+  /// `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`, `Column`, `List`, `Card`,
+  /// `Divider`, `Tabs`, `Modal`, `Button`, `TextField`, `CheckBox`,
+  /// `ChoicePicker`, `Slider` and `DateTimeInput`.
   static const A2UICatalog basic = A2UICatalog._({
     'Text': buildA2UIText,
     'Image': buildA2UIImage,
     'Icon': buildA2UIIcon,
+    'Video': buildA2UIVideo,
+    'AudioPlayer': buildA2UIAudioPlayer,
     'Row': buildA2UIRow,
     'Column': buildA2UIColumn,
     'List': buildA2UIList,
