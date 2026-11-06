@@ -16,11 +16,6 @@ void main() {
     'spec-interactions.json',
     reason: "Running a program's state, forms and actions is not part of the package yet.",
   );
-  skipConformanceSuite(
-    'library specs (upstream-chat-library.spec.json, upstream-playground-library.spec.json)',
-    reason: "The package doesn't define the chat and standard libraries yet; it reads their specs to parse.",
-  );
-  skipConformanceSuite('prompt-goldens.json', reason: 'Generating system prompts is not part of the package yet.');
   for (final MapEntry(key: area, value: reason) in specAreasSkipped.entries) {
     skipConformanceSuite('specification $area', reason: reason);
   }
