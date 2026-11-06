@@ -192,6 +192,32 @@ void main() {
     expect(_label(horizontal), contains('values 5 to 9'));
   });
 
+  test('reads a stack by position when a series repeats an x, as the bars are drawn', () {
+    const spec = USpec(
+      kind: USpecKind.bar,
+      barLayout: USpecBarLayout.stacked,
+      series: [
+        USeries(
+          name: 'A',
+          points: [
+            UPoint(x: 'Jan', y: 3),
+            UPoint(x: 'Jan', y: 5),
+          ],
+        ),
+        USeries(
+          name: 'B',
+          points: [
+            UPoint(x: 'Jan', y: 1),
+            UPoint(x: 'Jan', y: 2),
+          ],
+        ),
+      ],
+    );
+
+    // Two bars, 3 + 1 and 5 + 2 — not one Jan stack of 11.
+    expect(_label(spec), contains('values 4 to 7'));
+  });
+
   test('reads a stack with mixed signs to the ends of each side', () {
     const spec = USpec(
       kind: USpecKind.bar,

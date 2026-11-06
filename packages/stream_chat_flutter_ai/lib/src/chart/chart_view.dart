@@ -268,14 +268,11 @@ class ChartView extends StatelessWidget {
     final lineBarsData = spec.series.asMap().entries.map((e) {
       final color = theme.seriesColor(e.key);
       return LineChartBarData(
-        spots: _toSpots(e.value, labels),
+        // A natural line is sampled from a monotone cubic through its points
+        // and drawn straight between the samples, so it never swings past a
+        // peak or a trough, nor out of the plot.
+        spots: curved ? monotoneCurveSpots(_toSpots(e.value, labels)) : _toSpots(e.value, labels),
         color: color,
-        isCurved: curved,
-        curveSmoothness: _kNaturalCurveSmoothness,
-        // Keeps the curve between the values of the two points it joins, so
-        // it never swings past a peak or a trough, nor out of the plot.
-        preventCurveOverShooting: curved,
-        preventCurveOvershootingThreshold: theme.height * _kCurveOvershootShare,
         isStepLineChart: stepped,
         lineChartStepData: const LineChartStepData(stepDirection: LineChartStepData.stepDirectionMiddle),
         dotData: const FlDotData(show: false),
@@ -290,6 +287,10 @@ class ChartView extends StatelessWidget {
         gridData: _gridData(theme),
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
+        // A curved line carries samples between its points, which a touch
+        // would report as values; like every other kind, the chart is read
+        // through its semantics instead.
+        lineTouchData: const LineTouchData(enabled: false),
       ),
     );
   }
@@ -1111,18 +1112,8 @@ const _kCategoryGutterMaxShare = 0.4;
 // The gap between a category label and its bars.
 const _kCategoryGutterSpacing = 8.0;
 
-// The smoothness that makes `fl_chart`'s curve a Catmull-Rom spline: it
-// reaches the smoothness times half the chord between a point's neighbors,
-// and a Catmull-Rom spline reaches a sixth of it. The first segment differs:
-// `fl_chart` starts it with no reach at all.
-const _kNaturalCurveSmoothness = 1 / 3;
-
-// The share of the chart's height under which `fl_chart` lays a curve level
-// at a point. A point keeps its slope only where the line falls by more than
-// this on both sides of it. That slope reaches a sixth of the fall across its
-// neighbors, at most a sixth of the height, so it can't carry the curve past
-// either of them.
-const _kCurveOvershootShare = 1 / 6;
+// How many straight pieces draw each segment of a natural line.
+const _kCurveSamplesPerSegment = 16;
 
 // The fewest spokes a radar can draw a shape with.
 const _kRadarMinSpokes = 3;
@@ -1372,4 +1363,68 @@ class _HistogramBin {
 
   final String label;
   final int count;
+}
+
+/// Samples a monotone cubic (Fritsch–Carlson, with Fritsch–Butland slopes)
+/// through each unbroken run of [spots], for drawing as straight pieces.
+///
+/// Between two points the curve stays within their values, so it never
+/// overshoots a peak or a trough, and a rise and a fall of the same shape draw
+/// alike. A run whose x values don't strictly increase is returned as it is.
+@visibleForTesting
+List<FlSpot> monotoneCurveSpots(List<FlSpot> spots) {
+  final out = <FlSpot>[];
+  var run = <FlSpot>[];
+  void flush() {
+    out.addAll(_monotoneRun(run));
+    run = <FlSpot>[];
+  }
+
+  for (final spot in spots) {
+    if (spot.isNull()) {
+      flush();
+      out.add(spot);
+    } else {
+      run.add(spot);
+    }
+  }
+  flush();
+  return out;
+}
+
+List<FlSpot> _monotoneRun(List<FlSpot> p) {
+  final n = p.length;
+  if (n < 3) return p;
+  final h = [for (var k = 0; k < n - 1; k++) p[k + 1].x - p[k].x];
+  if (h.any((step) => !(step > 0))) return p;
+  final d = [for (var k = 0; k < n - 1; k++) (p[k + 1].y - p[k].y) / h[k]];
+  final m = List<double>.filled(n, 0);
+  m[0] = d[0];
+  m[n - 1] = d[n - 2];
+  for (var k = 1; k < n - 1; k++) {
+    final (a, b) = (d[k - 1], d[k]);
+    if (a * b <= 0) continue;
+    // Weighted harmonic mean: never more than three times either slope, which
+    // keeps the segment monotone.
+    final (h0, h1) = (h[k - 1], h[k]);
+    m[k] = 3 * (h0 + h1) / ((2 * h1 + h0) / a + (h1 + 2 * h0) / b);
+  }
+  // An end slope pointing against its segment's would swing past the end.
+  if (m[0] * d[0] <= 0) m[0] = 0;
+  if (m[n - 1] * d[n - 2] <= 0) m[n - 1] = 0;
+  final out = <FlSpot>[p.first];
+  for (var k = 0; k < n - 1; k++) {
+    for (var i = 1; i <= _kCurveSamplesPerSegment; i++) {
+      final t = i / _kCurveSamplesPerSegment;
+      final t2 = t * t;
+      final t3 = t2 * t;
+      final y =
+          (2 * t3 - 3 * t2 + 1) * p[k].y +
+          (t3 - 2 * t2 + t) * h[k] * m[k] +
+          (-2 * t3 + 3 * t2) * p[k + 1].y +
+          (t3 - t2) * h[k] * m[k + 1];
+      out.add(i == _kCurveSamplesPerSegment ? p[k + 1] : FlSpot(p[k].x + t * h[k], y));
+    }
+  }
+  return out;
 }

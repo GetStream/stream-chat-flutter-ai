@@ -180,13 +180,17 @@ class ChartSemantics {
   // zero, and of its negative ones below, leaving out the values a stacked bar
   // leaves out.
   static List<double> _stackEnds(List<USeries> series) {
-    final positive = <String, double>{};
-    final negative = <String, double>{};
+    // Stacked as the bars are drawn: by category, or by position once a
+    // series repeats an x and categories no longer tell its points apart.
+    final byCategory = series.every((s) => s.points.map((p) => p.x).toSet().length == s.points.length);
+    final positive = <Object, double>{};
+    final negative = <Object, double>{};
     for (final s in series) {
-      for (final point in s.points) {
+      for (final (i, point) in s.points.indexed) {
         if (!point.y.isFinite) continue;
         final sums = point.y >= 0 ? positive : negative;
-        sums[point.x] = (sums[point.x] ?? 0) + point.y;
+        final key = byCategory ? point.x : i;
+        sums[key] = (sums[key] ?? 0) + point.y;
       }
     }
     return [...positive.values, ...negative.values].where((end) => end.isFinite).toList(growable: false);
