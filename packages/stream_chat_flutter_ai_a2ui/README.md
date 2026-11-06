@@ -71,11 +71,14 @@ component, and one with a parameter whose name isn't an identifier or is `id` or
 
 A reply's A2UI is drawn with the app's Stream design system, so it follows light and dark mode. An `A2UIThemeData`
 given to the renderer, or an `A2UITheme` above the conversation, overrides any of its values; the ones it leaves unset
-still come from the Stream theme:
+still come from the Stream theme, read each time the reply is built:
 
 ```dart
 final renderer = A2UIRenderer(theme: A2UIThemeData(cornerRadius: 8));
 ```
+
+The renderer's `theme` stays as it was given. An override that depends on the context, such as on the app's own
+theme, goes in an `A2UITheme` above the conversation instead, which is read each time the reply is built too.
 
 ## The components
 
@@ -105,8 +108,8 @@ final catalog = A2UICatalog.basic.replacing('CheckBox', (context, scope) {
 ```
 
 The [example](example) shows a conversation whose replies are A2UI, one of them written part by part as an agent
-would, and a gallery of the examples published with A2UI's basic catalog. Both list what a person's actions do: each
-action the agent would get, and each link that would open.
+would, and a gallery of the examples published with A2UI's basic catalog. Both list each action the agent would get,
+and the gallery also lists each link that would open.
 
 ## Video and audio
 
