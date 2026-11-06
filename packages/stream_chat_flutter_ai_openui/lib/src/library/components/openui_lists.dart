@@ -19,8 +19,8 @@ import 'package:stream_core_flutter/core.dart';
 @internal
 Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
-  final styles = theme.textStyles!;
+  final colors = theme;
+  final styles = theme;
   final items = scope.elements('items');
   final small = scope.string('size') == 'small';
   final images = scope.string('variant') == 'image';
@@ -35,7 +35,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
     if (images && image is Map<String, Object?>) {
       final side = openUIScaled(context, small ? 36 : 48);
       leading = ClipRRect(
-        borderRadius: BorderRadius.circular(theme.radius!.small!),
+        borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
         child: SizedBox.square(
           dimension: side,
           child: OpenUIRemoteImage(source: image['src'] as String?, alt: image['alt'] as String?),
@@ -56,10 +56,10 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
       );
     }
     final content = Padding(
-      padding: EdgeInsets.symmetric(vertical: (small ? theme.spacing!.xs! : theme.spacing!.s!) + 2),
+      padding: EdgeInsets.symmetric(vertical: (small ? theme.xsSpacing! : theme.sSpacing!) + 2),
       child: Row(
         crossAxisAlignment: hasSubtitle ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        spacing: theme.spacing!.m!,
+        spacing: theme.mSpacing!,
         children: [
           leading,
           Expanded(
@@ -72,7 +72,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
                   style: (small ? styles.caption! : styles.bodySmall!).copyWith(fontWeight: FontWeight.w500),
                 ),
                 if (subtitle != null)
-                  OpenUIMarkdownText(data: subtitle, style: styles.caption, color: colors.textSecondary),
+                  OpenUIMarkdownText(data: subtitle, style: styles.caption, color: colors.secondaryText),
               ],
             ),
           ),
@@ -84,7 +84,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
                 if (item.text('actionLabel') case final label?)
                   Text(
                     label,
-                    style: styles.caption!.copyWith(fontWeight: FontWeight.w500, color: colors.textSecondary),
+                    style: styles.caption!.copyWith(fontWeight: FontWeight.w500, color: colors.secondaryText),
                   ),
                 ExcludeSemantics(
                   child: Icon(
@@ -92,7 +92,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
                         ? context.streamIcons.chevronLeft
                         : context.streamIcons.chevronRight,
                     size: openUIScaled(context, 14),
-                    color: colors.textSecondary,
+                    color: colors.secondaryText,
                   ),
                 ),
               ],
@@ -134,7 +134,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final items = scope.elements('items');
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,9 +151,9 @@ Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope
             return OpenUIPressable(
               onTap: scope.isStreaming ? null : () => triggerOpenUIAction(context, scope, label: text, inForm: false),
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: theme.spacing!.s! + 2),
+                padding: EdgeInsets.symmetric(vertical: theme.sSpacing! + 2),
                 child: Row(
-                  spacing: theme.spacing!.s!,
+                  spacing: theme.sSpacing!,
                   children: [
                     ExcludeSemantics(
                       child: Icon(
@@ -165,7 +165,7 @@ Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope
                       ),
                     ),
                     Expanded(
-                      child: Text(text, style: theme.textStyles!.bodySmall!.copyWith(color: colors.textPrimary)),
+                      child: Text(text, style: theme.bodySmall!.copyWith(color: colors.text)),
                     ),
                   ],
                 ),

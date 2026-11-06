@@ -91,14 +91,14 @@ class OpenUIFieldChrome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     return Container(
       constraints: BoxConstraints(minHeight: openUIScaled(context, 40)),
-      padding: EdgeInsets.symmetric(horizontal: theme.spacing!.m!, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: theme.mSpacing!, vertical: 10),
       decoration: BoxDecoration(
         color: colors.sunkenSurface,
-        borderRadius: BorderRadius.circular(theme.radius!.small!),
-        border: Border.all(color: hasError ? colors.danger! : const Color(0x00000000), width: 1.5),
+        borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+        border: Border.all(color: hasError ? colors.error! : const Color(0x00000000), width: 1.5),
       ),
       child: child,
     );
@@ -251,9 +251,9 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
   // field drawn with the theme's colors.
   Widget _password(BuildContext context, String? placeholder, bool enabled, bool hasError) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     OutlineInputBorder border(Color color) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(theme.radius!.medium!),
+      borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
       borderSide: BorderSide(color: color),
     );
     return Material(
@@ -267,16 +267,16 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
         enableSuggestions: false,
         keyboardType: TextInputType.visiblePassword,
         cursorColor: colors.accent,
-        style: theme.textStyles!.body!.copyWith(color: colors.textPrimary),
+        style: theme.body!.copyWith(color: colors.text),
         onChanged: _changed,
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: theme.textStyles!.body!.copyWith(color: colors.textTertiary),
+          hintStyle: theme.body!.copyWith(color: colors.tertiaryText),
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: theme.spacing!.m!, vertical: theme.spacing!.s! + 2),
-          enabledBorder: border(hasError ? colors.danger! : colors.border!),
+          contentPadding: EdgeInsets.symmetric(horizontal: theme.mSpacing!, vertical: theme.sSpacing! + 2),
+          enabledBorder: border(hasError ? colors.error! : colors.border!),
           disabledBorder: border(colors.border!),
-          focusedBorder: border(hasError ? colors.danger! : colors.accent!),
+          focusedBorder: border(hasError ? colors.error! : colors.accent!),
         ),
       ),
     );
@@ -295,7 +295,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
 @internal
 Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final options = [
     for (final node in scope.elements('items'))
       if (scope.scopeOf(node) case final item)
@@ -312,7 +312,7 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
       final field = openUIFieldState(context, scope, 'Select');
       final selected = JS.isNullish(field.value) ? null : JS.stringOf(field.value);
       final label = options.where((option) => option.$1 == selected).firstOrNull?.$2;
-      final style = scope.string('size') == 'small' ? theme.textStyles!.bodySmall! : theme.textStyles!.body!;
+      final style = scope.string('size') == 'small' ? theme.bodySmall! : theme.body!;
       return OpenUIPressable(
         onTap: scope.isStreaming
             ? null
@@ -325,21 +325,21 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
         child: OpenUIFieldChrome(
           hasError: hasError,
           child: Row(
-            spacing: theme.spacing!.s!,
+            spacing: theme.sSpacing!,
             children: [
               Expanded(
                 child: Text(
                   label ?? scope.text('placeholder') ?? OpenUIStrings.selectPlaceholder,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: style.copyWith(color: label == null ? colors.textTertiary : colors.textPrimary),
+                  style: style.copyWith(color: label == null ? colors.tertiaryText : colors.text),
                 ),
               ),
               ExcludeSemantics(
                 child: Icon(
                   context.streamIcons.chevronDown,
                   size: openUIScaled(context, 16),
-                  color: colors.textSecondary,
+                  color: colors.secondaryText,
                 ),
               ),
             ],
@@ -361,7 +361,7 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final range = scope.string('mode') == 'range';
   final hasError = _errorOf(context, scope) != null;
   return OpenUIFieldHost(
@@ -389,16 +389,16 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
-              spacing: theme.spacing!.s!,
+              spacing: theme.sSpacing!,
               children: [
                 Expanded(
-                  child: Text(title, style: theme.textStyles!.bodySmall!.copyWith(color: colors.textSecondary)),
+                  child: Text(title, style: theme.bodySmall!.copyWith(color: colors.secondaryText)),
                 ),
                 Text(
                   date == null ? OpenUIStrings.chooseDate : openUIDateString(date),
-                  style: theme.textStyles!.bodySmall!.copyWith(
+                  style: theme.bodySmall!.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: date == null ? colors.accent : colors.textPrimary,
+                    color: date == null ? colors.accent : colors.text,
                   ),
                 ),
               ],
@@ -415,7 +415,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
         final to = dayOf('to');
         content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: theme.spacing!.s!,
+          spacing: theme.sSpacing!,
           children: [
             row(OpenUIStrings.dateFrom, from, (date) {
               write(
@@ -516,8 +516,8 @@ class _OpenUISliderState extends State<_OpenUISlider> {
   Widget build(BuildContext context) {
     final scope = widget.scope;
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final styles = theme.textStyles!;
+    final colors = theme;
+    final styles = theme;
     final bounds = openUISliderBounds(scope.number('min'), scope.number('max'));
     final step = openUISliderStep(
       scope.number('step'),
@@ -592,20 +592,20 @@ class _OpenUISliderState extends State<_OpenUISlider> {
         saveDefault: field.isBound ? null : () => saveOpenUIDefault(context, name, 'Slider', _stored(stored)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: theme.spacing!.xs!,
+          spacing: theme.xsSpacing!,
           children: [
             ExcludeSemantics(
               child: Row(
-                spacing: theme.spacing!.s!,
+                spacing: theme.sSpacing!,
                 children: [
                   Expanded(
-                    child: Text(label, style: styles.bodySmall!.copyWith(color: colors.textSecondary)),
+                    child: Text(label, style: styles.bodySmall!.copyWith(color: colors.secondaryText)),
                   ),
                   Text(
                     values.map(JS.numberToString).join(' – '),
                     style: styles.bodySmall!.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: colors.textPrimary,
+                      color: colors.text,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -620,9 +620,9 @@ class _OpenUISliderState extends State<_OpenUISlider> {
                   inactiveTrackColor: colors.border,
                   thumbColor: colors.accent,
                   overlayColor: colors.accent!.withValues(alpha: 0.12),
-                  disabledActiveTrackColor: colors.textTertiary,
+                  disabledActiveTrackColor: colors.tertiaryText,
                   disabledInactiveTrackColor: colors.border,
-                  disabledThumbColor: colors.textTertiary,
+                  disabledThumbColor: colors.tertiaryText,
                 ),
                 child: Column(children: [for (var index = 0; index < values.length; index++) thumb(index)]),
               ),
@@ -631,8 +631,8 @@ class _OpenUISliderState extends State<_OpenUISlider> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  number(bounds.lower, styles.caption!.copyWith(color: colors.textTertiary)),
-                  number(bounds.upper, styles.caption!.copyWith(color: colors.textTertiary)),
+                  number(bounds.lower, styles.caption!.copyWith(color: colors.tertiaryText)),
+                  number(bounds.upper, styles.caption!.copyWith(color: colors.tertiaryText)),
                 ],
               ),
             ),

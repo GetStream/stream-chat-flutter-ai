@@ -156,7 +156,7 @@ class _OpenUIModalSheet extends StatelessWidget {
                   Flexible(
                     child: SingleChildScrollView(
                       controller: scrollController,
-                      padding: EdgeInsets.all(theme.spacing!.l!),
+                      padding: EdgeInsets.all(theme.lSpacing!),
                       child: scope.buildProp('children'),
                     ),
                   ),

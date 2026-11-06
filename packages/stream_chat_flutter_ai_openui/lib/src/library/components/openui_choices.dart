@@ -38,7 +38,7 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
   final items = scope.elements('items');
   if (items.isEmpty) return const SizedBox.shrink();
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final type = isSwitch ? 'SwitchGroup' : 'CheckBoxGroup';
   final name = scope.text('name') ?? '';
   final rules = isSwitch ? null : scope.prop('rules');
@@ -69,9 +69,9 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
       rows.add(
         MergeSemantics(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: theme.spacing!.s!),
+            padding: EdgeInsets.symmetric(vertical: theme.sSpacing!),
             child: Row(
-              spacing: theme.spacing!.m!,
+              spacing: theme.mSpacing!,
               children: [
                 if (!isSwitch) StreamCheckbox(value: isOn, onChanged: onChanged),
                 Expanded(
@@ -118,7 +118,7 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
   final items = scope.elements('items');
   if (items.isEmpty) return const SizedBox.shrink();
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final name = scope.text('name') ?? '';
   return scope.watchState((context) {
     final field = openUIFieldState(context, scope, 'RadioGroup');
@@ -137,7 +137,7 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
           : () => saveOpenUIDefault(context, name, 'RadioGroup', OpenUIString(shown)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.spacing!.s!,
+        spacing: theme.sSpacing!,
         children: [
           for (final (index, node) in items.indexed)
             if (scope.scopeOf(node) case final item)
@@ -154,7 +154,7 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
                         },
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: theme.spacing!.m!,
+                    spacing: theme.mSpacing!,
                     children: [
                       Container(
                         width: dot,
@@ -163,7 +163,7 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: values[index] == current ? colors.accent! : colors.textTertiary!,
+                            color: values[index] == current ? colors.accent! : colors.tertiaryText!,
                             width: 2,
                           ),
                         ),
@@ -307,10 +307,10 @@ class _OpenUISelection extends StatelessWidget {
         isStreaming: scope.isStreaming,
         saveDefault: () => saveOpenUIDefault(context, name, _type, _storedDefault()),
         child: cards
-            ? OpenUIResponsiveGrid(minItemWidth: 140, maxColumns: 3, spacing: theme.spacing!.s!, children: widgets)
+            ? OpenUIResponsiveGrid(minItemWidth: 140, maxColumns: 3, spacing: theme.sSpacing!, children: widgets)
             : SizedBox(
                 width: double.infinity,
-                child: Wrap(spacing: theme.spacing!.s!, runSpacing: theme.spacing!.s!, children: widgets),
+                child: Wrap(spacing: theme.sSpacing!, runSpacing: theme.sSpacing!, children: widgets),
               ),
       );
     });
@@ -326,8 +326,8 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final color = selected ? colors.accent! : colors.textPrimary!;
+    final colors = theme;
+    final color = selected ? colors.accent! : colors.text!;
     final icon = item.elements('icon').firstOrNull;
     final iconData = icon == null
         ? null
@@ -338,7 +338,7 @@ class _Chip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: selected ? colors.accent!.withValues(alpha: 0.14) : colors.sunkenSurface,
-        borderRadius: BorderRadius.circular(theme.radius!.pill!),
+        borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
         border: Border.all(color: selected ? colors.accent! : const Color(0x00000000)),
       ),
       child: Padding(
@@ -354,7 +354,7 @@ class _Chip extends StatelessWidget {
             Flexible(
               child: Text(
                 item.text('label') ?? JS.stringOf(item.prop('value')),
-                style: theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w500, color: color),
+                style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w500, color: color),
               ),
             ),
             if (selected)
@@ -377,15 +377,15 @@ class _OptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     final top = item.elements('topContent').firstOrNull;
-    final radius = BorderRadius.circular(theme.radius!.medium!);
+    final radius = BorderRadius.circular(theme.mediumCornerRadius!);
     Widget? topContent;
     if (top != null) {
       final source = top.props['src'];
       if (source is OpenUIString) {
         topContent = ClipRRect(
-          borderRadius: BorderRadius.circular(theme.radius!.small!),
+          borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
           child: SizedBox(
             height: 80,
             width: double.infinity,
@@ -400,10 +400,10 @@ class _OptionCard extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected ? colors.accent!.withValues(alpha: 0.14) : colors.subtleFill,
-            borderRadius: BorderRadius.circular(theme.radius!.small!),
+            borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
           ),
           child: ExcludeSemantics(
-            child: Icon(icon, size: openUIScaled(context, 16), color: selected ? colors.accent : colors.textSecondary),
+            child: Icon(icon, size: openUIScaled(context, 16), color: selected ? colors.accent : colors.secondaryText),
           ),
         );
       }
@@ -420,10 +420,10 @@ class _OptionCard extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.all(theme.spacing!.m!),
+          padding: EdgeInsets.all(theme.mSpacing!),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: theme.spacing!.s!,
+            spacing: theme.sSpacing!,
             children: [
               ?topContent,
               _TitleSubtitle(
@@ -436,8 +436,8 @@ class _OptionCard extends StatelessWidget {
         ),
         if (selected)
           PositionedDirectional(
-            top: theme.spacing!.s,
-            end: theme.spacing!.s,
+            top: theme.sSpacing,
+            end: theme.sSpacing,
             child: ExcludeSemantics(
               child: Icon(context.streamIcons.checkmark, size: openUIScaled(context, 16), color: colors.accent),
             ),
@@ -457,20 +457,20 @@ class _TitleSubtitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 2,
       children: [
         Text(
           title,
-          style: theme.textStyles!.bodySmall!.copyWith(
+          style: theme.bodySmall!.copyWith(
             fontWeight: bold ? FontWeight.w600 : FontWeight.w500,
-            color: colors.textPrimary,
+            color: colors.text,
           ),
         ),
         if (subtitle case final subtitle? when subtitle.isNotEmpty)
-          Text(subtitle, style: theme.textStyles!.caption!.copyWith(color: colors.textSecondary)),
+          Text(subtitle, style: theme.caption!.copyWith(color: colors.secondaryText)),
       ],
     );
   }

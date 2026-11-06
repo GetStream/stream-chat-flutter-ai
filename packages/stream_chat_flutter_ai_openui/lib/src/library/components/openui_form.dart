@@ -56,7 +56,7 @@ class _OpenUIFormState extends State<_OpenUIForm> {
       validation: _validation!,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.spacing!.l!,
+        spacing: theme.lSpacing!,
         children: [widget.scope.buildProp('fields'), widget.scope.buildProp('buttons')],
       ),
     );
@@ -71,27 +71,27 @@ class _OpenUIFormState extends State<_OpenUIForm> {
 @internal
 Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final input = scope.elements('input').firstOrNull;
   final name = input == null ? null : scope.scopeOf(input).text('name');
   final error = name == null ? null : OpenUIFormScope.maybeOf(context)?.validation.errorOf(name);
   final hint = scope.text('hint') ?? '';
-  final label = theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w500);
+  final label = theme.bodySmall!.copyWith(fontWeight: FontWeight.w500);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.spacing!.s!,
+    spacing: theme.sSpacing!,
     children: [
       Text.rich(
         TextSpan(
           children: [
             TextSpan(
               text: scope.text('label') ?? '',
-              style: label.copyWith(color: colors.textPrimary),
+              style: label.copyWith(color: colors.text),
             ),
             if (input != null && openUIIsRequired(input.props['rules']))
               TextSpan(
                 text: ' *',
-                style: label.copyWith(color: colors.danger),
+                style: label.copyWith(color: colors.error),
               ),
           ],
         ),
@@ -103,7 +103,7 @@ Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) 
           child: StreamHelperText(text: error, state: StreamHelperState.error),
         )
       else if (hint.isNotEmpty)
-        Text(hint, style: theme.textStyles!.caption!.copyWith(color: colors.textSecondary)),
+        Text(hint, style: theme.caption!.copyWith(color: colors.secondaryText)),
     ],
   );
 }

@@ -69,7 +69,7 @@ void main() {
 
       final a = tester.getRect(find.text('A'));
       final b = tester.getRect(find.text('B'));
-      expect(b.top - a.bottom, greaterThanOrEqualTo(_theme.spacing!.l!));
+      expect(b.top - a.bottom, greaterThanOrEqualTo(_theme.lSpacing!));
       final column = tester.widget<Column>(find.ancestor(of: find.text('A'), matching: find.byType(Column)).last);
       expect(column.crossAxisAlignment, CrossAxisAlignment.stretch);
     });
@@ -153,9 +153,9 @@ void main() {
           .whereType<BoxDecoration>()
           .where((decoration) => decoration.color != null)
           .firstOrNull;
-      expect(surface('A')!.color, _theme.colors!.surface);
-      expect(surface('A')!.borderRadius, BorderRadius.circular(_theme.radius!.large!));
-      expect(surface('B')!.color, _theme.colors!.sunkenSurface);
+      expect(surface('A')!.color, _theme.surface);
+      expect(surface('A')!.borderRadius, BorderRadius.circular(_theme.cornerRadius!));
+      expect(surface('B')!.color, _theme.sunkenSurface);
       expect(surface('C'), isNull);
     });
   });

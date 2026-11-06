@@ -71,9 +71,9 @@ class OpenUIView extends StatelessWidget {
       child: OpenUIStreamTheme(
         theme: theme,
         child: DefaultTextStyle.merge(
-          style: theme.textStyles!.body!.copyWith(color: theme.colors!.textPrimary),
+          style: theme.body!.copyWith(color: theme.text),
           child: IconTheme.merge(
-            data: IconThemeData(color: theme.colors!.textPrimary),
+            data: IconThemeData(color: theme.text),
             child: ValueListenableBuilder(
               valueListenable: runtime.root,
               builder: (context, root, _) {
@@ -87,7 +87,7 @@ class OpenUIView extends StatelessWidget {
                   unknownTypes: _unknownTypes[runtime] ??= {},
                   child: _QueryLoading(
                     isLoading: runtime.isQueryLoading,
-                    spacing: theme.spacing!.s!,
+                    spacing: theme.sSpacing!,
                     child: OpenUINodeView(node: root),
                   ),
                 );

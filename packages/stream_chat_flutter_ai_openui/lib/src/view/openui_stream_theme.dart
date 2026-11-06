@@ -45,53 +45,49 @@ class OpenUIStreamTheme extends StatelessWidget {
 
 // The design system's [stream] theme with the tokens [theme] replaces.
 StreamTheme _streamThemeOf(StreamTheme stream, OpenUIThemeData theme) {
-  final colors = theme.colors!;
-  final spacing = theme.spacing!;
-  final radius = theme.radius!;
-  final styles = theme.textStyles!;
   final text = stream.textTheme;
   return stream.copyWith(
         colorScheme: stream.colorScheme.copyWith(
-          accentPrimary: colors.accent,
+          accentPrimary: theme.accent,
           // Links take the accent, unless it is the design system's own,
           // whose links may have their own color.
-          textLink: colors.accent == stream.colorScheme.accentPrimary ? stream.colorScheme.textLink : colors.accent!,
-          textOnAccent: colors.onAccent,
-          textPrimary: colors.textPrimary,
-          textSecondary: colors.textSecondary,
-          textTertiary: colors.textTertiary,
-          backgroundSurfaceCard: colors.surface,
-          backgroundSurface: colors.sunkenSurface,
-          backgroundSurfaceSubtle: colors.subtleFill,
-          borderDefault: colors.border,
-          accentSuccess: colors.success,
-          accentWarning: colors.warning,
-          accentError: colors.danger,
-          accentNeutral: colors.neutral,
+          textLink: theme.accent == stream.colorScheme.accentPrimary ? stream.colorScheme.textLink : theme.accent!,
+          textOnAccent: theme.onAccent,
+          textPrimary: theme.text,
+          textSecondary: theme.secondaryText,
+          textTertiary: theme.tertiaryText,
+          backgroundSurfaceCard: theme.surface,
+          backgroundSurface: theme.sunkenSurface,
+          backgroundSurfaceSubtle: theme.subtleFill,
+          borderDefault: theme.border,
+          accentSuccess: theme.success,
+          accentWarning: theme.warning,
+          accentError: theme.error,
+          accentNeutral: theme.neutral,
         ),
         spacing: stream.spacing.copyWith(
-          xxs: spacing.xs,
-          xs: spacing.s,
-          sm: spacing.m,
-          md: spacing.l,
-          xl: spacing.xl,
-          xxl: spacing.xxl,
+          xxs: theme.xsSpacing,
+          xs: theme.sSpacing,
+          sm: theme.mSpacing,
+          md: theme.lSpacing,
+          xl: theme.xlSpacing,
+          xxl: theme.xxlSpacing,
         ),
         radius: stream.radius.copyWith(
-          md: Radius.circular(radius.small!),
-          lg: Radius.circular(radius.medium!),
-          xl: Radius.circular(radius.large!),
-          max: Radius.circular(radius.pill!),
+          md: Radius.circular(theme.smallCornerRadius!),
+          lg: Radius.circular(theme.mediumCornerRadius!),
+          xl: Radius.circular(theme.cornerRadius!),
+          max: Radius.circular(theme.pillCornerRadius!),
         ),
         // The default OpenUI styles have no color, so the design system's
         // colors stay.
         textTheme: text.copyWith(
-          headingMd: text.headingMd.merge(styles.title),
-          headingSm: text.headingSm.merge(styles.heading),
-          bodyDefault: text.bodyDefault.merge(styles.body),
-          bodyEmphasis: text.bodyEmphasis.merge(styles.body!.copyWith(fontWeight: text.bodyEmphasis.fontWeight)),
-          captionDefault: text.captionDefault.merge(styles.bodySmall),
-          metadataDefault: text.metadataDefault.merge(styles.caption),
+          headingMd: text.headingMd.merge(theme.title),
+          headingSm: text.headingSm.merge(theme.heading),
+          bodyDefault: text.bodyDefault.merge(theme.body),
+          bodyEmphasis: text.bodyEmphasis.merge(theme.body!.copyWith(fontWeight: text.bodyEmphasis.fontWeight)),
+          captionDefault: text.captionDefault.merge(theme.bodySmall),
+          metadataDefault: text.metadataDefault.merge(theme.caption),
         ),
       )
       as StreamTheme;

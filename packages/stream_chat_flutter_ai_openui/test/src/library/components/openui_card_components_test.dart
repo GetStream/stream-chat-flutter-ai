@@ -23,10 +23,10 @@ void main() {
 
         final box = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).last;
         final decoration = box.decoration as BoxDecoration;
-        expect(decoration.color, theme.colors!.subtleFill);
-        expect(decoration.borderRadius, BorderRadius.circular(theme.radius!.pill!));
+        expect(decoration.color, theme.subtleFill);
+        expect(decoration.borderRadius, BorderRadius.circular(theme.pillCornerRadius!));
         final text = tester.widget<Text>(find.text('New'));
-        expect(text.style!.color, theme.colors!.textSecondary);
+        expect(text.style!.color, theme.secondaryText);
         expect(text.style!.fontWeight, FontWeight.w500);
         expect(text.maxLines, 1);
       });
@@ -35,12 +35,12 @@ void main() {
         await draw(tester, 'Tag("Ok", Icon("check"), "lg", "success")');
 
         final decoration = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).last.decoration as BoxDecoration;
-        expect(decoration.color, theme.colors!.success!.withValues(alpha: 0.14));
-        expect(tester.widget<Text>(find.text('Ok')).style!.color, theme.colors!.success);
+        expect(decoration.color, theme.success!.withValues(alpha: 0.14));
+        expect(tester.widget<Text>(find.text('Ok')).style!.color, theme.success);
         final icon = tester.widget<Icon>(find.byType(Icon));
         expect(icon.icon, stream.icons.checkmark);
         expect(icon.size, 16);
-        expect(icon.color, theme.colors!.success);
+        expect(icon.color, theme.success);
       });
 
       testWidgets('Tag pads by size', (tester) async {
@@ -60,20 +60,18 @@ void main() {
           'EntityList([{left: "A", right: "1", rightVariant: "number"}, {left: "B", right: "2"}], "default", {left: "H", right: "R"}, {left: "F", right: "T"})',
         );
 
-        expect(tester.widget<Text>(find.text('A')).style!.color, theme.colors!.textSecondary);
-        expect(tester.widget<Text>(find.text('1')).style!.color, theme.colors!.textPrimary);
+        expect(tester.widget<Text>(find.text('A')).style!.color, theme.secondaryText);
+        expect(tester.widget<Text>(find.text('1')).style!.color, theme.text);
         expect(tester.widget<Text>(find.text('1')).style!.fontFeatures, contains(const FontFeature.tabularFigures()));
         expect(tester.widget<Text>(find.text('2')).style!.fontFeatures, isNull);
-        expect(tester.widget<Text>(find.text('H')).style!.color, theme.colors!.textPrimary);
+        expect(tester.widget<Text>(find.text('H')).style!.color, theme.text);
         expect(tester.widget<Text>(find.text('H')).style!.fontWeight, FontWeight.w600);
-        final lines = tester
-            .widgetList<ColoredBox>(find.byType(ColoredBox))
-            .where((box) => box.color == theme.colors!.border);
+        final lines = tester.widgetList<ColoredBox>(find.byType(ColoredBox)).where((box) => box.color == theme.border);
         expect(lines, hasLength(2));
         final dim = tester
             .widgetList<ColoredBox>(find.byType(ColoredBox))
             .where(
-              (box) => box.color == theme.colors!.border!.withValues(alpha: 0.6),
+              (box) => box.color == theme.border!.withValues(alpha: 0.6),
             );
         expect(dim, hasLength(1));
       });
@@ -81,10 +79,10 @@ void main() {
       testWidgets('Text and BoldText draw in their sizes with subtext below', (tester) async {
         await draw(tester, 'Text("text", "Plain", "note", "text", "sm"), BoldText("text", "Bold", "", "text", "lg")');
 
-        expect(_styleOf(tester, 'Plain').fontSize, theme.textStyles!.bodySmall!.fontSize);
-        expect(_styleOf(tester, 'Bold').fontSize, theme.textStyles!.title!.fontSize);
+        expect(_styleOf(tester, 'Plain').fontSize, theme.bodySmall!.fontSize);
+        expect(_styleOf(tester, 'Bold').fontSize, theme.title!.fontSize);
         expect(_styleOf(tester, 'Bold').fontWeight, FontWeight.w600);
-        expect(tester.widget<Text>(find.text('note')).style!.color, theme.colors!.textSecondary);
+        expect(tester.widget<Text>(find.text('note')).style!.color, theme.secondaryText);
       });
 
       testWidgets('a metric subtext is green after + and red after - or the minus sign', (tester) async {
@@ -93,19 +91,19 @@ void main() {
           'Text("text", "a", "+3%", "metric"), Text("text", "b", "-3%", "metric"), Text("text", "c", "−3%", "metric")',
         );
 
-        expect(tester.widget<Text>(find.text('+3%')).style!.color, theme.colors!.success);
-        expect(tester.widget<Text>(find.text('-3%')).style!.color, theme.colors!.danger);
-        expect(tester.widget<Text>(find.text('−3%')).style!.color, theme.colors!.danger);
+        expect(tester.widget<Text>(find.text('+3%')).style!.color, theme.success);
+        expect(tester.widget<Text>(find.text('-3%')).style!.color, theme.error);
+        expect(tester.widget<Text>(find.text('−3%')).style!.color, theme.error);
       });
 
       testWidgets('MetricIndicatorInline draws its value in the metric style with a trend badge', (tester) async {
         await draw(tester, 'MetricIndicatorInline("USD 1,200", "vs last", {direction: "up", value: 5})');
 
         final value = tester.widget<Text>(find.text('USD 1,200'));
-        expect(value.style!.fontSize, theme.textStyles!.metric!.fontSize);
-        expect(value.style!.color, theme.colors!.textPrimary);
+        expect(value.style!.fontSize, theme.metric!.fontSize);
+        expect(value.style!.color, theme.text);
         expect(find.text('5%'), findsOneWidget);
-        expect(tester.widget<Text>(find.text('5%')).style!.color, theme.colors!.success);
+        expect(tester.widget<Text>(find.text('5%')).style!.color, theme.success);
         expect(find.bySemanticsLabel('Up 5'), findsOneWidget);
       });
 
@@ -115,7 +113,7 @@ void main() {
           'MetricIndicatorInline("1", "", {direction: "down", value: -2.5}), MetricIndicatorInline("2", "", {value: 5})',
         );
 
-        expect(tester.widget<Text>(find.text('2.5%')).style!.color, theme.colors!.danger);
+        expect(tester.widget<Text>(find.text('2.5%')).style!.color, theme.error);
         expect(find.text('5%'), findsNothing);
       });
 
@@ -124,16 +122,16 @@ void main() {
 
         final previous = tester.widget<Text>(find.text('USD 100'));
         expect(previous.style!.decoration, TextDecoration.lineThrough);
-        expect(previous.style!.color, theme.colors!.textTertiary);
+        expect(previous.style!.color, theme.tertiaryText);
       });
 
       testWidgets('IconText draws a filled badge of its variant beside its title', (tester) async {
         await draw(tester, 'IconText(Icon("check"), "filled", "lg", "Title", "Sub", true, "horizontal")');
 
         final badge = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).last;
-        expect((badge.decoration as BoxDecoration).color, theme.colors!.accent);
+        expect((badge.decoration as BoxDecoration).color, theme.accent);
         expect(tester.getSize(find.byType(Icon)), const Size(44 * 0.45, 44 * 0.45));
-        expect(tester.widget<Icon>(find.byType(Icon)).color, theme.colors!.onAccent);
+        expect(tester.widget<Icon>(find.byType(Icon)).color, theme.onAccent);
         expect(tester.getTopLeft(find.text('Title')).dx, greaterThan(tester.getTopLeft(find.byType(Icon)).dx));
         expect(_styleOf(tester, 'Title').fontWeight, FontWeight.w600);
       });
@@ -418,7 +416,7 @@ void main() {
       expect(tops, hasLength(2));
       expect(
         tester.widget<Text>(find.text('one')).style!.fontSize,
-        OpenUIThemeData.defaults(StreamTheme.light()).textStyles!.bodySmall!.fontSize,
+        OpenUIThemeData.defaults(StreamTheme.light()).bodySmall!.fontSize,
       );
     });
   });
@@ -436,10 +434,10 @@ void main() {
       final cards = tester
           .widgetList<DecoratedBox>(find.byType(DecoratedBox))
           .where(
-            (box) => (box.decoration as BoxDecoration).color == theme.colors!.sunkenSurface,
+            (box) => (box.decoration as BoxDecoration).color == theme.sunkenSurface,
           );
       expect(cards.length, greaterThanOrEqualTo(2));
-      expect((cards.first.decoration as BoxDecoration).borderRadius, BorderRadius.circular(theme.radius!.medium!));
+      expect((cards.first.decoration as BoxDecoration).borderRadius, BorderRadius.circular(theme.mediumCornerRadius!));
       expect(find.text('One'), findsNWidgets(2));
     });
 
@@ -452,7 +450,7 @@ void main() {
 
       expect(find.byType(SingleChildScrollView), findsNothing);
       final theme = OpenUIThemeData.defaults(StreamTheme.light());
-      expect(_styleOf(tester, '9').fontSize, theme.textStyles!.caption!.fontSize);
+      expect(_styleOf(tester, '9').fontSize, theme.caption!.fontSize);
     });
 
     testWidgets('lay out in columns by width, up to three, and stretch to the row height', (tester) async {
@@ -500,8 +498,8 @@ void main() {
       expect(await gapOf('200'), 48);
       expect(await gapOf('-5'), 0);
       expect(await gapOf('20'), 20);
-      expect(await gapOf('"xl"'), OpenUIThemeData.defaults(StreamTheme.light()).spacing!.xl);
-      expect(await gapOf('{}'), OpenUIThemeData.defaults(StreamTheme.light()).spacing!.m);
+      expect(await gapOf('"xl"'), OpenUIThemeData.defaults(StreamTheme.light()).xlSpacing);
+      expect(await gapOf('{}'), OpenUIThemeData.defaults(StreamTheme.light()).mSpacing);
     });
 
     testWidgets('a block without items draws nothing', (tester) async {
@@ -524,7 +522,7 @@ void main() {
 
       final theme = OpenUIThemeData.defaults(StreamTheme.light());
       expect(find.text('Hot'), findsOneWidget);
-      expect(tester.widget<Text>(find.text('Plain title')).style!.color, theme.colors!.textSecondary);
+      expect(tester.widget<Text>(find.text('Plain title')).style!.color, theme.secondaryText);
       expect(_styleOf(tester, 'Body A').fontWeight, FontWeight.w600);
       expect(
         tester.getSize(find.ancestor(of: find.text('Plain title'), matching: find.byType(ClipRRect)).first).height,
@@ -581,7 +579,7 @@ void main() {
       final theme = OpenUIThemeData.defaults(StreamTheme.light());
       expect(find.text('Head'), findsOneWidget);
       // A body Text is drawn extra small.
-      expect(_styleOf(tester, 'Line').fontSize, theme.textStyles!.caption!.fontSize);
+      expect(_styleOf(tester, 'Line').fontSize, theme.caption!.fontSize);
       expect(find.text('USD 9'), findsOneWidget);
       expect(find.text('Buy'), findsOneWidget);
       expect(tester.getTopLeft(find.text('USD 9')).dy, greaterThan(tester.getTopLeft(find.text('Line')).dy));

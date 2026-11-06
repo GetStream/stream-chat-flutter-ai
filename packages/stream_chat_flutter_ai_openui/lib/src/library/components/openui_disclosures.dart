@@ -56,16 +56,16 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
   final theme = OpenUITheme.of(context);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.spacing!.l!,
+    spacing: theme.lSpacing!,
     children: [
       for (final section in sections)
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: theme.spacing!.s!,
+          spacing: theme.sSpacing!,
           children: [
             Semantics(
               header: true,
-              child: OpenUIMarkdownText(data: section.trigger, style: theme.textStyles!.heading),
+              child: OpenUIMarkdownText(data: section.trigger, style: theme.heading),
             ),
             section.scope.buildProp('content'),
           ],
@@ -81,7 +81,7 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
 @internal
 Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final items = scope.elements('items');
   final marker = openUIScaled(context, 24);
   return Column(
@@ -105,7 +105,7 @@ Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
                   ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: theme.spacing!.m!,
+                  spacing: theme.mSpacing!,
                   children: [
                     Container(
                       width: marker,
@@ -114,26 +114,26 @@ Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
                       decoration: BoxDecoration(color: colors.accent, shape: BoxShape.circle),
                       child: Text(
                         '${index + 1}',
-                        style: theme.textStyles!.caption!.copyWith(fontWeight: FontWeight.w700, color: colors.onAccent),
+                        style: theme.caption!.copyWith(fontWeight: FontWeight.w700, color: colors.onAccent),
                         textScaler: TextScaler.noScaling,
                       ),
                     ),
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(bottom: last ? 0 : theme.spacing!.l!),
+                        padding: EdgeInsets.only(bottom: last ? 0 : theme.lSpacing!),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          spacing: theme.spacing!.xs!,
+                          spacing: theme.xsSpacing!,
                           children: [
                             OpenUIMarkdownText(
                               data: item.text('title') ?? '',
-                              style: theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+                              style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
                             ),
                             if (details case OpenUIString(:final value))
                               OpenUIMarkdownText(
                                 data: value,
-                                style: theme.textStyles!.bodySmall,
-                                color: colors.textSecondary,
+                                style: theme.bodySmall,
+                                color: colors.secondaryText,
                               )
                             else if (details != null)
                               item.buildProp('details'),
@@ -254,12 +254,12 @@ class _OpenUITabsState extends State<_OpenUITabs> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     final items = widget.items;
     final active = items.firstWhere((item) => item.value == _selected, orElse: () => items.first);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: theme.spacing!.m!,
+      spacing: theme.mSpacing!,
       children: [
         Align(
           alignment: AlignmentDirectional.centerStart,
@@ -268,13 +268,13 @@ class _OpenUITabsState extends State<_OpenUITabs> {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colors.sunkenSurface,
-                borderRadius: BorderRadius.circular(theme.radius!.pill!),
+                borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(3),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  spacing: theme.spacing!.xs!,
+                  spacing: theme.xsSpacing!,
                   children: [
                     for (final item in items)
                       OpenUIPressable(
@@ -286,15 +286,15 @@ class _OpenUITabsState extends State<_OpenUITabs> {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: item == active ? colors.surface : null,
-                            borderRadius: BorderRadius.circular(theme.radius!.pill!),
+                            borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                             child: Text(
                               item.trigger,
-                              style: theme.textStyles!.bodySmall!.copyWith(
+                              style: theme.bodySmall!.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: item == active ? colors.textPrimary : colors.textSecondary,
+                                color: item == active ? colors.text : colors.secondaryText,
                               ),
                             ),
                           ),
@@ -428,8 +428,8 @@ class _Disclosures extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final spacing = theme.spacing!.m!;
+    final colors = theme;
+    final spacing = theme.mSpacing!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -449,14 +449,12 @@ class _Disclosures extends StatelessWidget {
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: spacing),
                       child: Row(
-                        spacing: theme.spacing!.s!,
+                        spacing: theme.sSpacing!,
                         children: [
                           Expanded(
                             child: OpenUIMarkdownText(
                               data: item.trigger,
-                              style: heading
-                                  ? theme.textStyles!.heading
-                                  : theme.textStyles!.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+                              style: heading ? theme.heading : theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ),
                           ExcludeSemantics(
@@ -466,7 +464,7 @@ class _Disclosures extends StatelessWidget {
                               child: Icon(
                                 context.streamIcons.chevronDown,
                                 size: openUIScaled(context, 16),
-                                color: colors.textSecondary,
+                                color: colors.secondaryText,
                               ),
                             ),
                           ),
@@ -511,7 +509,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     final count = widget.slides.length;
     final current = _index.clamp(0, count - 1);
     final rtl = Directionality.of(context) == TextDirection.rtl;
@@ -520,7 +518,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
       variant: widget.variant,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.spacing!.s!,
+        spacing: theme.sSpacing!,
         children: openUIChildWidgets(context, widget.scope, widget.slides[current]),
       ),
     );
@@ -541,7 +539,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: theme.spacing!.s!,
+      spacing: theme.sSpacing!,
       children: [
         GestureDetector(
           onHorizontalDragEnd: (details) {
@@ -555,7 +553,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
         if (count > 1)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            spacing: theme.spacing!.m!,
+            spacing: theme.mSpacing!,
             children: [
               pager(
                 rtl ? context.streamIcons.chevronRight : context.streamIcons.chevronLeft,
