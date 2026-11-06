@@ -50,3 +50,10 @@
 - The app's own components, the host's `components`, can be placed by the agent wherever the library's content goes,
   by their name in PascalCase; their events are sent with the component's name.
 - A program whose closing fence wasn't a bare line, such as one ending in ```` ```Enjoy! ````, keeps its card.
+- The charts are drawn with the core package's `ChartView`: `BarChart`, `HorizontalBarChart`, `LineChart`,
+  `AreaChart`, `RadarChart`, `PieChart` (with `donut` and `semiCircular`), `RadialChart`, `SingleStackedBarChart`
+  and `ScatterChart`, in the colors of the theme's chart palette. Values that aren't finite are left out and the rest
+  are kept within ±1e15; a `height` sets the plot's height, between 60 and 1000. Parts of a whole with no value above zero, and a radar with fewer than three spokes, draw
+  nothing.
+- The example has a gallery of the programs the library's prompts teach the model with, and one with every chart type,
+  each drawn, written again line by line on a tap, with the actions it would send listed below.

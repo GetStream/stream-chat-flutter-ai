@@ -28,3 +28,6 @@ flutter:
     # The Ohrid trip example the Stream agent backend gives its model, as in
     # the package's `test/fixtures`.
     - assets/ohrid_prompt_example.oui
+    # The example programs the library's prompts teach the model with, one
+    # file each, and one with every chart type.
+    - assets/gallery/

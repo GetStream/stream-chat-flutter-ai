@@ -65,7 +65,8 @@ final renderer = OpenUIRenderer(instructions: 'Show places as cards, and plans a
 
 `OpenUILibrary.chat`, the default, is OpenUI's chat library, whose programs are a `Card` with the answer in it, and
 `OpenUILibrary.standard` its standard library, whose programs are a `Stack`. Both draw their content, data display,
-card, layout, list, table, form and button components; the charts are not drawn yet.
+card, layout, list, table, form, button and chart components. The charts are the core package's `ChartView`, drawn in
+the colors of `OpenUIColors.chartPalette`.
 
 To draw a component another way, replace its builder; the agent still writes the component as the library describes
 it. `buildDefault` draws what the package draws for it:
@@ -130,7 +131,8 @@ the `textInput` builder.
 Images load only from web links, unless the renderer is given another `mediaUrl`.
 
 The [example](example) shows a conversation whose replies are OpenUI, one of them written line by line as an agent
-streams it, and lists each action the agent would get.
+streams it, and a gallery of the programs the library's prompts teach the model with, one with every chart type. It
+lists each action the agent would get.
 
 ## Tests
 

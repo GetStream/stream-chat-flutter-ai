@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_header.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_text.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_charts.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_choices.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_data_display.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_disclosures.dart';
@@ -62,16 +63,17 @@ final class OpenUILibrary {
   /// OpenUI's chat library, whose programs are a `Card` with the answer in
   /// it.
   ///
-  /// This package draws its `Card` and every other component but the charts:
-  /// content, data display and card blocks, such as `TextContent`, `Callout`
-  /// and `SnippetCardBlock`; layout, such as `Tabs`, `Accordion` and
-  /// `SectionBlock`; lists, tables, forms, their fields, and buttons.
+  /// This package draws its `Card` and every other component: content, data
+  /// display and card blocks, such as `TextContent`, `Callout` and
+  /// `SnippetCardBlock`; layout, such as `Tabs`, `Accordion` and
+  /// `SectionBlock`; lists, tables, forms, their fields, and buttons; and the
+  /// charts.
   static final OpenUILibrary chat = OpenUILibrary._(LibraryDefinition.chat, const {}, _chatBuilders, _chatBuilders);
 
   /// OpenUI's standard library, whose programs are a `Stack` of components.
   ///
   /// This package draws its `Stack`, `Card` and `Modal`, and the same
-  /// components as [chat] otherwise; the charts are not drawn yet.
+  /// components as [chat] otherwise.
   static final OpenUILibrary standard = OpenUILibrary._(
     LibraryDefinition.standard,
     const {},
@@ -133,6 +135,15 @@ final class OpenUILibrary {
     'IconButton': buildOpenUIIconButton,
     'SectionBlock': buildOpenUISectionBlock,
     'FollowUpBlock': buildOpenUIFollowUpBlock,
+    'BarChart': buildOpenUIBarChart,
+    'LineChart': buildOpenUILineChart,
+    'AreaChart': buildOpenUIAreaChart,
+    'RadarChart': buildOpenUIRadarChart,
+    'HorizontalBarChart': buildOpenUIHorizontalBarChart,
+    'PieChart': buildOpenUIPieChart,
+    'RadialChart': buildOpenUIRadialChart,
+    'SingleStackedBarChart': buildOpenUISingleStackedBarChart,
+    'ScatterChart': buildOpenUIScatterChart,
   };
 
   static const Map<String, OpenUIComponentBuilder> _standardBuilders = {
@@ -189,6 +200,15 @@ final class OpenUILibrary {
     'Button': buildOpenUIButton,
     'Buttons': buildOpenUIButtons,
     'IconButton': buildOpenUIIconButton,
+    'BarChart': buildOpenUIBarChart,
+    'LineChart': buildOpenUILineChart,
+    'AreaChart': buildOpenUIAreaChart,
+    'RadarChart': buildOpenUIRadarChart,
+    'HorizontalBarChart': buildOpenUIHorizontalBarChart,
+    'PieChart': buildOpenUIPieChart,
+    'RadialChart': buildOpenUIRadialChart,
+    'SingleStackedBarChart': buildOpenUISingleStackedBarChart,
+    'ScatterChart': buildOpenUIScatterChart,
   };
 
   // The library this one was made from, chat or standard.

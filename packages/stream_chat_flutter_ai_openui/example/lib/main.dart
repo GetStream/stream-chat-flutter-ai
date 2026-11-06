@@ -1,6 +1,7 @@
-// A conversation whose replies are OpenUI, shown by the package's
-// `OpenUIRenderer`. Each action an agent would get, and each problem the
-// renderer reports, is listed below it.
+// A conversation whose replies are OpenUI, and a gallery of the example
+// programs the library's prompts teach the model with, all shown by the
+// package's `OpenUIRenderer`. Each action an agent would get, and each
+// problem the renderer reports, is listed below them.
 //
 // Two ways replies reach the conversation are shown:
 //
@@ -48,16 +49,76 @@ class _ExampleAppState extends State<ExampleApp> {
       darkTheme: ThemeData(brightness: Brightness.dark, extensions: [StreamTheme.dark()]),
       home: Builder(
         builder: (context) => FutureBuilder(
-          future: rootBundle.loadString('assets/ohrid_prompt_example.oui'),
-          builder: (context, ohrid) {
-            final program = ohrid.data;
-            if (program == null) return const Scaffold();
-            return ConversationPage(
-              ohrid: program,
+          future: _load(),
+          builder: (context, loaded) {
+            final data = loaded.data;
+            if (data == null) return const Scaffold();
+            return HomePage(
+              ohrid: data.ohrid,
+              gallery: data.gallery,
               onToggleMode: () => _toggleMode(Theme.of(context).brightness),
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+// What the app shows: the Ohrid reply's program and the gallery's programs by
+// name, in the order of their files.
+typedef _Data = ({String ohrid, List<(String, String)> gallery});
+
+Future<_Data> _load() async {
+  final ohrid = await rootBundle.loadString('assets/ohrid_prompt_example.oui');
+  final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+  final files = manifest.listAssets().where((asset) => asset.startsWith('assets/gallery/')).toList()..sort();
+  return (
+    ohrid: ohrid,
+    gallery: [
+      for (final file in files) (_nameOf(file), await rootBundle.loadString(file)),
+    ],
+  );
+}
+
+// `assets/gallery/02_analytics.oui` as `Analytics`.
+String _nameOf(String file) {
+  final name = file.split('/').last.replaceFirst(RegExp(r'^\d+_'), '').replaceFirst('.oui', '');
+  return name.isEmpty ? file : '${name[0].toUpperCase()}${name.substring(1)}';
+}
+
+/// The conversation and the gallery, one at a time.
+class HomePage extends StatefulWidget {
+  const HomePage({super.key, required this.ohrid, required this.gallery, required this.onToggleMode});
+
+  final String ohrid;
+  final List<(String, String)> gallery;
+  final VoidCallback onToggleMode;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          ConversationPage(ohrid: widget.ohrid, onToggleMode: widget.onToggleMode),
+          GalleryPage(programs: widget.gallery, onToggleMode: widget.onToggleMode),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (index) => setState(() => _tab = index),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Conversation'),
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Gallery'),
+        ],
       ),
     );
   }
@@ -211,20 +272,130 @@ class _ConversationPageState extends State<ConversationPage> {
           Expanded(
             child: AIConversationView(messages: messages, isThinking: _written == 0, ui: _host),
           ),
-          ListenableBuilder(
-            listenable: _log,
-            builder: (context, _) {
-              if (_log.lines.isEmpty) return const SizedBox.shrink();
-              return ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 180),
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  reverse: true,
-                  children: [for (final line in _log.lines.reversed) _Note(line)],
-                ),
-              );
-            },
+          _LogView(_log),
+        ],
+      ),
+    );
+  }
+}
+
+/// The gallery: one example program at a time, drawn as a reply of its own.
+class GalleryPage extends StatefulWidget {
+  const GalleryPage({super.key, required this.programs, required this.onToggleMode});
+
+  /// The programs by name.
+  final List<(String, String)> programs;
+  final VoidCallback onToggleMode;
+
+  @override
+  State<GalleryPage> createState() => _GalleryPageState();
+}
+
+class _GalleryPageState extends State<GalleryPage> {
+  final _log = _Log();
+  late final AIUIHost _host = AIUIHost(
+    renderers: [OpenUIRenderer(onError: (error, _) => _log.add('${error.code}: ${error.message}'))],
+    components: const [PlaceCardComponent()],
+    send: _send,
+  );
+  final _sent = <_Message>[];
+  int _selected = 0;
+
+  // How many of the program's lines the agent has written so far.
+  late int _written = _lines.length;
+  Timer? _writing;
+
+  // The pause between two lines the agent writes.
+  static const _linePause = Duration(milliseconds: 300);
+
+  List<String> get _lines => const LineSplitter().convert(widget.programs[_selected].$2);
+
+  @override
+  void dispose() {
+    _writing?.cancel();
+    _host.dispose();
+    _log.dispose();
+    super.dispose();
+  }
+
+  void _select(int index) {
+    _writing?.cancel();
+    setState(() {
+      _selected = index;
+      _written = _lines.length;
+      _sent.clear();
+    });
+  }
+
+  void _replay() {
+    _writing?.cancel();
+    setState(() => _written = 0);
+    _writing = Timer.periodic(_linePause, (timer) {
+      setState(() => _written += 1);
+      if (_written >= _lines.length) timer.cancel();
+    });
+  }
+
+  Future<void> _send(AIUIAction action) async {
+    _log.add('Sent “${action.label}”\n${const JsonEncoder.withIndent('  ').convert(action.toJson())}');
+    setState(() => _sent.add(_Message('sent-${_sent.length}', role: AIMessageRole.user, text: action.label)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.streamColorScheme;
+    final (name, _) = widget.programs[_selected];
+    final lines = _lines;
+    final isWriting = _written < lines.length;
+    final messages = [
+      _Message('ask-$name', role: AIMessageRole.user, text: 'Show me the $name example.'),
+      if (_written > 0)
+        _Message(
+          'reply-$name',
+          role: AIMessageRole.assistant,
+          text: name,
+          uiDocument: AIUIDocument(
+            format: AIUIFormat.openUI,
+            isStreaming: isWriting,
+            content: lines.take(_written).join('\n'),
           ),
+        ),
+      ..._sent,
+    ];
+    return Scaffold(
+      backgroundColor: colors.backgroundApp,
+      appBar: AppBar(
+        title: const Text('Gallery'),
+        actions: [
+          IconButton(onPressed: _replay, icon: const Icon(Icons.replay), tooltip: 'Write the example again'),
+          IconButton(onPressed: widget.onToggleMode, icon: const Icon(Icons.brightness_6), tooltip: 'Light or dark'),
+        ],
+      ),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: [
+                for (final (index, (label, _)) in widget.programs.indexed)
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 8),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: index == _selected,
+                      onSelected: (_) => _select(index),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            // A new conversation for each example, so none keeps another's replies.
+            child: AIConversationView(key: ValueKey(name), messages: messages, isThinking: _written == 0, ui: _host),
+          ),
+          _LogView(_log),
         ],
       ),
     );
@@ -238,6 +409,31 @@ class _Log extends ChangeNotifier {
   void add(String line) {
     lines.add(line);
     notifyListeners();
+  }
+}
+
+// The lines of [log], newest at the bottom, in a strip below the conversation.
+class _LogView extends StatelessWidget {
+  const _LogView(this.log);
+
+  final _Log log;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: log,
+      builder: (context, _) {
+        if (log.lines.isEmpty) return const SizedBox.shrink();
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 180),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            reverse: true,
+            children: [for (final line in log.lines.reversed) _Note(line)],
+          ),
+        );
+      },
+    );
   }
 }
 

@@ -7,7 +7,10 @@ model is written line by line, as an agent streams it, through the custom data t
 (`AIUIDocument.fromCustomData`). Its places are the app's own `place_card` component; `TripMap` and `CalendarCheck`
 aren't the app's, so the renderer reports them.
 
-Below the conversation, the app lists each action an agent would get, with its label and payload, and each problem the
+The Gallery tab draws the example programs the library's prompts teach the model with (`assets/gallery`), and one
+with every chart type, one at a time. The replay button writes the chosen example line by line.
+
+Below each, the app lists each action an agent would get, with its label and payload, and each problem the
 renderer reports. Links open outside the app.
 
 ```bash
