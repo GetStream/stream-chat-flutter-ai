@@ -125,6 +125,10 @@ final class A2UIProcessor extends ChangeNotifier {
   final List<core.Subscription> _coreSubscriptions = [];
   final Map<String, A2UISurface> _surfaces = {};
   final Set<(String, String, String?, String?)> _reported = {};
+  // The surface the message being applied creates too large to build, if any.
+  // The core creates a surface from inside `processMessages`, and tells this
+  // processor of it with no way to say it is too large, so it is said here.
+  String? _tooLargeSurfaceId;
   bool _disposed = false;
 
   // The version string the core reads A2UI 1.0 messages by.
@@ -236,10 +240,13 @@ final class A2UIProcessor extends ChangeNotifier {
       case A2UIRejectedEnvelope(:final error):
         _report(error);
       case A2UIAcceptedEnvelope(:final message):
+        final forCore = _forCore(message);
+        final surfaceId = _sizedSurfaceId(forCore);
+        if (surfaceId != null) _holdTreeIfTooLarge(forCore, surfaceId);
         try {
           // One message in a list, so a `messages` field beside its message key
           // isn't taken for a batch.
-          _core.processMessages([_forCore(message)]);
+          _core.processMessages([forCore]);
         } on core.A2uiError catch (error) {
           _report(_errorFromCore(error, message: message));
         } catch (error, stack) {
@@ -253,8 +260,128 @@ final class A2UIProcessor extends ChangeNotifier {
               context: ErrorDescription('while applying an A2UI message'),
             ),
           );
+        } finally {
+          _tooLargeSurfaceId = null;
+          // Also when the core throws something else, so a tree held back
+          // above is built again, or reported, either way.
+          if (surfaceId != null) _checkSize(surfaceId);
         }
     }
+  }
+
+  // Keeps the tree of surface [surfaceId] from being built while the core
+  // applies [message], when the surface would then expand past a limit (see
+  // [_expansionLimit]): the core builds every component of the tree as it
+  // applies a message. A surface the message creates is created without its
+  // tree.
+  void _holdTreeIfTooLarge(Map<String, Object?> message, String surfaceId) {
+    final existing = message.containsKey('createSurface') ? null : _surfaces[surfaceId];
+    if (_expansionAfter(message, existing) == null) return;
+    if (existing == null) {
+      _tooLargeSurfaceId = surfaceId;
+    } else {
+      existing._releaseTree();
+    }
+  }
+
+  // Why the surface [message] changes can't be built once the message is
+  // applied to [existing], or to a new surface when [existing] is `null`.
+  _Expansion? _expansionAfter(Map<String, Object?> message, A2UISurface? existing) {
+    final payload =
+        (message['createSurface'] ?? message['updateComponents'] ?? message['updateDataModel'])!
+            as Map<String, Object?>;
+    final components = {
+      ...?existing?._componentsById(),
+      if (payload['components'] case final List<Object?> added)
+        for (final component in added)
+          if (component case {'id': final String id}) id: component as Map<String, Object?>,
+    };
+    final payloadCatalogId = payload['catalogId'];
+    final catalogId = existing?._model.defaultCatalog?.id ?? (payloadCatalogId is String ? payloadCatalogId : null);
+    final Object? Function(String path) read;
+    if (existing == null) {
+      read = _dataReader(() => core.DataModel(payload['dataModel']));
+    } else if (message.containsKey('updateDataModel')) {
+      final path = payload['path'];
+      read = _dataReader(
+        () => core.DataModel(existing._model.dataModel.get('/'))..set(path is String ? path : '/', payload['value']),
+      );
+    } else {
+      read = existing._readData;
+    }
+    return _expansionLimit(
+      components,
+      (componentCatalogId) => _catalogs._refsOf(componentCatalogId ?? catalogId),
+      rootId: 'root',
+      read: read,
+    );
+  }
+
+  // Reads the data model [build] makes, which it only makes when a template
+  // needs it. When it can't be made, the core rejects the message too, and
+  // nothing is read.
+  static Object? Function(String path) _dataReader(core.DataModel Function() build) {
+    core.DataModel? data;
+    var failed = false;
+    return (path) {
+      if (failed) return null;
+      try {
+        data ??= build();
+      } on core.A2uiError {
+        failed = true;
+        return null;
+      }
+      try {
+        return data!.get(path);
+      } on core.A2uiError {
+        return null;
+      }
+    };
+  }
+
+  // Releases or builds the tree of surface [surfaceId] after a message
+  // changed it, by whether it can now be built, and reports a surface that
+  // can't.
+  void _checkSize(String surfaceId) {
+    final surface = _surfaces[surfaceId];
+    if (surface == null) return;
+    final limit = _expansionLimit(
+      surface._componentsById(),
+      (catalogId) => _catalogs._refsOf(catalogId ?? surface._model.defaultCatalog?.id),
+      rootId: 'root',
+      read: surface._readData,
+    );
+    if (limit == null) {
+      surface._restoreTree();
+      return;
+    }
+    surface._releaseTree();
+    _report(
+      A2UIError(
+        code: A2UIErrorCode.recursionLimitExceeded,
+        message: switch (limit) {
+          _TooManyComponents() =>
+            "Surface '$surfaceId' expands to more than $_maxExpandedComponents components. "
+                'A component listed as a child more than once, or a template inside a template, multiplies the '
+                'components under it.',
+          _NestedTooDeep(:final id) => "Component nesting exceeded $_maxDepth levels at '$id'.",
+        },
+        surfaceId: surfaceId,
+      ),
+    );
+  }
+
+  // The id of the surface [message] adds components or data to, or `null`
+  // when it adds neither.
+  static String? _sizedSurfaceId(Map<String, Object?> message) {
+    final payload = switch (message) {
+      {'createSurface': final Map<String, Object?> payload} when payload['components'] is List<Object?> => payload,
+      {'updateComponents': final Map<String, Object?> payload} when payload['components'] is List<Object?> => payload,
+      {'updateDataModel': final Map<String, Object?> payload} => payload,
+      _ => null,
+    };
+    final surfaceId = payload?['surfaceId'];
+    return surfaceId is String ? surfaceId : null;
   }
 
   Map<String, Object?> _forCore(Map<String, Object?> message) {
@@ -281,7 +408,7 @@ final class A2UIProcessor extends ChangeNotifier {
     final surfaces = _releaseCore();
     _reported.clear();
     _core = _makeCore();
-    _disposeSurfaces(surfaces);
+    _disposeSurfaces(surfaces, notify: true);
     if (hadSurfaces) notifyListeners();
   }
 
@@ -304,11 +431,11 @@ final class A2UIProcessor extends ChangeNotifier {
   }
 
   void _handleSurfaceCreated(core.SurfaceModel<core.ComponentApi> model) {
-    _surfaces[model.id] = A2UISurface._(model, this);
+    _surfaces[model.id] = A2UISurface._(model, this, isTooLarge: model.id == _tooLargeSurfaceId);
   }
 
   void _handleSurfaceDeleted(String surfaceId) {
-    _surfaces.remove(surfaceId)?._dispose();
+    _surfaces.remove(surfaceId)?._dispose(notify: true);
   }
 
   void _handleAction(core.A2uiRendererAction action) {
@@ -347,9 +474,9 @@ final class A2UIProcessor extends ChangeNotifier {
     return surfaces;
   }
 
-  static void _disposeSurfaces(List<A2UISurface> surfaces) {
+  static void _disposeSurfaces(List<A2UISurface> surfaces, {required bool notify}) {
     for (final surface in surfaces) {
-      surface._dispose();
+      surface._dispose(notify: notify);
     }
   }
 
@@ -360,7 +487,7 @@ final class A2UIProcessor extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _disposeSurfaces(_releaseCore());
+    _disposeSurfaces(_releaseCore(), notify: false);
     super.dispose();
   }
 

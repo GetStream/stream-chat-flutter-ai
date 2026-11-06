@@ -12,24 +12,33 @@ part of 'a2ui_adapter.dart';
 /// component arrives or is replaced. Changes inside the tree notify the
 /// [A2UINode]s they affect.
 ///
+/// A surface whose components would expand to more than 5,000, counting a
+/// component once for each place it shows and a template's once for each item
+/// of its list, or would nest more than 50 levels deep, has no [root] until a
+/// message from the agent or a [write] to its data makes it fit; the processor
+/// reports it once as `RECURSION_LIMIT_EXCEEDED`. A [write] is checked too, so
+/// one that grows a templated list past the limit takes the [root] away.
+///
 /// Its processor owns it: it is disposed when the agent deletes the surface,
-/// and when the processor is reset or disposed.
+/// and when the processor is reset or disposed. When the agent deletes it, or
+/// the processor is reset, it first notifies its listeners that its [root] is
+/// gone.
 ///
 /// Internal to the package.
 @internal
 final class A2UISurface extends ChangeNotifier {
-  A2UISurface._(this._model, this._processor) : id = _model.id, _resolver = core.NodeResolver(_model) {
+  A2UISurface._(this._model, this._processor, {required bool isTooLarge}) : id = _model.id {
     _errors = _model.onError.subscribe((error) => _processor._report(_errorFromSurface(error)));
-    // The signal calls back right away with the current root, which is no
-    // change, before anyone can listen.
-    _unsubscribeRoot = _resolver.rootNode.subscribe((_) => notifyListeners());
+    if (!isTooLarge) _buildTree();
   }
 
   final core.SurfaceModel<core.ComponentApi> _model;
   final A2UIProcessor _processor;
-  final core.NodeResolver<core.ComponentApi> _resolver;
   late final core.Subscription _errors;
-  late final void Function() _unsubscribeRoot;
+  // The resolved tree, or `null` while the surface is past a limit of
+  // `_expansionLimit` and can't be built.
+  core.NodeResolver<core.ComponentApi>? _resolver;
+  void Function()? _unsubscribeRoot;
   final Expando<A2UINode> _nodes = Expando();
   bool _disposed = false;
 
@@ -45,9 +54,67 @@ final class A2UISurface extends ChangeNotifier {
   /// disposed.
   A2UINode? get root {
     if (_disposed) return null;
-    final rootNode = _resolver.rootNode.peek();
+    final rootNode = _resolver?.rootNode.peek();
     if (rootNode == null) return null;
     return _nodeFor(rootNode);
+  }
+
+  // Whether the tree isn't built, because the surface is past a limit of
+  // `_expansionLimit`.
+  bool get _isTooLarge => _resolver == null;
+
+  void _buildTree() {
+    final resolver = _resolver = core.NodeResolver(_model);
+    // The signal calls back right away with the current root, which is no
+    // change.
+    var current = true;
+    _unsubscribeRoot = resolver.rootNode.subscribe((_) {
+      if (!current) notifyListeners();
+    });
+    current = false;
+  }
+
+  // Releases the tree, so a message that would make it too large doesn't
+  // build it. Notifies listeners when there was a root.
+  void _releaseTree() {
+    final resolver = _resolver;
+    if (resolver == null) return;
+    final hadRoot = resolver.rootNode.peek() != null;
+    _unsubscribeRoot?.call();
+    _unsubscribeRoot = null;
+    _resolver = null;
+    resolver.dispose();
+    if (hadRoot) notifyListeners();
+  }
+
+  // Builds the tree again once the surface is within the limits of
+  // `_expansionLimit` again. Notifies listeners when it has a root.
+  void _restoreTree() {
+    if (!_isTooLarge) return;
+    _buildTree();
+    if (_resolver?.rootNode.peek() != null) notifyListeners();
+  }
+
+  // The components the agent sent, as it wrote them, by id.
+  Map<String, Map<String, Object?>> _componentsById() {
+    return {
+      for (final component in _model.componentsModel.all)
+        component.id: {
+          ...component.properties,
+          'component': component.type,
+          if (component.catalog case final catalog?) 'catalogId': catalog,
+        },
+    };
+  }
+
+  // The value at [path] in the data model, or `null` when there is none or
+  // the path can't be read.
+  Object? _readData(String path) {
+    try {
+      return _model.dataModel.get(path);
+    } on core.A2uiError {
+      return null;
+    }
   }
 
   // The same core node always gives the same node, so listeners stay attached
@@ -86,14 +153,19 @@ final class A2UISurface extends ChangeNotifier {
     } on core.A2uiError catch (error) {
       _processor._report(_errorFromCore(error, surfaceId: id));
     }
+    _processor._checkSize(id);
   }
 
-  void _dispose() {
+  // Releases this surface. When [notify] is true, listeners hear first that
+  // its root is gone, so a view of a surface the agent deleted shows nothing.
+  void _dispose({required bool notify}) {
     if (_disposed) return;
+    final hadRoot = root != null;
     _disposed = true;
     _errors.unsubscribe();
-    _unsubscribeRoot();
-    _resolver.dispose();
+    _unsubscribeRoot?.call();
+    _resolver?.dispose();
+    if (notify && hadRoot) notifyListeners();
     dispose();
   }
 
