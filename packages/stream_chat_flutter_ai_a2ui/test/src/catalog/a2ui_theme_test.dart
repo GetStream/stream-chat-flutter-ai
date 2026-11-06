@@ -1,171 +1,234 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+
+// A value for each field of A2UIThemeData, and one that differs from it.
+final _fields =
+    <
+      ({
+        String name,
+        A2UIThemeData Function() one,
+        A2UIThemeData Function() other,
+        Object? Function(A2UIThemeData) read,
+      })
+    >[
+      (
+        name: 'accent',
+        one: () => A2UIThemeData(accent: _a),
+        other: () => A2UIThemeData(accent: _b),
+        read: (t) => t.accent,
+      ),
+      (
+        name: 'onAccent',
+        one: () => A2UIThemeData(onAccent: _a),
+        other: () => A2UIThemeData(onAccent: _b),
+        read: (t) => t.onAccent,
+      ),
+      (name: 'text', one: () => A2UIThemeData(text: _a), other: () => A2UIThemeData(text: _b), read: (t) => t.text),
+      (
+        name: 'secondaryText',
+        one: () => A2UIThemeData(secondaryText: _a),
+        other: () => A2UIThemeData(secondaryText: _b),
+        read: (t) => t.secondaryText,
+      ),
+      (
+        name: 'surface',
+        one: () => A2UIThemeData(surface: _a),
+        other: () => A2UIThemeData(surface: _b),
+        read: (t) => t.surface,
+      ),
+      (
+        name: 'subtleSurface',
+        one: () => A2UIThemeData(subtleSurface: _a),
+        other: () => A2UIThemeData(subtleSurface: _b),
+        read: (t) => t.subtleSurface,
+      ),
+      (
+        name: 'border',
+        one: () => A2UIThemeData(border: _a),
+        other: () => A2UIThemeData(border: _b),
+        read: (t) => t.border,
+      ),
+      (name: 'error', one: () => A2UIThemeData(error: _a), other: () => A2UIThemeData(error: _b), read: (t) => t.error),
+      (
+        name: 'warning',
+        one: () => A2UIThemeData(warning: _a),
+        other: () => A2UIThemeData(warning: _b),
+        read: (t) => t.warning,
+      ),
+      (
+        name: 'body',
+        one: () => A2UIThemeData(body: _small),
+        other: () => A2UIThemeData(body: _large),
+        read: (t) => t.body,
+      ),
+      (
+        name: 'caption',
+        one: () => A2UIThemeData(caption: _small),
+        other: () => A2UIThemeData(caption: _large),
+        read: (t) => t.caption,
+      ),
+      (
+        name: 'label',
+        one: () => A2UIThemeData(label: _small),
+        other: () => A2UIThemeData(label: _large),
+        read: (t) => t.label,
+      ),
+      (
+        name: 'headings',
+        one: () => A2UIThemeData(headings: const [_small]),
+        other: () => A2UIThemeData(headings: const [_large]),
+        read: (t) => t.headings,
+      ),
+      (
+        name: 'cornerRadius',
+        one: () => A2UIThemeData(cornerRadius: 2),
+        other: () => A2UIThemeData(cornerRadius: 4),
+        read: (t) => t.cornerRadius,
+      ),
+      (
+        name: 'buttonCornerRadius',
+        one: () => A2UIThemeData(buttonCornerRadius: 2),
+        other: () => A2UIThemeData(buttonCornerRadius: 4),
+        read: (t) => t.buttonCornerRadius,
+      ),
+      (
+        name: 'controlCornerRadius',
+        one: () => A2UIThemeData(controlCornerRadius: 2),
+        other: () => A2UIThemeData(controlCornerRadius: 4),
+        read: (t) => t.controlCornerRadius,
+      ),
+    ];
+
+const _a = Color(0xFF000000);
+const _b = Color(0xFFFFFFFF);
+const _small = TextStyle(fontSize: 10);
+const _large = TextStyle(fontSize: 20);
 
 void main() {
-  test('heading 1 is the first heading style', () {
-    expect(_theme().heading(1), _h1());
-  });
-
-  test('heading 3 is the third heading style', () {
-    expect(_theme().heading(3), _h3());
-  });
-
-  test('a level below 1 gives the first heading style', () {
-    expect(_theme().heading(0), _h1());
-  });
-
-  test('a level past the last gives the last heading style', () {
-    expect(_theme().heading(9), _h3());
-  });
-
-  test('a theme with no heading styles asserts', () {
-    expect(() => _theme(headings: const []), throwsAssertionError);
-  });
-
-  test('changing the heading styles a theme was made with leaves the theme as it was', () {
-    final headings = [_h1(), _h2(), _h3()];
-    final theme = _theme(headings: headings);
-    final hashCode = theme.hashCode;
-
-    headings.clear();
-
-    expect(theme.headings, [_h1(), _h2(), _h3()]);
-    expect(theme.hashCode, hashCode);
-  });
-
-  test("a theme's heading styles can't be changed", () {
-    expect(() => _theme().headings.add(_h1()), throwsUnsupportedError);
-  });
-
-  for (final field in _fields()) {
-    test('copyWith replaces the ${field.name}', () {
-      expect(field.read(field.replace(_theme())), field.other);
+  for (final field in _fields) {
+    test('merge takes the ${field.name} the other theme sets', () {
+      expect(field.read(field.one().merge(field.other())), field.read(field.other()));
     });
 
-    test('copyWith of the ${field.name} keeps the other values', () {
-      final theme = _theme();
-      final copy = field.replace(theme);
+    test("merge keeps the ${field.name} when the other theme doesn't set it", () {
+      expect(field.read(field.one().merge(const A2UIThemeData.empty())), field.read(field.one()));
+    });
 
-      for (final kept in _fields().where((it) => it.name != field.name)) {
-        expect(kept.read(copy), kept.read(theme), reason: kept.name);
-      }
+    test('copyWith of nothing keeps the ${field.name}', () {
+      expect(field.read(field.one().copyWith()), field.read(field.one()));
     });
 
     test('themes with another ${field.name} are not equal', () {
-      expect(field.replace(_theme()), isNot(_theme()));
+      expect(field.one(), isNot(field.other()));
     });
 
     test('themes with another ${field.name} have another hash code', () {
-      expect(field.replace(_theme()).hashCode, isNot(_theme().hashCode));
+      expect(field.one().hashCode, isNot(field.other().hashCode));
+    });
+
+    test('lerp switches the ${field.name} only one theme sets at the midpoint', () {
+      const empty = A2UIThemeData.empty();
+      expect(field.read(A2UIThemeData.lerp(field.one(), empty, 0.4)), field.read(field.one()));
+      expect(field.read(A2UIThemeData.lerp(field.one(), empty, 0.6)), isNull);
     });
   }
 
-  test('copyWith with nothing is equal to the theme', () {
-    expect(_theme().copyWith(), _theme());
+  test('merge with null is the theme itself', () {
+    final theme = A2UIThemeData(accent: _a);
+
+    expect(theme.merge(null), same(theme));
   });
 
-  test('themes with the same values are equal', () {
-    expect(_theme(), _theme());
+  test('an empty theme sets nothing', () {
+    expect(const A2UIThemeData.empty(), A2UIThemeData());
   });
 
-  test('themes with the same values have the same hash code', () {
-    expect(_theme().hashCode, _theme().hashCode);
+  test('lerp blends colors both themes set', () {
+    final blended = A2UIThemeData.lerp(A2UIThemeData(accent: _a), A2UIThemeData(accent: _b), 0.5);
+
+    expect(blended.accent, Color.lerp(_a, _b, 0.5));
   });
 
-  test('themes with equal heading lists in different list objects are equal', () {
-    expect(_theme(headings: [_h1(), _h2(), _h3()]), _theme(headings: [_h1(), _h2(), _h3()]));
+  test('lerp blends radii both themes set', () {
+    final blended = A2UIThemeData.lerp(A2UIThemeData(cornerRadius: 2), A2UIThemeData(cornerRadius: 4), 0.5);
+
+    expect(blended.cornerRadius, 3);
   });
 
-  test('themes with equal heading lists in different list objects have the same hash code', () {
-    expect(_theme(headings: [_h1(), _h2(), _h3()]).hashCode, _theme(headings: [_h1(), _h2(), _h3()]).hashCode);
+  test('lerp blends heading lists of the same length style by style', () {
+    final blended = A2UIThemeData.lerp(
+      A2UIThemeData(headings: const [_small]),
+      A2UIThemeData(headings: const [_large]),
+      0.5,
+    );
+
+    expect(blended.headings!.single.fontSize, 15);
+  });
+
+  test('a theme with no heading styles asserts', () {
+    expect(() => A2UIThemeData(headings: const []), throwsAssertionError);
+  });
+
+  test('changing the heading styles a theme was made with leaves the theme as it was', () {
+    final headings = [_small];
+    final theme = A2UIThemeData(headings: headings);
+    headings[0] = _large;
+
+    expect(theme.headings, [_small]);
+  });
+
+  test("a theme's heading styles can't be changed", () {
+    expect(() => A2UIThemeData(headings: const [_small]).headings![0] = _large, throwsUnsupportedError);
+  });
+
+  test('themes with equal heading lists in different list objects are equal and hash alike', () {
+    final one = A2UIThemeData(headings: List.of(const [_small]));
+    final other = A2UIThemeData(headings: List.of(const [_small]));
+
+    expect(one, other);
+    expect(one.hashCode, other.hashCode);
+  });
+
+  testWidgets('of gives an empty theme with no A2UITheme above', (tester) async {
+    late A2UIThemeData read;
+    await tester.pumpWidget(Builder(builder: (context) => _read(context, (theme) => read = theme)));
+
+    expect(read, const A2UIThemeData.empty());
+  });
+
+  testWidgets('of gives the nearest A2UITheme', (tester) async {
+    late A2UIThemeData read;
+    await tester.pumpWidget(
+      A2UITheme(
+        data: A2UIThemeData(accent: _a),
+        child: A2UITheme(
+          data: A2UIThemeData(cornerRadius: 4),
+          child: Builder(builder: (context) => _read(context, (theme) => read = theme)),
+        ),
+      ),
+    );
+
+    expect(read, A2UIThemeData(cornerRadius: 4));
+  });
+
+  testWidgets('merge layers over the enclosing A2UITheme', (tester) async {
+    late A2UIThemeData read;
+    await tester.pumpWidget(
+      A2UITheme(
+        data: A2UIThemeData(accent: _a),
+        child: A2UITheme.merge(
+          data: A2UIThemeData(cornerRadius: 4),
+          child: Builder(builder: (context) => _read(context, (theme) => read = theme)),
+        ),
+      ),
+    );
+
+    expect(read, A2UIThemeData(accent: _a, cornerRadius: 4));
   });
 }
 
-TextStyle _body() => const TextStyle(fontSize: 17);
-TextStyle _h1() => const TextStyle(fontSize: 28);
-TextStyle _h2() => const TextStyle(fontSize: 22);
-TextStyle _h3() => const TextStyle(fontSize: 20);
-
-// A theme whose values all differ from each other, so a value read from the
-// wrong field shows.
-A2UITheme _theme({List<TextStyle>? headings}) {
-  return A2UITheme(
-    accent: Colors.blue,
-    onAccent: Colors.white,
-    text: Colors.black,
-    secondaryText: Colors.grey,
-    surface: const Color(0xFFFAFAFA),
-    subtleSurface: Colors.white70,
-    border: Colors.black12,
-    error: Colors.red,
-    warning: Colors.orange,
-    body: _body(),
-    caption: const TextStyle(fontSize: 12),
-    label: const TextStyle(fontSize: 15),
-    headings: headings ?? [_h1(), _h2(), _h3()],
-    cornerRadius: 16,
-    buttonCornerRadius: 9999,
-    controlCornerRadius: 12,
-  );
-}
-
-// One value of a theme: its name, how to read it, a value none of [_theme]'s
-// values has, and how to copy a theme with that value in its place.
-typedef _Field = ({
-  String name,
-  Object? Function(A2UITheme theme) read,
-  Object? other,
-  A2UITheme Function(A2UITheme theme) replace,
-});
-
-// Every value of a theme.
-List<_Field> _fields() {
-  const color = Colors.purple;
-  const style = TextStyle(fontSize: 99);
-  const radius = 3.0;
-  final headings = [_h1()];
-  return [
-    (name: 'accent', read: (it) => it.accent, other: color, replace: (it) => it.copyWith(accent: color)),
-    (name: 'onAccent', read: (it) => it.onAccent, other: color, replace: (it) => it.copyWith(onAccent: color)),
-    (name: 'text', read: (it) => it.text, other: color, replace: (it) => it.copyWith(text: color)),
-    (
-      name: 'secondaryText',
-      read: (it) => it.secondaryText,
-      other: color,
-      replace: (it) => it.copyWith(secondaryText: color),
-    ),
-    (name: 'surface', read: (it) => it.surface, other: color, replace: (it) => it.copyWith(surface: color)),
-    (
-      name: 'subtleSurface',
-      read: (it) => it.subtleSurface,
-      other: color,
-      replace: (it) => it.copyWith(subtleSurface: color),
-    ),
-    (name: 'border', read: (it) => it.border, other: color, replace: (it) => it.copyWith(border: color)),
-    (name: 'error', read: (it) => it.error, other: color, replace: (it) => it.copyWith(error: color)),
-    (name: 'warning', read: (it) => it.warning, other: color, replace: (it) => it.copyWith(warning: color)),
-    (name: 'body', read: (it) => it.body, other: style, replace: (it) => it.copyWith(body: style)),
-    (name: 'caption', read: (it) => it.caption, other: style, replace: (it) => it.copyWith(caption: style)),
-    (name: 'label', read: (it) => it.label, other: style, replace: (it) => it.copyWith(label: style)),
-    (name: 'headings', read: (it) => it.headings, other: headings, replace: (it) => it.copyWith(headings: headings)),
-    (
-      name: 'cornerRadius',
-      read: (it) => it.cornerRadius,
-      other: radius,
-      replace: (it) => it.copyWith(cornerRadius: radius),
-    ),
-    (
-      name: 'buttonCornerRadius',
-      read: (it) => it.buttonCornerRadius,
-      other: radius,
-      replace: (it) => it.copyWith(buttonCornerRadius: radius),
-    ),
-    (
-      name: 'controlCornerRadius',
-      read: (it) => it.controlCornerRadius,
-      other: radius,
-      replace: (it) => it.copyWith(controlCornerRadius: radius),
-    ),
-  ];
+Widget _read(BuildContext context, void Function(A2UIThemeData theme) onRead) {
+  onRead(A2UITheme.of(context));
+  return const SizedBox();
 }

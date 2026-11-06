@@ -57,9 +57,15 @@ abstract class AIUIComponent<T> {
 
   /// Turns the values the agent filled in into the [T] that [build] uses.
   ///
-  /// Throws when the values are incomplete or have the wrong type, as
-  /// [AIUIArguments]' getters do. The component then shows nothing, which is
-  /// what happens while the agent is still writing them.
+  /// Throws a [FormatException] when the values are incomplete or have the
+  /// wrong type, as [AIUIArguments]' getters do. The component then shows
+  /// nothing, which is what happens while the agent is still writing them,
+  /// and the mismatch is reported as the agent's arguments not fitting.
+  ///
+  /// Any other exception is treated as a bug in the app and reported through
+  /// [FlutterError.reportError]. So a check that throws something else on a
+  /// bad value, such as `MyEnum.values.byName(...)`, which throws an
+  /// [ArgumentError], should be wrapped to throw a [FormatException] instead.
   T readArguments(AIUIArguments arguments);
 
   /// Builds the widget for the [arguments] that [readArguments] returned.

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
@@ -20,8 +21,9 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 class A2UISurfaceView extends StatelessWidget {
   /// Creates the view of [surface].
   ///
-  /// Without a [theme], the surface is drawn with the one
-  /// [A2UITheme.fromStream] makes from the [StreamTheme] around it. An image
+  /// The surface is drawn with [theme] layered over the nearest [A2UITheme],
+  /// and takes each value neither sets from the [StreamTheme] around it, so
+  /// it follows light and dark mode. An image
   /// whose URL has a scheme loads from the URL [mediaUrl] gives for it, and
   /// only web links load unless it is given another function.
   ///
@@ -44,9 +46,8 @@ class A2UISurfaceView extends StatelessWidget {
   /// The builders of the surface's components.
   final A2UICatalog catalog;
 
-  /// The look of the surface's components, or `null` for the app's Stream
-  /// theme.
-  final A2UITheme? theme;
+  /// Overrides for the look of the surface's components, or `null` for none.
+  final A2UIThemeData? theme;
 
   /// The function the surface's images are loaded through.
   final A2UIMediaUrl mediaUrl;
@@ -59,8 +60,9 @@ class A2UISurfaceView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = this.theme ?? A2UITheme.fromStream(StreamTheme.of(context));
-    return A2UISurfaceScope(
+    final override = this.theme;
+    final theme = A2UIResolvedTheme.resolve(context, override: override);
+    final view = A2UISurfaceScope(
       catalog: catalog,
       theme: theme,
       mediaUrl: mediaUrl,
@@ -80,5 +82,8 @@ class A2UISurfaceView extends StatelessWidget {
         ),
       ),
     );
+    // A builder reading A2UITheme.of sees the surface's own overrides too.
+    if (override == null) return view;
+    return A2UITheme.merge(data: override, child: view);
   }
 }

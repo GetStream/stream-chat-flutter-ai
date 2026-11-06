@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
@@ -331,7 +331,7 @@ DateTime a2uiClampDateTime(DateTime picked, A2UIDateTimeKind kind, {DateTime? mi
 // [bounds]' `min` to the day of its `max`.
 Future<DateTime?> _pick(
   BuildContext context,
-  A2UITheme theme,
+  A2UIResolvedTheme theme,
   A2UIDateTimeKind kind, {
   required DateTime? start,
   required ({DateTime? min, DateTime? max}) bounds,
@@ -379,7 +379,7 @@ DateTime _clampDay(DateTime day, DateTime first, DateTime last) {
 
 // The theme of the pickers: the app's, with the colors, corners and font of
 // [theme].
-ThemeData _pickerTheme(BuildContext context, A2UITheme theme) {
+ThemeData _pickerTheme(BuildContext context, A2UIResolvedTheme theme) {
   final base = Theme.of(context);
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(theme.cornerRadius));
   return base.copyWith(

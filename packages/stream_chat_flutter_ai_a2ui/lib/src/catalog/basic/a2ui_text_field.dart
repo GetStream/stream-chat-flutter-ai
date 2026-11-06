@@ -19,7 +19,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// elsewhere, such as from the agent, replaces it once the field loses focus.
 /// A field whose `value` isn't bound to the data model shows its value
 /// read-only and fainter. While the field holds text, a failing check
-/// outlines the field in [A2UITheme.error] and its messages show below it.
+/// outlines the field in [A2UIThemeData.error] and its messages show below it.
 ///
 /// Internal to the package.
 @internal
