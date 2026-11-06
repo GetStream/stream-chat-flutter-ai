@@ -28,6 +28,27 @@ void main() {
     expect((_frameOf(tester).shape as RoundedSuperellipseBorder).side.color, lightTheme().border);
   });
 
+  testWidgets('a required input left empty is outlined in the error color', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_input(checks: _required)],
+      data: const {},
+    );
+
+    expect((_frameOf(tester).shape as RoundedSuperellipseBorder).side.color, lightTheme().error);
+    expect(find.text('Pick a day.'), findsOneWidget);
+  });
+
+  testWidgets('a required input with a value is outlined in the border color', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_input(checks: _required)],
+      data: {'day': '2026-10-02'},
+    );
+
+    expect((_frameOf(tester).shape as RoundedSuperellipseBorder).side.color, lightTheme().border);
+  });
+
   testWidgets('an input is at least as tall as a person can tap', (tester) async {
     await pumpSurface(tester, components: [_input()], data: {'day': '2026-10-02'});
 
@@ -460,6 +481,7 @@ Map<String, Object?> _input({
   bool? enableTime,
   String? min,
   String? max,
+  List<Map<String, Object?>>? checks,
 }) {
   return {
     'id': id,
@@ -470,8 +492,21 @@ Map<String, Object?> _input({
     'enableTime': ?enableTime,
     'min': ?min,
     'max': ?max,
+    'checks': ?checks,
   };
 }
+
+const _required = [
+  {
+    'condition': {
+      '@call': 'required',
+      'args': {
+        'value': {'@path': '/day'},
+      },
+    },
+    'message': 'Pick a day.',
+  },
+];
 
 ShapeDecoration _frameOf(WidgetTester tester) {
   final frame = find.descendant(of: find.byType(A2UIStreamFieldFrame), matching: find.byType(Container));

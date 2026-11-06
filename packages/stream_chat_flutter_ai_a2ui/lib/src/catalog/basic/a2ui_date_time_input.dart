@@ -48,6 +48,8 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
   final shown = local == null ? scope.string('value') ?? '' : _display(context, local, kind);
   final accessibility = a2uiAccessibilityOf(scope);
   final canEdit = a2uiCanEdit(scope);
+  final failures = a2uiCheckFailuresOf(scope);
+  final hasError = a2uiBlocks(failures);
   Future<void> handleTap() async {
     final bounds = _bounds(scope, kind);
     final wall = await _pick(context, theme, kind, start: local, bounds: bounds);
@@ -65,7 +67,7 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
           Padding(
             padding: const EdgeInsets.only(bottom: _labelSpacing),
             child: ExcludeSemantics(
-              child: Text(label, style: theme.label.copyWith(color: theme.secondaryText)),
+              child: Text(label, style: theme.label.copyWith(color: hasError ? theme.error : theme.secondaryText)),
             ),
           ),
         A2UIPressable(
@@ -79,6 +81,7 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
             child: Center(
               heightFactor: 1,
               child: A2UIStreamFieldFrame(
+                hasError: hasError,
                 child: Row(
                   spacing: _iconSpacing,
                   children: [
@@ -96,7 +99,7 @@ Widget buildA2UIDateTimeInput(BuildContext context, A2UIComponentScope scope) {
             ),
           ),
         ),
-        A2UIValidationMessages(failures: a2uiCheckFailuresOf(scope), theme: theme),
+        A2UIValidationMessages(failures: failures, theme: theme),
       ],
     ),
   );

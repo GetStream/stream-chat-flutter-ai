@@ -170,7 +170,8 @@ InputDecoration a2uiStreamFieldDecoration(
 
 /// The frame of the Stream design system's text input around [child], drawn
 /// from its theme as the input draws it: outlined in the border color, with
-/// its corners, fill and the padding around its text.
+/// its corners, fill and the padding around its text, and outlined in the
+/// error border color when [hasError].
 ///
 /// It is for a component that looks like a field but isn't typed into, such
 /// as a date input.
@@ -179,7 +180,11 @@ InputDecoration a2uiStreamFieldDecoration(
 @internal
 class A2UIStreamFieldFrame extends StatelessWidget {
   /// Creates an [A2UIStreamFieldFrame].
-  const A2UIStreamFieldFrame({super.key, required this.child});
+  const A2UIStreamFieldFrame({super.key, this.hasError = false, required this.child});
+
+  /// Whether the frame is drawn in the error border color, such as when a
+  /// check of the component fails.
+  final bool hasError;
 
   /// What the frame holds.
   final Widget child;
@@ -194,7 +199,9 @@ class A2UIStreamFieldFrame extends StatelessWidget {
       decoration: ShapeDecoration(
         color: style?.fillColor,
         shape: RoundedSuperellipseBorder(
-          side: style?.border ?? BorderSide(color: context.streamColorScheme.borderDefault),
+          side: hasError
+              ? style?.errorBorder ?? BorderSide(color: context.streamColorScheme.borderError)
+              : style?.border ?? BorderSide(color: context.streamColorScheme.borderDefault),
           borderRadius: style?.borderRadius ?? BorderRadius.all(context.streamRadius.lg),
         ),
       ),

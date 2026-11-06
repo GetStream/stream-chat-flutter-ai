@@ -13,6 +13,10 @@ import 'package:stream_core_flutter/core.dart';
 /// the app draws them. The design system's radius tokens stay the app's, so
 /// its other components keep their corners.
 ///
+/// The components are drawn under Material 3 even in a Material 2 app, as
+/// the design system's components that are built on Material ones, such as
+/// its checkbox, draw their look only there.
+///
 /// Everything else of the app's themes stays, the component themes the app
 /// sets among it.
 ///
@@ -38,6 +42,9 @@ class A2UIStreamTheme extends StatelessWidget {
     final stream = StreamTheme.of(context);
     return Theme(
       data: material.copyWith(
+        // ThemeData's constructors can't keep the rest of the app's theme.
+        // ignore: deprecated_member_use
+        useMaterial3: true,
         colorScheme: material.colorScheme.copyWith(
           primary: theme.accent,
           onPrimary: theme.onAccent,
