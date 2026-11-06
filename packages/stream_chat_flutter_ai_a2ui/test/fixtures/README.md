@@ -30,3 +30,12 @@
   for 15 names (`name` → `type`), produced by running it (stream-chat-swift `develop` @ `78b4612`,
   `Sources/StreamChatA2UI/Catalog/PortableComponent.swift` lines 21-26, copied unchanged into a Swift driver). The
   case `ßeta_card` documents iOS only: Dart's `toUpperCase` keeps `ß`.
+- `ios_a2ui_instructions.json` — the instructions an agent is told: StreamChatA2UI's `A2UIRenderer.capabilities`
+  `instructions`, produced by running it (stream-chat-swift `develop` @ `78b4612`, in an XCTest on the iOS
+  simulator). `basic` is `A2UIRenderer()` with no components or tools; `full` is
+  `A2UIRenderer(catalog: BasicCatalog.catalog.removing(components: ["Video"]), catalogId: "app", instructions: "Show places as cards.")`
+  with a `place_card` component (description `A place`, a required string `title`, an event described
+  `Tapping it asks about the place`) and two tools, `list_events` (read-only, a `day` string argument) and
+  `add_reminder`. Every section but the catalog's JSON reads the same in the package; the catalog's JSON is written
+  by the A2UI core library the package uses, so only its components, functions and the app component's schema are
+  compared.
