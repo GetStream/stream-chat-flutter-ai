@@ -36,6 +36,7 @@ final class A2UIEngine extends AIUIEngine {
     );
     _catalogs = A2UICatalogs(
       catalogId: _renderer.catalogId,
+      basicTypes: _renderer.catalog.types,
       locale: WidgetsBinding.instance.platformDispatcher.locale.toLanguageTag(),
       appComponents: {
         for (final (:type, :component) in _appComponents) type: component.definition.parametersSchema,

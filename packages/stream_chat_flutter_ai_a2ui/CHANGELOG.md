@@ -12,6 +12,9 @@
 - `A2UIRenderer` places the app's components (`AIUIHost.components`) in A2UI replies: the agent names one in
   PascalCase, such as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the
   component.
+- `A2UIRenderer.instructions` and the `instructions` of its `capabilities`: what the agent's model needs to write
+  A2UI with the app's catalog, its components and the host's tools, after the app's own instructions. A component
+  taken out with `A2UICatalog.removing` is left out of it, and reported as unknown when the agent writes it anyway.
 - `A2UIError`, `A2UIErrorCode` and `A2UIErrorHandler`: the problems with a reply's A2UI, given to the renderer's
   `onError` with the reply's message id. A function that fails or that no tool answers is reported as an expression
   error, a catalog function that fails while an action runs as an execution error, and a call whose surface is

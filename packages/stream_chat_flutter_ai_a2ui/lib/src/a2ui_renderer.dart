@@ -4,7 +4,9 @@ import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_app_components.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_engine.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_instructions.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
@@ -90,6 +92,9 @@ class A2UIRenderer extends AIUIRenderer {
   /// The agent names the app's catalog [catalogId], and a surface that names
   /// no catalog gets it too.
   ///
+  /// The agent's model is told [instructions] first, before A2UI's own; see
+  /// [capabilities].
+  ///
   /// An image, a video's poster, a video or an audio clip loads from the URL
   /// [mediaUrl] gives for the one the agent wrote, or not at all when it
   /// gives `null`. By default only web links load; see [webUrl].
@@ -105,6 +110,7 @@ class A2UIRenderer extends AIUIRenderer {
   const A2UIRenderer({
     this.catalog = A2UICatalog.basic,
     this.catalogId = defaultCatalogId,
+    this.instructions,
     this.theme,
     this.mediaUrl = webUrl,
     this.onError,
@@ -128,6 +134,11 @@ class A2UIRenderer extends AIUIRenderer {
 
   /// The id the agent names the app's catalog by.
   final String catalogId;
+
+  /// What the agent's model is told before A2UI's own instructions, such as
+  /// which answers to write as UI and when to use the app's components, or
+  /// `null` for nothing.
+  final String? instructions;
 
   /// Overrides for the look of every reply's surfaces, or `null` for none.
   final A2UIThemeData? theme;
@@ -158,11 +169,43 @@ class A2UIRenderer extends AIUIRenderer {
   bool supports(String? version) => A2UIVersions.supports(version);
 
   /// What the agent's backend is told about A2UI: the [fence] its model
-  /// writes a reply's UI in, under `fence`, and the [catalogId] it names the
-  /// app's catalog by, under `catalog_id`.
+  /// writes a reply's UI in, under `fence`, the [catalogId] it names the
+  /// app's catalog by, under `catalog_id`, and the instructions its model
+  /// needs to write UI with that catalog and call the app's [tools], under
+  /// `instructions`.
+  ///
+  /// The instructions are Markdown: the renderer's own [instructions] first,
+  /// then how a reply carries A2UI, the protocol, the catalog's guidelines,
+  /// each of the app's [tools] with whether it only reads, what it does and
+  /// the JSON Schema of its arguments, and the catalog as one line of JSON
+  /// Schema. The catalog holds the basic components the [catalog] has a
+  /// builder for, so one taken out with [A2UICatalog.removing] isn't in it,
+  /// and the app's [components] the agent can place, each with its
+  /// parameters and what its description and events' descriptions say. The
+  /// same arguments always give the same instructions.
   @override
   Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) {
-    return {'fence': fence, 'catalog_id': catalogId};
+    final placeable = a2uiPlaceableComponents(components, onLeftOut: (_) {});
+    final document = A2UICatalogs.describe(
+      catalogId: catalogId,
+      basicTypes: catalog.types,
+      appComponents: {
+        for (final (:type, :component) in placeable)
+          type: (
+            description: a2uiComponentDescription(component.definition),
+            parameters: component.definition.parametersSchema,
+          ),
+      },
+    );
+    final prompt = A2UIInstructions(
+      catalogId: catalogId,
+      document: document,
+      fence: fence,
+      guidelines: A2UIInstructions.basicGuidelines,
+      preamble: instructions,
+      tools: [for (final tool in tools) A2UIInstructions.toolLine(tool)],
+    );
+    return {'fence': fence, 'catalog_id': catalogId, 'instructions': prompt.text};
   }
 
   /// Creates the engine that shows the A2UI replies of one conversation.

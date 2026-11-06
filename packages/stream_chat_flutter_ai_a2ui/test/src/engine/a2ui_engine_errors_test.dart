@@ -17,6 +17,27 @@ void main() {
     expect(harness.errors.single.$2, 'm1');
   });
 
+  testWidgets('a component removed from the catalog is reported as one the catalog does not have', (tester) async {
+    final harness = await pumpReplies(
+      tester,
+      [
+        TestReply('m1', a2uiDocument([surfaceMessage(_video)])),
+      ],
+      renderer: (onError) => A2UIRenderer(catalog: A2UICatalog.basic.removing(['Video']), onError: onError),
+    );
+
+    expect(harness.errors.single.$1.code, A2UIErrorCode.unknownComponentType);
+    expect(harness.errors.single.$1.message, contains('Video'));
+  });
+
+  testWidgets('a component of the catalog is not reported', (tester) async {
+    final harness = await pumpReplies(tester, [
+      TestReply('m1', a2uiDocument([surfaceMessage(_video)])),
+    ]);
+
+    expect(harness.errors, isEmpty);
+  });
+
   testWidgets('a problem found again reaches onError once', (tester) async {
     final harness = await pumpReplies(tester, [
       TestReply('m1', a2uiDocument([_versioned('0.8'), _versioned('0.8')])),
@@ -229,6 +250,10 @@ void main() {
 
 final _unknown = [
   {'id': 'root', 'component': 'Gauge'},
+];
+
+final _video = [
+  {'id': 'root', 'component': 'Video', 'url': 'https://example.com/clip.mp4'},
 ];
 
 final _text = [
