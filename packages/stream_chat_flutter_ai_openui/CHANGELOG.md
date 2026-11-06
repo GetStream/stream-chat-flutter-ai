@@ -26,5 +26,16 @@
   system) and `EntityList`.
 - Card components are drawn: `Text`, `BoldText`, `IconText`, `ImageText`, `ImageTextLarge`, `MetricIndicatorInline`,
   `MetricIndicatorWithStrikethrough`, and the `SnippetCardBlock`, `OverviewCardBlock`, `ContextCardBlock`,
-  `CompositeCardBlock` and `VisualCardBlock` that lay out their items as a grid or a carousel. Their `action` and a
-  `Button` in a card do nothing yet.
+  `CompositeCardBlock` and `VisualCardBlock` that lay out their items as a grid or a carousel. A block's `action` runs
+  when an item is tapped, with what the item shows merged in.
+- Layout components are drawn: the standard `Stack` and `Card` (column, row, wrapping row or grid, with `gap`, `align`
+  and `justify`), `Tabs`, `Accordion`, the chat `SectionBlock`, `Steps`, `Carousel` and the standard `Modal`, a sheet
+  that opens and closes with its `open` binding.
+- Lists and tables are drawn: `ListBlock` and the chat `FollowUpBlock`, whose items can be tapped, `Table` (paged ten
+  rows at a time) and `EditableTable`, whose edits can be reset or saved.
+- Forms are drawn: `Form`, `FormControl` (with its required mark, hint and validation error), `Input`, `TextArea`,
+  `Select`, `DatePicker`, `Slider`, `CheckBoxGroup`, `SwitchGroup`, `RadioGroup`, `Chips` and `OptionCards`. Fields
+  show and write the reply's state and their `$variable` bindings, check their `rules`, keep their defaults once the
+  reply ends and can't be changed while it streams; a password never leaves the reply's state.
+- Buttons are drawn: `Button`, `Buttons` and `IconButton`. They run their actions once the reply has ended, and a
+  primary button checks its form first.

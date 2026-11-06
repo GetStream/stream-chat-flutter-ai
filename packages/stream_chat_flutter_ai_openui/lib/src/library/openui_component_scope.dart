@@ -49,6 +49,13 @@ abstract base class OpenUIComponentScope {
   /// `children`, reads as `null`; draw it with [buildProp].
   Object? value(String name);
 
+  /// The prop [name] as the program gives it, expressions and components
+  /// included, or `null` when this component doesn't set it.
+  ///
+  /// Internal to the package.
+  @internal
+  OpenUIValue? prop(String name);
+
   /// The prop [name] when it is a string, or `null` otherwise.
   String? string(String name);
 

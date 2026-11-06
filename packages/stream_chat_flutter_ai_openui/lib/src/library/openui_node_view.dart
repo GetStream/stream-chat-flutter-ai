@@ -126,6 +126,9 @@ final class _NodeScope extends OpenUIComponentScope {
   Object? value(String name) => _json(_prop(name));
 
   @override
+  OpenUIValue? prop(String name) => _prop(name);
+
+  @override
   String? string(String name) => switch (_prop(name)) {
     OpenUIString(:final value) => value,
     _ => null,
