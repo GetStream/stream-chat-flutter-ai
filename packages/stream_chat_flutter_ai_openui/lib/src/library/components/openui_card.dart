@@ -10,16 +10,15 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 @internal
 Widget buildOpenUIChatCard(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
   return SizedBox(
     width: double.infinity,
     child: DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(theme.radius!.large!),
-        border: Border.all(color: colors.border!.withValues(alpha: colors.border!.a * _borderOpacity), width: 0.5),
+        color: theme.surface,
+        borderRadius: BorderRadius.circular(theme.cornerRadius!),
+        border: Border.all(color: theme.border!.withValues(alpha: theme.border!.a * _borderOpacity), width: 0.5),
       ),
-      child: Padding(padding: EdgeInsets.all(theme.spacing!.l!), child: scope.buildProp('children')),
+      child: Padding(padding: EdgeInsets.all(theme.lSpacing!), child: scope.buildProp('children')),
     ),
   );
 }

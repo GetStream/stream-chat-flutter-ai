@@ -89,7 +89,7 @@ void main() {
     );
 
     expect(inside.size, 40);
-    expect(inside.color, OpenUIThemeData.defaults(StreamTheme.light()).colors!.textPrimary);
+    expect(inside.color, OpenUIThemeData.defaults(StreamTheme.light()).text);
   });
 
   group('a component type without a builder', () {
@@ -135,7 +135,7 @@ void main() {
       expect(spinner, findsOneWidget);
       expect(tester.getSize(spinner), const Size(16, 16));
       final view = tester.getRect(find.byType(OpenUIView));
-      final spacing = OpenUIThemeData.defaults(StreamTheme.light()).spacing!.s!;
+      final spacing = OpenUIThemeData.defaults(StreamTheme.light()).sSpacing!;
       expect(tester.getTopRight(spinner), view.topRight + Offset(-spacing, spacing));
 
       tools.calls.single.answer.complete(const OpenUINumber(1));
@@ -159,7 +159,7 @@ void main() {
         ),
       );
 
-      final spacing = OpenUIThemeData.defaults(StreamTheme.light()).spacing!.s!;
+      final spacing = OpenUIThemeData.defaults(StreamTheme.light()).sSpacing!;
       expect(
         tester.getTopLeft(find.byType(StreamLoadingSpinner)),
         tester.getTopLeft(find.byType(OpenUIView)) + Offset(spacing, spacing),
@@ -184,11 +184,12 @@ void main() {
     final runtime = testRuntime();
     addTearDown(runtime.dispose);
     const teal = Color(0xFF008080);
-    const theme = OpenUIThemeData(
-      colors: OpenUIColors(accent: teal, border: teal),
-      spacing: OpenUISpacing(m: 99),
-      radius: OpenUIRadius(pill: 7),
-      textStyles: OpenUITextStyles(body: TextStyle(fontSize: 31)),
+    final theme = OpenUIThemeData(
+      accent: teal,
+      border: teal,
+      mSpacing: 99,
+      pillCornerRadius: 7,
+      body: const TextStyle(fontSize: 31),
     );
     await pumpOpenUI(tester, runtime, theme: theme, program: '$_card\nq = Query("list", {}, null)');
 

@@ -1,6 +1,5 @@
 import 'dart:ui' show lerpDouble;
 
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -14,9 +13,7 @@ import 'package:stream_core_flutter/core.dart';
 ///
 /// ```dart
 /// OpenUITheme(
-///   data: const OpenUIThemeData(
-///     colors: OpenUIColors(accent: Color(0xFFE65100)),
-///   ),
+///   data: OpenUIThemeData(accent: const Color(0xFFE65100)),
 ///   child: conversation,
 /// )
 /// ```
@@ -25,9 +22,21 @@ import 'package:stream_core_flutter/core.dart';
 /// such as its spinners, take the theme's colors, spacing, corner radii and
 /// text styles too, and still use the builders the app gives the design
 /// system through [StreamComponentFactory].
+///
+/// Nesting one inside another replaces rather than layers, the way [IconTheme]
+/// does; use [OpenUITheme.merge] to add to an enclosing scope instead.
 class OpenUITheme extends InheritedTheme {
   /// Creates an [OpenUITheme].
   const OpenUITheme({super.key, required this.data, required super.child});
+
+  /// A scope layering [data] over the enclosing [OpenUITheme] rather than
+  /// replacing it.
+  static Widget merge({Key? key, required OpenUIThemeData data, required Widget child}) => Builder(
+    builder: (context) {
+      final outer = context.dependOnInheritedWidgetOfExactType<OpenUITheme>()?.data;
+      return OpenUITheme(key: key, data: outer?.merge(data) ?? data, child: child);
+    },
+  );
 
   /// The look of the OpenUI components below; `null` values take their
   /// defaults.
@@ -56,17 +65,96 @@ class OpenUITheme extends InheritedTheme {
   }
 }
 
-/// The look of OpenUI components, given to an [OpenUITheme]: [colors],
-/// [spacing], corner [radius] and [textStyles].
+/// The look of OpenUI components, given to an [OpenUITheme]: the colors, the
+/// spacing, the corner radii and the text styles they are drawn with.
 ///
-/// Every value is optional: one left `null` takes its default from the app's
-/// [StreamTheme]; see [OpenUITheme.of].
+/// Every field is nullable, and `null` means "use the default", which derives
+/// from the app's Stream theme ([StreamTheme]) at build time, so one instance
+/// covers light and dark mode; see [OpenUITheme.of].
 ///
-/// Two values are equal when all their values are.
+/// ```dart
+/// OpenUIThemeData(accent: const Color(0xFFE65100), cornerRadius: 8)
+/// ```
+///
+/// [copyWith] cannot unset a field: a `null` argument keeps the current value.
 @immutable
 class OpenUIThemeData with Diagnosticable {
-  /// Creates the look of OpenUI components.
-  const OpenUIThemeData({this.colors, this.spacing, this.radius, this.textStyles});
+  /// Creates an [OpenUIThemeData].
+  ///
+  /// The [chartPalette], when given, is the colors of a chart's series, at
+  /// least one. The theme keeps its own copy of it.
+  OpenUIThemeData({
+    this.accent,
+    this.onAccent,
+    this.text,
+    this.secondaryText,
+    this.tertiaryText,
+    this.surface,
+    this.sunkenSurface,
+    this.subtleFill,
+    this.border,
+    this.success,
+    this.warning,
+    this.error,
+    this.info,
+    this.neutral,
+    List<Color>? chartPalette,
+    this.xsSpacing,
+    this.sSpacing,
+    this.mSpacing,
+    this.lSpacing,
+    this.xlSpacing,
+    this.xxlSpacing,
+    this.smallCornerRadius,
+    this.mediumCornerRadius,
+    this.cornerRadius,
+    this.pillCornerRadius,
+    this.title,
+    this.heading,
+    this.body,
+    this.bodyLarge,
+    this.bodySmall,
+    this.caption,
+    this.code,
+    this.metric,
+  }) : assert(chartPalette == null || chartPalette.isNotEmpty, 'An OpenUIThemeData needs at least one chart color.'),
+       chartPalette = chartPalette == null ? null : List.unmodifiable(chartPalette);
+
+  /// An [OpenUIThemeData] that overrides nothing.
+  const OpenUIThemeData.empty()
+    : accent = null,
+      onAccent = null,
+      text = null,
+      secondaryText = null,
+      tertiaryText = null,
+      surface = null,
+      sunkenSurface = null,
+      subtleFill = null,
+      border = null,
+      success = null,
+      warning = null,
+      error = null,
+      info = null,
+      neutral = null,
+      chartPalette = null,
+      xsSpacing = null,
+      sSpacing = null,
+      mSpacing = null,
+      lSpacing = null,
+      xlSpacing = null,
+      xxlSpacing = null,
+      smallCornerRadius = null,
+      mediumCornerRadius = null,
+      cornerRadius = null,
+      pillCornerRadius = null,
+      title = null,
+      heading = null,
+      body = null,
+      bodyLarge = null,
+      bodySmall = null,
+      caption = null,
+      code = null,
+      metric = null;
 
   /// The look the [stream] theme gives: every value set, from its tokens.
   ///
@@ -78,56 +166,170 @@ class OpenUIThemeData with Diagnosticable {
     final spacing = stream.spacing;
     final radius = stream.radius;
     return OpenUIThemeData(
-      colors: OpenUIColors(
-        accent: colors.accentPrimary,
-        onAccent: colors.textOnAccent,
-        textPrimary: colors.textPrimary,
-        textSecondary: colors.textSecondary,
-        textTertiary: colors.textTertiary,
-        surface: colors.backgroundSurfaceCard,
-        sunkenSurface: colors.backgroundSurface,
-        subtleFill: colors.backgroundSurfaceSubtle,
-        border: colors.borderDefault,
-        success: colors.accentSuccess,
-        warning: colors.accentWarning,
-        danger: colors.accentError,
-        info: colors.accentPrimary,
-        neutral: colors.accentNeutral,
-        chartPalette: OpenUIColors._defaultChartPalette,
-      ),
-      spacing: OpenUISpacing(
-        xs: spacing.xxs,
-        s: spacing.xs,
-        m: spacing.sm,
-        l: spacing.md,
-        xl: spacing.xl,
-        xxl: spacing.xxl,
-      ),
-      radius: OpenUIRadius(small: radius.md.x, medium: radius.lg.x, large: radius.xl.x, pill: radius.max.x),
-      textStyles: OpenUITextStyles(
-        title: _colorless(text.headingMd),
-        heading: _colorless(text.headingSm),
-        body: _colorless(text.bodyDefault),
-        bodyLarge: _colorless(text.headingMd.copyWith(fontWeight: text.bodyDefault.fontWeight)),
-        bodySmall: _colorless(text.captionDefault),
-        caption: _colorless(text.metadataDefault),
-        code: OpenUITextStyles._defaultCode,
-        metric: OpenUITextStyles._defaultMetric,
-      ),
+      accent: colors.accentPrimary,
+      onAccent: colors.textOnAccent,
+      text: colors.textPrimary,
+      secondaryText: colors.textSecondary,
+      tertiaryText: colors.textTertiary,
+      surface: colors.backgroundSurfaceCard,
+      sunkenSurface: colors.backgroundSurface,
+      subtleFill: colors.backgroundSurfaceSubtle,
+      border: colors.borderDefault,
+      success: colors.accentSuccess,
+      warning: colors.accentWarning,
+      error: colors.accentError,
+      info: colors.accentPrimary,
+      neutral: colors.accentNeutral,
+      chartPalette: _defaultChartPalette,
+      xsSpacing: spacing.xxs,
+      sSpacing: spacing.xs,
+      mSpacing: spacing.sm,
+      lSpacing: spacing.md,
+      xlSpacing: spacing.xl,
+      xxlSpacing: spacing.xxl,
+      smallCornerRadius: radius.md.x,
+      mediumCornerRadius: radius.lg.x,
+      cornerRadius: radius.xl.x,
+      pillCornerRadius: radius.max.x,
+      title: _colorless(text.headingMd),
+      heading: _colorless(text.headingSm),
+      body: _colorless(text.bodyDefault),
+      bodyLarge: _colorless(text.headingMd.copyWith(fontWeight: text.bodyDefault.fontWeight)),
+      bodySmall: _colorless(text.captionDefault),
+      caption: _colorless(text.metadataDefault),
+      code: _defaultCode,
+      metric: _defaultMetric,
     );
   }
 
-  /// The colors, such as the accent and the text colors.
-  final OpenUIColors? colors;
+  /// The color of links, selected controls and primary buttons. Defaults to the Stream theme's
+  /// `accentPrimary`.
+  final Color? accent;
 
-  /// The space between and around components.
-  final OpenUISpacing? spacing;
+  /// The color of text and icons drawn on [accent]. Defaults to `textOnAccent`.
+  final Color? onAccent;
 
-  /// The corner radii.
-  final OpenUIRadius? radius;
+  /// The color of most text, such as titles and body text. Defaults to `textPrimary`.
+  final Color? text;
 
-  /// The text styles, such as of titles and body text.
-  final OpenUITextStyles? textStyles;
+  /// The color of less prominent text, such as subtitles. Defaults to `textSecondary`.
+  final Color? secondaryText;
+
+  /// The color of the least prominent text, such as placeholders. Defaults to `textTertiary`.
+  final Color? tertiaryText;
+
+  /// The background of cards. Defaults to `backgroundSurfaceCard`.
+  final Color? surface;
+
+  /// The background of parts set into a card, such as a sunken card. Defaults to
+  /// `backgroundSurface`.
+  final Color? sunkenSurface;
+
+  /// A light fill, such as the background of inline code. Defaults to `backgroundSurfaceSubtle`.
+  final Color? subtleFill;
+
+  /// The color of borders and dividers. Defaults to `borderDefault`.
+  final Color? border;
+
+  /// The color of success, such as a positive change. Defaults to `accentSuccess`.
+  final Color? success;
+
+  /// The color of warnings. Defaults to `accentWarning`.
+  final Color? warning;
+
+  /// The color of errors and of negative changes. Defaults to `accentError`.
+  final Color? error;
+
+  /// The color of information. Defaults to `accentPrimary`.
+  final Color? info;
+
+  /// The color of what has no other status color. Defaults to `accentNeutral`.
+  final Color? neutral;
+
+  /// The colors of a chart's series, in order. Defaults to eight colors that are the same for every
+  /// Stream theme.
+  final List<Color>? chartPalette;
+
+  /// The extra small space, in logical pixels. Defaults to the Stream theme's `xxs` spacing, 4.
+  final double? xsSpacing;
+
+  /// The small space. Defaults to `xs`, 8.
+  final double? sSpacing;
+
+  /// The medium space, such as between a card's children. Defaults to `sm`, 12.
+  final double? mSpacing;
+
+  /// The large space, such as inside a card. Defaults to `md`, 16.
+  final double? lSpacing;
+
+  /// The extra large space. Defaults to `xl`, 24.
+  final double? xlSpacing;
+
+  /// The largest space. Defaults to `xxl`, 32.
+  final double? xxlSpacing;
+
+  /// The small corner radius, such as of a chip. Defaults to the Stream theme's `md` radius, 8.
+  final double? smallCornerRadius;
+
+  /// The medium corner radius, such as of a sunken card. Defaults to `lg`, 12.
+  final double? mediumCornerRadius;
+
+  /// The corner radius of cards. Defaults to `xl`, 16.
+  final double? cornerRadius;
+
+  /// The corner radius that rounds the ends of a control fully, such as of a tag. Defaults to
+  /// `max`.
+  final double? pillCornerRadius;
+
+  /// The style of titles, such as a card header's title. Defaults to `headingMd`, without its
+  /// color: components color their text with [text] and the other colors.
+  final TextStyle? title;
+
+  /// The style of headings, such as a section's. Defaults to `headingSm`, without its color.
+  final TextStyle? heading;
+
+  /// The style of body text. Defaults to `bodyDefault`, without its color.
+  final TextStyle? body;
+
+  /// The style of large body text. Defaults to `headingMd` at the weight of `bodyDefault`, without
+  /// its color.
+  final TextStyle? bodyLarge;
+
+  /// The style of small body text, such as a card header's subtitle. Defaults to `captionDefault`,
+  /// without its color.
+  final TextStyle? bodySmall;
+
+  /// The style of captions, the smallest text. Defaults to `metadataDefault`, without its color.
+  final TextStyle? caption;
+
+  /// The style of code. Defaults to a 13-point monospace style, the same for every Stream theme.
+  final TextStyle? code;
+
+  /// The style of metrics, the large numbers of a data card. Defaults to a 22-point semibold style,
+  /// the same for every Stream theme.
+  final TextStyle? metric;
+
+  // The chart colors of OpenUI's iOS and Android components.
+  static const _defaultChartPalette = [
+    Color(0xFF4078F5),
+    Color(0xFF1CB59E),
+    Color(0xFFFA9E29),
+    Color(0xFFE04A75),
+    Color(0xFF8C61ED),
+    Color(0xFF29ADE0),
+    Color(0xFF9EB833),
+    Color(0xFFED6945),
+  ];
+
+  static const _defaultCode = TextStyle(
+    fontFamily: 'monospace',
+    // `monospace` is a font only on Android; elsewhere the first of these
+    // that is installed is used.
+    fontFamilyFallback: ['Menlo', 'Consolas', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New'],
+    fontSize: 13,
+  );
+
+  static const _defaultMetric = TextStyle(fontSize: 22, fontWeight: FontWeight.w600);
 
   // [style] without its colors.
   static TextStyle _colorless(TextStyle style) {
@@ -153,547 +355,34 @@ class OpenUIThemeData with Diagnosticable {
     );
   }
 
-  /// A copy of this data with the given groups replaced.
+  /// Returns a copy with the given fields replaced. A `null` argument keeps the
+  /// current value.
   OpenUIThemeData copyWith({
-    OpenUIColors? colors,
-    OpenUISpacing? spacing,
-    OpenUIRadius? radius,
-    OpenUITextStyles? textStyles,
-  }) {
-    return OpenUIThemeData(
-      colors: colors ?? this.colors,
-      spacing: spacing ?? this.spacing,
-      radius: radius ?? this.radius,
-      textStyles: textStyles ?? this.textStyles,
-    );
-  }
-
-  /// This data with the values [other] sets in place of its own, group by
-  /// group and value by value.
-  OpenUIThemeData merge(OpenUIThemeData? other) {
-    if (other == null || identical(this, other)) return this;
-    return OpenUIThemeData(
-      colors: colors?.merge(other.colors) ?? other.colors,
-      spacing: spacing?.merge(other.spacing) ?? other.spacing,
-      radius: radius?.merge(other.radius) ?? other.radius,
-      textStyles: textStyles?.merge(other.textStyles) ?? other.textStyles,
-    );
-  }
-
-  /// The data between [a] and [b] at [t], from 0 for [a] to 1 for [b].
-  ///
-  /// A value set on only one side switches over at the middle.
-  static OpenUIThemeData lerp(OpenUIThemeData a, OpenUIThemeData b, double t) {
-    if (identical(a, b)) return a;
-    return OpenUIThemeData(
-      colors: _lerpOrSwap(a.colors, b.colors, t, OpenUIColors.lerp),
-      spacing: _lerpOrSwap(a.spacing, b.spacing, t, OpenUISpacing.lerp),
-      radius: _lerpOrSwap(a.radius, b.radius, t, OpenUIRadius.lerp),
-      textStyles: _lerpOrSwap(a.textStyles, b.textStyles, t, OpenUITextStyles.lerp),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties
-      ..add(DiagnosticsProperty<OpenUIColors>('colors', colors, defaultValue: null))
-      ..add(DiagnosticsProperty<OpenUISpacing>('spacing', spacing, defaultValue: null))
-      ..add(DiagnosticsProperty<OpenUIRadius>('radius', radius, defaultValue: null))
-      ..add(DiagnosticsProperty<OpenUITextStyles>('textStyles', textStyles, defaultValue: null));
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is OpenUIThemeData &&
-        other.colors == colors &&
-        other.spacing == spacing &&
-        other.radius == radius &&
-        other.textStyles == textStyles;
-  }
-
-  @override
-  int get hashCode => Object.hash(colors, spacing, radius, textStyles);
-}
-
-/// The colors of an [OpenUIThemeData].
-///
-/// A color left `null` takes the default [OpenUITheme.of] names for it.
-///
-/// Two values are equal when all their colors are.
-@immutable
-class OpenUIColors with Diagnosticable {
-  /// Creates the colors of an [OpenUIThemeData].
-  const OpenUIColors({
-    this.accent,
-    this.onAccent,
-    this.textPrimary,
-    this.textSecondary,
-    this.textTertiary,
-    this.surface,
-    this.sunkenSurface,
-    this.subtleFill,
-    this.border,
-    this.success,
-    this.warning,
-    this.danger,
-    this.info,
-    this.neutral,
-    this.chartPalette,
-  });
-
-  /// The color of links, selected controls and primary buttons; the design
-  /// system's `accentPrimary` by default.
-  final Color? accent;
-
-  /// The color of text and icons drawn on [accent]; `textOnAccent` by
-  /// default.
-  final Color? onAccent;
-
-  /// The color of most text, such as titles and body text; `textPrimary` by
-  /// default.
-  final Color? textPrimary;
-
-  /// The color of less prominent text, such as subtitles; `textSecondary` by
-  /// default.
-  final Color? textSecondary;
-
-  /// The color of the least prominent text, such as placeholders;
-  /// `textTertiary` by default.
-  final Color? textTertiary;
-
-  /// The background of cards; `backgroundSurfaceCard` by default.
-  final Color? surface;
-
-  /// The background of parts set into a card, such as a sunken card;
-  /// `backgroundSurface` by default.
-  final Color? sunkenSurface;
-
-  /// A light fill, such as the background of inline code;
-  /// `backgroundSurfaceSubtle` by default.
-  final Color? subtleFill;
-
-  /// The color of borders and dividers; `borderDefault` by default.
-  final Color? border;
-
-  /// The color of success, such as a positive change; `accentSuccess` by
-  /// default.
-  final Color? success;
-
-  /// The color of warnings; `accentWarning` by default.
-  final Color? warning;
-
-  /// The color of errors and of negative changes; `accentError` by default.
-  final Color? danger;
-
-  /// The color of information; `accentPrimary` by default.
-  final Color? info;
-
-  /// The color of what has no other status color; `accentNeutral` by
-  /// default.
-  final Color? neutral;
-
-  /// The colors of a chart's series, in order; eight colors that are the
-  /// same for every Stream theme by default.
-  final List<Color>? chartPalette;
-
-  // The chart colors of OpenUI's iOS and Android components.
-  static const _defaultChartPalette = [
-    Color(0xFF4078F5),
-    Color(0xFF1CB59E),
-    Color(0xFFFA9E29),
-    Color(0xFFE04A75),
-    Color(0xFF8C61ED),
-    Color(0xFF29ADE0),
-    Color(0xFF9EB833),
-    Color(0xFFED6945),
-  ];
-
-  /// A copy of these colors with the given ones replaced.
-  OpenUIColors copyWith({
     Color? accent,
     Color? onAccent,
-    Color? textPrimary,
-    Color? textSecondary,
-    Color? textTertiary,
+    Color? text,
+    Color? secondaryText,
+    Color? tertiaryText,
     Color? surface,
     Color? sunkenSurface,
     Color? subtleFill,
     Color? border,
     Color? success,
     Color? warning,
-    Color? danger,
+    Color? error,
     Color? info,
     Color? neutral,
     List<Color>? chartPalette,
-  }) {
-    return OpenUIColors(
-      accent: accent ?? this.accent,
-      onAccent: onAccent ?? this.onAccent,
-      textPrimary: textPrimary ?? this.textPrimary,
-      textSecondary: textSecondary ?? this.textSecondary,
-      textTertiary: textTertiary ?? this.textTertiary,
-      surface: surface ?? this.surface,
-      sunkenSurface: sunkenSurface ?? this.sunkenSurface,
-      subtleFill: subtleFill ?? this.subtleFill,
-      border: border ?? this.border,
-      success: success ?? this.success,
-      warning: warning ?? this.warning,
-      danger: danger ?? this.danger,
-      info: info ?? this.info,
-      neutral: neutral ?? this.neutral,
-      chartPalette: chartPalette ?? this.chartPalette,
-    );
-  }
-
-  /// These colors with the ones [other] sets in place of their own.
-  OpenUIColors merge(OpenUIColors? other) {
-    if (other == null || identical(this, other)) return this;
-    return copyWith(
-      accent: other.accent,
-      onAccent: other.onAccent,
-      textPrimary: other.textPrimary,
-      textSecondary: other.textSecondary,
-      textTertiary: other.textTertiary,
-      surface: other.surface,
-      sunkenSurface: other.sunkenSurface,
-      subtleFill: other.subtleFill,
-      border: other.border,
-      success: other.success,
-      warning: other.warning,
-      danger: other.danger,
-      info: other.info,
-      neutral: other.neutral,
-      chartPalette: other.chartPalette,
-    );
-  }
-
-  /// The colors between [a] and [b] at [t], from 0 for [a] to 1 for [b].
-  ///
-  /// A color set on only one side, and a chart palette whose length changes,
-  /// switch over at the middle.
-  static OpenUIColors lerp(OpenUIColors a, OpenUIColors b, double t) {
-    if (identical(a, b)) return a;
-    Color? color(Color? a, Color? b) => _lerpOrSwap(a, b, t, (a, b, t) => Color.lerp(a, b, t)!);
-    final (paletteA, paletteB) = (a.chartPalette, b.chartPalette);
-    return OpenUIColors(
-      accent: color(a.accent, b.accent),
-      onAccent: color(a.onAccent, b.onAccent),
-      textPrimary: color(a.textPrimary, b.textPrimary),
-      textSecondary: color(a.textSecondary, b.textSecondary),
-      textTertiary: color(a.textTertiary, b.textTertiary),
-      surface: color(a.surface, b.surface),
-      sunkenSurface: color(a.sunkenSurface, b.sunkenSurface),
-      subtleFill: color(a.subtleFill, b.subtleFill),
-      border: color(a.border, b.border),
-      success: color(a.success, b.success),
-      warning: color(a.warning, b.warning),
-      danger: color(a.danger, b.danger),
-      info: color(a.info, b.info),
-      neutral: color(a.neutral, b.neutral),
-      chartPalette: paletteA != null && paletteB != null && paletteA.length == paletteB.length
-          ? [for (final (index, color) in paletteA.indexed) Color.lerp(color, paletteB[index], t)!]
-          : (t < 0.5 ? paletteA : paletteB),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties
-      ..add(ColorProperty('accent', accent, defaultValue: null))
-      ..add(ColorProperty('onAccent', onAccent, defaultValue: null))
-      ..add(ColorProperty('textPrimary', textPrimary, defaultValue: null))
-      ..add(ColorProperty('textSecondary', textSecondary, defaultValue: null))
-      ..add(ColorProperty('textTertiary', textTertiary, defaultValue: null))
-      ..add(ColorProperty('surface', surface, defaultValue: null))
-      ..add(ColorProperty('sunkenSurface', sunkenSurface, defaultValue: null))
-      ..add(ColorProperty('subtleFill', subtleFill, defaultValue: null))
-      ..add(ColorProperty('border', border, defaultValue: null))
-      ..add(ColorProperty('success', success, defaultValue: null))
-      ..add(ColorProperty('warning', warning, defaultValue: null))
-      ..add(ColorProperty('danger', danger, defaultValue: null))
-      ..add(ColorProperty('info', info, defaultValue: null))
-      ..add(ColorProperty('neutral', neutral, defaultValue: null))
-      ..add(IterableProperty<Color>('chartPalette', chartPalette, defaultValue: null));
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is OpenUIColors &&
-        other.accent == accent &&
-        other.onAccent == onAccent &&
-        other.textPrimary == textPrimary &&
-        other.textSecondary == textSecondary &&
-        other.textTertiary == textTertiary &&
-        other.surface == surface &&
-        other.sunkenSurface == sunkenSurface &&
-        other.subtleFill == subtleFill &&
-        other.border == border &&
-        other.success == success &&
-        other.warning == warning &&
-        other.danger == danger &&
-        other.info == info &&
-        other.neutral == neutral &&
-        const ListEquality<Color>().equals(other.chartPalette, chartPalette);
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      accent,
-      onAccent,
-      textPrimary,
-      textSecondary,
-      textTertiary,
-      surface,
-      sunkenSurface,
-      subtleFill,
-      border,
-      success,
-      warning,
-      danger,
-      info,
-      neutral,
-      const ListEquality<Color>().hash(chartPalette),
-    );
-  }
-}
-
-/// The spacing of an [OpenUIThemeData], from [xs], the smallest, to [xxl],
-/// the largest, in logical pixels.
-///
-/// A size left `null` takes the design system's spacing token named for it.
-///
-/// Two values are equal when all their sizes are.
-@immutable
-class OpenUISpacing with Diagnosticable {
-  /// Creates the spacing of an [OpenUIThemeData].
-  const OpenUISpacing({this.xs, this.s, this.m, this.l, this.xl, this.xxl});
-
-  /// The extra small space; the `xxs` token, 4, by default.
-  final double? xs;
-
-  /// The small space; the `xs` token, 8, by default.
-  final double? s;
-
-  /// The medium space, such as between a card's children; the `sm` token,
-  /// 12, by default.
-  final double? m;
-
-  /// The large space, such as inside a card; the `md` token, 16, by default.
-  final double? l;
-
-  /// The extra large space; the `xl` token, 24, by default.
-  final double? xl;
-
-  /// The largest space; the `xxl` token, 32, by default.
-  final double? xxl;
-
-  /// A copy of this spacing with the given sizes replaced.
-  OpenUISpacing copyWith({double? xs, double? s, double? m, double? l, double? xl, double? xxl}) {
-    return OpenUISpacing(
-      xs: xs ?? this.xs,
-      s: s ?? this.s,
-      m: m ?? this.m,
-      l: l ?? this.l,
-      xl: xl ?? this.xl,
-      xxl: xxl ?? this.xxl,
-    );
-  }
-
-  /// This spacing with the sizes [other] sets in place of its own.
-  OpenUISpacing merge(OpenUISpacing? other) {
-    if (other == null || identical(this, other)) return this;
-    return copyWith(xs: other.xs, s: other.s, m: other.m, l: other.l, xl: other.xl, xxl: other.xxl);
-  }
-
-  /// The spacing between [a] and [b] at [t], from 0 for [a] to 1 for [b].
-  ///
-  /// A size set on only one side switches over at the middle.
-  static OpenUISpacing lerp(OpenUISpacing a, OpenUISpacing b, double t) {
-    if (identical(a, b)) return a;
-    double? size(double? a, double? b) => _lerpOrSwap(a, b, t, (a, b, t) => lerpDouble(a, b, t)!);
-    return OpenUISpacing(
-      xs: size(a.xs, b.xs),
-      s: size(a.s, b.s),
-      m: size(a.m, b.m),
-      l: size(a.l, b.l),
-      xl: size(a.xl, b.xl),
-      xxl: size(a.xxl, b.xxl),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties
-      ..add(DoubleProperty('xs', xs, defaultValue: null))
-      ..add(DoubleProperty('s', s, defaultValue: null))
-      ..add(DoubleProperty('m', m, defaultValue: null))
-      ..add(DoubleProperty('l', l, defaultValue: null))
-      ..add(DoubleProperty('xl', xl, defaultValue: null))
-      ..add(DoubleProperty('xxl', xxl, defaultValue: null));
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is OpenUISpacing &&
-        other.xs == xs &&
-        other.s == s &&
-        other.m == m &&
-        other.l == l &&
-        other.xl == xl &&
-        other.xxl == xxl;
-  }
-
-  @override
-  int get hashCode => Object.hash(xs, s, m, l, xl, xxl);
-}
-
-/// The corner radii of an [OpenUIThemeData], in logical pixels.
-///
-/// A radius left `null` takes the design system's radius token named for it.
-///
-/// Two values are equal when all their radii are.
-@immutable
-class OpenUIRadius with Diagnosticable {
-  /// Creates the corner radii of an [OpenUIThemeData].
-  const OpenUIRadius({this.small, this.medium, this.large, this.pill});
-
-  /// The small radius, such as of a chip; the `md` token, 8, by default.
-  final double? small;
-
-  /// The medium radius, such as of a sunken card; the `lg` token, 12, by
-  /// default.
-  final double? medium;
-
-  /// The large radius, such as of a card; the `xl` token, 16, by default.
-  final double? large;
-
-  /// The radius that rounds the ends of a control fully, such as of a tag;
-  /// the `max` token by default.
-  final double? pill;
-
-  /// A copy of these radii with the given ones replaced.
-  OpenUIRadius copyWith({double? small, double? medium, double? large, double? pill}) {
-    return OpenUIRadius(
-      small: small ?? this.small,
-      medium: medium ?? this.medium,
-      large: large ?? this.large,
-      pill: pill ?? this.pill,
-    );
-  }
-
-  /// These radii with the ones [other] sets in place of their own.
-  OpenUIRadius merge(OpenUIRadius? other) {
-    if (other == null || identical(this, other)) return this;
-    return copyWith(small: other.small, medium: other.medium, large: other.large, pill: other.pill);
-  }
-
-  /// The radii between [a] and [b] at [t], from 0 for [a] to 1 for [b].
-  ///
-  /// A radius set on only one side switches over at the middle.
-  static OpenUIRadius lerp(OpenUIRadius a, OpenUIRadius b, double t) {
-    if (identical(a, b)) return a;
-    double? radius(double? a, double? b) => _lerpOrSwap(a, b, t, (a, b, t) => lerpDouble(a, b, t)!);
-    return OpenUIRadius(
-      small: radius(a.small, b.small),
-      medium: radius(a.medium, b.medium),
-      large: radius(a.large, b.large),
-      pill: radius(a.pill, b.pill),
-    );
-  }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties
-      ..add(DoubleProperty('small', small, defaultValue: null))
-      ..add(DoubleProperty('medium', medium, defaultValue: null))
-      ..add(DoubleProperty('large', large, defaultValue: null))
-      ..add(DoubleProperty('pill', pill, defaultValue: null));
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is OpenUIRadius &&
-        other.small == small &&
-        other.medium == medium &&
-        other.large == large &&
-        other.pill == pill;
-  }
-
-  @override
-  int get hashCode => Object.hash(small, medium, large, pill);
-}
-
-/// The text styles of an [OpenUIThemeData].
-///
-/// A style left `null` takes its default: the design system's text style
-/// named for it, without its color, as components color their text with
-/// [OpenUIColors].
-///
-/// Two values are equal when all their styles are.
-@immutable
-class OpenUITextStyles with Diagnosticable {
-  /// Creates the text styles of an [OpenUIThemeData].
-  const OpenUITextStyles({
-    this.title,
-    this.heading,
-    this.body,
-    this.bodyLarge,
-    this.bodySmall,
-    this.caption,
-    this.code,
-    this.metric,
-  });
-
-  /// The style of titles, such as a card header's title; `headingMd` by
-  /// default.
-  final TextStyle? title;
-
-  /// The style of headings, such as a section's; `headingSm` by default.
-  final TextStyle? heading;
-
-  /// The style of body text; `bodyDefault` by default.
-  final TextStyle? body;
-
-  /// The style of large body text; `headingMd` at the weight of
-  /// `bodyDefault` by default.
-  final TextStyle? bodyLarge;
-
-  /// The style of small body text, such as a card header's subtitle;
-  /// `captionDefault` by default.
-  final TextStyle? bodySmall;
-
-  /// The style of captions, the smallest text; `metadataDefault` by default.
-  final TextStyle? caption;
-
-  /// The style of code; a 13-point monospace style, the same for every
-  /// Stream theme, by default.
-  final TextStyle? code;
-
-  /// The style of metrics, the large numbers of a data card; a 22-point
-  /// semibold style, the same for every Stream theme, by default.
-  final TextStyle? metric;
-
-  static const _defaultCode = TextStyle(
-    fontFamily: 'monospace',
-    // `monospace` is a font only on Android; elsewhere the first of these
-    // that is installed is used.
-    fontFamilyFallback: ['Menlo', 'Consolas', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New'],
-    fontSize: 13,
-  );
-
-  static const _defaultMetric = TextStyle(fontSize: 22, fontWeight: FontWeight.w600);
-
-  /// A copy of these styles with the given ones replaced.
-  OpenUITextStyles copyWith({
+    double? xsSpacing,
+    double? sSpacing,
+    double? mSpacing,
+    double? lSpacing,
+    double? xlSpacing,
+    double? xxlSpacing,
+    double? smallCornerRadius,
+    double? mediumCornerRadius,
+    double? cornerRadius,
+    double? pillCornerRadius,
     TextStyle? title,
     TextStyle? heading,
     TextStyle? body,
@@ -703,7 +392,32 @@ class OpenUITextStyles with Diagnosticable {
     TextStyle? code,
     TextStyle? metric,
   }) {
-    return OpenUITextStyles(
+    return OpenUIThemeData(
+      accent: accent ?? this.accent,
+      onAccent: onAccent ?? this.onAccent,
+      text: text ?? this.text,
+      secondaryText: secondaryText ?? this.secondaryText,
+      tertiaryText: tertiaryText ?? this.tertiaryText,
+      surface: surface ?? this.surface,
+      sunkenSurface: sunkenSurface ?? this.sunkenSurface,
+      subtleFill: subtleFill ?? this.subtleFill,
+      border: border ?? this.border,
+      success: success ?? this.success,
+      warning: warning ?? this.warning,
+      error: error ?? this.error,
+      info: info ?? this.info,
+      neutral: neutral ?? this.neutral,
+      chartPalette: chartPalette ?? this.chartPalette,
+      xsSpacing: xsSpacing ?? this.xsSpacing,
+      sSpacing: sSpacing ?? this.sSpacing,
+      mSpacing: mSpacing ?? this.mSpacing,
+      lSpacing: lSpacing ?? this.lSpacing,
+      xlSpacing: xlSpacing ?? this.xlSpacing,
+      xxlSpacing: xxlSpacing ?? this.xxlSpacing,
+      smallCornerRadius: smallCornerRadius ?? this.smallCornerRadius,
+      mediumCornerRadius: mediumCornerRadius ?? this.mediumCornerRadius,
+      cornerRadius: cornerRadius ?? this.cornerRadius,
+      pillCornerRadius: pillCornerRadius ?? this.pillCornerRadius,
       title: title ?? this.title,
       heading: heading ?? this.heading,
       body: body ?? this.body,
@@ -715,13 +429,37 @@ class OpenUITextStyles with Diagnosticable {
     );
   }
 
-  /// These styles with the ones [other] sets in place of their own.
-  ///
-  /// A style [other] sets replaces the whole style, not only the values it
-  /// sets.
-  OpenUITextStyles merge(OpenUITextStyles? other) {
+  /// Returns this theme with [other]'s set fields layered on top. Like every
+  /// other field, a set text style replaces this one's rather than merging
+  /// into it.
+  OpenUIThemeData merge(OpenUIThemeData? other) {
     if (other == null || identical(this, other)) return this;
     return copyWith(
+      accent: other.accent,
+      onAccent: other.onAccent,
+      text: other.text,
+      secondaryText: other.secondaryText,
+      tertiaryText: other.tertiaryText,
+      surface: other.surface,
+      sunkenSurface: other.sunkenSurface,
+      subtleFill: other.subtleFill,
+      border: other.border,
+      success: other.success,
+      warning: other.warning,
+      error: other.error,
+      info: other.info,
+      neutral: other.neutral,
+      chartPalette: other.chartPalette,
+      xsSpacing: other.xsSpacing,
+      sSpacing: other.sSpacing,
+      mSpacing: other.mSpacing,
+      lSpacing: other.lSpacing,
+      xlSpacing: other.xlSpacing,
+      xxlSpacing: other.xxlSpacing,
+      smallCornerRadius: other.smallCornerRadius,
+      mediumCornerRadius: other.mediumCornerRadius,
+      cornerRadius: other.cornerRadius,
+      pillCornerRadius: other.pillCornerRadius,
       title: other.title,
       heading: other.heading,
       body: other.body,
@@ -733,28 +471,95 @@ class OpenUITextStyles with Diagnosticable {
     );
   }
 
-  /// The styles between [a] and [b] at [t], from 0 for [a] to 1 for [b].
+  /// Linearly interpolates between two [OpenUIThemeData]s.
   ///
-  /// A style set on only one side switches over at the middle.
-  static OpenUITextStyles lerp(OpenUITextStyles a, OpenUITextStyles b, double t) {
+  /// A field only one side sets switches at the midpoint, since `null` means
+  /// "use the default" rather than zero or transparent. Chart palettes of the
+  /// same length are interpolated color by color; others switch too.
+  static OpenUIThemeData lerp(OpenUIThemeData a, OpenUIThemeData b, double t) {
     if (identical(a, b)) return a;
-    TextStyle? style(TextStyle? a, TextStyle? b) => _lerpOrSwap(a, b, t, (a, b, t) => TextStyle.lerp(a, b, t)!);
-    return OpenUITextStyles(
-      title: style(a.title, b.title),
-      heading: style(a.heading, b.heading),
-      body: style(a.body, b.body),
-      bodyLarge: style(a.bodyLarge, b.bodyLarge),
-      bodySmall: style(a.bodySmall, b.bodySmall),
-      caption: style(a.caption, b.caption),
-      code: style(a.code, b.code),
-      metric: style(a.metric, b.metric),
+    return OpenUIThemeData(
+      accent: _lerpColor(a.accent, b.accent, t),
+      onAccent: _lerpColor(a.onAccent, b.onAccent, t),
+      text: _lerpColor(a.text, b.text, t),
+      secondaryText: _lerpColor(a.secondaryText, b.secondaryText, t),
+      tertiaryText: _lerpColor(a.tertiaryText, b.tertiaryText, t),
+      surface: _lerpColor(a.surface, b.surface, t),
+      sunkenSurface: _lerpColor(a.sunkenSurface, b.sunkenSurface, t),
+      subtleFill: _lerpColor(a.subtleFill, b.subtleFill, t),
+      border: _lerpColor(a.border, b.border, t),
+      success: _lerpColor(a.success, b.success, t),
+      warning: _lerpColor(a.warning, b.warning, t),
+      error: _lerpColor(a.error, b.error, t),
+      info: _lerpColor(a.info, b.info, t),
+      neutral: _lerpColor(a.neutral, b.neutral, t),
+      chartPalette: _lerpPalette(a.chartPalette, b.chartPalette, t),
+      xsSpacing: _lerpDouble(a.xsSpacing, b.xsSpacing, t),
+      sSpacing: _lerpDouble(a.sSpacing, b.sSpacing, t),
+      mSpacing: _lerpDouble(a.mSpacing, b.mSpacing, t),
+      lSpacing: _lerpDouble(a.lSpacing, b.lSpacing, t),
+      xlSpacing: _lerpDouble(a.xlSpacing, b.xlSpacing, t),
+      xxlSpacing: _lerpDouble(a.xxlSpacing, b.xxlSpacing, t),
+      smallCornerRadius: _lerpDouble(a.smallCornerRadius, b.smallCornerRadius, t),
+      mediumCornerRadius: _lerpDouble(a.mediumCornerRadius, b.mediumCornerRadius, t),
+      cornerRadius: _lerpDouble(a.cornerRadius, b.cornerRadius, t),
+      pillCornerRadius: _lerpDouble(a.pillCornerRadius, b.pillCornerRadius, t),
+      title: _lerpStyle(a.title, b.title, t),
+      heading: _lerpStyle(a.heading, b.heading, t),
+      body: _lerpStyle(a.body, b.body, t),
+      bodyLarge: _lerpStyle(a.bodyLarge, b.bodyLarge, t),
+      bodySmall: _lerpStyle(a.bodySmall, b.bodySmall, t),
+      caption: _lerpStyle(a.caption, b.caption, t),
+      code: _lerpStyle(a.code, b.code, t),
+      metric: _lerpStyle(a.metric, b.metric, t),
     );
+  }
+
+  static T? _swap<T>(T? a, T? b, double t) => t < 0.5 ? a : b;
+
+  static Color? _lerpColor(Color? a, Color? b, double t) =>
+      a != null && b != null ? Color.lerp(a, b, t) : _swap(a, b, t);
+
+  static TextStyle? _lerpStyle(TextStyle? a, TextStyle? b, double t) =>
+      a != null && b != null ? TextStyle.lerp(a, b, t) : _swap(a, b, t);
+
+  static double? _lerpDouble(double? a, double? b, double t) =>
+      a != null && b != null ? lerpDouble(a, b, t) : _swap(a, b, t);
+
+  static List<Color>? _lerpPalette(List<Color>? a, List<Color>? b, double t) {
+    if (a == null || b == null || a.length != b.length) return _swap(a, b, t);
+    return [for (var i = 0; i < a.length; i++) Color.lerp(a[i], b[i], t)!];
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties
+      ..add(ColorProperty('accent', accent, defaultValue: null))
+      ..add(ColorProperty('onAccent', onAccent, defaultValue: null))
+      ..add(ColorProperty('text', text, defaultValue: null))
+      ..add(ColorProperty('secondaryText', secondaryText, defaultValue: null))
+      ..add(ColorProperty('tertiaryText', tertiaryText, defaultValue: null))
+      ..add(ColorProperty('surface', surface, defaultValue: null))
+      ..add(ColorProperty('sunkenSurface', sunkenSurface, defaultValue: null))
+      ..add(ColorProperty('subtleFill', subtleFill, defaultValue: null))
+      ..add(ColorProperty('border', border, defaultValue: null))
+      ..add(ColorProperty('success', success, defaultValue: null))
+      ..add(ColorProperty('warning', warning, defaultValue: null))
+      ..add(ColorProperty('error', error, defaultValue: null))
+      ..add(ColorProperty('info', info, defaultValue: null))
+      ..add(ColorProperty('neutral', neutral, defaultValue: null))
+      ..add(IterableProperty<Color>('chartPalette', chartPalette, defaultValue: null))
+      ..add(DoubleProperty('xsSpacing', xsSpacing, defaultValue: null))
+      ..add(DoubleProperty('sSpacing', sSpacing, defaultValue: null))
+      ..add(DoubleProperty('mSpacing', mSpacing, defaultValue: null))
+      ..add(DoubleProperty('lSpacing', lSpacing, defaultValue: null))
+      ..add(DoubleProperty('xlSpacing', xlSpacing, defaultValue: null))
+      ..add(DoubleProperty('xxlSpacing', xxlSpacing, defaultValue: null))
+      ..add(DoubleProperty('smallCornerRadius', smallCornerRadius, defaultValue: null))
+      ..add(DoubleProperty('mediumCornerRadius', mediumCornerRadius, defaultValue: null))
+      ..add(DoubleProperty('cornerRadius', cornerRadius, defaultValue: null))
+      ..add(DoubleProperty('pillCornerRadius', pillCornerRadius, defaultValue: null))
       ..add(DiagnosticsProperty<TextStyle>('title', title, defaultValue: null))
       ..add(DiagnosticsProperty<TextStyle>('heading', heading, defaultValue: null))
       ..add(DiagnosticsProperty<TextStyle>('body', body, defaultValue: null))
@@ -767,8 +572,33 @@ class OpenUITextStyles with Diagnosticable {
 
   @override
   bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is OpenUITextStyles &&
+    if (identical(this, other)) return true;
+    return other is OpenUIThemeData &&
+        other.accent == accent &&
+        other.onAccent == onAccent &&
+        other.text == text &&
+        other.secondaryText == secondaryText &&
+        other.tertiaryText == tertiaryText &&
+        other.surface == surface &&
+        other.sunkenSurface == sunkenSurface &&
+        other.subtleFill == subtleFill &&
+        other.border == border &&
+        other.success == success &&
+        other.warning == warning &&
+        other.error == error &&
+        other.info == info &&
+        other.neutral == neutral &&
+        listEquals(other.chartPalette, chartPalette) &&
+        other.xsSpacing == xsSpacing &&
+        other.sSpacing == sSpacing &&
+        other.mSpacing == mSpacing &&
+        other.lSpacing == lSpacing &&
+        other.xlSpacing == xlSpacing &&
+        other.xxlSpacing == xxlSpacing &&
+        other.smallCornerRadius == smallCornerRadius &&
+        other.mediumCornerRadius == mediumCornerRadius &&
+        other.cornerRadius == cornerRadius &&
+        other.pillCornerRadius == pillCornerRadius &&
         other.title == title &&
         other.heading == heading &&
         other.body == body &&
@@ -780,12 +610,39 @@ class OpenUITextStyles with Diagnosticable {
   }
 
   @override
-  int get hashCode => Object.hash(title, heading, body, bodyLarge, bodySmall, caption, code, metric);
-}
-
-// [a] and [b] blended at [t] with [lerp] when both are set; otherwise the one
-// on the side of [t].
-T? _lerpOrSwap<T extends Object>(T? a, T? b, double t, T Function(T a, T b, double t) lerp) {
-  if (a != null && b != null) return lerp(a, b, t);
-  return t < 0.5 ? a : b;
+  int get hashCode => Object.hashAll([
+    accent,
+    onAccent,
+    text,
+    secondaryText,
+    tertiaryText,
+    surface,
+    sunkenSurface,
+    subtleFill,
+    border,
+    success,
+    warning,
+    error,
+    info,
+    neutral,
+    Object.hashAll(chartPalette ?? const <Color>[]),
+    xsSpacing,
+    sSpacing,
+    mSpacing,
+    lSpacing,
+    xlSpacing,
+    xxlSpacing,
+    smallCornerRadius,
+    mediumCornerRadius,
+    cornerRadius,
+    pillCornerRadius,
+    title,
+    heading,
+    body,
+    bodyLarge,
+    bodySmall,
+    caption,
+    code,
+    metric,
+  ]);
 }

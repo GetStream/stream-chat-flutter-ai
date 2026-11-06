@@ -19,11 +19,10 @@ Widget buildOpenUICardHeader(BuildContext context, OpenUIComponentScope scope) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: theme.spacing!.xs!,
+        spacing: theme.xsSpacing!,
         children: [
-          if (title.isNotEmpty) Text(title, style: theme.textStyles!.title!.copyWith(color: theme.colors!.textPrimary)),
-          if (subtitle.isNotEmpty)
-            Text(subtitle, style: theme.textStyles!.bodySmall!.copyWith(color: theme.colors!.textSecondary)),
+          if (title.isNotEmpty) Text(title, style: theme.title!.copyWith(color: theme.text)),
+          if (subtitle.isNotEmpty) Text(subtitle, style: theme.bodySmall!.copyWith(color: theme.secondaryText)),
         ],
       ),
     ),

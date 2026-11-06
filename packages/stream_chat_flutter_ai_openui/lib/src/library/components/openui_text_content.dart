@@ -16,18 +16,17 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 @internal
 Widget buildOpenUITextContent(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final styles = theme.textStyles!;
   final style = switch (scope.string('size')) {
-    'small' => styles.bodySmall!,
-    'large' => styles.bodyLarge!,
-    'small-heavy' => styles.bodySmall!.copyWith(fontWeight: FontWeight.w600),
-    'large-heavy' => styles.title!.copyWith(fontWeight: FontWeight.w700),
-    _ => styles.body!,
+    'small' => theme.bodySmall!,
+    'large' => theme.bodyLarge!,
+    'small-heavy' => theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+    'large-heavy' => theme.title!.copyWith(fontWeight: FontWeight.w700),
+    _ => theme.body!,
   };
   // The Markdown is drawn with the design system's body text, so the size's
   // style takes its place there.
   return OpenUIStreamTheme(
-    theme: theme.copyWith(textStyles: styles.copyWith(body: style)),
+    theme: theme.copyWith(body: style),
     child: AIMarkdownBody(
       data: scope.text('text') ?? '',
       onTapLink: (text, href, title) => openOpenUILink(context, href),
