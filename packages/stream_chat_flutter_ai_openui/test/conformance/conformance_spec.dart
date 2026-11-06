@@ -18,75 +18,113 @@ void runSpecConformanceArea(String area) {
 
   for (final directory in cases) {
     final name = '$area/${directory.uri.pathSegments.lastWhere((segment) => segment.isNotEmpty)}';
-    final input = File('${directory.path}/input.oui').readAsStringSync();
     final expected = jsonDecode(File('${directory.path}/expected.json').readAsStringSync()) as Map<String, Object?>;
     final schema = conformanceLibraries()['spec']!;
-
-    test('$name: errors', () {
-      final actual = debugParse(schema, input);
-
-      expect(_unmatchedErrors(_errors(actual), expected['errors']! as List<Object?>), isEmpty);
-    });
-
-    test('$name: unresolved', () {
-      final actual = debugParse(schema, input);
-
-      expect(
-        (actual['meta']! as Map<String, Object?>)['unresolved'],
-        unorderedEquals(expected['unresolved']! as List<Object?>),
-      );
-    });
-
-    test('$name: orphans', () {
-      final actual = debugParse(schema, input);
-
-      expect(
-        (actual['meta']! as Map<String, Object?>)['orphaned'],
-        unorderedEquals(expected['orphans']! as List<Object?>),
-      );
-    });
-
-    test('$name: incomplete', () {
-      final actual = debugParse(schema, input);
-
-      expect((actual['meta']! as Map<String, Object?>)['incomplete'], expected['incomplete']);
-    });
-
-    if (expected['state'] case final Map<String, Object?> state) {
-      test('$name: state', () {
-        final actual = debugParse(schema, input);
-
-        expect(firstDifference(actual['stateDeclarations'], state), isNull);
-      });
+    final chunks = _specChunks(directory);
+    if (chunks == null) {
+      final input = _specInput(directory);
+      _registerSpecCase(name, expected, () => debugParse(schema, input), caseName: name, schema: schema, input: input);
+      continue;
     }
+    // A streaming case must match both once its stream ends and as a batch
+    // parse of the whole text.
+    final streamed = '$name (streamed)';
+    _registerSpecCase(
+      streamed,
+      expected,
+      () => debugStreamParseComplete(schema, chunks),
+      caseName: name,
+      schema: schema,
+      input: null,
+    );
+    final whole = chunks.join();
+    _registerSpecCase(
+      '$name (batch)',
+      expected,
+      () => debugParse(schema, whole),
+      caseName: name,
+      schema: schema,
+      input: whole,
+    );
+  }
+}
 
-    if (expected['errorObjects'] case final List<Object?> errorObjects) {
-      test('$name: error objects', () {
-        final errors = debugParseErrors(schema, input);
-        final actual = [
-          for (final error in errors)
-            {
-              'source': error.source as String,
-              'code': error.code as String,
-              'statementId': error.statementId,
-              'component': error.component,
-              'path': error.path,
-            },
-        ];
+// Registers the comparisons of the specification case [caseName], each test
+// named after [label]: [read] gives what reading its program gives, and
+// [input], when the case is read in one piece, also gives its errors with
+// their fields.
+void _registerSpecCase(
+  String label,
+  Map<String, Object?> expected,
+  Map<String, Object?> Function() read, {
+  required String caseName,
+  required OpenUILibrarySchema schema,
+  required String? input,
+}) {
+  test('$label: errors', () {
+    final actual = read();
 
-        expect(_unmatchedObjects(actual, errorObjects), isEmpty);
-      });
-    }
+    expect(_unmatchedErrors(_errors(actual), expected['errors']! as List<Object?>), isEmpty);
+  });
 
-    test('$name: root', () {
-      final actual = debugParse(schema, input);
+  test('$label: unresolved', () {
+    final actual = read();
 
-      expect(firstDifference(canonicalTree(actual['root']), expected['root']), isNull);
-    }, skip: specRootSkipReason(name));
+    expect(
+      (actual['meta']! as Map<String, Object?>)['unresolved'],
+      unorderedEquals(expected['unresolved']! as List<Object?>),
+    );
+  });
 
-    if (specRoundtripSkipReason(name) case final reason?) {
-      test('$name: the serialized tree parses back', () {}, skip: reason);
-    }
+  test('$label: orphans', () {
+    final actual = read();
+
+    expect(
+      (actual['meta']! as Map<String, Object?>)['orphaned'],
+      unorderedEquals(expected['orphans']! as List<Object?>),
+    );
+  });
+
+  test('$label: incomplete', () {
+    final actual = read();
+
+    expect((actual['meta']! as Map<String, Object?>)['incomplete'], expected['incomplete']);
+  });
+
+  if (expected['state'] case final Map<String, Object?> state) {
+    test('$label: state', () {
+      final actual = read();
+
+      expect(firstDifference(actual['stateDeclarations'], state), isNull);
+    });
+  }
+
+  if ((expected['errorObjects'], input) case (final List<Object?> errorObjects, final input?)) {
+    test('$label: error objects', () {
+      final errors = debugParseErrors(schema, input);
+      final actual = [
+        for (final error in errors)
+          {
+            'source': error.source as String,
+            'code': error.code as String,
+            'statementId': error.statementId,
+            'component': error.component,
+            'path': error.path,
+          },
+      ];
+
+      expect(_unmatchedObjects(actual, errorObjects), isEmpty);
+    });
+  }
+
+  test('$label: root', () {
+    final actual = read();
+
+    expect(firstDifference(canonicalTree(actual['root']), expected['root']), isNull);
+  }, skip: specRootSkipReason(caseName));
+
+  if (specRoundtripSkipReason(caseName) case final reason?) {
+    test('$label: the serialized tree parses back', () {}, skip: reason);
   }
 }
 
@@ -94,8 +132,8 @@ void runSpecConformanceArea(String area) {
 /// holds an expression, or an entry that picks its component only when
 /// evaluated: either only evaluating can summarize.
 bool specRootNeedsEvaluating(String name) {
-  final directory = '$_specRoot/$name';
-  final input = File('$directory/input.oui').readAsStringSync();
+  final directory = Directory('$_specRoot/$name');
+  final input = _specChunks(directory)?.join() ?? _specInput(directory);
   final result = debugParse(conformanceLibraries()['spec']!, input);
   return result.containsKey('rootExpression') || _holdsExpression(result['root']);
 }
@@ -109,6 +147,16 @@ List<String> specCaseNames(String area) {
 }
 
 const _specRoot = 'test/conformance/upstream/spec/fixtures/1.0';
+
+String _specInput(Directory directory) => File('${directory.path}/input.oui').readAsStringSync();
+
+// The chunks a streaming case is read in, or null when the case is read in
+// one piece.
+List<String>? _specChunks(Directory directory) {
+  final file = File('${directory.path}/chunks.json');
+  if (!file.existsSync()) return null;
+  return (jsonDecode(file.readAsStringSync()) as List<Object?>).cast<String>();
+}
 
 List<Directory> _specCases(String area) {
   final directories = Directory('$_specRoot/$area').listSync().whereType<Directory>().toList()

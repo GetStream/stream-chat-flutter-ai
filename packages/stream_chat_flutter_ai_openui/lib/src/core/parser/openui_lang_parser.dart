@@ -10,6 +10,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/expression_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/lexer.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/materialization_cache.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/materializer.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/preprocessor.dart';
@@ -68,18 +69,34 @@ final class OpenUILangParser {
   /// statement that calls the library's root component is used and a warning
   /// is reported; with neither, nothing renders and an error is reported.
   ParseResult parse(String text) {
-    final prepared = Preprocessor.prepare(text);
-    if (prepared.isEmpty) return ParseResult.empty();
+    final read = readStatements(Preprocessor.prepare(text));
+    if (read.statements.isEmpty) return ParseResult.empty(incomplete: read.incomplete);
+    return buildResult(
+      read.statements,
+      schema,
+      incomplete: read.incomplete,
+      statementCount: read.statements.length,
+    );
+  }
 
+  /// The statements of `prepared`, a whole program as [Preprocessor.prepare]
+  /// gives it, by name in program order, with how many definitions it holds
+  /// and whether it ended inside a string or bracket.
+  ///
+  /// A name defined twice takes the later definition, in the place of the
+  /// earlier one, and counts as two definitions. Empty text counts as ending
+  /// inside one: no program has arrived yet.
+  static ({Map<String, Statement> statements, int definitions, bool incomplete}) readStatements(String prepared) {
+    if (prepared.isEmpty) return (statements: const {}, definitions: 0, incomplete: true);
     final (closed, :wasIncomplete) = Statements.autoClose(prepared);
     final raw = Statements.split(Lexer.tokenize(closed));
-    if (raw.isEmpty) return ParseResult.empty(incomplete: wasIncomplete);
-
-    final statements = <String, Statement>{};
-    for (final statement in raw) {
-      statements[statement.id] = classify(statement, ExpressionParser.parse(statement.tokens));
-    }
-    return buildResult(statements, schema, incomplete: wasIncomplete, statementCount: statements.length);
+    return (
+      statements: {
+        for (final statement in raw) statement.id: classify(statement, ExpressionParser.parse(statement.tokens)),
+      },
+      definitions: raw.length,
+      incomplete: wasIncomplete,
+    );
   }
 
   /// The kind of statement `raw` is, given its parsed `expression`: a query
@@ -102,11 +119,20 @@ final class OpenUILangParser {
   ///
   /// The result is marked incomplete (see [ParseMeta.incomplete]) when
   /// `incomplete` is `true`, and counts `statementCount` statements.
+  ///
+  /// A `$variable` that is used but never declared gets a `null` default,
+  /// except the one `partialReference` names in the statements it lists:
+  /// the end of a name still arriving.
+  ///
+  /// With a `cache`, statements whose text and reads are unchanged since an
+  /// earlier pass resolve to what they did then.
   static ParseResult buildResult(
     Map<String, Statement> statements,
     OpenUILibrarySchema schema, {
     required bool incomplete,
     required int statementCount,
+    PartialReference? partialReference,
+    MaterializationCache? cache,
   }) {
     final entry = _pickEntry(statements, schema.root);
     final symbols = {for (final MapEntry(:key, value: statement) in statements.entries) key: statement.symbol};
@@ -119,6 +145,7 @@ final class OpenUILangParser {
         for (final statement in statements.values)
           if (statement is ValueStatement && statement.id != entry?.id) statement.id,
       ],
+      cache: cache,
     );
 
     ElementNode? root;
@@ -170,17 +197,12 @@ final class OpenUILangParser {
     }
 
     for (final statement in statements.values) {
-      final nodes = switch (statement) {
-        StateStatement(:final initial) => [initial],
-        ValueStatement(:final expression) => [expression],
-        QueryStatement(:final call) || MutationStatement(:final call) => call.args,
-      };
-      for (final node in nodes) {
-        for (final name in node.stateReferences()) {
-          stateDeclarations.putIfAbsent(name, () => OpenUINull.instance);
-        }
+      for (final name in _stateReferences(statement, cache)) {
+        if (partialReference != null && partialReference.holdsBack(name, statement.id)) continue;
+        stateDeclarations.putIfAbsent(name, () => OpenUINull.instance);
       }
     }
+    if (cache != null) cache.debugResolvedNodes += context.debugResolvedNodes;
 
     context.currentStatementId = entry?.id;
     final component = schema.root ?? '';
@@ -217,6 +239,25 @@ final class OpenUILangParser {
       queryStatements: queries,
       mutationStatements: mutations,
     );
+  }
+
+  // The `$variables` [statement] uses, kept in [cache] while the statement
+  // is unchanged.
+  static List<String> _stateReferences(Statement statement, MaterializationCache? cache) {
+    final version = cache?.versions[statement.id];
+    if (version != null) {
+      if (cache!.stateReferences[statement.id] case (version: final kept, :final names) when kept == version) {
+        return names;
+      }
+    }
+    final nodes = switch (statement) {
+      StateStatement(:final initial) => [initial],
+      ValueStatement(:final expression) => [expression],
+      QueryStatement(:final call) || MutationStatement(:final call) => call.args,
+    };
+    final names = [for (final node in nodes) ...node.stateReferences()];
+    if (version != null) cache!.stateReferences[statement.id] = (version: version, names: names);
+    return names;
   }
 
   static String _missingRootMessage(String component) {
@@ -266,4 +307,23 @@ final class OpenUILangParser {
     });
     return found;
   }
+}
+
+/// A `$name` that ends a text still streaming in, which more of its name may
+/// follow, so it isn't declared yet.
+@immutable
+final class PartialReference {
+  /// Creates the reference to [name] at the end of the text, used by the
+  /// statements [statementIds].
+  const PartialReference(this.name, this.statementIds);
+
+  /// The name so far, such as `$d` of what may become `$dishes`.
+  final String name;
+
+  /// The statements still arriving, the only ones that can hold it.
+  final Set<String> statementIds;
+
+  /// Whether the use of `variable` in the statement `statementId` is this
+  /// reference, which isn't declared yet.
+  bool holdsBack(String variable, String statementId) => variable == name && statementIds.contains(statementId);
 }
