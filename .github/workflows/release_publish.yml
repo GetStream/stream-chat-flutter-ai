@@ -67,11 +67,12 @@ jobs:
 
       # Publishes dependencies first (`orderDependents`), so pub.dev already
       # has stream_chat_flutter_ai X.Y.Z when the packages that depend on it
-      # upload. `release:pub` retries each upload once if pub.dev hasn't caught
-      # up. A re-run of this workflow skips packages already published.
+      # upload. A re-run of this workflow skips packages already published.
       - name: 📢 Release to pub.dev
         if: github.event_name == 'push'
-        run: melos run release:pub
+        run: |
+          echo "::notice title=First release of a package::pub.dev can't create a package through automated publishing. A package's first version (such as stream_chat_flutter_ai_a2ui's) is uploaded by hand by a publisher member from this tag; then enable automated publishing on its pub.dev admin page and re-run this workflow."
+          melos run release:pub
 
       - name: 🏷️ Extract Version Info
         if: github.event_name == 'push'

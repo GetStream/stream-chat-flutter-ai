@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Overview
 
-This repository holds one published package, `stream_chat_flutter_ai` — Flutter UI components
+This repository's main package is `stream_chat_flutter_ai` — Flutter UI components
 for LLM-driven chat: streaming markdown text, typing indicators, code blocks, charts, an AI
 composer, and speech-to-text input.
 
@@ -118,7 +118,8 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`. The published packages
 (`stream_chat_flutter_ai` and `stream_chat_flutter_ai_a2ui`) are released **in lockstep**: they always share
 one `version:`, one `v<version>` tag publishes both, and the A2UI package depends on
-`stream_chat_flutter_ai: ^<version>` (set in its own pubspec; bootstrap doesn't manage it). Until its first
+`stream_chat_flutter_ai: ^<version>`, which lives in the root `melos.command.bootstrap` list like every other
+constraint and is copied into the package by `melos bootstrap`. Until its first
 release PR drops `publish_to: none`, the A2UI package is private and the release tooling skips it.
 
 1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps both versions and the lockstep
@@ -139,7 +140,7 @@ setup outside git: automated publishing enabled on **each** package's pub.dev ad
 so a new package's first version is uploaded by hand by a publisher member before its admin page offers the
 setting; a release tag after that skips it if that version is already live.
 
-Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates the package but
+Running `release_publish` manually (`workflow_dispatch`) is a dry run: it validates every publishable package but
 skips the publish and the GitHub Release. Below `1.0.0` a breaking release bumps the minor version
 (`0.1.0` → `0.2.0`), and a feature or fix release the patch. Versions are always `X.Y.Z` — the
 workflows can't tag or publish a `+build` version.
