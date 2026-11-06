@@ -331,6 +331,8 @@ void main() {
         }),
       },
     );
+    // A cascade would run before `looping` is assigned, and `Upper` reads it.
+    // ignore: cascade_invocations
     looping.update('root = Stack([Text(@Upper("x"))])', isStreaming: false);
 
     expect(calls, OpenUIRuntime.maxPasses);
