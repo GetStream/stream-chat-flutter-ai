@@ -72,6 +72,27 @@ void main() {
     expect(find.text('Ohrid'), findsNothing);
   });
 
+  testWidgets('a type with no builder is logged once, however many components have it', (tester) async {
+    final printed = <String>[];
+    final previous = debugPrint;
+    debugPrint = (message, {wrapWidth}) => printed.add(message ?? '');
+    try {
+      await pumpSurface(
+        tester,
+        components: inColumn([
+          {'id': 'a', 'component': 'Divider'},
+          {'id': 'b', 'component': 'Divider'},
+        ]),
+        catalog: A2UICatalog.basic.removing(['Divider']),
+      );
+    } finally {
+      // The test framework checks it is restored before tear-down runs.
+      debugPrint = previous;
+    }
+
+    expect(printed.where((line) => line.contains("'Divider'")), hasLength(1));
+  });
+
   test('a removed type has no builder', () {
     expect(A2UICatalog.basic.removing(['Text'])['Text'], isNull);
   });

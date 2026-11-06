@@ -59,13 +59,13 @@ typedef A2UIErrorHandler = void Function(A2UIError error, String messageId);
 /// See also:
 ///
 ///  * [A2UICatalog], which draws each component.
-///  * [A2UITheme], which holds the look of every component.
+///  * [A2UIThemeData], which overrides the look of every component.
 class A2UIRenderer extends AIUIRenderer {
   /// Creates a renderer for A2UI 1.0.
   ///
   /// The components of a reply's surfaces are drawn by [catalog] with
-  /// [theme], or with the theme [A2UITheme.fromStream] makes from the app's
-  /// Stream theme when [theme] is `null`.
+  /// [theme] layered over the nearest [A2UITheme], and take each value
+  /// neither sets from the app's Stream theme.
   ///
   /// The agent names the app's catalog [catalogId], and a surface that names
   /// no catalog gets it too.
@@ -109,9 +109,8 @@ class A2UIRenderer extends AIUIRenderer {
   /// The id the agent names the app's catalog by.
   final String catalogId;
 
-  /// The look of every reply's surfaces, or `null` for the one made from the
-  /// app's Stream theme.
-  final A2UITheme? theme;
+  /// Overrides for the look of every reply's surfaces, or `null` for none.
+  final A2UIThemeData? theme;
 
   /// The function that gives the URL each image, video and audio clip loads
   /// from.
