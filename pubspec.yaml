@@ -67,6 +67,9 @@ melos:
         re_highlight: ^0.0.3
         share_plus: ^13.3.1
         speech_to_text: ^7.0.0
+        # Every package that depends on the core package is released in
+        # lockstep with it, so this is always `^<the release's version>`.
+        stream_chat_flutter_ai: ^0.1.0
         # Stream's design system: theme tokens, the component factory and the
         # base components (buttons, sheets, list tiles, icons) the AI packages build on.
         stream_core_flutter: ^0.5.3
@@ -132,9 +135,13 @@ melos:
 
     release:pub:
       exec:
+        # The packages are released in lockstep and a dependent requires its
+        # sibling's new version, so `orderDependents` publishes
+        # stream_chat_flutter_ai first.
         command: flutter pub publish -f
         concurrency: 1
         orderDependents: true
+        failFast: true
       description: |
         Publish all publishable packages to pub.dev.
          - Note: run by `release_publish.yml` on a release tag. Never run it locally.
