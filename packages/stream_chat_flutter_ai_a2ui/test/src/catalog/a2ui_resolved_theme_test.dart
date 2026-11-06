@@ -1,86 +1,151 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
-// A2UITheme.fromStream takes each value from the Stream design token it maps.
+// A theme that sets nothing takes each value from the Stream design token it
+// maps; a value the theme sets wins.
 void main() {
+  test('a value the theme sets wins over the Stream token', () {
+    final theme = A2UIResolvedTheme.fromData(A2UIThemeData(accent: const Color(0xFFE65100), cornerRadius: 3), _light());
+
+    expect((theme.accent, theme.cornerRadius), (const Color(0xFFE65100), 3.0));
+  });
+
+  test('heading styles the theme sets win over the Stream ones', () {
+    const style = TextStyle(fontSize: 40);
+
+    expect(A2UIResolvedTheme.fromData(A2UIThemeData(headings: const [style]), _light()).headings, [style]);
+  });
+
+  test('heading 1 is the first heading style', () {
+    final theme = _resolve(_light());
+
+    expect(theme.heading(1), theme.headings.first);
+  });
+
+  test('heading 3 is the third heading style', () {
+    final theme = _resolve(_light());
+
+    expect(theme.heading(3), theme.headings[2]);
+  });
+
+  test('a level below 1 gives the first heading style', () {
+    final theme = _resolve(_light());
+
+    expect(theme.heading(0), theme.headings.first);
+  });
+
+  test('a level past the last gives the last heading style', () {
+    final theme = _resolve(_light());
+
+    expect(theme.heading(9), theme.headings.last);
+  });
+
+  testWidgets('resolve layers the override over the nearest A2UITheme over the Stream theme', (tester) async {
+    late A2UIResolvedTheme theme;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: [StreamTheme.light()]),
+        home: A2UITheme(
+          data: A2UIThemeData(accent: const Color(0xFF000001), cornerRadius: 3),
+          child: Builder(
+            builder: (context) {
+              theme = A2UIResolvedTheme.resolve(context, override: A2UIThemeData(cornerRadius: 5));
+              return const SizedBox();
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      (theme.accent, theme.cornerRadius, theme.text),
+      (
+        const Color(0xFF000001),
+        5.0,
+        StreamTheme.light().colorScheme.textPrimary,
+      ),
+    );
+  });
+
   test('the accent is the accent primary color', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).accent, light.colorScheme.accentPrimary);
+    expect(_resolve(light).accent, light.colorScheme.accentPrimary);
   });
 
   test('the color on the accent is the text on accent color', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).onAccent, light.colorScheme.textOnAccent);
+    expect(_resolve(light).onAccent, light.colorScheme.textOnAccent);
   });
 
   test('the text color is the primary text color', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).text, light.colorScheme.textPrimary);
+    expect(_resolve(light).text, light.colorScheme.textPrimary);
   });
 
   test('the secondary text color is the secondary text color', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).secondaryText, light.colorScheme.textSecondary);
+    expect(_resolve(light).secondaryText, light.colorScheme.textSecondary);
   });
 
   test('the surface is the card background', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).surface, light.colorScheme.backgroundSurfaceCard);
+    expect(_resolve(light).surface, light.colorScheme.backgroundSurfaceCard);
   });
 
   test('the subtle surface is the surface background', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).subtleSurface, light.colorScheme.backgroundSurface);
+    expect(_resolve(light).subtleSurface, light.colorScheme.backgroundSurface);
   });
 
   test('the border is the default border color', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).border, light.colorScheme.borderDefault);
+    expect(_resolve(light).border, light.colorScheme.borderDefault);
   });
 
   test('the error color is the error accent', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).error, light.colorScheme.accentError);
+    expect(_resolve(light).error, light.colorScheme.accentError);
   });
 
   test('the warning color is the warning accent', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).warning, light.colorScheme.accentWarning);
+    expect(_resolve(light).warning, light.colorScheme.accentWarning);
   });
 
   test('the body style is the default body style', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).body, _sameButColor(light.textTheme.bodyDefault));
+    expect(_resolve(light).body, _sameButColor(light.textTheme.bodyDefault));
   });
 
   test('the caption style is the default metadata style', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).caption, _sameButColor(light.textTheme.metadataDefault));
+    expect(_resolve(light).caption, _sameButColor(light.textTheme.metadataDefault));
   });
 
   test('the label style is the default caption style', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).label, _sameButColor(light.textTheme.captionDefault));
+    expect(_resolve(light).label, _sameButColor(light.textTheme.captionDefault));
   });
 
   test('the first heading is the largest heading style at the largest text size', () {
     final light = _light();
     final typography = light.typography;
-    final heading = A2UITheme.fromStream(light).heading(1);
+    final heading = _resolve(light).heading(1);
 
     expect(heading.fontSize, typography.fontSize.xxl);
     expect(heading.fontWeight, light.textTheme.headingLg.fontWeight);
@@ -92,7 +157,7 @@ void main() {
     final light = _light();
     final text = light.textTheme;
 
-    expect(A2UITheme.fromStream(light).headings.skip(1), [
+    expect(_resolve(light).headings.skip(1), [
       _sameButColor(text.headingLg),
       _sameButColor(text.headingMd),
       _sameButColor(text.headingSm),
@@ -104,7 +169,7 @@ void main() {
   test("the text styles drop the color of the design system's styles", () {
     final light = _light();
     final text = light.textTheme;
-    final theme = A2UITheme.fromStream(light);
+    final theme = _resolve(light);
 
     // The design system's styles carry a color, so a style without one is the
     // theme dropping it.
@@ -130,52 +195,54 @@ void main() {
     final style = _styleWithEveryValue();
     final stream = StreamTheme(textTheme: StreamTextTheme(bodyDefault: style));
 
-    expect(A2UITheme.fromStream(stream).body, _sameButColor(style));
+    expect(_resolve(stream).body, _sameButColor(style));
   });
 
   test('cards have the extra large radius', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).cornerRadius, light.radius.xl.x);
+    expect(_resolve(light).cornerRadius, light.radius.xl.x);
   });
 
   test('buttons are fully rounded', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).buttonCornerRadius, light.radius.max.x);
+    expect(_resolve(light).buttonCornerRadius, light.radius.max.x);
   });
 
   test('fields have the extra large radius', () {
     final light = _light();
 
-    expect(A2UITheme.fromStream(light).controlCornerRadius, light.radius.xl.x);
+    expect(_resolve(light).controlCornerRadius, light.radius.xl.x);
   });
 
   test('the dark theme takes the dark card background', () {
     final dark = _dark();
 
-    expect(A2UITheme.fromStream(dark).surface, dark.colorScheme.backgroundSurfaceCard);
+    expect(_resolve(dark).surface, dark.colorScheme.backgroundSurfaceCard);
   });
 
   test('the dark card background differs from the light one', () {
     final light = _light();
     final dark = _dark();
 
-    expect(A2UITheme.fromStream(dark).surface, isNot(A2UITheme.fromStream(light).surface));
+    expect(_resolve(dark).surface, isNot(_resolve(light).surface));
   });
 
   test('the dark theme takes the dark text on accent color', () {
     final dark = _dark();
 
-    expect(A2UITheme.fromStream(dark).onAccent, dark.colorScheme.textOnAccent);
+    expect(_resolve(dark).onAccent, dark.colorScheme.textOnAccent);
   });
 
   test('a theme with a custom accent takes it', () {
     final custom = StreamTheme(colorScheme: StreamColorScheme.light(accentPrimary: const Color(0xFFE65100)));
 
-    expect(A2UITheme.fromStream(custom).accent, const Color(0xFFE65100));
+    expect(_resolve(custom).accent, const Color(0xFFE65100));
   });
 }
+
+A2UIResolvedTheme _resolve(StreamTheme stream) => A2UIResolvedTheme.fromData(const A2UIThemeData.empty(), stream);
 
 StreamTheme _light() => StreamTheme.light();
 

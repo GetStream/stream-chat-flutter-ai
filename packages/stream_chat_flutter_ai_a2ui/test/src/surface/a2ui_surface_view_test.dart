@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
 import '../a2ui_test_app.dart';
@@ -107,16 +108,47 @@ void main() {
     expect(_colorOf(tester, 'Ohrid'), StreamTheme.dark().colorScheme.textPrimary);
   });
 
-  testWidgets('a given theme is used instead of the Stream theme', (tester) async {
+  testWidgets("a given theme's values are used instead of the Stream theme's", (tester) async {
     await pumpSurface(
       tester,
       components: [
         {'id': 'root', 'component': 'Text', 'text': 'Ohrid'},
       ],
-      theme: lightTheme().copyWith(text: const Color(0xFF123456)),
+      theme: A2UIThemeData(text: const Color(0xFF123456)),
     );
 
     expect(_colorOf(tester, 'Ohrid'), const Color(0xFF123456));
+  });
+
+  testWidgets("a given theme's unset values follow a dark Stream theme", (tester) async {
+    await pumpSurface(
+      tester,
+      components: [
+        {'id': 'root', 'component': 'Text', 'text': 'Ohrid'},
+      ],
+      theme: A2UIThemeData(cornerRadius: 3),
+      brightness: Brightness.dark,
+    );
+
+    expect(_colorOf(tester, 'Ohrid'), StreamTheme.dark().colorScheme.textPrimary);
+  });
+
+  testWidgets('an A2UITheme above the surface is used', (tester) async {
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([
+      createSurface([
+        {'id': 'root', 'component': 'Text', 'text': 'Ohrid'},
+      ]),
+    ]);
+    await tester.pumpWidget(
+      A2UITheme(
+        data: A2UIThemeData(text: const Color(0xFF654321)),
+        child: surfaceApp(processor.surface('s')!),
+      ),
+    );
+
+    expect(_colorOf(tester, 'Ohrid'), const Color(0xFF654321));
   });
 
   testWidgets('a surface whose tree is released shows nothing', (tester) async {

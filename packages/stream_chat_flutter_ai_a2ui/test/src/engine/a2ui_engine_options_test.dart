@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 
@@ -63,7 +62,7 @@ void main() {
   });
 
   testWidgets("a reply is drawn with the renderer's theme", (tester) async {
-    final theme = A2UITheme.fromStream(StreamTheme.light()).copyWith(text: const Color(0xFF00FF00));
+    final theme = A2UIThemeData(text: const Color(0xFF00FF00));
 
     await pumpReplies(
       tester,

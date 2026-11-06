@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -247,7 +248,7 @@ void main() {
   });
 
   testWidgets("a primary button is drawn in a custom theme's accent", (tester) async {
-    final theme = lightTheme().copyWith(accent: const Color(0xFFE65100));
+    final theme = A2UIThemeData(accent: const Color(0xFFE65100));
     await pumpSurface(
       tester,
       components: _button(variant: 'primary'),

@@ -12,9 +12,9 @@ import 'package:stream_core_flutter/core.dart';
 /// Builds a `Button`: its child in the Stream design system's [StreamButton]
 /// of its `variant`, which runs its action when the person taps it.
 ///
-/// A `primary` button is a solid button in [A2UITheme.accent], a `borderless`
+/// A `primary` button is a solid button in [A2UIThemeData.accent], a `borderless`
 /// one shows its child in the accent color with no background, and any other
-/// is a solid button on [A2UITheme.subtleSurface]. The builder an app
+/// is a solid button on [A2UIThemeData.subtleSurface]. The builder an app
 /// registers for buttons through [StreamComponentFactory] draws it instead.
 /// While one of its checks fails and blocks it, it is disabled, and the
 /// messages of its failing checks show below it.
