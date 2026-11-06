@@ -36,8 +36,6 @@ melos:
         # The A2UI protocol core, hidden inside `stream_chat_flutter_ai_a2ui`'s
         # `lib/src/core/`. Kept below 0.6.0, whose changes may be breaking.
         a2ui_core: ">=0.5.0 <0.6.0"
-        # The images of A2UI replies, kept in a disk cache.
-        cached_network_image: ^3.4.1
         # The controls host of an A2UI reply's videos, as in `stream_chat_flutter`.
         chewie: ^1.13.1
         # A sign-in's expiry reads `clock.now()`, so tests can fake the time.
@@ -70,7 +68,7 @@ melos:
         share_plus: ^13.3.1
         speech_to_text: ^7.0.0
         # Stream's design system: theme tokens, the component factory and the
-        # base components (buttons, sheets, list tiles, icons) this package builds on.
+        # base components (buttons, sheets, list tiles, icons) the AI packages build on.
         stream_core_flutter: ^0.5.3
         url_launcher: ^6.3.2
         uuid: ^4.5.1

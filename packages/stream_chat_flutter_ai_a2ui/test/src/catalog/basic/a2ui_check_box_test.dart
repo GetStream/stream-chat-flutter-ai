@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -12,6 +17,38 @@ void main() {
     await tester.pump();
 
     expect(processor.surface('s')!.read('/subscribe'), isTrue);
+  });
+
+  testWidgets('tapping the box itself writes the other value', (tester) async {
+    final processor = await pumpSurface(tester, components: [_box()], data: {'subscribe': false});
+
+    await tester.tap(find.byType(StreamCheckbox));
+    await tester.pump();
+
+    expect(processor.surface('s')!.read('/subscribe'), isTrue);
+  });
+
+  testWidgets('a box is one stop when moving focus with the keyboard', (tester) async {
+    await pumpSurface(tester, components: [_box()]);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    final first = FocusManager.instance.primaryFocus;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    expect(FocusManager.instance.primaryFocus, first);
+  });
+
+  testWidgets("the app's check box builder draws the box", (tester) async {
+    await pumpSurface(
+      tester,
+      components: [_box()],
+      data: {'subscribe': true},
+      builders: StreamComponentBuilders(checkbox: (context, props) => Text('App box ${props.value}')),
+    );
+
+    expect(find.text('App box true'), findsOneWidget);
   });
 
   testWidgets('tapping a checked box writes false', (tester) async {
@@ -44,15 +81,76 @@ void main() {
   });
 
   testWidgets('a checked box is drawn in the accent color', (tester) async {
-    await pumpSurface(tester, components: [_box()], data: {'subscribe': true});
+    const accent = Color(0xFF123456);
+    await pumpSurface(
+      tester,
+      components: [_box()],
+      data: {'subscribe': true},
+      theme: A2UIThemeData(accent: accent),
+    );
 
-    expect(tester.widget<Icon>(find.byIcon(Icons.check_box_rounded)).color, lightTheme().accent);
+    final style = tester.widget<IconButton>(find.byType(IconButton)).style!;
+
+    expect(style.backgroundColor!.resolve({WidgetState.selected}), accent);
+  });
+
+  testWidgets("the app's check box builder writes the value through the props", (tester) async {
+    late StreamCheckboxProps props;
+    final processor = await pumpSurface(
+      tester,
+      components: [_box()],
+      data: {'subscribe': false},
+      builders: StreamComponentBuilders(
+        checkbox: (context, value) {
+          props = value;
+          return const SizedBox();
+        },
+      ),
+    );
+
+    props.onChanged!(true);
+
+    expect(processor.surface('s')!.read('/subscribe'), isTrue);
+  });
+
+  testWidgets("the app's check box builder is given no way to change a box whose value isn't bound", (tester) async {
+    late StreamCheckboxProps props;
+    await pumpSurface(
+      tester,
+      components: [_box(value: true)],
+      builders: StreamComponentBuilders(
+        checkbox: (context, value) {
+          props = value;
+          return const SizedBox();
+        },
+      ),
+    );
+
+    expect(props.onChanged, isNull);
+  });
+
+  testWidgets('a box shows under a Material 2 theme with no Material around it', (tester) async {
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([
+      createSurface([_box()], data: {'subscribe': true}),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: false, extensions: [StreamTheme.light()]),
+        home: A2UISurfaceView(surface: processor.surface('s')!),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(StreamCheckbox), findsOneWidget);
   });
 
   testWidgets('an unchecked box is drawn empty', (tester) async {
     await pumpSurface(tester, components: [_box()], data: {'subscribe': false});
 
-    expect(find.byIcon(Icons.check_box_outline_blank_rounded), findsOneWidget);
+    expect(tester.widget<StreamCheckbox>(find.byType(StreamCheckbox)).props.value, isFalse);
   });
 
   testWidgets('a checked box is read as checked', (tester) async {
