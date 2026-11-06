@@ -156,6 +156,9 @@ class _A2UITextFieldState extends State<_A2UITextField> {
     );
   }
 
+  // TODO: Drop this wrapper once `StreamTextInput` has a `semanticLabel` in
+  // stream_core_flutter, and pass the agent's label to it.
+  //
   // The field, read as one text field with [label] and [hint]. The field
   // shows its label as its hint while it has no placeholder, and that isn't
   // read twice. A field that [canEdit] is false for is read as read-only, and
