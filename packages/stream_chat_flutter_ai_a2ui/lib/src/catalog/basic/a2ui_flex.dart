@@ -451,8 +451,9 @@ class _RenderA2UIFlex extends RenderBox
       // stretch, of the cross length: one that takes its own size, such as an
       // image, keeps it, and one that fills, such as a vertical divider,
       // fills the frame. A vertical divider gets the row's height whatever
-      // the row's `align`, as it has no height of its own. It is laid out again with the length it was measured
-      // with, as text given only its measured width can wrap differently.
+      // the row's `align`, as it has no height of its own. It is laid out
+      // again with the length it was measured with, as text given only its
+      // measured width can wrap differently.
       child.layout(_constraints(maxMain: arrangement.maxLengths[index], maxCross: childCross), parentUsesSize: true);
       final crossOffset = switch (_align) {
         'center' => (arrangement.crossLength - _cross(child.size)) / 2,

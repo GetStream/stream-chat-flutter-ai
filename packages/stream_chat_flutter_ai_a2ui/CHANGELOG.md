@@ -19,3 +19,4 @@
   taken out with `A2UICatalog.removing` is left out of it, and reported as unknown when the agent writes it anyway.
 - `A2UICatalog.basic` draws `Video`, with its poster until it plays, and `AudioPlayer`, with its description. Neither
   plays until the person taps play.
+- `A2UIMediaUrl`, the signature of `A2UIRenderer.mediaUrl`.

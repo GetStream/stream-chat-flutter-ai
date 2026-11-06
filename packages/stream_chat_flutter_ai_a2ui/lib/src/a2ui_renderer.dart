@@ -107,7 +107,7 @@ final class A2UIRenderer extends AIUIRenderer {
   /// The function that gives the URL each image, video and audio clip loads
   /// from, or `null` to not load it. By default only web links load; see
   /// [webUrl].
-  final Uri? Function(Uri url) mediaUrl;
+  final A2UIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's A2UI, with the
   /// reply's message id, or `null` to report them in debug builds only.
