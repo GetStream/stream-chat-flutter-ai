@@ -24,6 +24,8 @@ DateTime? openUIParseDate(String? text) {
   final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(text.substring(0, 10));
   if (match == null) return null;
   final (year, month, day) = (int.parse(match[1]!), int.parse(match[2]!), int.parse(match[3]!));
+  // A year before 1000 is a typo, not a day a date picker can show.
+  if (year < 1000) return null;
   final date = DateTime(year, month, day);
   // Rolled over, such as February 30th: no such day.
   if (date.month != month || date.day != day) return null;
