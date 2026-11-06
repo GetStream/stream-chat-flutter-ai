@@ -33,14 +33,15 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// for as long as the host keeps the reply.
 ///
 /// A tap on a control sends an [AIUIAction] named after the action, such as
-/// `continue_conversation`, labeled with the control's label, or `Continue`
-/// when it has none. Its payload holds, when there are any, the action's
+/// `continue_conversation`, labeled with the control's label, or, when it
+/// has none, [AITranslations.uiActionUntitled] in the app's language. Its payload holds, when there are any, the action's
 /// `context`, its other `params`, the agent's own `message` for it when it
 /// differs from the label, and, in a form, the form's name under `form` and
 /// its values under `values`, without passwords. A link the program opens,
 /// a web or email link only, goes to [AIUIHosting.open] instead. The
 /// program's queries and mutations run as the host's tools, queries only
-/// once the reply is written.
+/// once the reply is written. A query's refresh timer pauses while the app is
+/// in the background, but not while its reply is scrolled off screen.
 ///
 /// The app's own components, the host's [AIUIHosting.components], can be
 /// placed by the agent too, wherever the library's content goes, such as in

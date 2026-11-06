@@ -50,10 +50,6 @@ final class OpenUIEngine extends AIUIEngine {
   final List<VoidCallback> _afterFrame = [];
   bool _disposed = false;
 
-  // The label of an action from a control without one, as iOS and Android
-  // label it.
-  static const _untitledLabel = 'Continue';
-
   // The key of an app component's action payload that names the component.
   static const _componentKey = 'component';
 
@@ -102,6 +98,8 @@ final class OpenUIEngine extends AIUIEngine {
       mediaUrl: _renderer.mediaUrl,
       onOpenLink: _host.open,
       onBuildError: (node, error, stack) => _reportBuildError(reply, node, error, stack),
+      // Read in the app's language where the view builds, as Android does.
+      onUntitledLabel: (label) => reply.untitledLabel = label,
     );
   }
 
@@ -234,7 +232,7 @@ final class OpenUIEngine extends AIUIEngine {
           messageId: reply.messageId,
           format: AIUIFormat.openUI,
           name: event.type,
-          label: event.label.isEmpty ? _untitledLabel : event.label,
+          label: event.label.isEmpty ? reply.untitledLabel : event.label,
           payload: {
             if (context != null) 'context': openUIJson(context),
             if (params.isNotEmpty) 'params': openUIJsonObject(params),
@@ -370,6 +368,10 @@ final class _OpenUIReply {
   final String messageId;
   late final OpenUIRuntime runtime;
   late final _tools = _HostTools(_engine._host);
+
+  /// The label of an action from a control without one, in the language of
+  /// the app where the reply's view last built.
+  String untitledLabel = const DefaultAITranslations().uiActionUntitled;
   late final StreamSubscription<OpenUIActionEvent> _actions;
   // The errors given to `onError` already, each given once.
   final Set<OpenUIError> reported = {};

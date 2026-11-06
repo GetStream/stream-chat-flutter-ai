@@ -281,6 +281,18 @@ void main() {
       expect(host.sent.single.payload, {'message': 'Next'});
     });
 
+    testWidgets("a button without a label sends the app's translation", (tester) async {
+      final host = _Host();
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      final view = engine.view(_doc('root = Stack([Button("", @ToAssistant("Next"))])'), 'r1')!;
+      await tester.pumpWidget(testApp(AITranslationsScope(translations: const _Dutch(), child: view)));
+
+      await tester.tap(find.byType(StreamButton).first);
+
+      expect(host.sent.single.label, 'Doorgaan');
+    });
+
     testWidgets('a web link opens through the host, never as an action', (tester) async {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
@@ -475,4 +487,12 @@ void main() {
       expect(reported.single.exception.toString(), contains("'card_header'"));
     });
   });
+}
+
+// Dutch, for the label of a control without one; every other string is English.
+final class _Dutch extends DefaultAITranslations {
+  const _Dutch();
+
+  @override
+  String get uiActionUntitled => 'Doorgaan';
 }

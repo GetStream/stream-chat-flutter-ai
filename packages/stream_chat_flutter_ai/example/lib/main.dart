@@ -1238,6 +1238,9 @@ class DutchTranslations implements AITranslations {
   String get rateReplyNegative => 'Slecht antwoord';
 
   @override
+  String get uiActionUntitled => 'Doorgaan';
+
+  @override
   String get copyMessage => 'Kopiëren';
 
   @override

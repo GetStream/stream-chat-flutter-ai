@@ -36,13 +36,14 @@ values the person entered while the host keeps the reply, so they survive scroll
 until the reply is written, and the program's queries run only then.
 
 When the person taps a button, the host's `send` gets an `AIUIAction` named after the button's action, such as
-`continue_conversation`. Its `label`, the person's message, is the button's label, or `Continue` when it has none. Its
+`continue_conversation`. Its `label`, the person's message, is the button's label, or, when it has none, `AITranslations.uiActionUntitled` (`Continue` in English). Its
 payload holds, when there are any, the action's `context`, its other `params`, the agent's own `message` for it when
 it differs from the label, and, in a form, the form's name under `form` and its values under `values`. A password is
 never sent.
 
 A web or email link the program opens goes to the host's `open`, never to `send`. The program's queries and mutations
-run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap.
+run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap. A query that
+refreshes pauses while the app is in the background, but not while its reply is scrolled off screen.
 
 Problems with a reply's program, such as a component the library doesn't have or a query whose tool failed, go to the
 renderer's `onError` with the reply's message id, each once, after the reply is written, so the app can send them
