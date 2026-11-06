@@ -174,17 +174,14 @@ void main() {
   });
 
   group('A2UIInstructions', () {
-    test("the app's notes, rules and examples come after the protocol, in their places", () {
+    test("the guidelines, the app's tools and the catalog come after the protocol, in their places", () {
       const instructions = A2UIInstructions(
         catalogId: 'app',
         document: {'b': 1, 'a': 2},
         fence: 'ui:a2ui@1.0',
         guidelines: 'Guidelines.',
         preamble: 'Preamble.',
-        notes: ['- Note one.', '- Note two.'],
         tools: ['- `tool`'],
-        rules: ['Rule one.', 'Rule two.'],
-        examples: ['Example one.', 'Example two.'],
       );
 
       final sections = instructions.text.split('\n\n');
@@ -193,11 +190,8 @@ void main() {
         instructions.text,
         endsWith(
           'Guidelines.\n\n'
-          "## The app's components\n\n- Note one.\n- Note two.\n\n"
           "## The app's tools\n\n${sections[sections.indexOf("## The app's tools") + 1]}\n\n- `tool`\n\n"
-          '## The catalog `app`\n\n```json\n{"a":2,"b":1}\n```\n\n'
-          '## Rules\n\n1. Rule one.\n2. Rule two.\n\n'
-          '## Examples\n\nExample one.\n\nExample two.',
+          '## The catalog `app`\n\n```json\n{"a":2,"b":1}\n```',
         ),
       );
     });
@@ -208,9 +202,7 @@ void main() {
       expect(
         instructions.text,
         allOf(
-          isNot(contains("## The app's components")),
-          isNot(contains('## Rules')),
-          isNot(contains('## Examples')),
+          isNot(contains("## The app's tools")),
           endsWith('to change it.\n\n## The catalog `app`\n\n```json\n{}\n```'),
         ),
       );
@@ -263,7 +255,14 @@ String _catalogLine(String text, String catalogId) {
 void _expectSameButCatalog(String flutter, String ios, String catalogId) {
   final flutterLine = _catalogLine(flutter, catalogId);
   final iosLine = _catalogLine(ios, catalogId);
-  expect(flutter.replaceFirst(flutterLine, '<catalog>'), ios.replaceFirst(iosLine, '<catalog>'));
+  // iOS's protocol overview also lists `callRendererFunction` and
+  // `agentFunctionResponse`, which its writing section tells the model never to
+  // write, so ours leaves them out.
+  final iosWithoutRendererMessages = ios
+      .replaceFirst('- `callRendererFunction`: asks the renderer to run one of its functions.\n', '')
+      .replaceFirst('- `agentFunctionResponse`: answers a `callAgentFunction` request from the renderer.\n', '');
+  expect(iosWithoutRendererMessages, isNot(ios));
+  expect(flutter.replaceFirst(flutterLine, '<catalog>'), iosWithoutRendererMessages.replaceFirst(iosLine, '<catalog>'));
 
   final catalog = jsonDecode(flutterLine) as Map<String, Object?>;
   final iosCatalog = jsonDecode(iosLine) as Map<String, Object?>;

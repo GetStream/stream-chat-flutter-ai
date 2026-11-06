@@ -5,12 +5,11 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
 /// What an agent is told so that its model writes replies' UI in A2UI: how a
 /// reply carries the UI, the protocol, the catalog it writes with, the app's
-/// own components and tools, and examples, in Markdown.
+/// own components and tools, in Markdown.
 ///
 /// The sections come in a fixed order, each only when it has something to
 /// say: [preamble], how a reply's UI is written in the [fence], the protocol,
-/// the catalog's [guidelines], the [notes] on the app's components, the app's
-/// [tools], the catalog [document], the [rules] and the [examples].
+/// the catalog's [guidelines], the app's [tools] and the catalog [document].
 ///
 /// Internal to the package.
 @internal
@@ -24,10 +23,7 @@ final class A2UIInstructions {
     required this.fence,
     this.guidelines,
     this.preamble,
-    this.notes = const [],
     this.tools = const [],
-    this.rules = const [],
-    this.examples = const [],
   });
 
   /// The id the agent names the catalog by.
@@ -46,17 +42,8 @@ final class A2UIInstructions {
   /// `null` for nothing.
   final String? preamble;
 
-  /// Guidance on using the app's components, each a line of Markdown.
-  final List<String> notes;
-
   /// The app's tools the UI can call, each a line of Markdown; see [toolLine].
   final List<String> tools;
-
-  /// Rules added after the protocol's, numbered in their order.
-  final List<String> rules;
-
-  /// Examples of replies with their UI.
-  final List<String> examples;
 
   /// The instructions, in Markdown.
   String get text {
@@ -67,12 +54,8 @@ final class A2UIInstructions {
       _writing,
       protocolOverview,
       if (guidelines != null && guidelines.isNotEmpty) guidelines,
-      if (notes.isNotEmpty) "## The app's components\n\n${notes.join('\n')}",
       if (tools.isNotEmpty) '$_toolsIntroduction\n\n${tools.join('\n')}',
       '## The catalog `$catalogId`\n\n```json\n${sortedJson(document)}\n```',
-      if (rules.isNotEmpty)
-        '## Rules\n\n${[for (final (index, rule) in rules.indexed) '${index + 1}. $rule'].join('\n')}',
-      if (examples.isNotEmpty) '## Examples\n\n${examples.join('\n\n')}',
     ].join('\n\n');
   }
 
@@ -124,8 +107,6 @@ You render user interfaces by emitting A2UI messages. Every message is a JSON ob
 - `updateComponents`: adds or replaces components of an existing surface. Requires `surfaceId` and `components`.
 - `updateDataModel`: writes to the surface data model. Requires `surfaceId` and `value`, and accepts a JSON Pointer `path`. Setting `value` to `null` deletes the entry at `path`.
 - `deleteSurface`: removes a surface. Requires `surfaceId`.
-- `callRendererFunction`: asks the renderer to run one of its functions.
-- `agentFunctionResponse`: answers a `callAgentFunction` request from the renderer.
 
 Rules:
 
