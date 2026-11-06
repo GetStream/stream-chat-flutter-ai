@@ -35,10 +35,11 @@ void main() {
   testWidgets("a tool that isn't read-only doesn't run as a surface shows", (tester) async {
     final email = TestTool('send_email', isReadOnly: false);
 
-    await _pumpSurface(tester, [_textCalling('send_email', const {})], tools: [email]);
+    final harness = await _pumpSurface(tester, [_textCalling('send_email', const {})], tools: [email]);
     await _answer(tester);
 
     expect(email.runs, isEmpty);
+    expect(harness.errors.map((error) => error.$1.message), contains(contains("send_email isn't read-only")));
   });
 
   testWidgets("a tool that isn't read-only, refused as a surface shows, is reported", (tester) async {
@@ -107,11 +108,12 @@ void main() {
       book,
       surfaceMessage(_column([_textCalling('send_email', const {})]), surfaceId: 'mail'),
     ];
+    final errors = <A2UIError>[];
     late final AIUIHost host;
     // The app's send goes on after the tap, and a new part of the reply
     // arrives from there, outside any build.
     host = AIUIHost(
-      renderers: [A2UIRenderer(onError: (_, _) {})],
+      renderers: [A2UIRenderer(onError: (error, _) => errors.add(error))],
       tools: [email],
       send: (_) async {
         await Future<void>.value();
@@ -126,6 +128,7 @@ void main() {
     await _answer(tester);
 
     expect(email.runs, isEmpty);
+    expect(errors.map((error) => error.message), contains(contains("send_email isn't read-only")));
   });
 
   testWidgets("a tool that isn't read-only doesn't run from new messages while a tapped tool still runs", (
@@ -154,6 +157,7 @@ void main() {
     await _answer(tester);
 
     expect(email.runs, isEmpty);
+    expect(harness.errors.map((error) => error.$1.message), contains(contains("send_email isn't read-only")));
   });
 
   testWidgets("a tool that isn't read-only doesn't run from what the person types while a tapped tool still runs", (
@@ -161,7 +165,7 @@ void main() {
   ) async {
     final email = TestTool('send_email', isReadOnly: false);
     final book = TestTool('book', isReadOnly: false, holds: true);
-    await _pumpSurface(
+    final harness = await _pumpSurface(
       tester,
       [
         {
@@ -191,6 +195,7 @@ void main() {
     await _answer(tester);
 
     expect(email.runs, isEmpty);
+    expect(harness.errors.map((error) => error.$1.message), contains(contains("send_email isn't read-only")));
   });
 
   testWidgets("a tool that isn't read-only doesn't run from new messages the tapped tool's own code applies", (
@@ -202,9 +207,10 @@ void main() {
       tap,
       surfaceMessage(_column([_textCalling('send_email', const {})]), surfaceId: 'mail'),
     ];
+    final errors = <A2UIError>[];
     late final AIUIHost host;
     host = AIUIHost(
-      renderers: [A2UIRenderer(onError: (_, _) {})],
+      renderers: [A2UIRenderer(onError: (error, _) => errors.add(error))],
       tools: [
         _ReceivingTool('book', () => host.receive([TestReply('m1', a2uiDocument(grown, isStreaming: true))])),
         email,
@@ -222,6 +228,7 @@ void main() {
     await _answer(tester);
 
     expect(email.runs, isEmpty);
+    expect(errors.map((error) => error.message), contains(contains("send_email isn't read-only")));
   });
 
   testWidgets("a tool's failure is reported in the tool's own words", (tester) async {
@@ -229,6 +236,77 @@ void main() {
     await _answer(tester);
 
     expect(harness.errors.single.$1.message, contains("Function 'nowhere' failed: No tool named nowhere"));
+  });
+
+  testWidgets('a tool that takes over 30 seconds fails as timed out', (tester) async {
+    final city = TestTool('city', holds: true);
+    final harness = await _pumpSurface(tester, [_textCalling('city', const {})], tools: [city]);
+    await _answer(tester);
+
+    await tester.pump(const Duration(seconds: 29));
+    expect(harness.errors, isEmpty);
+    await tester.pump(const Duration(seconds: 1));
+    await _answer(tester);
+
+    expect(harness.errors.single.$1.message, contains('timed out'));
+  });
+
+  testWidgets("a tool's answer after it timed out is reported in debug builds and dropped", (tester) async {
+    final city = TestTool('city', holds: true);
+    final harness = await _pumpSurface(tester, [_textCalling('city', const {})], tools: [city]);
+    await _answer(tester);
+    await tester.pump(const Duration(seconds: 30));
+    await _answer(tester);
+
+    city.pending!.complete(AIClientToolCompleted('Ohrid'));
+    await _answer(tester);
+
+    expect(tester.takeException(), contains("The tool 'city' answered after it timed out at 30 s"));
+    expect(find.text('Ohrid'), findsNothing);
+    expect(harness.errors, hasLength(1));
+  });
+
+  testWidgets("a tool's answer in time reports nothing late", (tester) async {
+    final city = TestTool('city', holds: true);
+    final harness = await _pumpSurface(tester, [_textCalling('city', const {})], tools: [city]);
+    await _answer(tester);
+    await tester.pump(const Duration(seconds: 29));
+
+    city.pending!.complete(AIClientToolCompleted('Ohrid'));
+    await _answer(tester);
+    await tester.pump(const Duration(seconds: 5));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Ohrid'), findsOneWidget);
+    expect(harness.errors, isEmpty);
+  });
+
+  testWidgets("a registered tool that fails is reported in the tool's own words", (tester) async {
+    final harness = await _pumpSurface(
+      tester,
+      [_textCalling('locate', const {})],
+      tools: [_FailingTool('locate', () async => const AIClientToolFailed('Location not shared'))],
+    );
+    await _answer(tester);
+
+    final error = harness.errors.single.$1;
+    expect(error.code, A2UIErrorCode.expressionError);
+    expect(error.message, contains("Function 'locate' failed: Location not shared"));
+  });
+
+  testWidgets('a registered tool that throws is reported as a failure of the function', (tester) async {
+    final harness = await _pumpSurface(
+      tester,
+      [_textCalling('locate', const {})],
+      tools: [_FailingTool('locate', () => throw StateError('GPS is off'))],
+    );
+    await _answer(tester);
+
+    // The host reports what the tool threw on its own.
+    expect(tester.takeException(), isA<StateError>());
+    final error = harness.errors.single.$1;
+    expect(error.code, A2UIErrorCode.expressionError);
+    expect(error.message, contains("Function 'locate' failed: locate failed"));
   });
 
   testWidgets('a tool started while the screen builds runs after the frame', (tester) async {
@@ -335,4 +413,18 @@ final class _ReceivingTool extends AIResultClientTool {
     onRun();
     return Future.value(AIClientToolCompleted(null));
   }
+}
+
+// A read-only tool whose run is [onRun].
+final class _FailingTool extends AIResultClientTool {
+  _FailingTool(this.name, this.onRun);
+
+  final String name;
+  final Future<AIClientToolResult> Function() onRun;
+
+  @override
+  AIToolDefinition get definition => AIToolDefinition(name: name, description: 'A tool that fails', isReadOnly: true);
+
+  @override
+  Future<AIClientToolResult> run(AIToolCallPart call) => onRun();
 }
