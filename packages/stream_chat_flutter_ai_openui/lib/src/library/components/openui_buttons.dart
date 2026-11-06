@@ -45,7 +45,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
-  final spacing = OpenUITheme.of(context).spacing!.s!;
+  final spacing = OpenUITheme.of(context).sSpacing!;
   final buttons = openUIChildWidgets(context, scope, scope.elements('buttons'));
   if (buttons.isEmpty) return const SizedBox.shrink();
   if (scope.string('direction') == 'column') {

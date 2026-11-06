@@ -280,7 +280,7 @@ void main() {
     testWidgets("the series take the theme's chart palette", (tester) async {
       final chart = await _draw(tester, '$_two)');
 
-      final palette = OpenUIThemeData.defaults(StreamTheme.light()).colors!.chartPalette;
+      final palette = OpenUIThemeData.defaults(StreamTheme.light()).chartPalette;
       expect(chart!.theme!.seriesColors, palette);
     });
 
@@ -289,7 +289,7 @@ void main() {
       final chart = await _draw(
         tester,
         '$_two)',
-        theme: const OpenUIThemeData(colors: OpenUIColors(chartPalette: palette)),
+        theme: OpenUIThemeData(chartPalette: palette),
       );
 
       expect(chart!.theme!.seriesColors, palette);

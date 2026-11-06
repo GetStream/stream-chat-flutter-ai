@@ -501,7 +501,7 @@ root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("N", Input("n", ""
         find.ancestor(of: find.text('Select...'), matching: find.byType(Container)).first,
       );
       expect(box.constraints!.minHeight, 80);
-      expect(_theme.spacing!.m, isNotNull);
+      expect(_theme.mSpacing, isNotNull);
     });
   });
 }

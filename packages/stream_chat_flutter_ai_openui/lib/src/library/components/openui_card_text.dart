@@ -26,8 +26,8 @@ Widget buildOpenUIBoldText(BuildContext context, OpenUIComponentScope scope) => 
 
 Widget _text(BuildContext context, OpenUIComponentScope scope, {required bool bold}) {
   final theme = OpenUITheme.of(context);
-  final styles = theme.textStyles!;
-  final colors = theme.colors!;
+  final styles = theme;
+  final colors = theme;
   final style = switch (scope.string('size')) {
     'xs' => styles.caption!,
     'sm' => styles.bodySmall!,
@@ -37,8 +37,8 @@ Widget _text(BuildContext context, OpenUIComponentScope scope, {required bool bo
   final subtext = scope.text('subtext') ?? '';
   final subtextColor = switch (scope.string('subtextVariant')) {
     'metric' when subtext.startsWith('+') => colors.success!,
-    'metric' when subtext.startsWith('-') || subtext.startsWith('−') => colors.danger!,
-    _ => colors.textSecondary!,
+    'metric' when subtext.startsWith('-') || subtext.startsWith('−') => colors.error!,
+    _ => colors.secondaryText!,
   };
   return Column(
     mainAxisSize: MainAxisSize.min,
@@ -94,10 +94,10 @@ class OpenUITitleSubtitle extends StatelessWidget {
       children: [
         OpenUIMarkdownText(
           data: title,
-          style: theme.textStyles!.bodySmall!.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+          style: theme.bodySmall!.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
         ),
         if (subtitle != null && subtitle!.isNotEmpty)
-          OpenUIMarkdownText(data: subtitle!, style: theme.textStyles!.caption, color: theme.colors!.textSecondary),
+          OpenUIMarkdownText(data: subtitle!, style: theme.caption, color: theme.secondaryText),
       ],
     );
   }
@@ -145,7 +145,7 @@ Widget buildOpenUIImageText(BuildContext context, OpenUIComponentScope scope) {
     context,
     scope,
     leading: ClipRRect(
-      borderRadius: BorderRadius.circular(theme.radius!.small!),
+      borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
       // A picture has no text to size it, so its side is its own.
       child: SizedBox.square(
         dimension: size,
@@ -166,18 +166,18 @@ Widget _withLeading(
   required Widget leading,
   required Widget title,
 }) {
-  final spacing = OpenUITheme.of(context).spacing!;
+  final spacing = OpenUITheme.of(context);
   if (scope.string('layout') == 'vertical') {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: spacing.s!,
+      spacing: spacing.sSpacing!,
       children: [leading, title],
     );
   }
   return Row(
     mainAxisSize: MainAxisSize.min,
-    spacing: spacing.m!,
+    spacing: spacing.mSpacing!,
     children: [
       leading,
       Flexible(child: title),
@@ -195,10 +195,10 @@ Widget buildOpenUIImageTextLarge(BuildContext context, OpenUIComponentScope scop
   return Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.spacing!.s!,
+    spacing: theme.sSpacing!,
     children: [
       ClipRRect(
-        borderRadius: BorderRadius.circular(theme.radius!.medium!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
         // A picture has no text to size it, so its height is its own.
         child: SizedBox(
           height: 140,
@@ -220,16 +220,16 @@ class _IconBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
+    final colors = theme;
     final (foreground, background) = switch (variant) {
-      'inverted' => (colors.onAccent!, colors.textPrimary!),
+      'inverted' => (colors.onAccent!, colors.text!),
       'filled' => (colors.onAccent!, colors.accent!),
       'info' || 'success' || 'warning' || 'danger' => (
         openUIVariantColor(colors, variant),
         openUIVariantColor(colors, variant).withValues(alpha: 0.14),
       ),
       'soft' => (colors.accent!, colors.accent!.withValues(alpha: 0.12)),
-      _ => (colors.textPrimary!, colors.sunkenSurface!),
+      _ => (colors.text!, colors.sunkenSurface!),
     };
     final dimension = openUIScaled(context, switch (size) {
       'xs' => 24.0,

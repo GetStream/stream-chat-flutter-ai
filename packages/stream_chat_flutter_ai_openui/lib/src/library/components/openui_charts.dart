@@ -151,7 +151,7 @@ Widget _chart(BuildContext context, USpec spec, {double? height}) {
   return ChartView(
     spec: spec,
     theme: ChartThemeData(
-      seriesColors: OpenUITheme.of(context).colors!.chartPalette,
+      seriesColors: OpenUITheme.of(context).chartPalette,
       height: height != null && height.isFinite && height > 0 ? height.clamp(_minHeight, _maxHeight) : null,
     ),
   );

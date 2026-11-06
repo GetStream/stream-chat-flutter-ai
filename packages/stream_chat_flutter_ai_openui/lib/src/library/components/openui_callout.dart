@@ -122,7 +122,7 @@ class _CalloutState extends State<_Callout> {
 
   Widget _content(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final color = openUIVariantColor(theme.colors!, widget.variant);
+    final color = openUIVariantColor(theme, widget.variant);
     final icons = context.streamIcons;
     final icon = switch (widget.variant) {
       'success' => icons.checkmark,
@@ -135,33 +135,33 @@ class _CalloutState extends State<_Callout> {
       key: const ValueKey('callout'),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(theme.radius!.medium!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
       ),
       child: Padding(
-        padding: EdgeInsets.all(theme.spacing!.m!),
+        padding: EdgeInsets.all(theme.mSpacing!),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: theme.spacing!.m!,
+          spacing: theme.mSpacing!,
           children: [
             Icon(icon, color: color, size: openUIScaled(context, 20)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: theme.spacing!.xs!,
+                spacing: theme.xsSpacing!,
                 children: [
                   if (widget.title.isNotEmpty)
                     Text(
                       widget.title,
-                      style: theme.textStyles!.bodySmall!.copyWith(
+                      style: theme.bodySmall!.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: theme.colors!.textPrimary,
+                        color: theme.text,
                       ),
                     ),
                   if (widget.description.isNotEmpty)
                     OpenUIMarkdownText(
                       data: widget.description,
-                      style: theme.textStyles!.bodySmall,
-                      color: theme.colors!.textSecondary,
+                      style: theme.bodySmall,
+                      color: theme.secondaryText,
                     ),
                 ],
               ),

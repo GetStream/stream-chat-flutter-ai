@@ -28,13 +28,13 @@ void main() {
 
         final box = tester.widget<DecoratedBox>(find.byKey(const ValueKey('callout')));
         final decoration = box.decoration as BoxDecoration;
-        expect(decoration.color, theme.colors!.warning!.withValues(alpha: 0.12));
-        expect(decoration.borderRadius, BorderRadius.circular(theme.radius!.medium!));
+        expect(decoration.color, theme.warning!.withValues(alpha: 0.12));
+        expect(decoration.borderRadius, BorderRadius.circular(theme.mediumCornerRadius!));
         final title = tester.widget<Text>(find.text('Careful'));
-        expect(title.style!.color, theme.colors!.textPrimary);
+        expect(title.style!.color, theme.text);
         expect(title.style!.fontWeight, FontWeight.w600);
         expect(_styleOf(tester, 'gap').fontWeight, FontWeight.bold);
-        expect(_styleOf(tester, 'Mind').color, theme.colors!.textSecondary);
+        expect(_styleOf(tester, 'Mind').color, theme.secondaryText);
       });
 
       testWidgets('TextCallout draws a bar of its variant color beside its text', (tester) async {
@@ -47,15 +47,13 @@ void main() {
           program: 'root = Card([TextCallout("danger", "Bad", "Wrong")])',
         );
 
-        final bar = tester
-            .widgetList<ColoredBox>(find.byType(ColoredBox))
-            .where((box) => box.color == theme.colors!.danger);
+        final bar = tester.widgetList<ColoredBox>(find.byType(ColoredBox)).where((box) => box.color == theme.error);
         expect(bar, hasLength(1));
         expect(
           tester.getSize(find.ancestor(of: find.byWidget(bar.single), matching: find.byType(SizedBox)).first).width,
           3,
         );
-        expect(tester.widget<Text>(find.text('Bad')).style!.color, theme.colors!.textPrimary);
+        expect(tester.widget<Text>(find.text('Bad')).style!.color, theme.text);
       });
 
       testWidgets('Separator draws a line of the border color, across the width or 24 tall', (tester) async {
@@ -68,9 +66,7 @@ void main() {
           program: 'root = Card([Separator(), Separator("vertical")])',
         );
 
-        final lines = tester
-            .widgetList<ColoredBox>(find.byType(ColoredBox))
-            .where((box) => box.color == theme.colors!.border);
+        final lines = tester.widgetList<ColoredBox>(find.byType(ColoredBox)).where((box) => box.color == theme.border);
         expect(lines, hasLength(2));
         expect(tester.getSize(find.byWidget(lines.first)).height, 1);
         expect(tester.getSize(find.byWidget(lines.last)), const Size(1, 24));
@@ -87,10 +83,10 @@ void main() {
         );
 
         final label = tester.widget<Text>(find.text('Name')).style!;
-        expect(label.color, theme.colors!.textPrimary);
+        expect(label.color, theme.text);
         expect(label.fontWeight, FontWeight.w500);
-        expect(_styleOf(tester, 'Head').fontSize, theme.textStyles!.heading!.fontSize);
-        expect(_styleOf(tester, 'About').color, theme.colors!.textSecondary);
+        expect(_styleOf(tester, 'Head').fontSize, theme.heading!.fontSize);
+        expect(_styleOf(tester, 'About').color, theme.secondaryText);
       });
     });
   }
@@ -112,7 +108,7 @@ void main() {
           .widgetList<DecoratedBox>(find.byType(DecoratedBox))
           .map((box) => (box.decoration as BoxDecoration).color)
           .toList();
-      expect(colors, containsAll([theme.colors!.sunkenSurface, theme.colors!.surface]));
+      expect(colors, containsAll([theme.sunkenSurface, theme.surface]));
       expect(tester.getSize(find.byType(AIMarkdownBody).first).width, lessThanOrEqualTo(360));
     });
 
@@ -309,7 +305,7 @@ void main() {
           .where(
             (box) => (box.decoration as BoxDecoration).shape == BoxShape.circle,
           );
-      expect(badge.map((box) => (box.decoration as BoxDecoration).color), everyElement(theme.colors!.accent));
+      expect(badge.map((box) => (box.decoration as BoxDecoration).color), everyElement(theme.accent));
       expect(badge, hasLength(3));
 
       await tester.tap(find.text('Alpha'));

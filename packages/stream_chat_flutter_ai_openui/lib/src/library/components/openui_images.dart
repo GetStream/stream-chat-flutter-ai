@@ -43,7 +43,7 @@ const _imageHeight = 180.0;
 const _tileExtent = 100.0;
 
 Widget _rounded(BuildContext context, Widget child) {
-  return ClipRRect(borderRadius: BorderRadius.circular(OpenUITheme.of(context).radius!.medium!), child: child);
+  return ClipRRect(borderRadius: BorderRadius.circular(OpenUITheme.of(context).mediumCornerRadius!), child: child);
 }
 
 /// Builds an `ImageGallery`: its `images` as wrapping tiles 100 square, which
@@ -83,7 +83,7 @@ class _Gallery extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final spacing = theme.spacing!.s!;
+    final spacing = theme.sSpacing!;
     return SizedBox(
       width: double.infinity,
       child: Wrap(
@@ -98,7 +98,7 @@ class _Gallery extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _preview(context, index),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(theme.radius!.small!),
+                  borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
                   child: OpenUIRemoteImage(source: image.src, alt: image.alt),
                 ),
               ),
@@ -153,7 +153,7 @@ class _PreviewState extends State<_Preview> {
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
     return Material(
-      color: theme.colors!.surface,
+      color: theme.surface,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,7 +161,7 @@ class _PreviewState extends State<_Preview> {
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: Padding(
-                padding: EdgeInsets.all(theme.spacing!.s!),
+                padding: EdgeInsets.all(theme.sSpacing!),
                 child: StreamButton(
                   type: .ghost,
                   size: .small,
@@ -178,18 +178,18 @@ class _PreviewState extends State<_Preview> {
                   final image = widget.images[index];
                   final caption = image.details ?? image.alt;
                   return Column(
-                    spacing: theme.spacing!.m!,
+                    spacing: theme.mSpacing!,
                     children: [
                       Expanded(
                         child: OpenUIRemoteImage(source: image.src, alt: image.alt, fit: BoxFit.contain),
                       ),
                       if (caption != null)
                         Padding(
-                          padding: EdgeInsets.fromLTRB(theme.spacing!.l!, 0, theme.spacing!.l!, theme.spacing!.l!),
+                          padding: EdgeInsets.fromLTRB(theme.lSpacing!, 0, theme.lSpacing!, theme.lSpacing!),
                           child: Text(
                             caption,
                             textAlign: TextAlign.center,
-                            style: theme.textStyles!.bodySmall!.copyWith(color: theme.colors!.textSecondary),
+                            style: theme.bodySmall!.copyWith(color: theme.secondaryText),
                           ),
                         ),
                     ],

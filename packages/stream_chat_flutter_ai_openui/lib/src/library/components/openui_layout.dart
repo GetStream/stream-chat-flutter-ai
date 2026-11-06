@@ -38,8 +38,8 @@ Widget buildOpenUIStack(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIStandardCard(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
-  final spacing = theme.spacing!.l!;
+  final colors = theme;
+  final spacing = theme.lSpacing!;
   final content = _OpenUIFlex(
     scope: scope,
     nodes: scope.elements('children'),
@@ -50,11 +50,11 @@ Widget buildOpenUIStandardCard(BuildContext context, OpenUIComponentScope scope)
     'clear' => null,
     'sunk' => BoxDecoration(
       color: colors.sunkenSurface,
-      borderRadius: BorderRadius.circular(theme.radius!.medium!),
+      borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
     ),
     _ => BoxDecoration(
       color: colors.surface,
-      borderRadius: BorderRadius.circular(theme.radius!.large!),
+      borderRadius: BorderRadius.circular(theme.cornerRadius!),
       border: Border.all(color: colors.border!.withValues(alpha: colors.border!.a * 0.6), width: 0.5),
     ),
   };

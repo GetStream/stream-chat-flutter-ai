@@ -23,7 +23,7 @@ Widget buildOpenUIIcon(BuildContext context, OpenUIComponentScope scope) {
   final widget = Align(
     alignment: AlignmentDirectional.centerStart,
     widthFactor: 1,
-    child: Icon(icon, size: openUIScaled(context, 20), color: OpenUITheme.of(context).colors!.textSecondary),
+    child: Icon(icon, size: openUIScaled(context, 20), color: OpenUITheme.of(context).secondaryText),
   );
   return label == null
       ? ExcludeSemantics(child: widget)
@@ -59,7 +59,7 @@ Widget buildOpenUITag(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUITagBlock(BuildContext context, OpenUIComponentScope scope) {
-  final gap = OpenUITheme.of(context).spacing!.xs! + 2;
+  final gap = OpenUITheme.of(context).xsSpacing! + 2;
   final size = scope.string('size');
   return SizedBox(
     width: double.infinity,
@@ -90,7 +90,7 @@ Widget buildOpenUIEntityList(BuildContext context, OpenUIComponentScope scope) {
   ];
   final header = scope.value('header');
   final footer = scope.value('footer');
-  final border = theme.colors!.border!;
+  final border = theme.border!;
   Widget line(double alpha) => SizedBox(
     height: 1,
     child: ColoredBox(color: border.withValues(alpha: alpha)),
@@ -128,15 +128,15 @@ class _EntityRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final base = small ? theme.textStyles!.caption! : theme.textStyles!.bodySmall!;
+    final colors = theme;
+    final base = small ? theme.caption! : theme.bodySmall!;
     final left = base.copyWith(
       fontWeight: emphasized ? FontWeight.w600 : base.fontWeight,
-      color: emphasized ? colors.textPrimary : colors.textSecondary,
+      color: emphasized ? colors.text : colors.secondaryText,
     );
     final right = base.copyWith(
       fontWeight: emphasized || !small ? FontWeight.w600 : FontWeight.w500,
-      color: colors.textPrimary,
+      color: colors.text,
       fontFeatures: row['rightVariant'] == 'number' ? const [FontFeature.tabularFigures()] : null,
     );
     return Padding(
@@ -147,7 +147,7 @@ class _EntityRow extends StatelessWidget {
         textBaseline: TextBaseline.alphabetic,
         children: [
           Flexible(child: Text(openUIJsonText(row['left']), style: left)),
-          SizedBox(width: theme.spacing!.m! + theme.spacing!.s!),
+          SizedBox(width: theme.mSpacing! + theme.sSpacing!),
           Flexible(
             child: Text(openUIJsonText(row['right']), textAlign: TextAlign.end, style: right),
           ),

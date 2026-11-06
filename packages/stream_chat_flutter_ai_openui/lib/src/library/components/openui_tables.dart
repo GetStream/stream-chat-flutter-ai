@@ -79,35 +79,35 @@ class _OpenUITableState extends State<_OpenUITable> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final styles = theme.textStyles!;
-    final spacing = theme.spacing!;
+    final colors = theme;
+    final styles = theme;
+    final spacing = theme;
     final pages = math.max(1, (widget.rowCount / _pageSize).ceil());
     final page = math.min(_page, pages - 1);
     final first = page * _pageSize;
     final last = math.min(widget.rowCount, first + _pageSize);
-    final cellPadding = EdgeInsets.symmetric(horizontal: spacing.m!, vertical: spacing.s! + 2);
+    final cellPadding = EdgeInsets.symmetric(horizontal: spacing.mSpacing!, vertical: spacing.sSpacing! + 2);
     Widget cell(_Column column, int row) {
       final value = row < column.data.length ? column.data[row] : null;
       final align = column.isNumeric ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart;
       final content = switch (value) {
         OpenUIElement(:final node) => column.scope.buildNode(node),
         OpenUIArray(:final items) => Wrap(
-          spacing: spacing.xs!,
-          runSpacing: spacing.xs!,
+          spacing: spacing.xsSpacing!,
+          runSpacing: spacing.xsSpacing!,
           children: [
             for (final item in items)
               if (item case OpenUIElement(:final node)) column.scope.buildNode(node),
           ],
         ),
-        null || OpenUINull() => Text('—', style: styles.bodySmall!.copyWith(color: colors.textTertiary)),
+        null || OpenUINull() => Text('—', style: styles.bodySmall!.copyWith(color: colors.tertiaryText)),
         _ => ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 260),
           child: Text(
             JS.stringOf(value),
             textAlign: column.isNumeric ? TextAlign.end : TextAlign.start,
             style: styles.bodySmall!.copyWith(
-              color: colors.textPrimary,
+              color: colors.text,
               fontFeatures: column.isNumeric ? const [FontFeature.tabularFigures()] : null,
             ),
           ),
@@ -128,13 +128,13 @@ class _OpenUITableState extends State<_OpenUITable> {
           children: [
             for (final column in widget.columns)
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.m!, vertical: spacing.s!),
+                padding: EdgeInsets.symmetric(horizontal: spacing.mSpacing!, vertical: spacing.sSpacing!),
                 child: Semantics(
                   header: true,
                   child: Text(
                     column.label.toUpperCase(),
                     textAlign: column.isNumeric ? TextAlign.end : TextAlign.start,
-                    style: styles.caption!.copyWith(fontWeight: FontWeight.w600, color: colors.textSecondary),
+                    style: styles.caption!.copyWith(fontWeight: FontWeight.w600, color: colors.secondaryText),
                   ),
                 ),
               ),
@@ -149,10 +149,10 @@ class _OpenUITableState extends State<_OpenUITable> {
           ),
       ],
     );
-    final radius = BorderRadius.circular(theme.radius!.small!);
+    final radius = BorderRadius.circular(theme.smallCornerRadius!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
-      spacing: spacing.s!,
+      spacing: spacing.sSpacing!,
       children: [
         // As wide as the space it is given, and scrolling when it needs more.
         LayoutBuilder(
@@ -210,7 +210,7 @@ class _Pager extends StatelessWidget {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      spacing: theme.spacing!.s!,
+      spacing: theme.sSpacing!,
       children: [
         button(
           rtl ? context.streamIcons.chevronRight : context.streamIcons.chevronLeft,
@@ -223,8 +223,8 @@ class _Pager extends StatelessWidget {
           excludeSemantics: true,
           child: Text(
             OpenUIStrings.pagePosition(page + 1, pages),
-            style: theme.textStyles!.caption!.copyWith(
-              color: theme.colors!.textSecondary,
+            style: theme.caption!.copyWith(
+              color: theme.secondaryText,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -250,18 +250,18 @@ class _TableSkeleton extends StatelessWidget {
     return Semantics(
       label: OpenUIStrings.loading,
       child: Column(
-        spacing: theme.spacing!.s!,
+        spacing: theme.sSpacing!,
         children: [
           for (var row = 0; row < 5; row++)
             Row(
-              spacing: theme.spacing!.m!,
+              spacing: theme.mSpacing!,
               children: [
                 for (var column = 0; column < columns; column++)
                   Expanded(
                     child: Container(
                       height: 14,
                       decoration: BoxDecoration(
-                        color: theme.colors!.sunkenSurface,
+                        color: theme.sunkenSurface,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -429,16 +429,16 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final styles = theme.textStyles!;
-    final spacing = theme.spacing!;
+    final colors = theme;
+    final styles = theme;
+    final spacing = theme;
     final columns = _EditableColumn.of(widget.scope);
     final enabled = !widget.scope.isStreaming;
     final changes = _changes;
-    final radius = BorderRadius.circular(theme.radius!.small!);
+    final radius = BorderRadius.circular(theme.smallCornerRadius!);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: spacing.s!,
+      spacing: spacing.sSpacing!,
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -460,14 +460,14 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
                         for (final column in columns)
                           Container(
                             width: column.width,
-                            padding: EdgeInsets.all(spacing.s!),
+                            padding: EdgeInsets.all(spacing.sSpacing!),
                             child: Semantics(
                               header: true,
                               child: Text(
                                 column.header,
                                 style: styles.caption!.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: colors.textSecondary,
+                                  color: colors.secondaryText,
                                 ),
                               ),
                             ),
@@ -485,7 +485,10 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
                           for (final column in columns)
                             Container(
                               width: column.width,
-                              padding: EdgeInsets.symmetric(horizontal: spacing.s!, vertical: spacing.xs!),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: spacing.sSpacing!,
+                                vertical: spacing.xsSpacing!,
+                              ),
                               child: _CellEditor(
                                 key: ValueKey((index, column.key)),
                                 column: column,
@@ -504,12 +507,12 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
         ),
         if (changes > 0)
           Row(
-            spacing: spacing.s!,
+            spacing: spacing.sSpacing!,
             children: [
               Expanded(
                 child: Text(
                   OpenUIStrings.changes(changes),
-                  style: styles.caption!.copyWith(color: colors.textSecondary),
+                  style: styles.caption!.copyWith(color: colors.secondaryText),
                 ),
               ),
               StreamButton(
@@ -584,15 +587,15 @@ class _CellEditorState extends State<_CellEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenUITheme.of(context);
-    final colors = theme.colors!;
-    final style = theme.textStyles!.bodySmall!.copyWith(color: colors.textPrimary);
+    final colors = theme;
+    final style = theme.bodySmall!.copyWith(color: colors.text);
     final column = widget.column;
     Widget picker(String shown, Future<void> Function() pick) {
       return OpenUIPressable(
         label: column.header,
         onTap: widget.enabled ? pick : null,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: theme.spacing!.s!),
+          padding: EdgeInsets.symmetric(vertical: theme.sSpacing!),
           child: Text(shown, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       );

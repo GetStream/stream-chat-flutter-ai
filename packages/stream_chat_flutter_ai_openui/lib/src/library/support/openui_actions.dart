@@ -127,16 +127,16 @@ class OpenUIFormScope extends InheritedNotifier<OpenUIFormValidation> {
 /// Internal to the package.
 @internal
 double openUIGap(OpenUIThemeData theme, Object? value) {
-  final spacing = theme.spacing!;
+  final spacing = theme;
   return switch (value) {
     num() when value.isFinite => value.toDouble().clamp(0.0, 48.0),
     'none' => 0,
-    'xs' => spacing.xs!,
-    's' => spacing.s!,
-    'l' => spacing.l!,
-    'xl' => spacing.xl!,
-    '2xl' => spacing.xxl!,
-    _ => spacing.m!,
+    'xs' => spacing.xsSpacing!,
+    's' => spacing.sSpacing!,
+    'l' => spacing.lSpacing!,
+    'xl' => spacing.xlSpacing!,
+    '2xl' => spacing.xxlSpacing!,
+    _ => spacing.mSpacing!,
   };
 }
 

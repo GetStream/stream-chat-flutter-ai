@@ -38,7 +38,7 @@ DateTime? openUIParseDate(String? text) {
 @internal
 Future<DateTime?> pickOpenUIDate(BuildContext context, {DateTime? initial, DateTime? first}) {
   final theme = OpenUITheme.of(context);
-  final colors = theme.colors!;
+  final colors = theme;
   final firstDate = first ?? DateTime(1900);
   var start = initial ?? DateTime.now();
   if (start.isBefore(firstDate)) start = firstDate;
@@ -53,11 +53,11 @@ Future<DateTime?> pickOpenUIDate(BuildContext context, {DateTime? initial, DateT
       onPrimary: colors.onAccent!,
       secondary: colors.accent!,
       onSecondary: colors.onAccent!,
-      error: colors.danger!,
+      error: colors.error!,
       onError: colors.onAccent!,
       surface: colors.surface!,
-      onSurface: colors.textPrimary!,
-      onSurfaceVariant: colors.textSecondary,
+      onSurface: colors.text!,
+      onSurfaceVariant: colors.secondaryText,
       outline: colors.border,
       outlineVariant: colors.border,
       surfaceContainerHigh: colors.surface,
@@ -65,9 +65,9 @@ Future<DateTime?> pickOpenUIDate(BuildContext context, {DateTime? initial, DateT
     datePickerTheme: DatePickerThemeData(
       backgroundColor: colors.surface,
       headerBackgroundColor: colors.surface,
-      headerForegroundColor: colors.textPrimary,
+      headerForegroundColor: colors.text,
       surfaceTintColor: const Color(0x00000000),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(theme.radius!.large!)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(theme.cornerRadius!)),
     ),
   );
   return showDatePicker(
@@ -94,23 +94,23 @@ Future<String?> pickOpenUIOption(
     isDismissible: true,
     builder: (context, scrollController) {
       final theme = OpenUITheme.of(context);
-      final colors = theme.colors!;
+      final colors = theme;
       return ListView(
         controller: scrollController,
         shrinkWrap: true,
-        padding: EdgeInsets.symmetric(vertical: theme.spacing!.m!),
+        padding: EdgeInsets.symmetric(vertical: theme.mSpacing!),
         children: [
           for (final (value, label) in options)
             OpenUIPressable(
               selected: value == selected,
               onTap: () => Navigator.of(context).pop(value),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: theme.spacing!.l!, vertical: theme.spacing!.m!),
+                padding: EdgeInsets.symmetric(horizontal: theme.lSpacing!, vertical: theme.mSpacing!),
                 child: Row(
-                  spacing: theme.spacing!.s!,
+                  spacing: theme.sSpacing!,
                   children: [
                     Expanded(
-                      child: Text(label, style: theme.textStyles!.body!.copyWith(color: colors.textPrimary)),
+                      child: Text(label, style: theme.body!.copyWith(color: colors.text)),
                     ),
                     if (value == selected)
                       ExcludeSemantics(
