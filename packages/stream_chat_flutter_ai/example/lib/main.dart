@@ -1106,6 +1106,10 @@ class DutchTranslations implements AITranslations {
       USpecKind.bubble => 'Bellendiagram',
       USpecKind.heatmap => 'Heatmap',
       USpecKind.histogram => 'Histogram',
+      USpecKind.horizontalBar => 'Liggend staafdiagram',
+      USpecKind.radar => 'Radardiagram',
+      USpecKind.radial => 'Radiaal diagram',
+      USpecKind.singleStackedBar => 'Gestapelde balk',
     };
     final name = [kind, ?chart.title].join(', ');
     if (chart.isEmpty) return '$name, geen gegevens';

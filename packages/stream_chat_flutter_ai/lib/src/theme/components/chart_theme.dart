@@ -24,6 +24,10 @@ const kDefaultChartSeriesColors = [
   Color(0xFF1ABC9C),
 ];
 
+/// The largest [ChartThemeData.donutHoleRatio]: a larger hole would leave the
+/// ring too thin to see, and a hole the whole radius would leave nothing.
+const kMaxDonutHoleRatio = 0.9;
+
 /// Where [ChartView] places its legend relative to the plot.
 ///
 /// Above or below only, for now: a legend beside the plot would take width a
@@ -56,10 +60,9 @@ enum ChartLegendPosition {
 /// default. [copyWith] cannot unset a field — a `null` argument keeps the
 /// current value.
 ///
-/// Layout stays internal: bar widths, the pie radius, slice gaps, fill opacity,
-/// plot padding, and the axis gutters, which have to keep matching the
-/// `reservedSize` values [ChartView] hands `fl_chart`. So a taller [height]
-/// leaves the pie undersized.
+/// Layout stays internal: bar widths, slice gaps, fill opacity, a radial
+/// chart's ring widths, a single stacked bar's thickness, plot padding, and
+/// the axis gutters, which have to stay matched to the labels they hold.
 @immutable
 class ChartThemeData with Diagnosticable {
   /// Creates a [ChartThemeData].
@@ -82,17 +85,30 @@ class ChartThemeData with Diagnosticable {
     this.legendTextStyle,
     this.showPiePercentages,
     this.piePercentageThreshold,
+    this.donutHoleRatio,
+    this.radialTrackColor,
   }) : assert(
          piePercentageThreshold == null || (piePercentageThreshold >= 0 && piePercentageThreshold <= 1),
          'piePercentageThreshold is a share of the whole, from 0 to 1',
+       ),
+       assert(
+         donutHoleRatio == null || (donutHoleRatio >= 0 && donutHoleRatio <= kMaxDonutHoleRatio),
+         'donutHoleRatio is a share of the radius, from 0 to $kMaxDonutHoleRatio',
        );
 
-  /// The colors series — and a pie's slices — are drawn in, cycled when there
-  /// are more of them than colors. Falls back to [kDefaultChartSeriesColors],
+  /// The colors series — and a pie's slices, a radial chart's rings and a
+  /// single stacked bar's parts — are drawn in, cycled when there are more of
+  /// them than colors. Falls back to [kDefaultChartSeriesColors],
   /// as does an empty list.
   final List<Color>? seriesColors;
 
   /// The height of the plot area, title excluded. Falls back to 220.
+  ///
+  /// With no height set at any level, app-wide, per subtree or per chart, a
+  /// [USpecKind.horizontalBar] chart grows with its number of categories
+  /// instead. A [USpecPieShape.semicircle] pie is only as tall as its radius, which the
+  /// plot's width and this height both limit. A [USpecKind.singleStackedBar]
+  /// chart is one bar tall and ignores it.
   final double? height;
 
   /// The marker radius for a [USpecKind.scatter] point, and for a
@@ -110,25 +126,27 @@ class ChartThemeData with Diagnosticable {
   /// values below 1 are treated as 1.
   final int? histogramBinCount;
 
-  /// The style of axis tick labels, and of a heatmap's row, column and legend
-  /// labels. Falls back to 10pt in the Stream theme's `textSecondary`.
+  /// The style of axis tick labels, of a radar's spoke labels, and of a
+  /// heatmap's row, column and legend labels. Falls back to 10pt in the
+  /// Stream theme's `textSecondary`.
   final TextStyle? axisLabelStyle;
 
-  /// The style of the labels on [USpecKind.pie] slices: their percentage (see
-  /// [showPiePercentages]), plus the slice's name when there is no legend to
-  /// carry it. Falls back to 11pt semibold.
+  /// The style of the labels on [USpecKind.pie] slices and
+  /// [USpecKind.singleStackedBar] parts: their percentage (see
+  /// [showPiePercentages]), plus the slice's or part's name when there is no
+  /// legend to carry it. Falls back to 11pt semibold.
   ///
-  /// With no [TextStyle.color] each slice picks black or white for contrast
-  /// against its own fill; set one here to take that over.
+  /// With no [TextStyle.color] each slice or part picks black or white for
+  /// contrast against its own fill; set one here to take that over.
   final TextStyle? pieLabelStyle;
 
   /// The style of the heading above a chart carrying a [USpec.title]. Falls
   /// back to the Stream theme's `bodyEmphasis` in `textPrimary`.
   final TextStyle? titleTextStyle;
 
-  /// The color of grid lines, heatmap cell borders and the legend bar's border
-  /// — the same hairline chrome. Falls back to the Stream theme's
-  /// `borderDefault`.
+  /// The color of grid lines, a radar's rings and spokes, heatmap cell borders
+  /// and the legend bar's border — the same hairline chrome. Falls back to the
+  /// Stream theme's `borderDefault`.
   final Color? gridLineColor;
 
   /// The lowest stop of a heatmap's scale. Falls back to a pale blue on a light
@@ -144,8 +162,8 @@ class ChartThemeData with Diagnosticable {
   final Color? heatmapHighColor;
 
   /// Whether a legend, a color swatch and a name per entry, is drawn for the
-  /// charts that need one — a pie, and charts with two or more series; see
-  /// [ChartView]. Falls back to `true`.
+  /// charts that need one — a pie, a radial chart, a single stacked bar, and
+  /// charts with two or more series; see [ChartView]. Falls back to `true`.
   final bool? showLegend;
 
   /// Where the legend goes relative to the plot. Falls back to
@@ -156,20 +174,32 @@ class ChartThemeData with Diagnosticable {
   /// theme's `textSecondary`.
   final TextStyle? legendTextStyle;
 
-  /// Whether [USpecKind.pie] slices are labelled with their rounded share of
-  /// the whole, such as "42%". Falls back to `true`.
+  /// Whether [USpecKind.pie] slices and [USpecKind.singleStackedBar] parts are
+  /// labeled with their rounded share of the whole, such as "42%". Falls back
+  /// to `true`.
   ///
-  /// Only slices at or above [piePercentageThreshold] are labelled; smaller
-  /// ones have no room for it. With the legend showing, the slices' names are
-  /// on the legend, so turning this off leaves the slices with no label at
-  /// all.
+  /// Only slices and parts at or above [piePercentageThreshold] are labeled;
+  /// smaller ones have no room for it, and a part too narrow for its label
+  /// goes without. With the legend showing, the names are on the legend, so
+  /// turning this off leaves the slices and parts with no label at all.
   final bool? showPiePercentages;
 
-  /// The smallest share of the whole, from 0 to 1, a [USpecKind.pie] slice
-  /// needs to be labelled with its percentage. Falls back to 0.08, which is 8%.
+  /// The smallest share of the whole, from 0 to 1, a [USpecKind.pie] slice or
+  /// a [USpecKind.singleStackedBar] part needs to be labeled with its
+  /// percentage. Falls back to 0.08, which is 8%.
   ///
   /// Asserted to lie in 0 to 1; a value outside that is clamped in release.
   final double? piePercentageThreshold;
+
+  /// The hole in the middle of a [USpec.donut] pie, as a share of its radius.
+  ///
+  /// Falls back to 0.58. Asserted to lie in 0 to [kMaxDonutHoleRatio], so the
+  /// ring keeps a width to draw; a value outside that is clamped in release.
+  final double? donutHoleRatio;
+
+  /// The color of the full ring drawn behind each arc of a [USpecKind.radial]
+  /// chart. Falls back to the Stream theme's `backgroundSurfaceSubtle`.
+  final Color? radialTrackColor;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the
   /// current value.
@@ -192,6 +222,8 @@ class ChartThemeData with Diagnosticable {
     TextStyle? legendTextStyle,
     bool? showPiePercentages,
     double? piePercentageThreshold,
+    double? donutHoleRatio,
+    Color? radialTrackColor,
   }) {
     return ChartThemeData(
       seriesColors: seriesColors ?? this.seriesColors,
@@ -212,6 +244,8 @@ class ChartThemeData with Diagnosticable {
       legendTextStyle: legendTextStyle ?? this.legendTextStyle,
       showPiePercentages: showPiePercentages ?? this.showPiePercentages,
       piePercentageThreshold: piePercentageThreshold ?? this.piePercentageThreshold,
+      donutHoleRatio: donutHoleRatio ?? this.donutHoleRatio,
+      radialTrackColor: radialTrackColor ?? this.radialTrackColor,
     );
   }
 
@@ -238,6 +272,8 @@ class ChartThemeData with Diagnosticable {
       legendTextStyle: other.legendTextStyle,
       showPiePercentages: other.showPiePercentages,
       piePercentageThreshold: other.piePercentageThreshold,
+      donutHoleRatio: other.donutHoleRatio,
+      radialTrackColor: other.radialTrackColor,
     );
   }
 
@@ -270,6 +306,9 @@ class ChartThemeData with Diagnosticable {
       // Clamped: an overshooting curve such as `Curves.elasticOut` takes `t`
       // past 1, which would otherwise trip the constructor's range assert.
       piePercentageThreshold: lerpDoubleOrSwap(a.piePercentageThreshold, b.piePercentageThreshold, t)?.clamp(0.0, 1.0),
+      // Clamped for the same reason as the threshold above.
+      donutHoleRatio: lerpDoubleOrSwap(a.donutHoleRatio, b.donutHoleRatio, t)?.clamp(0.0, kMaxDonutHoleRatio),
+      radialTrackColor: lerpColorOrSwap(a.radialTrackColor, b.radialTrackColor, t),
     );
   }
 
@@ -314,7 +353,9 @@ class ChartThemeData with Diagnosticable {
           ifFalse: 'no pie percentages',
         ),
       )
-      ..add(DoubleProperty('piePercentageThreshold', piePercentageThreshold, defaultValue: null));
+      ..add(DoubleProperty('piePercentageThreshold', piePercentageThreshold, defaultValue: null))
+      ..add(DoubleProperty('donutHoleRatio', donutHoleRatio, defaultValue: null))
+      ..add(ColorProperty('radialTrackColor', radialTrackColor, defaultValue: null));
   }
 
   @override
@@ -338,7 +379,9 @@ class ChartThemeData with Diagnosticable {
         other.legendPosition == legendPosition &&
         other.legendTextStyle == legendTextStyle &&
         other.showPiePercentages == showPiePercentages &&
-        other.piePercentageThreshold == piePercentageThreshold;
+        other.piePercentageThreshold == piePercentageThreshold &&
+        other.donutHoleRatio == donutHoleRatio &&
+        other.radialTrackColor == radialTrackColor;
   }
 
   // Object.hashAll, not Object.hash: a list's identity hash would make two
@@ -363,6 +406,8 @@ class ChartThemeData with Diagnosticable {
     legendTextStyle,
     showPiePercentages,
     piePercentageThreshold,
+    donutHoleRatio,
+    radialTrackColor,
   ]);
 }
 
