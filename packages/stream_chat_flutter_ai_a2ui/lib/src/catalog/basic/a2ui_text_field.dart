@@ -156,7 +156,7 @@ class _A2UITextFieldState extends State<_A2UITextField> {
     );
   }
 
-  // TODO: Drop this wrapper once `StreamTextInput` has a `semanticLabel` in
+  // TODO(FLU-1232): Drop this wrapper once `StreamTextInput` has a `semanticLabel` in
   // stream_core_flutter, and pass the agent's label to it.
   //
   // The field, read as one text field with [label] and [hint]. The field
