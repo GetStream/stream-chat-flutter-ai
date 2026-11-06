@@ -5,7 +5,8 @@ part of 'a2ui_component_scope.dart';
 /// given the component's accessibility attributes.
 ///
 /// It draws nothing while the component is on its way or its type has no
-/// builder, and builds again when the component's properties or children
+/// builder; a type with no builder, such as one the app took out of the
+/// catalog, is logged once in debug builds. It builds again when the component's properties or children
 /// change. A builder that throws draws nothing either: the error goes to
 /// [FlutterError.reportError], and to the processor's `onError` as an
 /// `EXECUTION_ERROR` once the frame is done.
@@ -30,7 +31,10 @@ class A2UINodeView extends StatelessWidget {
       builder: (context, _) {
         if (!node.isResolved) return const SizedBox.shrink();
         final builder = catalog[node.type];
-        if (builder == null) return const SizedBox.shrink();
+        if (builder == null) {
+          _logNoBuilder(node.type);
+          return const SizedBox.shrink();
+        }
         return AIUIEntrance(
           child: _A2UIAccessibility(
             node: node,
@@ -61,6 +65,12 @@ class A2UINodeView extends StatelessWidget {
       return const SizedBox.shrink();
     }
   }
+}
+
+// Logs, once per type and in debug builds only, that the catalog has no
+// builder for [type], as the app may have taken it out on purpose.
+void _logNoBuilder(String type) {
+  a2uiDebugLogOnce("The catalog has no builder for the component type '$type', so it draws nothing.");
 }
 
 // The scope of [_node] for its builder.
@@ -163,8 +173,13 @@ final class _NodeScope extends A2UIComponentScope {
   }
 
   // Whether [node] draws something: it has arrived, and its type has a
-  // builder.
-  bool _shows(A2UINode node) => node.isResolved && _catalog[node.type] != null;
+  // builder. A type without one is logged.
+  bool _shows(A2UINode node) {
+    if (!node.isResolved) return false;
+    if (_catalog[node.type] != null) return true;
+    _logNoBuilder(node.type);
+    return false;
+  }
 
   @override
   Widget build(A2UIChild child) => A2UINodeView(node: child._node);

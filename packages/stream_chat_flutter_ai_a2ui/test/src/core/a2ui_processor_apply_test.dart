@@ -1,10 +1,27 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
+import 'a2ui_test_surfaces.dart';
+
 void main() {
+  test('apply reports a fault of the core and still applies the next message', () {
+    final reported = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = reported.add;
+    addTearDown(() => FlutterError.onError = previous);
+    final processor = A2UIProcessor(catalogs: A2UICatalogs(), debugCoreFactory: FaultyCore.new);
+    addTearDown(processor.dispose);
+
+    processor.apply([_createSurface('broken'), _createSurface('plan')]);
+
+    expect(processor.surfaceIds, ['plan']);
+    expect(reported.single.exception, isA<StateError>());
+  });
+
   test('apply creates the surface a createSurface message names', () {
     final processor = _processor()..apply([_createSurface('plan')]);
 

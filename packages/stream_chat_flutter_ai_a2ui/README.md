@@ -39,11 +39,12 @@ finished reply whose components don't form a whole tree, are reported in debug b
 
 ## The look
 
-A reply's A2UI is drawn with an `A2UITheme` made from the app's Stream design system. A custom theme starts from it
-and is given to the renderer:
+A reply's A2UI is drawn with the app's Stream design system, so it follows light and dark mode. An `A2UIThemeData`
+given to the renderer, or an `A2UITheme` above the conversation, overrides any of its values; the ones it leaves unset
+still come from the Stream theme:
 
 ```dart
-final renderer = A2UIRenderer(theme: A2UITheme.fromStream(StreamTheme.of(context)).copyWith(cornerRadius: 8));
+final renderer = A2UIRenderer(theme: A2UIThemeData(cornerRadius: 8));
 ```
 
 ## The components
