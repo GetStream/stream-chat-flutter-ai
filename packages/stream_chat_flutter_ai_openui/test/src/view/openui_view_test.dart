@@ -40,9 +40,13 @@ void main() {
   ) async {
     final runtime = testRuntime();
     addTearDown(runtime.dispose);
-    await pumpOpenUI(tester, runtime, program: 'root = Card([CardHeader("Title"), Table([]), TextContent("Body")])');
+    await pumpOpenUI(
+      tester,
+      runtime,
+      program: 'root = Card([CardHeader("Title"), BarChart([], []), TextContent("Body")])',
+    );
 
-    // The card, its header and its text; the table has no builder.
+    // The card, its header and its text; the chart has no builder.
     expect(find.byType(AIUIEntrance), findsNWidgets(3));
     expect(find.ancestor(of: find.text('Title'), matching: find.byType(AIUIEntrance)), findsNWidgets(2));
   });
@@ -100,18 +104,22 @@ void main() {
       try {
         final runtime = testRuntime();
         addTearDown(runtime.dispose);
-        await pumpOpenUI(tester, runtime, program: 'root = Card([Table([]), Table([]), Accordion([])])');
-        runtime.update('root = Card([Table([]), Accordion([]), TextContent("x")])', isStreaming: false);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          program: 'root = Card([BarChart([], []), BarChart([], []), RadarChart([], [])])',
+        );
+        runtime.update('root = Card([BarChart([], []), RadarChart([], []), TextContent("x")])', isStreaming: false);
         await tester.pump();
 
-        expect(logs.where((log) => log.contains("'Table'")), hasLength(1));
-        expect(logs.where((log) => log.contains("'Accordion'")), hasLength(1));
+        expect(logs.where((log) => log.contains("'BarChart'")), hasLength(1));
+        expect(logs.where((log) => log.contains("'RadarChart'")), hasLength(1));
         expect(logs, hasLength(2));
 
         final other = testRuntime();
         addTearDown(other.dispose);
-        await pumpOpenUI(tester, other, program: 'root = Card([Table([])])');
-        expect(logs.where((log) => log.contains("'Table'")), hasLength(2));
+        await pumpOpenUI(tester, other, program: 'root = Card([BarChart([], [])])');
+        expect(logs.where((log) => log.contains("'BarChart'")), hasLength(2));
       } finally {
         // Restored before the test ends, where Flutter checks it.
         debugPrint = original;
