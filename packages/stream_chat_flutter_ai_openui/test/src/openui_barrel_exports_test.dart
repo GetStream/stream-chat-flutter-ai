@@ -32,6 +32,12 @@ void main() {
 }
 
 const _expectedNames = {
+  'OpenUIError',
+  'OpenUIErrorCode',
+  'OpenUIErrorHandler',
+  'OpenUIErrorSource',
+  'OpenUIMediaUrl',
+  'OpenUIRenderer',
   'OpenUIComponentBuilder',
   'OpenUIComponentName',
   'OpenUIComponentScope',

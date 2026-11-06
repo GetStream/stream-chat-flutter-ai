@@ -133,12 +133,6 @@ void runParserStreamingConformance() {
   }
 }
 
-/// Registers one skipped test for the suite named `suite`, which isn't run,
-/// giving `reason`.
-void skipConformanceSuite(String suite, {required String reason}) {
-  test('the $suite suite', () {}, skip: reason);
-}
-
 const _generated = 'test/conformance/generated';
 
 List<Map<String, Object?>> _parserCases() {

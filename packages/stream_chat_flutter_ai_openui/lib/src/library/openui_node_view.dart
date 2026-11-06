@@ -5,8 +5,10 @@ part of 'openui_component_scope.dart';
 /// kept apart from its neighbours for assistive technologies.
 ///
 /// It draws nothing when the component's type has no builder; in debug
-/// builds it reports each such type once per runtime with [debugPrint]. A builder that
-/// throws draws nothing either: the error goes to [FlutterError.reportError].
+/// builds it reports each such type once per runtime with [debugPrint]. A
+/// builder that throws draws nothing either: the error goes to the view's
+/// [OpenUIViewScope.onBuildError], or to [FlutterError.reportError] when it
+/// has none.
 ///
 /// Internal to the package.
 @internal
@@ -38,14 +40,19 @@ class OpenUINodeView extends StatelessWidget {
     try {
       return builder(context, scope);
     } on Object catch (error, stack) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stack,
-          library: 'stream_chat_flutter_ai_openui',
-          context: ErrorDescription("while building the OpenUI component '${node.typeName}'"),
-        ),
-      );
+      final onBuildError = OpenUIViewScope.of(context).onBuildError;
+      if (onBuildError != null) {
+        onBuildError(node, error, stack);
+      } else {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'stream_chat_flutter_ai_openui',
+            context: ErrorDescription("while building the OpenUI component '${node.typeName}'"),
+          ),
+        );
+      }
       return const SizedBox.shrink();
     }
   }
@@ -123,7 +130,7 @@ final class _NodeScope extends OpenUIComponentScope {
   bool get isStreaming => _view.isStreaming;
 
   @override
-  Object? value(String name) => _json(_prop(name));
+  Object? value(String name) => openUIJson(_prop(name));
 
   @override
   OpenUIValue? prop(String name) => _prop(name);
@@ -208,18 +215,6 @@ final class _NodeScope extends OpenUIComponentScope {
     final builder = _view.library.replacedBuilderOf(type);
     if (builder == null) return const SizedBox.shrink();
     return Builder(builder: (context) => builder(context, this));
-  }
-
-  // [value] as JSON, with `null` for a component or an expression.
-  static Object? _json(OpenUIValue? value) {
-    return switch (value) {
-      OpenUIString(:final value) => value,
-      OpenUINumber(:final value) => value,
-      OpenUIBool(:final value) => value,
-      OpenUIArray(:final items) => [for (final item in items) _json(item)],
-      OpenUIObject(:final fields) => {for (final MapEntry(:key, :value) in fields.entries) key: _json(value)},
-      OpenUINull() || OpenUIElement() || OpenUIExpression() || null => null,
-    };
   }
 }
 

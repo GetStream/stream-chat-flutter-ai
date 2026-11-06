@@ -34,6 +34,8 @@
 - Generative UI: `AIConversationView.ui` takes an `AIUIHost` that shows a reply's `AIMessage.uiDocument`
   with app-supplied renderers and components, and `AIToolDefinition.isReadOnly` marks the tools it may
   run on its own.
+- `AITranslations.uiActionUntitled` — the message sent for a tap on a control in a reply's generated UI
+  that has no label of its own (`Continue` by default).
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.

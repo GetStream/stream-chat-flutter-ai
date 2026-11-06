@@ -8,9 +8,6 @@ import 'package:flutter/foundation.dart';
 /// errors suitable for sending back to the model so it can correct it.
 ///
 /// Two errors are `==` when all their fields are.
-///
-/// Internal to the package.
-@internal
 @immutable
 final class OpenUIError {
   /// Creates an error from [source] with [code] and [message].
@@ -91,9 +88,6 @@ final class OpenUIError {
 ///
 /// The constants are the sources OpenUI Lang names. Any other string is a
 /// valid source too.
-///
-/// Internal to the package.
-@internal
 extension type const OpenUIErrorSource(String _) implements String {
   /// Reading the program: unknown components, missing arguments, no root.
   static const parser = OpenUIErrorSource('parser');
@@ -112,9 +106,6 @@ extension type const OpenUIErrorSource(String _) implements String {
 ///
 /// The constants are OpenUI Lang's own codes. Any other string is a valid code
 /// too, such as one a later version of the language adds.
-///
-/// Internal to the package.
-@internal
 extension type const OpenUIErrorCode(String _) implements String {
   /// A call of a component the library doesn't have.
   static const unknownComponent = OpenUIErrorCode('unknown-component');
