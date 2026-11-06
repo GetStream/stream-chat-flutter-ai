@@ -60,7 +60,10 @@ typedef A2UIComponentBuilder = Widget Function(BuildContext context, A2UICompone
 /// });
 /// ```
 ///
-/// A component whose type has no builder in the catalog shows nothing.
+/// A basic component whose type has no builder in the catalog, such as one
+/// taken out with [removing], isn't in the catalog the agent is told about,
+/// and one the agent writes anyway shows nothing and is reported as a
+/// component the catalog doesn't have.
 ///
 /// A catalog doesn't change: [replacing] and [removing] return new ones. Two
 /// catalogs are equal when they have the same builders for the same types,
@@ -118,8 +121,9 @@ final class A2UICatalog {
     return A2UICatalog._(Map.unmodifiable({..._builders, type: builder}));
   }
 
-  /// A copy of this catalog without the builders of [types], so components of
-  /// those types show nothing.
+  /// A copy of this catalog without the builders of [types], so the agent
+  /// isn't told about components of those types, and one it writes anyway
+  /// shows nothing and is reported as a component the catalog doesn't have.
   ///
   /// Each of [types] must be one this catalog has. Without asserts, the others
   /// are left out.

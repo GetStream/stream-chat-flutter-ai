@@ -5,7 +5,7 @@
 - New package that shows the interactive UI an agent writes in [A2UI](https://a2ui.org) 1.0 in its replies, through
   the generative UI of `stream_chat_flutter_ai`. Released in lockstep with it.
 - `A2UIRenderer`, added to the conversation's `AIUIHost`, shows a reply's A2UI surfaces in place of its text, part by
-  part while the agent writes it. It takes a `catalog`, `catalogId`, `theme`, `mediaUrl` and `onError`, and exposes
+  part while the agent writes it. It takes a `catalog`, `catalogId`, `instructions`, `theme`, `mediaUrl` and `onError`, and exposes
   `A2UIRenderer.version`, `fence`, `defaultCatalogId`, `basicCatalogId` and `webUrl`.
 - `A2UICatalog.basic` draws A2UI's basic components: `Text`, `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`,
   `Column`, `List`, `Card`, `Divider`, `Tabs` and `Modal`, and the components a person uses, `Button`, `TextField`,
@@ -21,6 +21,9 @@
   `open`, and functions the catalog doesn't have run as the host's `tools`.
 - The app's components (`AIUIHost.components`) can be placed in A2UI replies: the agent names one in PascalCase, such
   as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the component.
+- The renderer's `capabilities` hold the `instructions` the agent's model needs to write A2UI with the app's catalog,
+  its components and the host's tools, after the renderer's own `instructions`. A component taken out with
+  `A2UICatalog.removing` is left out of them, and reported as unknown when the agent writes it anyway.
 - `A2UIError`, `A2UIErrorCode` and `A2UIErrorHandler`: the problems with a reply's A2UI, such as a component the
   catalog doesn't have or a function that fails, given to the renderer's `onError` with the reply's message id.
 - `Video` shows its poster and `AudioPlayer` its description until the person taps play; media loads only from web

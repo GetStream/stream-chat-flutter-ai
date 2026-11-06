@@ -45,6 +45,25 @@ Problems with a reply's A2UI, such as a component the catalog doesn't have, go t
 reply's message id; without it they are reported in debug builds only. Messages that aren't JSON objects, and a
 finished reply whose components don't form a whole tree, are reported in debug builds only.
 
+## What the agent is told
+
+The host's `capabilities`, which the app sends to its backend, hold the renderer's: the `fence` the agent writes a
+reply's A2UI in, the `catalog_id` it names the app's catalog by, and the `instructions` its model needs, in Markdown.
+They explain how a reply carries A2UI and the protocol, list the host's `tools`, and hold the catalog the agent writes
+with as JSON Schema: the basic components the renderer's `catalog` draws and the app's components. The renderer's
+`instructions` come first, such as which answers to write as UI:
+
+```dart
+final renderer = A2UIRenderer(instructions: 'Show places as cards, and plans as a list of steps.');
+```
+
+A component taken out of the catalog with `removing` isn't in what the agent is told, and one the agent writes anyway
+is reported to `onError` as a component the catalog doesn't have:
+
+```dart
+final renderer = A2UIRenderer(catalog: A2UICatalog.basic.removing(['Video']));
+```
+
 ## The app's components
 
 The host's `components`, the app's own widgets such as a place card, can be placed by the agent too. The agent writes
