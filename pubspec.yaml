@@ -10,6 +10,7 @@ environment:
 workspace:
   - packages/stream_chat_flutter_ai
   - packages/stream_chat_flutter_ai/example
+  - packages/stream_chat_flutter_ai_openui
 
 dev_dependencies:
   melos: ^8.2.2
@@ -44,6 +45,10 @@ melos:
         flutter_math_fork: ^0.7.4
         image_picker: ^1.2.2
         markdown: ^7.3.1
+        # `@internal` and `@immutable` in the OpenUI package. Already resolved
+        # transitively via the Flutter SDK; declared because the package imports
+        # it directly.
+        meta: ^1.9.1
         objective_c: ^9.3.0
         path_provider: ^2.1.5
         photo_manager: ^3.9.0
