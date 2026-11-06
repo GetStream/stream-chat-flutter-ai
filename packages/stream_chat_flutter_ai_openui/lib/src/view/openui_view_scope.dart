@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 
 /// Signature for the function a reply's media loads through: the URL to load
@@ -52,6 +54,7 @@ class OpenUIViewScope extends InheritedWidget {
   /// Creates the scope of the OpenUI below [child].
   const OpenUIViewScope({
     super.key,
+    required this.runtime,
     required this.library,
     required this.mediaUrl,
     required this.openLink,
@@ -59,6 +62,10 @@ class OpenUIViewScope extends InheritedWidget {
     required this.unknownTypes,
     required super.child,
   });
+
+  /// The runtime of the reply's program, whose state components read and
+  /// write.
+  final OpenUIRuntime runtime;
 
   /// The library the components are built with.
   final OpenUILibrary library;
@@ -89,7 +96,8 @@ class OpenUIViewScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(OpenUIViewScope oldWidget) {
-    return library != oldWidget.library ||
+    return runtime != oldWidget.runtime ||
+        library != oldWidget.library ||
         mediaUrl != oldWidget.mediaUrl ||
         openLink != oldWidget.openLink ||
         isStreaming != oldWidget.isStreaming ||
