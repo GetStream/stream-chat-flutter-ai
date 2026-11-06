@@ -18,6 +18,10 @@ void runSpecConformanceArea(String area) {
 
   for (final directory in cases) {
     final name = '$area/${directory.uri.pathSegments.lastWhere((segment) => segment.isNotEmpty)}';
+    if (File('${directory.path}/validation.json').existsSync()) {
+      _registerValidationCases(name, directory);
+      continue;
+    }
     final expected = jsonDecode(File('${directory.path}/expected.json').readAsStringSync()) as Map<String, Object?>;
     final schema = conformanceLibraries()['spec']!;
     final chunks = _specChunks(directory);
@@ -118,9 +122,16 @@ void _registerSpecCase(
   }
 
   test('$label: root', () {
-    final actual = read();
+    final actual = specRootNeedsEvaluating(caseName)
+        ? debugEvaluate(
+            schema,
+            input ?? _specChunks(Directory('$_specRoot/$caseName'))!.join(),
+            isBindable: conformanceBindables('spec'),
+            functions: specFunctions,
+          )['evaluatedRoot']
+        : read()['root'];
 
-    expect(firstDifference(canonicalTree(actual['root']), expected['root']), isNull);
+    expect(firstDifference(canonicalTree(actual), expected['root']), isNull);
   }, skip: specRootSkipReason(caseName));
 
   if (specRoundtripSkipReason(caseName) case final reason?) {
@@ -142,7 +153,9 @@ bool specRootNeedsEvaluating(String name) {
 /// `grammar/003-fence-multiple-joined`.
 List<String> specCaseNames(String area) {
   return [
-    for (final directory in _specCases(area)) '$area/${directory.uri.pathSegments.lastWhere((s) => s.isNotEmpty)}',
+    for (final directory in _specCases(area))
+      if (File('${directory.path}/expected.json').existsSync())
+        '$area/${directory.uri.pathSegments.lastWhere((s) => s.isNotEmpty)}',
   ];
 }
 
@@ -180,7 +193,36 @@ Object? canonicalTree(Object? value) {
       },
     };
   }
+  if (value case {'__reactive': 'assign', 'target': final target}) return {r'$binding': target};
+  if (value['steps'] case final List<Object?> steps) {
+    return {
+      'actions': [for (final step in steps.cast<Map<String, Object?>>()) _canonicalStep(step)],
+    };
+  }
   return {for (final MapEntry(:key, :value) in value.entries) key: canonicalTree(value)};
+}
+
+// An evaluated action step as the specification's fixtures write it:
+// `{action, args}`, with the arguments as written.
+Map<String, Object?> _canonicalStep(Map<String, Object?> step) {
+  final (action, args) = switch (step['type']) {
+    'run' => ('Run', [step['statementId']]),
+    'continue_conversation' => ('ToAssistant', [step['message'], if (step.containsKey('context')) step['context']]),
+    'open_url' => ('OpenUrl', [step['url']]),
+    'set' => ('Set', [step['target'], _literal(step['valueAST'])]),
+    'reset' => ('Reset', step['targets']! as List<Object?>),
+    'custom_action' => (step['name'], (step['params']! as Map<String, Object?>).values.toList()),
+    final type => (type, const <Object?>[]),
+  };
+  return {'action': action, 'args': args};
+}
+
+// The value of a literal expression written as JSON, `{k: "Num", v: 3}`;
+// anything else as it is.
+Object? _literal(Object? node) {
+  if (node case {'k': 'Str' || 'Num' || 'Bool', 'v': final value}) return value;
+  if (node case {'k': 'Null'}) return null;
+  return node;
 }
 
 const _astKinds = {
@@ -234,4 +276,24 @@ List<Object?> _unmatchedObjects(List<Map<String, Object?>> actual, List<Object?>
     }
   }
   return unmatched;
+}
+
+// Registers a test for each case of the validation table in [directory]:
+// whether a value passes its rules.
+void _registerValidationCases(String name, Directory directory) {
+  final table = jsonDecode(File('${directory.path}/validation.json').readAsStringSync()) as Map<String, Object?>;
+  final cases = (table['cases']! as List<Object?>).cast<Map<String, Object?>>();
+
+  test('$name has cases', () {
+    expect(cases, isNotEmpty);
+  });
+
+  for (final (index, testCase) in cases.indexed) {
+    final label = '$name #$index: ${jsonEncode(testCase['rules'])} on ${jsonEncode(testCase['value'])}';
+    test(label, () {
+      final error = debugValidate(testCase['rules'], testCase['value']);
+
+      expect(error == null, testCase['valid'], reason: error);
+    }, skip: specValidationSkipReason(testCase['rules']));
+  }
 }
