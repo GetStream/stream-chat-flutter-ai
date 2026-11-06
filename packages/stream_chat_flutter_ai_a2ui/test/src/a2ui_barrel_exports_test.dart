@@ -42,6 +42,7 @@ const _expectedNames = {
   'A2UIErrorHandler',
   'A2UIRenderer',
   'A2UITheme',
+  'A2UIThemeData',
 };
 
 String _barrel() => File('lib/stream_chat_flutter_ai_a2ui.dart').readAsStringSync();

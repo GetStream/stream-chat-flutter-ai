@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Makes the Stream design system's components below [child] draw with
@@ -17,7 +17,7 @@ class A2UIStreamTheme extends StatelessWidget {
   const A2UIStreamTheme({super.key, required this.theme, required this.child});
 
   /// The theme the design system's components are drawn with.
-  final A2UITheme theme;
+  final A2UIResolvedTheme theme;
 
   /// The widget below this one.
   final Widget child;
@@ -50,7 +50,7 @@ class A2UIStreamTheme extends StatelessWidget {
 
 // The design system's [stream] theme with the colors, body text and corner
 // radii of [theme].
-StreamTheme _streamThemeOf(StreamTheme stream, A2UITheme theme) {
+StreamTheme _streamThemeOf(StreamTheme stream, A2UIResolvedTheme theme) {
   final colors = stream.colorScheme;
   final text = stream.textTheme;
   // The radii the design system's buttons, fields and sheets are drawn with.

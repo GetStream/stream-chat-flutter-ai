@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `CheckBox`: the Stream design system's [StreamCheckbox], checked in
-/// [A2UITheme.accent] while its `value` is true, beside its `label`; a tap on
+/// [A2UIThemeData.accent] while its `value` is true, beside its `label`; a tap on
 /// either writes the other value.
 ///
 /// The builder an app registers for check boxes through
