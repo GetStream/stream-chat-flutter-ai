@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_fill.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
@@ -14,7 +15,7 @@ import 'package:stream_core_flutter/core.dart';
 /// The options are rows with a radio button, or with the Stream design system's
 /// [StreamCheckbox], as a `CheckBox` has, when several can be picked, or
 /// capsules side by side with the `chips` display style, the picked ones in
-/// [A2UITheme.accent]. Picking the picked option of a single choice keeps it
+/// [A2UIThemeData.accent]. Picking the picked option of a single choice keeps it
 /// picked. With `filterable`, a search field above the options shows only those
 /// whose label holds what the person typed, in any capitalization.
 ///
@@ -141,7 +142,7 @@ class _A2UIChoicePickerState extends State<_A2UIChoicePicker> {
     return A2UIInputWidth(child: content);
   }
 
-  Widget _filterField(BuildContext context, A2UITheme theme) {
+  Widget _filterField(BuildContext context, A2UIResolvedTheme theme) {
     return Material(
       type: MaterialType.transparency,
       child: TextField(
@@ -179,7 +180,7 @@ class _Row extends StatelessWidget {
   final bool isPicked;
   final bool isMultiple;
   final VoidCallback? onTap;
-  final A2UITheme theme;
+  final A2UIResolvedTheme theme;
 
   // The space between the radio button or checkbox and the label.
   static const _spacing = 8.0;
@@ -238,7 +239,7 @@ class _Chip extends StatelessWidget {
   final bool isPicked;
   final bool isMultiple;
   final VoidCallback? onTap;
-  final A2UITheme theme;
+  final A2UIResolvedTheme theme;
 
   // The space between a chip's edge and its label.
   static const _padding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);

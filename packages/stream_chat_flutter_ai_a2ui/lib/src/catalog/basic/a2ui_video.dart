@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
@@ -180,7 +181,10 @@ class _A2UIVideoState extends State<_A2UIVideo> {
             fit: BoxFit.contain,
             excludeFromSemantics: true,
             placeholderBuilder: (context) => const SizedBox.shrink(),
-            errorBuilder: (context, error, retry) => const SizedBox.shrink(),
+            errorBuilder: (context, error, retry) {
+              a2uiDebugLogOnce("The Video's poster '$poster' failed to load: $error");
+              return const SizedBox.shrink();
+            },
           ),
         if (widget.source == null)
           const A2UIMediaUnavailable(icon: Icons.smart_display_outlined)

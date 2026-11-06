@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_stream_theme.dart';
 import 'package:stream_core_flutter/core.dart';
 
@@ -101,7 +103,9 @@ void main() {
 }
 
 // A theme whose every value differs from the light Stream theme's.
-final _theme = lightTheme().copyWith(
+final _theme = A2UIResolvedTheme.fromData(_overrides, StreamTheme.light());
+
+final _overrides = A2UIThemeData(
   accent: const Color(0xFF000001),
   onAccent: const Color(0xFF000002),
   text: const Color(0xFF000003),
@@ -121,7 +125,7 @@ const _text = [
   {'id': 'root', 'component': 'Text', 'text': 'Inside'},
 ];
 
-Future<void> _pumpThemed(WidgetTester tester) => pumpSurface(tester, components: _text, theme: _theme);
+Future<void> _pumpThemed(WidgetTester tester) => pumpSurface(tester, components: _text, theme: _overrides);
 
 BuildContext _inSurface(WidgetTester tester) => tester.element(find.text('Inside'));
 

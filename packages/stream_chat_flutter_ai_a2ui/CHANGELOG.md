@@ -12,9 +12,9 @@
   `CheckBox`, `ChoicePicker`, `Slider` and `DateTimeInput`. A catalog's components are replaced with
   `A2UICatalog.replacing` and removed with `removing`; an `A2UIComponentBuilder` reads its component, writes to the
   surface's data and runs its action through `A2UIComponentScope`, and builds its children from `A2UIChild`.
-- `A2UITheme`, made from the app's Stream theme with `A2UITheme.fromStream` and changed with `copyWith`. Buttons,
-  check boxes, fields, images and sheets are drawn with Stream's design system, so the app's component themes and its
-  `StreamComponentFactory` builders for buttons, check boxes, text inputs and network images apply to them. The
+- `A2UITheme` and `A2UIThemeData`: overrides of A2UI's look whose unset values come from the app's Stream theme, so
+  it follows light and dark mode. Buttons, check boxes, fields, images and sheets are drawn with Stream's design
+  system, so the app's component themes and its `StreamComponentFactory` builders for buttons, check boxes, text inputs and network images apply to them. The
   components' look matches the iOS and Android A2UI renderers.
 - What the person does reaches the host: a button's event is sent as an `AIUIAction` labeled with the button's text,
   or else its event's name in words, with what the action asked for in its payload. Links open through the host's
