@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
 
 // The look of the components a person uses, in light and dark.

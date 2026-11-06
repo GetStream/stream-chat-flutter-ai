@@ -36,6 +36,7 @@ void main() {
           catalog: A2UICatalog.basic,
           theme: lightTheme(),
           mediaUrl: a2uiWebMediaUrl,
+          onOpenLink: null,
           child: Stack(
             children: [
               Positioned.fill(child: GestureDetector(onTap: () => taps += 1)),
@@ -72,6 +73,7 @@ Future<void> _pumpProgress(WidgetTester tester, {required double played, require
         catalog: A2UICatalog.basic,
         theme: lightTheme(),
         mediaUrl: a2uiWebMediaUrl,
+        onOpenLink: null,
         child: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(

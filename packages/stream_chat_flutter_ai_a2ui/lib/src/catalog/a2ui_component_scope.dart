@@ -181,8 +181,9 @@ final class A2UIChild {
 
   final A2UINode _node;
 
-  /// A key that tells this child apart from its siblings and stays the same
-  /// while the agent updates the surface, such as for a widget's [Key].
+  /// A string that tells this child apart from its siblings and stays the
+  /// same while the agent updates the surface, such as for a widget's
+  /// `ValueKey(child.key)`.
   String get key => _node.key;
 
   /// The id of the child component.

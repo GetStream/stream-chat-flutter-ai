@@ -20,8 +20,8 @@ import 'package:flutter/foundation.dart';
 import 'package:json_schema_builder/json_schema_builder.dart' show Schema;
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_versions.dart';
 
 part 'a2ui_agent_function.dart';
 part 'a2ui_catalogs.dart';

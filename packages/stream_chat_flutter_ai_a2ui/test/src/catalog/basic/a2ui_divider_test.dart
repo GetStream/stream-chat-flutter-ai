@@ -30,6 +30,23 @@ void main() {
     expect(tester.getSize(_line()).width, 1);
   });
 
+  testWidgets('a divider whose axis is bound is drawn along the bound axis', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [
+        {
+          'id': 'root',
+          'component': 'Divider',
+          'axis': {'@path': '/axis'},
+        },
+      ],
+      data: {'axis': 'vertical'},
+      width: 300,
+    );
+
+    expect(tester.getSize(_line()).width, 1);
+  });
+
   testWidgets('a divider follows a change to its axis', (tester) async {
     final processor = await _pumpDivider(tester);
 

@@ -13,7 +13,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 Widget buildA2UIDivider(BuildContext context, A2UIComponentScope scope) {
   final color = A2UISurfaceScope.of(context).theme.border;
   final line = ColoredBox(color: color);
-  if (scope.hint('axis') == 'vertical') {
+  if (scope.string('axis') == 'vertical') {
     return A2UIFill(
       axis: Axis.vertical,
       child: SizedBox(width: _thickness, child: line),

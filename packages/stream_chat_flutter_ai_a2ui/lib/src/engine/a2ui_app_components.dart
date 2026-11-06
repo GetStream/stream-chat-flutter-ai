@@ -64,3 +64,18 @@ List<({String type, AIUIComponent<Object?> component, AIUIComponentDefinition de
   }
   return placeable;
 }
+
+/// What the agent is told an app component of [definition] is: its
+/// description and its events' descriptions, each a sentence, as iOS and
+/// Android describe it.
+///
+/// Internal to the package.
+@internal
+String a2uiComponentDescription(AIUIComponentDefinition definition) {
+  return [
+    definition.description,
+    for (final event in definition.events) event.description,
+  ].map((text) => text.trim()).where((text) => text.isNotEmpty).map(_sentence).join(' ');
+}
+
+String _sentence(String text) => const ['.', '!', '?'].any(text.endsWith) ? text : '$text.';

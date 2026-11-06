@@ -111,10 +111,7 @@ abstract final class A2UIVersions {
     return A2UIAcceptedEnvelope({...message, 'version': current});
   }
 
-  static bool _readsMessageVersion(Object? version) {
-    if (version == current) return true;
-    return version is String && _spellings.contains(version);
-  }
+  static bool _readsMessageVersion(Object? version) => version is String && supports(version);
 
   static A2UIError _unknownType(Map<String, Object?> message, String? surfaceId) {
     for (final key in message.keys) {

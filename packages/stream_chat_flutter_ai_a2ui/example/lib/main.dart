@@ -147,7 +147,7 @@ class _ExamplesPageState extends State<ExamplesPage> {
               final missing = example.missing;
               return ListTile(
                 title: Text(example.name),
-                subtitle: Text(missing.isEmpty ? example.file : '${example.file} · later: ${missing.join(', ')}'),
+                subtitle: Text(missing.isEmpty ? example.file : '${example.file} · unknown: ${missing.join(', ')}'),
                 onTap: () => _open(ExamplePage(example: example, onToggleMode: widget.onToggleMode)),
               );
             },
@@ -260,7 +260,7 @@ class _ExamplePageState extends State<ExamplePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (missing.isNotEmpty) _Note('Not drawn yet: ${missing.join(', ')}'),
+            if (missing.isNotEmpty) _Note('Unknown components: ${missing.join(', ')}'),
             if (view.canShow) view else const _Note('No surface yet.'),
             ListenableBuilder(
               listenable: _log,
