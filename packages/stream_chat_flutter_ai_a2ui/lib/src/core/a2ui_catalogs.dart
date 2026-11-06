@@ -109,6 +109,11 @@ final class A2UICatalogs {
   // read.
   static const _idKey = 'id';
 
+  // The properties every component may hold, its share of a `Row` or
+  // `Column` and its accessibility label and description, which an app
+  // component's parameters can't reuse.
+  static const _commonKeys = {'weight', 'accessibility'};
+
   // The type of the surface itself, which a component may not take.
   static const _surfaceType = 'Surface';
 
@@ -121,7 +126,9 @@ final class A2UICatalogs {
   /// The [type] must be an A2UI identifier, and must be neither `Surface` nor
   /// the type of one of the basic catalog's components. The name of each
   /// parameter must be an A2UI identifier other than `id` and `component`,
-  /// the keys that hold a component's id and type.
+  /// the keys that hold a component's id and type, and `weight` and
+  /// `accessibility`, which every component may hold for its layout and
+  /// accessibility.
   static String? appComponentProblem(String type, Map<String, Object?> parametersSchema) {
     if (!core.isValidUax31Identifier(type)) return "its type '$type' isn't an A2UI identifier";
     if (type == _surfaceType) return "its type '$type' is the surface's own";
@@ -129,6 +136,7 @@ final class A2UICatalogs {
     for (final name in _parameterNames(parametersSchema)) {
       if (name == _typeKey) return "its parameter '$name' is the key that holds a component's type";
       if (name == _idKey) return "its parameter '$name' is the key that holds a component's id";
+      if (_commonKeys.contains(name)) return "its parameter '$name' is a property every component may hold";
       if (!core.isValidUax31Identifier(name)) return "its parameter '$name' isn't an A2UI identifier";
     }
     return null;

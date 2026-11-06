@@ -86,6 +86,19 @@ void main() {
     expect(leftOut.single, contains("'id' is the key that holds a component's id"));
   });
 
+  for (final name in ['weight', 'accessibility']) {
+    test('a component with a parameter named $name is left out and reported', () {
+      final leftOut = <String>[];
+
+      final placeable = a2uiPlaceableComponents([
+        _component('badge', parameters: [AIUIParameter.required(name, AIUIParameterType.string)]),
+      ], onLeftOut: leftOut.add);
+
+      expect(placeable, isEmpty);
+      expect(leftOut.single, contains("'$name' is a property every component may hold"));
+    });
+  }
+
   test('of two components placed by one type, the first is kept and the second reported', () {
     final first = _component('place_card');
     final second = _component('place-card');

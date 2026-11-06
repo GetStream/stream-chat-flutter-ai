@@ -56,16 +56,19 @@ final ui = AIUIHost(
 ```
 
 The component shows nothing while its values don't fit its parameters, such as while the agent is still writing them,
-and one the agent wrote without a required value, or with `null` for it, is reported to `onError`. A parameter's value
+and once the reply is written, values that don't fit, a required value that is missing or `null`, and anything the
+component throws reading or building them are reported to `onError`. A parameter's value
 is passed as written or as the binding or function resolves it; the component itself decides whether it fits.
 
 An event the component reports with `emit` is sent as an `AIUIAction` named after the event, with the label the
-component gave, and its payload with `component` set to the component's name. An app component holds no other
+component gave, and its payload with `component` set to the component's name (`place_card`), and `surfaceId` and
+`sourceComponentId` set to where it is. An app component holds no other
 components and no `action` of the agent's.
 
 A component the agent can't place is left out, and reported in debug builds: one whose name in PascalCase isn't an
 A2UI identifier, is `Surface`, or is the name of one of the basic catalog's components or of an earlier app
-component, and one with a parameter whose name isn't an identifier or is `id` or `component`.
+component, and one with a parameter whose name isn't an identifier or is `id`, `component`, `weight` or
+`accessibility`.
 
 ## The look
 

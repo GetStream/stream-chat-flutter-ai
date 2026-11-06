@@ -60,6 +60,11 @@ final class A2UIEngine extends AIUIEngine {
   // The key of an app component's action payload that names the component.
   static const _componentKey = 'component';
 
+  // The keys of an app component's action payload that name the surface
+  // and the component that reported it, as a `Button`'s action does.
+  static const _surfaceIdKey = 'surfaceId';
+  static const _sourceComponentIdKey = 'sourceComponentId';
+
   @override
   void receive(AIUIDocument document, String messageId) {
     final reply = _replies[messageId];
@@ -219,6 +224,10 @@ final class A2UIEngine extends AIUIEngine {
 
   // The widget of the app's [component] that a reply's surface places, with
   // the values [scope] reads for its parameters.
+  //
+  // Values that don't fit the component's parameters draw nothing; once the
+  // reply is written they are reported through `onError`, as is anything the
+  // component throws reading or building them, so the agent can correct it.
   Widget _buildAppComponent(A2UIComponentScope scope, AIUIComponent<Object?> component, _A2UIReply reply) {
     return ValueListenableBuilder<bool>(
       valueListenable: reply.isStreaming,
@@ -227,7 +236,7 @@ final class A2UIEngine extends AIUIEngine {
           for (final parameter in component.definition.parameters)
             if (scope.value(parameter.name) case final value?) parameter.name: value,
         };
-        final context = AIUIComponentContext(
+        final ui = AIUIComponentContext(
           messageId: reply.messageId,
           isStreaming: isStreaming,
           host: _host,
@@ -242,14 +251,66 @@ final class A2UIEngine extends AIUIEngine {
                 format: AIUIFormat.a2ui,
                 name: event,
                 label: label,
-                payload: {...payload, _componentKey: component.name},
+                payload: {
+                  ...payload,
+                  _componentKey: component.name,
+                  _surfaceIdKey: a2uiSurfaceIdOf(scope),
+                  _sourceComponentIdKey: scope.id,
+                },
               ),
             );
           },
         );
-        return component.view(arguments, context) ?? const SizedBox.shrink();
+        final Object? read;
+        try {
+          read = component.readArguments(AIUIArguments(arguments));
+        } on FormatException catch (error) {
+          if (!isStreaming) {
+            a2uiReportOnce(
+              scope,
+              'arguments: ${error.message}',
+              "Its values don't fit the parameters of the app's component '${component.name}' (${error.message}).",
+            );
+          }
+          return const SizedBox.shrink();
+        } on Object catch (error, stack) {
+          _reportAppComponentError(scope, component, error, stack, 'reading the arguments of');
+          return const SizedBox.shrink();
+        }
+        return AIUIEntrance(
+          child: Builder(
+            builder: (context) {
+              try {
+                return component.build(context, read, ui);
+              } on Object catch (error, stack) {
+                _reportAppComponentError(scope, component, error, stack, 'building');
+                return const SizedBox.shrink();
+              }
+            },
+          ),
+        );
       },
     );
+  }
+
+  // Reports [error], which the app's [component] threw while [doing] what
+  // [scope] places, to [FlutterError.onError] and through `onError`.
+  static void _reportAppComponentError(
+    A2UIComponentScope scope,
+    AIUIComponent<Object?> component,
+    Object error,
+    StackTrace stack,
+    String doing,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'stream_chat_flutter_ai_a2ui',
+        context: ErrorDescription("while $doing the app's component '${component.name}'"),
+      ),
+    );
+    a2uiReportBuildError(scope, error);
   }
 
   static void _debugReportLeftOut(String message) {

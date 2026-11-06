@@ -130,13 +130,40 @@ void main() {
     expect(find.textContaining('Place:'), findsNothing);
   });
 
-  testWidgets("once the reply is finished, a component whose values don't fit is reported", (tester) async {
+  testWidgets("once the reply is finished, a component whose values don't fit is reported to onError", (
+    tester,
+  ) async {
+    final harness = await _pumpReply(tester, [_placeCard(title: 42)]);
+
+    final (error, messageId) = harness.errors.single;
+    expect((error.code, error.surfaceId, messageId), (A2UIErrorCode.validationFailed, 's', 'm1'));
+    expect(error.message, contains('place_card'));
+    expect(find.textContaining('Place:'), findsNothing);
+  });
+
+  testWidgets('an error the component throws reading its values is reported to onError', (tester) async {
     final reports = _captureReports();
 
-    await _pumpReply(tester, [_placeCard(title: 42)]);
+    final harness = await _pumpReply(tester, [_placeCard()], components: const [_Throwing(inRead: true)]);
+    await tester.pump();
 
-    expect(reports.stop().single, contains('place_card'));
-    expect(find.textContaining('Place:'), findsNothing);
+    expect(reports.stop(), isNotEmpty);
+    final (error, messageId) = harness.errors.single;
+    expect((error.code, error.surfaceId, messageId), (A2UIErrorCode.executionError, 's', 'm1'));
+    expect(error.message, contains('read failed'));
+  });
+
+  testWidgets('an error the component throws building its widget is reported to onError', (tester) async {
+    final reports = _captureReports();
+
+    final harness = await _pumpReply(tester, [_placeCard()], components: const [_Throwing(inRead: false)]);
+    await tester.pump();
+
+    expect(reports.stop(), isNotEmpty);
+    final (error, _) = harness.errors.single;
+    expect((error.code, error.surfaceId), (A2UIErrorCode.executionError, 's'));
+    expect(error.message, contains('build failed'));
+    expect(find.byType(ErrorWidget), findsNothing);
   });
 
   testWidgets('a component without a value its definition requires is reported to onError', (tester) async {
@@ -317,12 +344,19 @@ void main() {
     expect(harness.actions.single.label, 'Tell me about St. Naum');
   });
 
-  testWidgets("the action's payload is the component's, with the component's name", (tester) async {
+  testWidgets("the action's payload is the component's, with the component's name, surface and id", (
+    tester,
+  ) async {
     final harness = await _pumpReply(tester, [_placeCard()]);
 
     await tester.tap(find.text('Ask'));
 
-    expect(harness.actions.single.payload, {'title': 'St. Naum', 'component': 'place_card'});
+    expect(harness.actions.single.payload, {
+      'title': 'St. Naum',
+      'component': 'place_card',
+      'surfaceId': 's',
+      'sourceComponentId': 'root',
+    });
   });
 
   testWidgets("a payload entry named component is replaced by the component's name", (tester) async {
@@ -622,4 +656,20 @@ final class _ContextKeeper extends AIUIComponent<Object?> {
     contexts.add(ui);
     return const SizedBox.shrink();
   }
+}
+
+// A `place_card` that throws reading its values, or building its widget.
+final class _Throwing extends AIUIComponent<Object?> {
+  const _Throwing({required this.inRead});
+
+  final bool inRead;
+
+  @override
+  AIUIComponentDefinition get definition => const _PlaceCard().definition;
+
+  @override
+  Object? readArguments(AIUIArguments arguments) => inRead ? throw StateError('read failed') : null;
+
+  @override
+  Widget build(BuildContext context, Object? arguments, AIUIComponentContext ui) => throw StateError('build failed');
 }

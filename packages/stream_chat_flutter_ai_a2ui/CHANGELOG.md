@@ -13,7 +13,8 @@
   while an action runs as an execution error, and a call whose surface is deleted before it's answered isn't reported.
 - `A2UIRenderer` places the app's components (`AIUIHost.components`) in A2UI replies: the agent names one in
   PascalCase, such as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the
-  component.
+  component, its surface and its id. Values that don't fit a finished reply, and errors the component throws, are
+  reported through `onError`.
 - `A2UICatalog.basic` draws `Video`, with its poster until it plays, and `AudioPlayer`, with its description. Neither
   plays until the person taps play.
 
