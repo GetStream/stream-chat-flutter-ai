@@ -228,9 +228,6 @@
 
 🔄 Changed
 
-- A line chart no longer shows a value tooltip on touch, like every other chart kind; its values are
-  read through the chart's semantics.
-
 - A pie starts its first slice at the top and is solid, filling its plot. It used to start at the right
   and leave a hole in the middle that grew with the chart's height; `USpec.donut` draws a ring now,
   and a Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.

@@ -32,6 +32,21 @@ void main() {
     expect(line.spots.length, greaterThan(3));
   });
 
+  testWidgets('a straight or stepped line keeps its value tooltip, which a natural one drops', (tester) async {
+    bool touchable(USpecCurve curve) => tester.widget<LineChart>(find.byType(LineChart)).data.lineTouchData.enabled;
+
+    for (final (curve, expected) in [(USpecCurve.linear, true), (USpecCurve.step, true), (USpecCurve.natural, false)]) {
+      await tester.pumpWidget(
+        _wrap(
+          ChartView(
+            spec: USpec(kind: USpecKind.line, curve: curve, series: _visits),
+          ),
+        ),
+      );
+      expect(touchable(curve), expected, reason: '$curve');
+    }
+  });
+
   testWidgets('a step line steps halfway between points', (tester) async {
     const spec = USpec(kind: USpecKind.line, curve: USpecCurve.step, series: _visits);
 

@@ -288,9 +288,8 @@ class ChartView extends StatelessWidget {
         borderData: FlBorderData(show: false),
         minY: spec.beginAtZeroY ? 0 : null,
         // A curved line carries samples between its points, which a touch
-        // would report as values; like every other kind, the chart is read
-        // through its semantics instead.
-        lineTouchData: const LineTouchData(enabled: false),
+        // would report as values, so only straight and stepped lines show one.
+        lineTouchData: LineTouchData(enabled: !curved),
       ),
     );
   }
