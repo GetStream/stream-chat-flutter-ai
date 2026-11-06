@@ -189,6 +189,34 @@ void main() {
       );
     });
 
+    for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {
+      testWidgets("draws the bar in the theme's subtle fill, outlined, in $name mode", (tester) async {
+        final theme = OpenUIThemeData.defaults(stream);
+        final runtime = testRuntime(library: _standard);
+        addTearDown(runtime.dispose);
+        await pumpOpenUI(tester, runtime, program: program, library: _standard, stream: stream);
+        await tester.pump();
+
+        BoxDecoration decorationOf(String label, int index) =>
+            tester
+                    .widget<DecoratedBox>(
+                      find.ancestor(of: find.text(label), matching: find.byType(DecoratedBox)).at(index),
+                    )
+                    .decoration
+                as BoxDecoration;
+
+        // The pill of the selected tab, then the bar around all the tabs.
+        final pill = decorationOf('One', 0);
+        final bar = decorationOf('One', 1);
+        expect(bar.color, theme.subtleFill);
+        expect(bar.border, Border.all(color: theme.border!));
+        expect(pill.color, theme.surface);
+        expect(pill.border, Border.all(color: theme.border!));
+        expect(decorationOf('Two', 0).color, isNull);
+        expect(bar.color, isNot(theme.sunkenSurface));
+      });
+    }
+
     testWidgets('follows the tab that grows while streaming, until one is tapped', (tester) async {
       final (runtime, _) = await _pump(
         tester,

@@ -267,7 +267,8 @@ class _OpenUITabsState extends State<_OpenUITabs> {
             scrollDirection: Axis.horizontal,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: colors.sunkenSurface,
+                color: colors.subtleFill,
+                border: Border.all(color: colors.border!),
                 borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
               ),
               child: Padding(
@@ -286,6 +287,7 @@ class _OpenUITabsState extends State<_OpenUITabs> {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: item == active ? colors.surface : null,
+                            border: item == active ? Border.all(color: colors.border!) : null,
                             borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
                           ),
                           child: Padding(
