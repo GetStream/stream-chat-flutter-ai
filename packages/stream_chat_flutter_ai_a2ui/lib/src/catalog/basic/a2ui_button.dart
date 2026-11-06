@@ -43,32 +43,57 @@ Widget buildA2UIButton(BuildContext context, A2UIComponentScope scope) {
     'borderless' => (StreamButtonStyle.primary, StreamButtonType.ghost, _linkStyle),
     _ => (StreamButtonStyle.secondary, StreamButtonType.solid, _growingStyle),
   };
+  final onPressed = isEnabled ? handleTap : null;
+  // An icon the agent labels is an icon button, read by its tooltip. It keeps
+  // the design system's size and round shape for icon buttons.
+  final Widget button;
+  if ((child, accessibility.label) case (final child?, final label?) when a2uiTypeOf(child) == 'Icon') {
+    button = _withDescription(
+      accessibility.description,
+      child: StreamButton.icon(
+        onPressed: onPressed,
+        style: style,
+        type: type,
+        tooltip: label,
+        // The tooltip is what the button is read as, not the icon's name.
+        icon: ExcludeSemantics(
+          child: A2UIModalOpener(onOpen: null, child: scope.build(child)),
+        ),
+      ),
+    );
+  } else {
+    button = _withAccessibility(
+      accessibility,
+      onTap: onPressed,
+      child: StreamButton(
+        onPressed: onPressed,
+        style: style,
+        type: type,
+        themeStyle: themeStyle,
+        // What the button holds doesn't open the modal again.
+        child: A2UIModalOpener(onOpen: null, child: child == null ? const SizedBox.shrink() : scope.build(child)),
+      ),
+    );
+  }
   return Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _withAccessibility(
-        accessibility,
-        onTap: isEnabled ? handleTap : null,
-        child: StreamButton(
-          onPressed: isEnabled ? handleTap : null,
-          style: style,
-          type: type,
-          themeStyle: themeStyle,
-          // What the button holds doesn't open the modal again.
-          child: A2UIModalOpener(onOpen: null, child: child == null ? const SizedBox.shrink() : scope.build(child)),
-        ),
-      ),
+      button,
       A2UIValidationMessages(failures: failures, theme: theme),
     ],
   );
 }
 
-// TODO(FLU-1232): Drop this wrapper once `StreamButton` has a `semanticLabel` in
-// stream_core_flutter, and pass the agent's label to it.
+// TODO(FLU-1232): Drop this wrapper once `StreamButton` has a `semanticLabel`
+// and a semantic hint in stream_core_flutter, and pass the agent's label and
+// description to it.
 //
 // The button, read with the agent's accessibility label in place of its
-// child's text, and with its description as a hint.
+// child's text, and with its description as a hint. A button of text is read
+// by its text, and an icon button the agent labels by its tooltip, so the
+// wrapper is only there for a label on another child, such as an image, and
+// for a description.
 Widget _withAccessibility(
   ({String? label, String? description}) accessibility, {
   required VoidCallback? onTap,
@@ -86,12 +111,15 @@ Widget _withAccessibility(
       child: child,
     );
   }
-  if (accessibility.description case final description?) {
-    return MergeSemantics(
-      child: Semantics(hint: description, child: child),
-    );
-  }
-  return child;
+  return _withDescription(accessibility.description, child: child);
+}
+
+// The button, read with [description] as a hint, if there is one.
+Widget _withDescription(String? description, {required Widget child}) {
+  if (description == null) return child;
+  return MergeSemantics(
+    child: Semantics(hint: description, child: child),
+  );
 }
 
 // A button style with no fixed size, so the button is as tall as its child
