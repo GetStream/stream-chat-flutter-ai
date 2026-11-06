@@ -9,10 +9,14 @@ below, comes in a later version.
 
 ## The look
 
-A reply's A2UI is drawn with an `A2UITheme` made from the app's Stream design system. A custom theme starts from it:
+A reply's A2UI is drawn with the app's Stream design system, so it follows light and dark mode. An `A2UITheme` overrides
+any of its values; the ones it leaves unset still come from the Stream theme:
 
 ```dart
-final theme = A2UITheme.fromStream(StreamTheme.of(context)).copyWith(cornerRadius: 8);
+A2UITheme(
+  data: A2UIThemeData(accent: const Color(0xFFE65100), cornerRadius: 8),
+  child: child,
+);
 ```
 
 ## The components

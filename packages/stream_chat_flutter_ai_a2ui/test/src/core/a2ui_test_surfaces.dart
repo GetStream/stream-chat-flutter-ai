@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:a2ui_core/a2ui_core.dart' as core;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
@@ -94,4 +95,27 @@ A2UISurface planSurface({
 // The child with [id] of the root of [surface].
 A2UINode rootChild(A2UISurface surface, String id) {
   return surface.root!.children('children').singleWhere((node) => node.id == id);
+}
+
+// A core whose first message fails as a fault of its own would, rather than as
+// an A2UI error, and which keeps sending actions after it is disposed.
+final class FaultyCore extends core.MessageProcessor<core.ComponentApi> {
+  FaultyCore(
+    List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> catalogs,
+    void Function(core.A2uiRendererAction action) onAction,
+  ) : super(catalogs: catalogs, onAction: onAction);
+
+  bool _failed = false;
+
+  @override
+  void processMessages(Object? payload, {bool isUserActivated = false}) {
+    if (!_failed) {
+      _failed = true;
+      throw StateError('core fault');
+    }
+    super.processMessages(payload, isUserActivated: isUserActivated);
+  }
+
+  @override
+  void dispose() {}
 }

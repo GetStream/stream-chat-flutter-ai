@@ -5,7 +5,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
-/// Builds a `CheckBox`: a box, checked in [A2UITheme.accent] while its
+/// Builds a `CheckBox`: a box, checked in [A2UIThemeData.accent] while its
 /// `value` is true, beside its `label`; a tap writes the other value.
 ///
 /// One whose `value` isn't bound to the data model shows fainter, and a tap

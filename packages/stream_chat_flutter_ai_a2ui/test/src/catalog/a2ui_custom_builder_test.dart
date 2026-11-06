@@ -9,8 +9,8 @@ import '../a2ui_test_app.dart';
 // happens when it throws.
 void main() {
   testWidgets("a builder reads the surface's theme", (tester) async {
-    final theme = lightTheme().copyWith(cornerRadius: 3);
-    A2UITheme? read;
+    final theme = A2UIThemeData(cornerRadius: 3);
+    A2UIThemeData? read;
     await pumpSurface(
       tester,
       components: [_card],
