@@ -23,10 +23,14 @@ void main() {
     expect(const A2UIRenderer().format, AIUIFormat.a2ui);
   });
 
-  test('A2UIRenderer tells the backend its fence and the app catalog id, and nothing else', () {
+  test('A2UIRenderer tells the backend its fence, the app catalog id and the instructions, and nothing else', () {
     final capabilities = const A2UIRenderer().capabilities(const [], const []);
 
-    expect(capabilities, {'fence': 'ui:a2ui@1.0', 'catalog_id': 'getstream.io:app-catalog'});
+    expect(capabilities, {
+      'fence': 'ui:a2ui@1.0',
+      'catalog_id': 'getstream.io:app-catalog',
+      'instructions': startsWith('## Writing UI in A2UI'),
+    });
   });
 
   test('A2UIRenderer tells the backend the catalog id it was given', () {
@@ -40,7 +44,12 @@ void main() {
     addTearDown(host.dispose);
 
     expect(host.capabilities['renderers'], [
-      {'fence': 'ui:a2ui@1.0', 'catalog_id': 'getstream.io:app-catalog', 'format': 'a2ui'},
+      {
+        'fence': 'ui:a2ui@1.0',
+        'catalog_id': 'getstream.io:app-catalog',
+        'instructions': const A2UIRenderer().capabilities(const [], const [])['instructions'],
+        'format': 'a2ui',
+      },
     ]);
   });
 

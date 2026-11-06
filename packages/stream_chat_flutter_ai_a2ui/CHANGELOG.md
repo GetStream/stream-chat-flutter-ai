@@ -15,6 +15,9 @@
 - `A2UIRenderer` places the app's components (`AIUIHost.components`) in A2UI replies: the agent names one in
   PascalCase, such as `PlaceCard` for `place_card`, and its events are sent as actions whose payload names the
   component.
+- `A2UIRenderer.instructions` and the `instructions` of its `capabilities`: what the agent's model needs to write
+  A2UI with the app's catalog, its components and the host's tools, after the app's own instructions. A component
+  taken out with `A2UICatalog.removing` is left out of it, and reported as unknown when the agent writes it anyway.
 - A2UI's buttons, check boxes, fields, images and sheets are drawn with Stream's design system, styled with the
   renderer's `A2UITheme`; an app's component themes apply to them, and its `StreamComponentFactory` builders for
   buttons, check boxes, text inputs and network images draw them. Date inputs and search fields are outlined as text
