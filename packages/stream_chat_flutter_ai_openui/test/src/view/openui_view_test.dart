@@ -100,12 +100,12 @@ void main() {
       try {
         final runtime = testRuntime();
         addTearDown(runtime.dispose);
-        await pumpOpenUI(tester, runtime, program: 'root = Card([Table([]), Table([]), CodeBlock("dart", "x")])');
-        runtime.update('root = Card([Table([]), CodeBlock("dart", "x"), TextContent("x")])', isStreaming: false);
+        await pumpOpenUI(tester, runtime, program: 'root = Card([Table([]), Table([]), Accordion([])])');
+        runtime.update('root = Card([Table([]), Accordion([]), TextContent("x")])', isStreaming: false);
         await tester.pump();
 
         expect(logs.where((log) => log.contains("'Table'")), hasLength(1));
-        expect(logs.where((log) => log.contains("'CodeBlock'")), hasLength(1));
+        expect(logs.where((log) => log.contains("'Accordion'")), hasLength(1));
         expect(logs, hasLength(2));
 
         final other = testRuntime();

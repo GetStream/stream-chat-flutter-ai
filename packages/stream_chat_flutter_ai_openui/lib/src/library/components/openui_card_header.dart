@@ -2,9 +2,12 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 
-/// Builds a `CardHeader`: its `title` above its `subtitle`, each shown only
-/// when it isn't empty, read together as one heading.
+/// Builds a `CardHeader`: its `title` above its `subtitle`, each as inline
+/// Markdown, shown only when it isn't empty, read together as one heading.
+///
+/// Links in them open through the view.
 ///
 /// Internal to the package.
 @internal
@@ -21,9 +24,9 @@ Widget buildOpenUICardHeader(BuildContext context, OpenUIComponentScope scope) {
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: theme.spacing!.xs!,
         children: [
-          if (title.isNotEmpty) Text(title, style: theme.textStyles!.title!.copyWith(color: theme.colors!.textPrimary)),
+          if (title.isNotEmpty) OpenUIMarkdownText(data: title, style: theme.textStyles!.title),
           if (subtitle.isNotEmpty)
-            Text(subtitle, style: theme.textStyles!.bodySmall!.copyWith(color: theme.colors!.textSecondary)),
+            OpenUIMarkdownText(data: subtitle, style: theme.textStyles!.bodySmall, color: theme.colors!.textSecondary),
         ],
       ),
     ),

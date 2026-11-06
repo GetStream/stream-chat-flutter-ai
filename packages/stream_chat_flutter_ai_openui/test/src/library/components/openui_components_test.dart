@@ -34,13 +34,13 @@ void main() {
         addTearDown(runtime.dispose);
         await pumpOpenUI(tester, runtime, stream: stream, program: 'root = Card([CardHeader("Title", "Sub")])');
 
-        final title = tester.widget<Text>(find.text('Title'));
-        expect(title.style!.color, theme.colors!.textPrimary);
-        expect(title.style!.fontSize, theme.textStyles!.title!.fontSize);
-        expect(title.style!.fontWeight, theme.textStyles!.title!.fontWeight);
-        final subtitle = tester.widget<Text>(find.text('Sub'));
-        expect(subtitle.style!.color, theme.colors!.textSecondary);
-        expect(subtitle.style!.fontSize, theme.textStyles!.bodySmall!.fontSize);
+        final title = _styleOf(tester, 'Title');
+        expect(title.color, theme.colors!.textPrimary);
+        expect(title.fontSize, theme.textStyles!.title!.fontSize);
+        expect(title.fontWeight, theme.textStyles!.title!.fontWeight);
+        final subtitle = _styleOf(tester, 'Sub');
+        expect(subtitle.color, theme.colors!.textSecondary);
+        expect(subtitle.fontSize, theme.textStyles!.bodySmall!.fontSize);
         final gap = tester.getTopLeft(find.text('Sub')).dy - tester.getBottomLeft(find.text('Title')).dy;
         expect(gap, theme.spacing!.xs);
       });
@@ -69,7 +69,7 @@ void main() {
     await pumpOpenUI(tester, runtime, theme: theme, program: 'root = Card([CardHeader("T"), TextContent("Hi")])');
 
     expect((tester.widget<DecoratedBox>(find.byType(DecoratedBox).first).decoration as BoxDecoration).color, teal);
-    expect(tester.widget<Text>(find.text('T')).style!.color, teal);
+    expect(_styleOf(tester, 'T').color, teal);
     expect(_styleOf(tester, 'Hi').color, teal);
     expect(_styleOf(tester, 'Hi').fontSize, 23);
   });
@@ -80,10 +80,10 @@ void main() {
       addTearDown(runtime.dispose);
       await pumpOpenUI(tester, runtime, program: 'root = Card([CardHeader("", "Only")])');
 
-      expect(find.byType(Text), findsOneWidget);
+      expect(find.byType(AIMarkdownBody), findsOneWidget);
       runtime.update('root = Card([CardHeader("", "")])', isStreaming: false);
       await tester.pump();
-      expect(find.byType(Text), findsNothing);
+      expect(find.byType(AIMarkdownBody), findsNothing);
       expect(find.byType(MergeSemantics), findsNothing);
     });
   });

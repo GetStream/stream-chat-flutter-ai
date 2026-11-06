@@ -170,6 +170,34 @@ final class _NodeScope extends OpenUIComponentScope {
   };
 
   @override
+  StateField stateField(String name) => _view.runtime.stateField(name, binding: _prop(name));
+
+  @override
+  Widget watchState(WidgetBuilder builder) {
+    return ValueListenableBuilder(valueListenable: _view.runtime.state, builder: (context, _, _) => builder(context));
+  }
+
+  @override
+  List<ElementNode> elements(String name) => [
+    for (final item in _items(name))
+      if (item case OpenUIElement(:final node)) node,
+  ];
+
+  @override
+  ElementNode? elementField(String name, String field) {
+    if (_prop(name) case OpenUIObject(:final fields) when fields[field] is OpenUIElement) {
+      return (fields[field]! as OpenUIElement).node;
+    }
+    return null;
+  }
+
+  @override
+  OpenUIComponentScope scopeOf(ElementNode node) => _NodeScope(node, _view);
+
+  @override
+  Widget buildNode(ElementNode node) => OpenUINodeView(node: node);
+
+  @override
   Widget buildProp(String name) => _OpenUIValueView(_prop(name));
 
   @override
