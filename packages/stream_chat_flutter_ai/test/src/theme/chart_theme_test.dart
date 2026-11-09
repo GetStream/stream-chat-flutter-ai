@@ -30,6 +30,8 @@ void main() {
         legendTextStyle: TextStyle(fontSize: 14),
         showPiePercentages: true,
         piePercentageThreshold: 0.1,
+        donutHoleRatio: 0.5,
+        radialTrackColor: Color(0xFF666666),
       );
 
       /// One per field: how to set it to a second value, and how to read it.
@@ -150,13 +152,25 @@ void main() {
               copied: () => base.copyWith(piePercentageThreshold: 0.99),
               read: (t) => t.piePercentageThreshold,
             ),
+            (
+              name: 'donutHoleRatio',
+              only: const ChartThemeData(donutHoleRatio: 0.85),
+              copied: () => base.copyWith(donutHoleRatio: 0.85),
+              read: (t) => t.donutHoleRatio,
+            ),
+            (
+              name: 'radialTrackColor',
+              only: const ChartThemeData(radialTrackColor: Color(0xFF777777)),
+              copied: () => base.copyWith(radialTrackColor: const Color(0xFF777777)),
+              read: (t) => t.radialTrackColor,
+            ),
           ];
 
       test('the table covers every field the class declares', () {
         // Guards the loop itself: add a field without a row here and this
         // fails rather than silently leaving the new field untested.
-        expect(fields, hasLength(18));
-        expect(fields.map((f) => f.name).toSet(), hasLength(18));
+        expect(fields, hasLength(20));
+        expect(fields.map((f) => f.name).toSet(), hasLength(20));
       });
 
       for (final field in fields) {
@@ -207,6 +221,26 @@ void main() {
       expect(() => ChartThemeData(piePercentageThreshold: threshold(double.nan)), throwsAssertionError);
       expect(() => ChartThemeData(piePercentageThreshold: threshold(double.infinity)), throwsAssertionError);
       expect(ChartThemeData(piePercentageThreshold: threshold(1)).piePercentageThreshold, 1);
+    });
+
+    test('debugFillProperties lists the donut hole and radial track', () {
+      const theme = ChartThemeData(donutHoleRatio: 0.4, radialTrackColor: Color(0xFF123456));
+      final builder = DiagnosticPropertiesBuilder();
+      theme.debugFillProperties(builder);
+      final described = {for (final p in builder.properties) p.name: p.toDescription()};
+
+      expect(described['donutHoleRatio'], '0.4');
+      expect(described['radialTrackColor'], const Color(0xFF123456).toString());
+    });
+
+    test('asserts the donut hole ratio is a share from 0 to 0.9, leaving a ring to draw', () {
+      // Not const: a const constructor's assert fails at compile time instead.
+      double ratio(double v) => v;
+      expect(() => ChartThemeData(donutHoleRatio: ratio(1)), throwsAssertionError);
+      expect(() => ChartThemeData(donutHoleRatio: ratio(0.91)), throwsAssertionError);
+      expect(() => ChartThemeData(donutHoleRatio: ratio(-0.1)), throwsAssertionError);
+      expect(() => ChartThemeData(donutHoleRatio: ratio(double.nan)), throwsAssertionError);
+      expect(ChartThemeData(donutHoleRatio: ratio(0.9)).donutHoleRatio, 0.9);
     });
 
     group('merge', () {
@@ -331,6 +365,31 @@ void main() {
 
         expect(ChartThemeData.lerp(a, b, 2).piePercentageThreshold, 1);
         expect(ChartThemeData.lerp(a, b, -1).piePercentageThreshold, 0);
+      });
+
+      test('interpolates the donut hole ratio', () {
+        const a = ChartThemeData(donutHoleRatio: 0.2);
+        const b = ChartThemeData(donutHoleRatio: 0.6);
+
+        expect(ChartThemeData.lerp(a, b, 0.5).donutHoleRatio, closeTo(0.4, 1e-9));
+      });
+
+      test('keeps the donut hole ratio in range when a curve overshoots', () {
+        const a = ChartThemeData(donutHoleRatio: 0);
+        const b = ChartThemeData(donutHoleRatio: 0.9);
+
+        expect(ChartThemeData.lerp(a, b, 2).donutHoleRatio, 0.9);
+        expect(ChartThemeData.lerp(a, b, -1).donutHoleRatio, 0);
+      });
+
+      test('interpolates the radial track color', () {
+        const a = ChartThemeData(radialTrackColor: Color(0xFF000000));
+        const b = ChartThemeData(radialTrackColor: Color(0xFFFFFFFF));
+
+        expect(
+          ChartThemeData.lerp(a, b, 0.5).radialTrackColor,
+          Color.lerp(const Color(0xFF000000), const Color(0xFFFFFFFF), 0.5),
+        );
       });
 
       test('with identical themes returns the first', () {
