@@ -1,0 +1,674 @@
+[
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "20:00:00",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "04:00:00",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2026-01-01",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "01:59:59",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 1790888400,
+    "input" : "2026-10-02",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 946746000,
+    "input" : "19:00:00",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 946746000,
+    "input" : "19:00",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 1790956800,
+    "input" : "2026-10-02T19:00:00",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 1790967600,
+    "input" : "2026-10-02T19:00:00Z",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 1790960400,
+    "input" : "2026-10-02T19:00:00+02:00",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 1790947800.1229999,
+    "input" : "2026-10-02T19:00:00.123+05:30",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : 1790956800,
+    "input" : "2026-10-02 19:00",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-02-30",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : null,
+    "input" : "",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : null,
+    "input" : "garbage",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-10-02T19:00",
+    "kind" : "parse",
+    "zone" : "Europe\/Sofia"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "13:00:00",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-28",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "21:00:00",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "18:59:59",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 1790913600,
+    "input" : "2026-10-02",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 946771200,
+    "input" : "19:00:00",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 946771200,
+    "input" : "19:00",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 1790982000,
+    "input" : "2026-10-02T19:00:00",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 1790967600,
+    "input" : "2026-10-02T19:00:00Z",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 1790960400,
+    "input" : "2026-10-02T19:00:00+02:00",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 1790947800.1229999,
+    "input" : "2026-10-02T19:00:00.123+05:30",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : 1790982000,
+    "input" : "2026-10-02 19:00",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-02-30",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : null,
+    "input" : "",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : null,
+    "input" : "garbage",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-10-02T19:00",
+    "kind" : "parse",
+    "zone" : "America\/New_York"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "17:00:00",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "01:00:00",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "23:59:59",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 1790899200,
+    "input" : "2026-10-02",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 946753200,
+    "input" : "19:00:00",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 946753200,
+    "input" : "19:00",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 1790967600,
+    "input" : "2026-10-02T19:00:00",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 1790967600,
+    "input" : "2026-10-02T19:00:00Z",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 1790960400,
+    "input" : "2026-10-02T19:00:00+02:00",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 1790947800.1229999,
+    "input" : "2026-10-02T19:00:00.123+05:30",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : 1790967600,
+    "input" : "2026-10-02 19:00",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-02-30",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : null,
+    "input" : "",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : null,
+    "input" : "garbage",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-10-02T19:00",
+    "kind" : "parse",
+    "zone" : "UTC"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "22:30:00",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1790960400,
+    "kind" : "format",
+    "value" : "2026-10-02T17:00:00Z",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "06:30:00",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1774746000,
+    "kind" : "format",
+    "value" : "2026-03-29T01:00:00Z",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2026-01-01",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "05:29:59",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : true,
+    "enableTime" : true,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "enableDate" : false,
+    "enableTime" : false,
+    "epoch" : 1767225599,
+    "kind" : "format",
+    "value" : "2025-12-31T23:59:59Z",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 1790879400,
+    "input" : "2026-10-02",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 946733400,
+    "input" : "19:00:00",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 946733400,
+    "input" : "19:00",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 1790947800,
+    "input" : "2026-10-02T19:00:00",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 1790967600,
+    "input" : "2026-10-02T19:00:00Z",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 1790960400,
+    "input" : "2026-10-02T19:00:00+02:00",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 1790947800.1229999,
+    "input" : "2026-10-02T19:00:00.123+05:30",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : 1790947800,
+    "input" : "2026-10-02 19:00",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-02-30",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : null,
+    "input" : "",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : null,
+    "input" : "garbage",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  },
+  {
+    "epoch" : null,
+    "input" : "2026-10-02T19:00",
+    "kind" : "parse",
+    "zone" : "Asia\/Kolkata"
+  }
+]
