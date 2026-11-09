@@ -18,7 +18,11 @@ import 'package:stream_core_flutter/core.dart';
 /// `number` for a number keyboard, `obscured` for a secret such as a
 /// password, whose text is hidden on screen and never suggested or
 /// corrected, and `shortText`, the default, for one line. The field shows its
-/// `placeholder`, or else its label, while it is empty.
+/// `placeholder` while it is empty, and an `obscured` one its label when it has
+/// no placeholder.
+///
+/// The field is read as the design system reads it: by its label, with its
+/// placeholder as a hint.
 ///
 /// While the person types, the field keeps what they typed; a change from
 /// elsewhere, such as from the agent, replaces it once the field isn't being
@@ -87,33 +91,30 @@ class _A2UITextFieldState extends State<_A2UITextField> {
     final label = scope.string('label') ?? '';
     final placeholder = scope.string('placeholder');
     final variant = scope.hint('variant');
-    final accessibility = a2uiAccessibilityOf(scope);
     final failures = _controller.text.isEmpty ? const <A2UICheckFailure>[] : a2uiCheckFailuresOf(scope);
     final hasError = a2uiBlocks(failures);
     final isObscured = variant == 'obscured';
     final isLong = variant == 'longText';
     final canEdit = a2uiCanEdit(scope);
     final hint = placeholder ?? (label.isEmpty ? null : label);
-    final semanticLabel = accessibility.label ?? label;
+    final labelStyle = theme.label.copyWith(color: hasError ? theme.error : theme.secondaryText);
     return A2UIInputWidth(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (label.isNotEmpty)
+          // The design system's field shows its own label, and is read by it.
+          if (isObscured && label.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: _labelSpacing),
-              child: ExcludeSemantics(
-                child: Text(label, style: theme.label.copyWith(color: hasError ? theme.error : theme.secondaryText)),
-              ),
+              child: ExcludeSemantics(child: Text(label, style: labelStyle)),
             ),
           Opacity(
             opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
             child: isObscured
                 ? MergeSemantics(
                     child: Semantics(
-                      label: semanticLabel,
-                      hint: accessibility.description,
+                      label: label,
                       child: _buildObscured(
                         context,
                         hint: hint,
@@ -123,17 +124,18 @@ class _A2UITextFieldState extends State<_A2UITextField> {
                       ),
                     ),
                   )
-                : _buildInput(
-                    context,
-                    label: semanticLabel,
-                    hint: [?accessibility.description, ?placeholder].join('\n'),
-                    canEdit: canEdit,
+                // The field needs a Material around it, which a surface may
+                // not have.
+                : Material(
+                    type: MaterialType.transparency,
                     child: StreamTextInput(
                       controller: _controller,
+                      labelText: label.isEmpty ? null : label,
+                      style: StreamTextInputStyle(labelStyle: labelStyle),
                       focusNode: _focusNode,
                       onChanged: _handleChange,
                       readOnly: !canEdit,
-                      hintText: hint,
+                      hintText: placeholder,
                       helperState: hasError ? StreamHelperState.error : null,
                       autocorrect: true,
                       // Whatever the person types is kept as typed.
@@ -152,42 +154,6 @@ class _A2UITextFieldState extends State<_A2UITextField> {
           ),
           A2UIValidationMessages(failures: failures, theme: theme),
         ],
-      ),
-    );
-  }
-
-  // TODO(FLU-1232): Drop this wrapper once `StreamTextInput` has a `semanticLabel` in
-  // stream_core_flutter, and pass the agent's label to it.
-  //
-  // The field, read as one text field with [label] and [hint]. The field
-  // shows its label as its hint while it has no placeholder, and that isn't
-  // read twice. A field that [canEdit] is false for is read as read-only, and
-  // can't be focused through assistive technologies.
-  Widget _buildInput(
-    BuildContext context, {
-    required String label,
-    required String hint,
-    required bool canEdit,
-    required Widget child,
-  }) {
-    return ListenableBuilder(
-      listenable: Listenable.merge([_focusNode, _controller]),
-      builder: (context, child) => Semantics(
-        container: true,
-        textField: true,
-        focusable: true,
-        focused: _focusNode.hasFocus,
-        label: label,
-        hint: hint.isEmpty ? null : hint,
-        value: _controller.text,
-        readOnly: !canEdit,
-        onTap: canEdit ? _focusNode.requestFocus : null,
-        onFocus: canEdit ? _focusNode.requestFocus : null,
-        child: child,
-      ),
-      // The field needs a Material around it, which a surface may not have.
-      child: ExcludeSemantics(
-        child: Material(type: MaterialType.transparency, child: child),
       ),
     );
   }
