@@ -37,7 +37,12 @@ Widget _flexOf(A2UIComponentScope scope, Axis axis) {
           key: ValueKey(child.key),
           listenable: a2uiListenableOf(child),
           builder: (context, _) {
-            return A2UIFlexChild(weight: child.weight, fills: a2uiFillsWidth(child), child: scope.build(child));
+            return A2UIFlexChild(
+              weight: child.weight,
+              fills: a2uiFillsWidth(child),
+              fillsHeight: axis == Axis.horizontal && a2uiFillsHeight(child),
+              child: scope.build(child),
+            );
           },
         ),
     ],
@@ -174,7 +179,16 @@ class A2UIFlexChild extends ParentDataWidget<_A2UIFlexParentData> {
   /// A child that [fills] the width it is given, such as a text field, takes
   /// a share of the free space of a row with a width as if its weight were 1
   /// when it has no weight of its own.
-  const A2UIFlexChild({super.key, required this.weight, this.fills = false, required super.child});
+  ///
+  /// A child that [fillsHeight], such as a vertical divider, is as tall as the
+  /// row whatever the row's `align`.
+  const A2UIFlexChild({
+    super.key,
+    required this.weight,
+    this.fills = false,
+    this.fillsHeight = false,
+    required super.child,
+  });
 
   /// The child's share of the free space, or `null` when it has none.
   final double? weight;
@@ -182,13 +196,17 @@ class A2UIFlexChild extends ParentDataWidget<_A2UIFlexParentData> {
   /// Whether the child fills the width it is given.
   final bool fills;
 
+  /// Whether the child fills the height of the row it is in.
+  final bool fillsHeight;
+
   @override
   void applyParentData(RenderObject renderObject) {
     final parentData = renderObject.parentData! as _A2UIFlexParentData;
-    if (parentData.weight == weight && parentData.fills == fills) return;
+    if (parentData.weight == weight && parentData.fills == fills && parentData.fillsHeight == fillsHeight) return;
     parentData
       ..weight = weight
-      ..fills = fills;
+      ..fills = fills
+      ..fillsHeight = fillsHeight;
     renderObject.parent?.markNeedsLayout();
   }
 
@@ -239,6 +257,7 @@ class A2UIFlex extends MultiChildRenderObjectWidget {
 class _A2UIFlexParentData extends ContainerBoxParentData<RenderBox> {
   double? weight;
   bool fills = false;
+  bool fillsHeight = false;
 }
 
 // The layout of a `Row` or a `Column`.
@@ -426,12 +445,15 @@ class _RenderA2UIFlex extends RenderBox
     );
     for (var index = 0; index < children.length; index += 1) {
       final child = children[index];
-      final childCross = stretches ? arrangement.crossLength : _cross(arrangement.sizes[index]);
+      final fillsCross = (child.parentData! as _A2UIFlexParentData).fillsHeight;
+      final childCross = stretches || fillsCross ? arrangement.crossLength : _cross(arrangement.sizes[index]);
       // A child is placed in a frame of its length and, when the children
       // stretch, of the cross length: one that takes its own size, such as an
       // image, keeps it, and one that fills, such as a vertical divider,
-      // fills the frame. It is laid out again with the length it was measured
-      // with, as text given only its measured width can wrap differently.
+      // fills the frame. A vertical divider gets the row's height whatever
+      // the row's `align`, as it has no height of its own. It is laid out
+      // again with the length it was measured with, as text given only its
+      // measured width can wrap differently.
       child.layout(_constraints(maxMain: arrangement.maxLengths[index], maxCross: childCross), parentUsesSize: true);
       final crossOffset = switch (_align) {
         'center' => (arrangement.crossLength - _cross(child.size)) / 2,

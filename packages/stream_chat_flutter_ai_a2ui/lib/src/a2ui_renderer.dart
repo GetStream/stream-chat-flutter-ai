@@ -4,8 +4,10 @@ import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_versions.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_app_components.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_engine.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_instructions.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// Signature for the function that gets a problem with a reply's A2UI, with
@@ -64,6 +66,7 @@ final class A2UIRenderer extends AIUIRenderer {
   const A2UIRenderer({
     this.catalog = A2UICatalog.basic,
     this.catalogId = defaultCatalogId,
+    this.instructions,
     this.theme,
     this.mediaUrl = webUrl,
     this.onError,
@@ -89,6 +92,11 @@ final class A2UIRenderer extends AIUIRenderer {
   /// no catalog gets too.
   final String catalogId;
 
+  /// What the agent's model is told before A2UI's own instructions, such as
+  /// which answers to write as UI and when to use the app's components, or
+  /// `null` for nothing; see [capabilities].
+  final String? instructions;
+
   /// Overrides for the look of every reply's surfaces, layered over the
   /// nearest [A2UITheme], or `null` for none.
   ///
@@ -99,7 +107,7 @@ final class A2UIRenderer extends AIUIRenderer {
   /// The function that gives the URL each image, video and audio clip loads
   /// from, or `null` to not load it. By default only web links load; see
   /// [webUrl].
-  final Uri? Function(Uri url) mediaUrl;
+  final A2UIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's A2UI, with the
   /// reply's message id, or `null` to report them in debug builds only.
@@ -124,10 +132,39 @@ final class A2UIRenderer extends AIUIRenderer {
   @override
   bool supports(String? version) => A2UIVersions.supports(version);
 
-  /// The [fence] and [catalogId], under `fence` and `catalog_id`.
+  /// The [fence] and [catalogId], under `fence` and `catalog_id`, and the
+  /// instructions the agent's model needs, under `instructions`.
+  ///
+  /// The instructions are Markdown: the renderer's own [instructions] first,
+  /// then how a reply carries A2UI, the protocol, the catalog's guidelines,
+  /// the app's [tools], and the catalog as one line of JSON Schema, with the
+  /// basic components the [catalog] has a builder for and the app's
+  /// [components] the agent can place. A component taken out with
+  /// [A2UICatalog.removing] isn't in it. The same arguments always give the
+  /// same instructions.
   @override
   Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) {
-    return {'fence': fence, 'catalog_id': catalogId};
+    final placeable = a2uiPlaceableComponents(components, onLeftOut: (_) {});
+    final document = A2UICatalogs.describe(
+      catalogId: catalogId,
+      basicTypes: catalog.types,
+      appComponents: {
+        for (final (:type, :definition, component: _) in placeable)
+          type: (
+            description: a2uiComponentDescription(definition),
+            parameters: definition.parametersSchema,
+          ),
+      },
+    );
+    final prompt = A2UIInstructions(
+      catalogId: catalogId,
+      document: document,
+      fence: fence,
+      guidelines: A2UIInstructions.basicGuidelines,
+      preamble: instructions,
+      tools: [for (final tool in tools) A2UIInstructions.toolLine(tool)],
+    );
+    return {'fence': fence, 'catalog_id': catalogId, 'instructions': prompt.text};
   }
 
   /// Creates the engine that shows the A2UI replies of one conversation.

@@ -3,7 +3,7 @@ homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: A2UI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in A2UI in its replies.
 repository: https://github.com/GetStream/stream-chat-flutter-ai
 issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
-# Not published yet: the package has no public API so far.
+# Not published yet.
 publish_to: none
 
 # Note: The environment configuration and dependency versions are managed by Melos.

@@ -40,6 +40,7 @@ const _expectedNames = {
   'A2UIError',
   'A2UIErrorCode',
   'A2UIErrorHandler',
+  'A2UIMediaUrl',
   'A2UIRenderer',
   'A2UITheme',
   'A2UIThemeData',

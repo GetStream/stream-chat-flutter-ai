@@ -8,8 +8,8 @@ import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 /// an audio clip from, given the URL the agent wrote, or `null` to not load
 /// it.
 ///
-/// Internal to the package.
-@internal
+/// An `A2UIRenderer` loads each image, video and audio clip of a reply from
+/// the URL its `mediaUrl` gives.
 typedef A2UIMediaUrl = Uri? Function(Uri url);
 
 /// The URL to load the media at [url] from: the URL the agent wrote, parsed,
@@ -44,16 +44,19 @@ Uri? a2uiWebMediaUrl(Uri url) {
 /// What the components of one surface are drawn with: its catalog, its theme,
 /// the function its media is loaded through and the one that opens its links.
 ///
+/// It is an [InheritedTheme], so a route built apart from the surface, such
+/// as a modal's sheet, gets it with [InheritedTheme.capture].
+///
 /// Internal to the package.
 @internal
-class A2UISurfaceScope extends InheritedWidget {
+class A2UISurfaceScope extends InheritedTheme {
   /// Creates an [A2UISurfaceScope].
   const A2UISurfaceScope({
     super.key,
     required this.catalog,
     required this.theme,
     required this.mediaUrl,
-    this.onOpenLink,
+    required this.onOpenLink,
     required super.child,
   });
 
@@ -78,6 +81,17 @@ class A2UISurfaceScope extends InheritedWidget {
     final scope = context.dependOnInheritedWidgetOfExactType<A2UISurfaceScope>();
     assert(scope != null, 'A2UISurfaceScope.of was called outside a surface.');
     return scope!;
+  }
+
+  @override
+  Widget wrap(BuildContext context, Widget child) {
+    return A2UISurfaceScope(
+      catalog: catalog,
+      theme: theme,
+      mediaUrl: mediaUrl,
+      onOpenLink: onOpenLink,
+      child: child,
+    );
   }
 
   @override

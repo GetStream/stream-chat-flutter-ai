@@ -126,6 +126,28 @@ void main() {
     expect(imageOffset(tester, 'i0', find.byType(A2UIFlex)).dx, (48 - 24) / 2);
   });
 
+  testWidgets('a vertical divider in a centered horizontal list is as tall as the list', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [
+        {
+          'id': 'root',
+          'component': 'List',
+          'children': ['a', 'line', 'b'],
+          'direction': 'horizontal',
+          'align': 'center',
+        },
+        iconImage('a', variant: 'avatar'),
+        {'id': 'line', 'component': 'Divider', 'axis': 'vertical'},
+        iconImage('b'),
+      ],
+      width: 300,
+      mediaUrl: (url) => null,
+    );
+
+    expect(tester.getSize(_verticalLine()).height, 48);
+  });
+
   testWidgets('a template gives a child for each item, in order', (tester) async {
     await pumpSurface(
       tester,
@@ -152,6 +174,9 @@ void main() {
     expect(tester.getTopLeft(find.text('Kaneo')).dy, greaterThan(tester.getTopLeft(find.text('Plaošnik')).dy));
   });
 }
+
+// The line a vertical divider draws.
+Finder _verticalLine() => find.byWidgetPredicate((widget) => widget is SizedBox && widget.width == 1);
 
 // A list 300 wide of icon images i0, i1, …, of [variants], 24 by 24 for an
 // icon and 48 by 48 for an avatar.

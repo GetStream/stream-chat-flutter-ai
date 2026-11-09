@@ -42,3 +42,4 @@ export 'src/a2ui_renderer.dart' show A2UIErrorHandler, A2UIRenderer;
 export 'src/catalog/a2ui_catalog.dart' show A2UICatalog, A2UIComponentBuilder;
 export 'src/catalog/a2ui_component_scope.dart' show A2UIChild, A2UIComponentScope;
 export 'src/catalog/a2ui_theme.dart' show A2UITheme, A2UIThemeData;
+export 'src/surface/a2ui_surface_scope.dart' show A2UIMediaUrl;

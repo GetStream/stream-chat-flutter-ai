@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
 
 // Reference splits of 33 texts, from test/fixtures/README.md.
 void main() {

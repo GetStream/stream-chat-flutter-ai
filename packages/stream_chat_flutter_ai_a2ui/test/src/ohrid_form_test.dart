@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_stream.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
 
 import 'a2ui_test_app.dart';
 

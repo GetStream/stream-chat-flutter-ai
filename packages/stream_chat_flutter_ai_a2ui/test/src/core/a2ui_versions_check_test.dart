@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/engine/a2ui_versions.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_versions.dart';
 
 void main() {
   for (final version in ['1', '1.0.0', 'v1', 'v1.0']) {
