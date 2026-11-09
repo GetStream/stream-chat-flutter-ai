@@ -23,6 +23,7 @@ class ResolvedChartTheme {
   const ResolvedChartTheme._({
     required this.seriesColors,
     required this.height,
+    required this.heightIsSet,
     required this.scatterRadius,
     required this.bubbleMinRadius,
     required this.bubbleMaxRadius,
@@ -39,6 +40,8 @@ class ResolvedChartTheme {
     required this.legendTextStyle,
     required this.showPiePercentages,
     required this.piePercentageThreshold,
+    required this.donutHoleRatio,
+    required this.radialTrackColor,
   });
 
   /// Resolves the theme at [context], with [override] — a widget's own `theme`
@@ -58,6 +61,7 @@ class ResolvedChartTheme {
       // one has no sensible answer anyway.
       seriesColors: (palette == null || palette.isEmpty) ? kDefaultChartSeriesColors : palette,
       height: theme.height ?? 220,
+      heightIsSet: theme.height != null,
       scatterRadius: theme.scatterRadius ?? 6,
       bubbleMinRadius: theme.bubbleMinRadius ?? 6,
       bubbleMaxRadius: theme.bubbleMaxRadius ?? 40,
@@ -80,6 +84,12 @@ class ResolvedChartTheme {
         final threshold? when threshold.isFinite => threshold.clamp(0.0, 1.0),
         _ => 0.08,
       },
+      donutHoleRatio: switch (theme.donutHoleRatio) {
+        // The constructor asserts the range; this keeps release builds sane.
+        final ratio? when ratio.isFinite => ratio.clamp(0.0, kMaxDonutHoleRatio),
+        _ => 0.58,
+      },
+      radialTrackColor: theme.radialTrackColor ?? colors.backgroundSurfaceSubtle,
     );
   }
 
@@ -88,6 +98,9 @@ class ResolvedChartTheme {
 
   /// See [ChartThemeData.height].
   final double height;
+
+  /// Whether the theme set [height], rather than [height] being the fallback.
+  final bool heightIsSet;
 
   /// See [ChartThemeData.scatterRadius].
   final double scatterRadius;
@@ -137,6 +150,12 @@ class ResolvedChartTheme {
 
   /// See [ChartThemeData.piePercentageThreshold].
   final double piePercentageThreshold;
+
+  /// See [ChartThemeData.donutHoleRatio].
+  final double donutHoleRatio;
+
+  /// See [ChartThemeData.radialTrackColor].
+  final Color radialTrackColor;
 
   /// The color for the [index]-th series, cycling when there are more series
   /// than colors.

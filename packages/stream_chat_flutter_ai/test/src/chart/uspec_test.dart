@@ -108,6 +108,18 @@ void main() {
         expect(spec, isNotNull, reason: 'the ECharts adapter understands this shape');
         expect(spec!.series.first.points.map((p) => p.y), [12, 19]);
       });
+
+      test('reads a doughnut kind as a donut pie, and a radar kind as a radar', () {
+        final doughnut = USpecParser.tryParse('''
+        {"kind": "doughnut", "series": [{"name": "S", "points": [{"x": "A", "y": 1}]}]}
+        ''');
+        final radar = USpecParser.tryParse('''
+        {"kind": "radar", "series": [{"name": "S", "points": [{"x": "A", "y": 1}]}]}
+        ''');
+
+        expect((doughnut!.kind, doughnut.donut), (USpecKind.pie, true));
+        expect(radar!.kind, USpecKind.radar);
+      });
     });
 
     group('Chart.js schema', () {
@@ -247,16 +259,31 @@ void main() {
         expect(spec.series.first.points.first.size, 20);
       });
 
-      test('maps radar to bar and polarArea to pie', () {
+      test('maps radar to a radar, a shape per dataset, and polarArea to a solid pie', () {
         final radar = USpecParser.tryParse('''
-        {"type": "radar", "data": {"labels": ["A"], "datasets": [{"label": "S", "data": [1]}]}}
+        {"type": "radar", "data": {"labels": ["A", "B", "C"], "datasets": [
+          {"label": "S", "data": [1, 2, 3]}, {"label": "T", "data": [3, 2, 1]}
+        ]}}
         ''');
-        expect(radar!.kind, USpecKind.bar);
+        expect(radar!.kind, USpecKind.radar);
+        expect(radar.series.map((s) => s.name), ['S', 'T']);
 
         final polarArea = USpecParser.tryParse('''
         {"type": "polarArea", "data": {"labels": ["A"], "datasets": [{"label": "S", "data": [1]}]}}
         ''');
-        expect(polarArea!.kind, USpecKind.pie);
+        expect((polarArea!.kind, polarArea.donut), (USpecKind.pie, false));
+      });
+
+      test('reads a doughnut as a donut pie, and a pie as a solid one', () {
+        final doughnut = USpecParser.tryParse('''
+        {"type": "Doughnut", "data": {"labels": ["A", "B"], "datasets": [{"label": "S", "data": [1, 2]}]}}
+        ''');
+        final pie = USpecParser.tryParse('''
+        {"type": "pie", "data": {"labels": ["A", "B"], "datasets": [{"label": "S", "data": [1, 2]}]}}
+        ''');
+
+        expect((doughnut!.kind, doughnut.donut), (USpecKind.pie, true));
+        expect((pie!.kind, pie.donut), (USpecKind.pie, false));
       });
 
       test('reads options.scales.y.beginAtZero', () {
