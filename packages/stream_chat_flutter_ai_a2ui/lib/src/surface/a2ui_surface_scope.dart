@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_catalog.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 
 /// Signature for a function that gives the URL to load an image from, given
 /// the URL the agent wrote, or `null` to not load it.
@@ -24,8 +25,8 @@ Uri? a2uiWebMediaUrl(Uri url) {
   return null;
 }
 
-/// What the components of one surface are drawn with: its catalog, its theme
-/// and the function its media is loaded through.
+/// What the components of one surface are drawn with: its catalog, its theme,
+/// the function its media is loaded through and the one that opens its links.
 ///
 /// Internal to the package.
 @internal
@@ -36,6 +37,7 @@ class A2UISurfaceScope extends InheritedWidget {
     required this.catalog,
     required this.theme,
     required this.mediaUrl,
+    this.onOpenLink,
     required super.child,
   });
 
@@ -48,6 +50,10 @@ class A2UISurfaceScope extends InheritedWidget {
   /// The function the surface's images are loaded through.
   final A2UIMediaUrl mediaUrl;
 
+  /// The function that opens a link a person's action in the surface opens,
+  /// or `null` when nothing opens links there.
+  final A2UIOpenLink? onOpenLink;
+
   /// The scope of the surface around [context].
   ///
   /// Only a component of a surface is built with one.
@@ -59,6 +65,9 @@ class A2UISurfaceScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(A2UISurfaceScope oldWidget) {
-    return catalog != oldWidget.catalog || theme != oldWidget.theme || mediaUrl != oldWidget.mediaUrl;
+    return catalog != oldWidget.catalog ||
+        theme != oldWidget.theme ||
+        mediaUrl != oldWidget.mediaUrl ||
+        onOpenLink != oldWidget.onOpenLink;
   }
 }

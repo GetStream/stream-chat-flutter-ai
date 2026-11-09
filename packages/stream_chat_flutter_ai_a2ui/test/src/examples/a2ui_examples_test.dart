@@ -19,8 +19,8 @@ void main() {
     expect(examples, hasLength(43));
   });
 
-  test('19 of them use only the components the catalog draws', () {
-    expect(examples.where(_drawsWhole), hasLength(19));
+  test('41 of them use only the components the catalog draws', () {
+    expect(examples.where(_drawsWhole), hasLength(41));
   });
 
   for (final file in examples) {
@@ -71,11 +71,11 @@ void main() {
   }
 }
 
-// Examples whose errors come from components this package doesn't draw yet.
+// Examples that report an error this package can't avoid.
 const _skips = {
   '32_advanced-form-validator.json':
       "a2ui_core 0.4.0 rejects the arguments of the `and` in the example's Button check "
-      '(EXPRESSION_ERROR); Button and its checks are not drawn yet.',
+      '(EXPRESSION_ERROR).',
 };
 
 List<Object?> _messages(File file) =>
@@ -104,7 +104,8 @@ int _shownComponents(A2UIProcessor processor) {
   var count = 0;
   void walk(A2UINode node) {
     count += 1;
-    for (final name in ['child', 'children']) {
+    // A modal's content shows in its sheet, once it is opened.
+    for (final name in ['child', 'children', 'trigger']) {
       node.children(name).forEach(walk);
     }
     // Only the selected tab, the first, shows its child.

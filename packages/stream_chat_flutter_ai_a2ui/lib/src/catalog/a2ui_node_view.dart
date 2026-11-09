@@ -22,7 +22,10 @@ class A2UINodeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final catalog = A2UISurfaceScope.of(context).catalog;
+    final surfaceScope = A2UISurfaceScope.of(context);
+    final catalog = surfaceScope.catalog;
+    final onOpenLink = surfaceScope.onOpenLink;
+    final openModal = A2UIModalOpener.maybeOf(context);
     return ListenableBuilder(
       listenable: node,
       builder: (context, _) {
@@ -35,7 +38,9 @@ class A2UINodeView extends StatelessWidget {
         return AIUIEntrance(
           child: _A2UIAccessibility(
             node: node,
-            child: Builder(builder: (context) => _build(context, builder, catalog)),
+            child: Builder(
+              builder: (context) => _build(context, builder, _NodeScope(node, catalog, onOpenLink, openModal)),
+            ),
           ),
         );
       },
@@ -43,9 +48,9 @@ class A2UINodeView extends StatelessWidget {
   }
 
   // What [builder] builds for the component, or nothing when it throws.
-  Widget _build(BuildContext context, A2UIComponentBuilder builder, A2UICatalog catalog) {
+  Widget _build(BuildContext context, A2UIComponentBuilder builder, A2UIComponentScope scope) {
     try {
-      return builder(context, _NodeScope(node, catalog));
+      return builder(context, scope);
     } catch (error, stack) {
       FlutterError.reportError(
         FlutterErrorDetails(
@@ -70,10 +75,13 @@ void _logNoBuilder(String type) {
 
 // The scope of [_node] for its builder.
 final class _NodeScope extends A2UIComponentScope {
-  const _NodeScope(this._node, this._catalog) : super._();
+  const _NodeScope(this._node, this._catalog, this._onOpenLink, this._openModal) : super._();
 
   final A2UINode _node;
   final A2UICatalog _catalog;
+  final A2UIOpenLink? _onOpenLink;
+  // What opens the sheet of the `Modal` whose trigger holds this component.
+  final VoidCallback? _openModal;
 
   @override
   String get id => _node.id;
@@ -175,7 +183,81 @@ final class _NodeScope extends A2UIComponentScope {
 
   @override
   Widget build(A2UIChild child) => A2UINodeView(node: child._node);
+
+  @override
+  void write(String name, Object? value) => _node.write(name, value);
+
+  @override
+  bool get hasAction => _node.writtenProperty('action') != null;
+
+  @override
+  Future<void> performAction() {
+    _openModal?.call();
+    return _node.act('action', onOpenLink: _onOpenLink);
+  }
+
+  @override
+  List<String> get validationErrors {
+    return [
+      for (final failure in _node.failingChecks)
+        if (failure.severity == A2UICheckSeverity.error)
+          if (failure.message ?? failure.code case final message?) message,
+    ];
+  }
+
+  @override
+  bool get isValid => !_node.failingChecks.any((failure) => failure.severity == A2UICheckSeverity.error);
 }
+
+/// The checks of the component [scope] reads that fail now, of every
+/// severity, in the order the agent wrote them; see
+/// [A2UIComponentScope.validationErrors].
+///
+/// Internal to the package.
+@internal
+List<A2UICheckFailure> a2uiCheckFailuresOf(A2UIComponentScope scope) {
+  return switch (scope) {
+    _NodeScope(:final _node) => _node.failingChecks,
+  };
+}
+
+/// The accessibility label and description the agent gave the component
+/// [scope] reads, each `null` when it gave none or an empty one.
+///
+/// A component a person interacts with puts them on the part the person
+/// interacts with.
+///
+/// Internal to the package.
+@internal
+({String? label, String? description}) a2uiAccessibilityOf(A2UIComponentScope scope) {
+  return switch (scope) {
+    _NodeScope(:final _node) => (
+      label: _A2UIAccessibilityState._labelOf(_node),
+      description: _A2UIAccessibilityState._descriptionOf(_node),
+    ),
+  };
+}
+
+/// Whether the component [child] holds fills the width it is given, as the
+/// basic catalog draws a `TextField`, a `Slider`, a `DateTimeInput` and a
+/// `ChoicePicker` with a filter field.
+///
+/// Internal to the package.
+@internal
+bool a2uiFillsWidth(A2UIChild child) {
+  final node = child._node;
+  return switch (node.type) {
+    'TextField' || 'Slider' || 'DateTimeInput' => true,
+    'ChoicePicker' => _NodeScope._boolean(node.property('filterable')) ?? false,
+    _ => false,
+  };
+}
+
+/// The type of the component [child] holds, such as `Button`.
+///
+/// Internal to the package.
+@internal
+String a2uiTypeOf(A2UIChild child) => child._node.type;
 
 /// What notifies its listeners when [child]'s own properties change, such as
 /// its weight.
@@ -258,6 +340,19 @@ class _A2UIAccessibilityState extends State<_A2UIAccessibility> {
   // children reachable, so its label is read before them.
   static const _leafTypes = {'Text', 'Image', 'Icon', 'Divider'};
 
+  // Components a person interacts with. Their builders put the label and the
+  // description on the part the person interacts with, so it is read as one
+  // control rather than as a label around a control.
+  static const _interactiveTypes = {
+    'Button',
+    'TextField',
+    'CheckBox',
+    'ChoicePicker',
+    'Slider',
+    'DateTimeInput',
+    'Modal',
+  };
+
   // What the component announces when it changes, as it was when last seen.
   String? _announcement;
   late FlutterView _view;
@@ -319,18 +414,20 @@ class _A2UIAccessibilityState extends State<_A2UIAccessibility> {
     return attributes is Map<String, Object?> ? attributes : null;
   }
 
-  static String? _announcementOf(A2UINode node) {
-    return _nonEmpty(a2uiText(_attributes(node)?['label'])) ?? a2uiText(node.property('text'));
-  }
+  static String? _announcementOf(A2UINode node) => _labelOf(node) ?? a2uiText(node.property('text'));
+
+  static String? _labelOf(A2UINode node) => _nonEmpty(a2uiText(_attributes(node)?['label']));
+
+  static String? _descriptionOf(A2UINode node) => _nonEmpty(a2uiText(_attributes(node)?['description']));
 
   static String? _nonEmpty(String? text) => text == null || text.isEmpty ? null : text;
 
   @override
   Widget build(BuildContext context) {
-    final attributes = _attributes(widget.node);
-    final hidden = _isHidden(attributes);
-    final label = _nonEmpty(a2uiText(attributes?['label']));
-    final description = _nonEmpty(a2uiText(attributes?['description']));
+    final hidden = _isHidden(_attributes(widget.node));
+    final isInteractive = _interactiveTypes.contains(widget.node.type);
+    final label = isInteractive ? null : _labelOf(widget.node);
+    final description = isInteractive ? null : _descriptionOf(widget.node);
     final replacesOwnLabel = label != null && _leafTypes.contains(widget.node.type);
     // The same widgets whatever the attributes, so a change to them keeps the
     // state of what the component built, such as its selected tab.

@@ -2,14 +2,21 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_button.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_card.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_check_box.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_choice_picker.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_date_time_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_divider.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_flex.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_icon.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_list.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_modal.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_slider.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_tabs.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_text.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_text_field.dart';
 
 /// Signature for a function that builds the widget of one component of a
 /// reply's A2UI, from what [scope] reads of it.
@@ -28,6 +35,13 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_text.dart';
 /// `Row` without a weight is first laid out with no width limit, as in a
 /// Flutter [Row], so a widget that needs one, such as a `TextField`, needs a
 /// weight or a width of its own.
+///
+/// A component a person interacts with, such as a `Button`, a `TextField`,
+/// a `CheckBox`, a `ChoicePicker`, a `Slider`, a `DateTimeInput` or a
+/// `Modal`, gets the agent's accessibility label and description on the part
+/// the person interacts with, so it is read as one control; a builder that
+/// replaces one reads them from `value('accessibility')`. Other components
+/// get them around what their builder returns.
 typedef A2UIComponentBuilder = Widget Function(BuildContext context, A2UIComponentScope scope);
 
 /// The components a reply's A2UI is drawn with: a builder for each component
@@ -56,7 +70,9 @@ final class A2UICatalog {
   const A2UICatalog._(this._builders);
 
   /// The components of A2UI's basic catalog that this package draws: `Text`,
-  /// `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Divider` and `Tabs`.
+  /// `Image`, `Icon`, `Row`, `Column`, `List`, `Card`, `Divider`, `Tabs`,
+  /// `Modal`, `Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider` and
+  /// `DateTimeInput`.
   static const A2UICatalog basic = A2UICatalog._({
     'Text': buildA2UIText,
     'Image': buildA2UIImage,
@@ -67,6 +83,13 @@ final class A2UICatalog {
     'Card': buildA2UICard,
     'Divider': buildA2UIDivider,
     'Tabs': buildA2UITabs,
+    'Modal': buildA2UIModal,
+    'Button': buildA2UIButton,
+    'TextField': buildA2UITextField,
+    'CheckBox': buildA2UICheckBox,
+    'ChoicePicker': buildA2UIChoicePicker,
+    'Slider': buildA2UISlider,
+    'DateTimeInput': buildA2UIDateTimeInput,
   });
 
   final Map<String, A2UIComponentBuilder> _builders;

@@ -138,6 +138,28 @@ final class A2UISurface extends ChangeNotifier {
     }
   }
 
+  // A context that reads this surface's data model at [path] as a component
+  // of this surface reads it, with problems going to [onError]. A function no
+  // catalog has is read from the agent calls [parent], a component's own
+  // context, already made, and isn't sent to the agent again.
+  core.DataContext _dataContext(
+    String path, {
+    required core.ExpressionErrorReporter onError,
+    core.DataContext? parent,
+  }) {
+    return core.DataContext(
+      _model.dataModel,
+      (name, args, context) => _model.resolveCatalog(null).invoke(name, args, context),
+      path,
+      onError: onError,
+      protocolVersion: core.A2uiProtocolVersion.v1_0,
+      invokerForCatalog: (catalogId) => _model.resolveCatalog(catalogId).invoke,
+      parent: parent,
+      // The core's own reading of the same bindings reports missing data.
+      onMissingData: (_) {},
+    );
+  }
+
   /// Writes [value] at [path] in this surface's data model, and updates the
   /// components bound to it.
   ///
