@@ -35,6 +35,26 @@ typedef A2UIErrorHandler = void Function(A2UIError error, String messageId);
 /// the agent's own words for it. A link goes to [AIUIHosting.open], and a
 /// function no catalog has runs as one of the host's tools.
 ///
+/// The app's own components, the host's [AIUIHosting.components], can be
+/// placed by the agent too. It names one in PascalCase, `PlaceCard` for
+/// `place_card`, with the component's parameters as its properties, each
+/// written as a value or bound to the surface's data, and it is drawn with
+/// its [AIUIComponent.readArguments] and [AIUIComponent.build]. Nothing
+/// shows while its values don't fit its parameters, such as while the agent
+/// is still writing them; once the reply is written, values that don't fit,
+/// a required value that is missing or `null`, and anything the component
+/// throws reading or building them are reported through [onError].
+///
+/// An event an app component reports with [AIUIComponentContext.emit] is
+/// sent as an [AIUIAction] named after the event, with the label the
+/// component gave and its payload, to which `component` (the app's name for
+/// it, such as `place_card`), `surfaceId` and `sourceComponentId` are added.
+/// An app component holds no other components and no `action`.
+///
+/// A component the agent can't place, such as one named like a basic
+/// component or with a parameter named `id` or `weight`, is left out, and
+/// reported in debug builds.
+///
 /// See also:
 ///
 ///  * [A2UICatalog], which draws each component.
