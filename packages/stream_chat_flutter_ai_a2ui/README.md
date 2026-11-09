@@ -100,6 +100,11 @@ final renderer = A2UIRenderer(theme: A2UIThemeData(cornerRadius: 8));
 The renderer's `theme` stays as it was given. An override that depends on the context, such as on the app's own
 theme, goes in an `A2UITheme` above the conversation instead, which is read each time the reply is built too.
 
+Buttons, check boxes, fields, images and sheets are the design system's own components, so the component builders an
+app registers with `StreamComponentFactory` (`button`, `checkbox`, `textInput`, `networkImage`) draw them in A2UI
+replies too, and its component themes apply to them. Around each surface, the design system's colors, body text and
+corners are the A2UI theme's. A secret field is never given to the `textInput` builder, so it stays hidden.
+
 ## The components
 
 `A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`, `Column`, `List`,

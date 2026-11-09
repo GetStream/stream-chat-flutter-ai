@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../../a2ui_test_app.dart';
 
@@ -45,7 +46,13 @@ void main() {
   testWidgets('a borderless button has no background', (tester) async {
     await pumpSurface(tester, components: _button(variant: 'borderless'));
 
-    expect(_background(tester), isNull);
+    expect(_background(tester)?.a, 0);
+  });
+
+  testWidgets("a borderless button's text starts at the button's edge", (tester) async {
+    await pumpSurface(tester, components: _button(variant: 'borderless'));
+
+    expect(tester.getTopLeft(find.text('Book')).dx, tester.getTopLeft(_face).dx);
   });
 
   testWidgets("a borderless button's text is drawn in the accent color", (tester) async {
@@ -60,10 +67,79 @@ void main() {
     expect(_background(tester), lightTheme().subtleSurface);
   });
 
+  testWidgets("the app's button builder draws a button", (tester) async {
+    await pumpSurface(
+      tester,
+      components: _button(),
+      builders: StreamComponentBuilders(button: (context, props) => const Text('App button')),
+    );
+
+    expect(find.text('App button'), findsOneWidget);
+  });
+
+  testWidgets("the app's button builder is given the button's action", (tester) async {
+    final events = <A2UIActionEvent>[];
+    await pumpSurface(
+      tester,
+      components: _button(),
+      events: events,
+      builders: StreamComponentBuilders(
+        button: (context, props) => GestureDetector(onTap: props.onPressed, child: const Text('App button')),
+      ),
+    );
+
+    await tester.tap(find.text('App button'));
+    await tester.pump();
+
+    expect(events.single.name, 'book');
+  });
+
+  testWidgets('a button of text is as tall as a medium button', (tester) async {
+    await pumpSurface(tester, components: _button());
+
+    expect(tester.getSize(_face).height, StreamButtonSize.medium.value);
+  });
+
+  testWidgets('a button is as wide as its child, not as the width it is given', (tester) async {
+    await pumpSurface(tester, components: _button(), width: 400);
+
+    expect(tester.getSize(_face).width, lessThan(400));
+  });
+
+  testWidgets('a button is as tall as a child taller than a line of text', (tester) async {
+    await pumpSurface(
+      tester,
+      components: [
+        {
+          'id': 'root',
+          'component': 'Button',
+          'child': 'lines',
+          'action': {
+            'event': {'name': 'book'},
+          },
+        },
+        {
+          'id': 'lines',
+          'component': 'Column',
+          'children': ['first', 'second', 'third'],
+        },
+        {'id': 'first', 'component': 'Text', 'text': 'Table for two'},
+        {'id': 'second', 'component': 'Text', 'text': 'By the window'},
+        {'id': 'third', 'component': 'Text', 'text': 'At eight'},
+      ],
+    );
+
+    final face = find.descendant(of: find.byType(ElevatedButton), matching: find.byType(Material)).first;
+
+    expect(tester.getSize(face).height, greaterThanOrEqualTo(tester.getSize(find.byType(Column).last).height));
+  });
+
   testWidgets('a button has the corners of buttons', (tester) async {
     await pumpSurface(tester, components: _button(variant: 'primary'));
 
-    expect(_decoration(tester).borderRadius, BorderRadius.circular(lightTheme().buttonCornerRadius));
+    final shape = _material(tester).shape! as RoundedSuperellipseBorder;
+
+    expect(shape.borderRadius, BorderRadius.all(Radius.circular(lightTheme().buttonCornerRadius)));
   });
 
   testWidgets('a button sends nothing while one of its checks fails', (tester) async {
@@ -81,16 +157,14 @@ void main() {
     expect(events, isEmpty);
   });
 
-  testWidgets('a button whose check fails is fainter', (tester) async {
+  testWidgets('a button whose check fails is drawn disabled', (tester) async {
     await pumpSurface(
       tester,
       components: _button(checks: [_acceptedCheck]),
       data: _notAccepted,
     );
 
-    final opacity = find.ancestor(of: _face, matching: find.byType(Opacity)).first;
-
-    expect(tester.widget<Opacity>(opacity).opacity, 0.5);
+    expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.onPressed, isNull);
   });
 
   testWidgets('a button shows the messages of its failing checks', (tester) async {
@@ -211,16 +285,81 @@ void main() {
     expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isFalse);
   });
 
-  testWidgets("a button's label is the agent's accessibility label, on the button itself", (tester) async {
+  group('a button of an icon', () {
+    const icon = {'component': 'Icon', 'name': 'favorite'};
+
+    testWidgets("is the design system's icon button, read by the agent's label as its tooltip", (tester) async {
+      final events = <A2UIActionEvent>[];
+      await pumpSurface(
+        tester,
+        components: _button(child: icon, accessibility: {'label': 'Save the place'}),
+        events: events,
+      );
+
+      expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.child, isNull);
+      expect(
+        tester.getSemantics(find.byType(StreamButton)),
+        isSemantics(
+          tooltip: 'Save the place',
+          isButton: true,
+          isEnabled: true,
+          hasEnabledState: true,
+          hasTapAction: true,
+        ),
+      );
+
+      await tester.tap(find.byType(StreamButton));
+      await tester.pump();
+      expect(events.single.name, 'book');
+    });
+
+    testWidgets('without a label has no tooltip', (tester) async {
+      await pumpSurface(tester, components: _button(child: icon));
+
+      expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.child, isNull);
+      expect(find.byType(Tooltip), findsNothing);
+    });
+
+    testWidgets('is disabled while one of its checks fails', (tester) async {
+      final events = <A2UIActionEvent>[];
+      await pumpSurface(
+        tester,
+        components: _button(child: icon, accessibility: {'label': 'Save the place'}, checks: [_acceptedCheck]),
+        data: _notAccepted,
+        events: events,
+      );
+
+      expect(
+        tester.getSemantics(find.byType(StreamButton)),
+        isSemantics(isButton: true, hasEnabledState: true, isEnabled: false, hasTapAction: false),
+      );
+      await tester.tap(find.byType(StreamButton), warnIfMissed: false);
+      await tester.pump();
+      expect(events, isEmpty);
+    });
+  });
+
+  testWidgets('a button of text is read by its text, with no tooltip', (tester) async {
+    await pumpSurface(tester, components: _button(accessibility: {'label': 'Book a table'}));
+
+    expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.tooltip, isNull);
+    expect(tester.getSemantics(find.bySemanticsLabel('Book')), isSemantics(isButton: true, hasTapAction: true));
+  });
+
+  testWidgets("an app's button builder gets an icon button's tooltip", (tester) async {
+    StreamButtonProps? props;
     await pumpSurface(
       tester,
-      components: _button(accessibility: {'label': 'Book a table', 'description': 'Sends the booking'}),
+      components: _button(child: {'component': 'Icon', 'name': 'favorite'}, accessibility: {'label': 'Save the place'}),
+      builders: StreamComponentBuilders(
+        button: (context, given) {
+          props = given;
+          return const SizedBox();
+        },
+      ),
     );
 
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('Book a table')),
-      isSemantics(label: 'Book a table', hint: 'Sends the booking', isButton: true, hasTapAction: true),
-    );
+    expect((props?.tooltip, props?.child), ('Save the place', null));
   });
 
   testWidgets("a button without an accessibility label is read as its child's text", (tester) async {
@@ -288,6 +427,7 @@ List<Map<String, Object?>> _button({
   String text = 'Book',
   List<Map<String, Object?>>? checks,
   Map<String, Object?>? accessibility,
+  Map<String, Object?>? child,
 }) {
   return [
     {
@@ -301,16 +441,20 @@ List<Map<String, Object?>> _button({
         'event': {'name': 'book'},
       },
     },
-    {'id': '${id}_label', 'component': 'Text', 'text': text},
+    {
+      'id': '${id}_label',
+      ...child ?? {'component': 'Text', 'text': text},
+    },
   ];
 }
 
-// The button's face: its background around its child.
-final _face = find.ancestor(of: find.text('Book'), matching: find.byType(DecoratedBox)).first;
+// The button's face: the material of the design system's button around its
+// child.
+final _face = find.descendant(of: find.byType(ElevatedButton), matching: find.byType(Material)).first;
 
-BoxDecoration _decoration(WidgetTester tester) => tester.widget<DecoratedBox>(_face).decoration as BoxDecoration;
+Material _material(WidgetTester tester) => tester.widget<Material>(_face);
 
-Color? _background(WidgetTester tester) => _decoration(tester).color;
+Color? _background(WidgetTester tester) => _material(tester).color;
 
 Color? _textColor(WidgetTester tester) {
   final paragraph = tester.renderObject<RenderParagraph>(find.text('Book'));

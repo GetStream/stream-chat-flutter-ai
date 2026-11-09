@@ -1,25 +1,34 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `TextField`: its `label` over a field that writes each change the
 /// person makes to its `value`.
+///
+/// The field is the Stream design system's [StreamTextInput], so the builder an
+/// app registers for text inputs through [StreamComponentFactory] draws it
+/// instead; an `obscured` field never goes to that builder, so a secret stays
+/// hidden, and is drawn in the same style.
 ///
 /// The `variant` chooses the field: `longText` for several lines,
 /// `number` for a number keyboard, `obscured` for a secret such as a
 /// password, whose text is hidden on screen and never suggested or
 /// corrected, and `shortText`, the default, for one line. The field shows its
-/// `placeholder`, or else its label, while it is empty.
+/// `placeholder` while it is empty, and an `obscured` one its label when it has
+/// no placeholder.
+///
+/// The field is read as the design system reads it: by its label, with its
+/// placeholder as a hint.
 ///
 /// While the person types, the field keeps what they typed; a change from
-/// elsewhere, such as from the agent, replaces it once the field loses focus.
-/// A field whose `value` isn't bound to the data model shows its value
-/// read-only and fainter. While the field holds text, a failing check
-/// outlines the field in [A2UIThemeData.error] and its messages show below it.
+/// elsewhere, such as from the agent, replaces it once the field isn't being
+/// typed in. A field whose `value` isn't bound to the data model shows its
+/// value read-only and fainter. While the field holds text, a failing check
+/// outlines the field in the error color and its messages show below it.
 ///
 /// Internal to the package.
 @internal
@@ -82,65 +91,130 @@ class _A2UITextFieldState extends State<_A2UITextField> {
     final label = scope.string('label') ?? '';
     final placeholder = scope.string('placeholder');
     final variant = scope.hint('variant');
-    final accessibility = a2uiAccessibilityOf(scope);
     final failures = _controller.text.isEmpty ? const <A2UICheckFailure>[] : a2uiCheckFailuresOf(scope);
     final hasError = a2uiBlocks(failures);
     final isObscured = variant == 'obscured';
     final isLong = variant == 'longText';
     final canEdit = a2uiCanEdit(scope);
+    final hint = placeholder ?? (label.isEmpty ? null : label);
+    final labelStyle = theme.label.copyWith(color: hasError ? theme.error : theme.secondaryText);
     return A2UIInputWidth(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (label.isNotEmpty)
+          // The design system's field shows its own label, and is read by it.
+          if (isObscured && label.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: _labelSpacing),
-              child: ExcludeSemantics(
-                child: Text(label, style: theme.label.copyWith(color: hasError ? theme.error : theme.secondaryText)),
-              ),
+              child: ExcludeSemantics(child: Text(label, style: labelStyle)),
             ),
-          Material(
-            type: MaterialType.transparency,
-            child: Opacity(
-              opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
-              child: MergeSemantics(
-                child: Semantics(
-                  label: accessibility.label ?? label,
-                  hint: accessibility.description,
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    onChanged: _handleChange,
-                    readOnly: !canEdit,
-                    obscureText: isObscured,
-                    enableSuggestions: !isObscured,
-                    autocorrect: !isObscured,
-                    keyboardType: switch (variant) {
-                      'number' => const TextInputType.numberWithOptions(signed: true, decimal: true),
-                      'longText' => TextInputType.multiline,
-                      _ => TextInputType.text,
-                    },
-                    textInputAction: isLong ? TextInputAction.newline : TextInputAction.done,
-                    maxLines: isLong ? null : 1,
-                    minLines: isLong ? _longTextMinLines : 1,
-                    style: theme.body.copyWith(color: theme.text),
-                    cursorColor: theme.accent,
-                    decoration: a2uiFieldDecoration(
-                      theme,
-                      hint: placeholder ?? (label.isEmpty ? null : label),
-                      // The field is read with its label already.
-                      readsHint: placeholder != null,
-                      hasError: hasError,
-                      padding: const EdgeInsets.all(_padding),
+          Opacity(
+            opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
+            child: isObscured
+                ? MergeSemantics(
+                    child: Semantics(
+                      label: label,
+                      child: _buildObscured(
+                        context,
+                        hint: hint,
+                        readsHint: placeholder != null,
+                        hasError: hasError,
+                        canEdit: canEdit,
+                      ),
+                    ),
+                  )
+                // The field needs a Material around it, which a surface may
+                // not have.
+                : Material(
+                    type: MaterialType.transparency,
+                    child: StreamTextInput(
+                      controller: _controller,
+                      labelText: label.isEmpty ? null : label,
+                      style: StreamTextInputStyle(labelStyle: labelStyle),
+                      focusNode: _focusNode,
+                      onChanged: _handleChange,
+                      readOnly: !canEdit,
+                      hintText: placeholder,
+                      helperState: hasError ? StreamHelperState.error : null,
+                      autocorrect: true,
+                      // Whatever the person types is kept as typed.
+                      inputFormatters: const [],
+                      textCapitalization: TextCapitalization.none,
+                      keyboardType: switch (variant) {
+                        'number' => const TextInputType.numberWithOptions(signed: true, decimal: true),
+                        'longText' => TextInputType.multiline,
+                        _ => TextInputType.text,
+                      },
+                      textInputAction: isLong ? TextInputAction.newline : TextInputAction.done,
+                      maxLines: isLong ? null : 1,
+                      minLines: isLong ? _longTextMinLines : 1,
                     ),
                   ),
-                ),
-              ),
-            ),
           ),
           A2UIValidationMessages(failures: failures, theme: theme),
         ],
+      ),
+    );
+  }
+
+  // A secret field, drawn as the design system draws fields from its theme,
+  // with the design system's defaults where the theme sets nothing, but never
+  // by an app's text input builder, which could show the secret.
+  Widget _buildObscured(
+    BuildContext context, {
+    required String? hint,
+    required bool readsHint,
+    required bool hasError,
+    required bool canEdit,
+  }) {
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
+    final spacing = context.streamSpacing;
+    final style = context.streamTextInputTheme.style;
+    final radius = style?.borderRadius ?? BorderRadius.all(context.streamRadius.lg);
+    OutlineInputBorder outline(BorderSide? side, BorderSide fallback) {
+      return OutlineInputBorder(borderRadius: radius.resolve(Directionality.of(context)), borderSide: side ?? fallback);
+    }
+
+    final border = outline(style?.border, BorderSide(color: colors.borderDefault));
+    final focusBorder = outline(style?.focusBorder, BorderSide(color: colors.borderActive));
+    final errorBorder = outline(style?.errorBorder, BorderSide(color: colors.borderError));
+    final textStyle = WidgetStateProperty.resolveAs<TextStyle?>(style?.textStyle, const {});
+    final hintStyle =
+        WidgetStateProperty.resolveAs<TextStyle?>(style?.hintStyle, const {}) ??
+        text.bodyDefault.copyWith(color: colors.textTertiary);
+    return Material(
+      type: MaterialType.transparency,
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        onChanged: _handleChange,
+        readOnly: !canEdit,
+        obscureText: true,
+        enableSuggestions: false,
+        autocorrect: false,
+        textInputAction: TextInputAction.done,
+        style: textStyle ?? text.bodyDefault.copyWith(color: colors.textPrimary),
+        cursorColor: hasError
+            ? style?.cursorErrorColor ?? colors.accentError
+            : style?.cursorColor ?? colors.accentPrimary,
+        cursorWidth: style?.cursorWidth ?? 2,
+        cursorHeight: style?.cursorHeight,
+        cursorRadius: style?.cursorRadius,
+        decoration: InputDecoration(
+          hintText: readsHint ? hint : null,
+          // The field is read with its label already.
+          hint: readsHint || hint == null ? null : ExcludeSemantics(child: Text(hint, style: hintStyle)),
+          hintStyle: hintStyle,
+          filled: style?.fillColor != null,
+          fillColor: style?.fillColor,
+          isDense: true,
+          contentPadding: style?.contentPadding ?? EdgeInsets.symmetric(vertical: spacing.sm, horizontal: spacing.md),
+          border: hasError ? errorBorder : border,
+          enabledBorder: hasError ? errorBorder : border,
+          focusedBorder: hasError ? errorBorder : focusBorder,
+        ),
       ),
     );
   }
@@ -148,9 +222,6 @@ class _A2UITextFieldState extends State<_A2UITextField> {
 
 // The space between the label and the field.
 const _labelSpacing = 4.0;
-
-// The space between the field's edge and its text.
-const _padding = 10.0;
 
 // The lines a field for several lines shows while it holds fewer.
 const _longTextMinLines = 3;

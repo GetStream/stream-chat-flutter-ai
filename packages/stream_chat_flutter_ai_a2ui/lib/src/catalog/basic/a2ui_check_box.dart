@@ -4,9 +4,14 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dar
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_input.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
-/// Builds a `CheckBox`: a box, checked in [A2UIThemeData.accent] while its
-/// `value` is true, beside its `label`; a tap writes the other value.
+/// Builds a `CheckBox`: the Stream design system's [StreamCheckbox], checked in
+/// [A2UIThemeData.accent] while its `value` is true, beside its `label`; a tap on
+/// either writes the other value.
+///
+/// The builder an app registers for check boxes through
+/// [StreamComponentFactory] draws the box instead.
 ///
 /// One whose `value` isn't bound to the data model shows fainter, and a tap
 /// does nothing. The messages of its failing checks show below it.
@@ -23,24 +28,35 @@ Widget buildA2UICheckBox(BuildContext context, A2UIComponentScope scope) {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      // The row is one tap target; the box is read and focused as the check
+      // box, with the agent's label or the visible one.
       A2UIPressable(
         onTap: canEdit ? () => scope.write('value', !isChecked) : null,
         isButton: false,
-        checked: isChecked,
-        label: accessibility.label,
-        hint: accessibility.description,
         child: Opacity(
           opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             spacing: _labelSpacing,
             children: [
-              Icon(
-                isChecked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                color: isChecked ? theme.accent : theme.secondaryText,
+              // The box needs a Material around it, which a surface may not
+              // have. With no value to write, the box is drawn disabled, so an
+              // app's check box builder draws it read-only too.
+              // The row takes focus, so the box doesn't too.
+              ExcludeFocus(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: StreamCheckbox(
+                    value: isChecked,
+                    onChanged: canEdit ? (value) => scope.write('value', value) : null,
+                    semanticLabel: accessibility.label ?? label,
+                  ),
+                ),
               ),
               Flexible(
-                child: Text(label, style: theme.body.copyWith(color: theme.text)),
+                child: ExcludeSemantics(
+                  child: Text(label, style: theme.body.copyWith(color: theme.text)),
+                ),
               ),
             ],
           ),
