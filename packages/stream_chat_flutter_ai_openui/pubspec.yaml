@@ -34,7 +34,7 @@ dependencies:
   meta: ^1.9.1
   # Resolved to this workspace's own copy; pinned to its version once this
   # package is published.
-  stream_chat_flutter_ai: any
+  stream_chat_flutter_ai: ^0.1.0
   # Stream's design system: the theme tokens and the components OpenUI
   # components are drawn with, so an app's component builders apply to them
   # too.
