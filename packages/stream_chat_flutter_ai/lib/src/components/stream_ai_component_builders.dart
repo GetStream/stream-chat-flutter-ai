@@ -93,10 +93,13 @@ import 'package:stream_core_flutter/core.dart';
 ///   again only when what its [AIMessage] says changes, or the builders do.
 ///   Read anything else that changes, such as a send status, through a
 ///   [Listenable] of your own (a [ListenableBuilder] or
-///   [ValueListenableBuilder] in what you return).
-/// * [replyActions]: what the person can do with a finished reply, under it in
-///   [AIConversationView] once its answer is typed out. Nothing by default; an
-///   [AIReplyActionsView] is what to return. Like the rows, it is built again
+///   [ValueListenableBuilder] in what you return). When a reply's generated UI
+///   is shown (see [AIConversationView.ui]), [assistantMessage] gets empty
+///   text, and the conversation shows the UI below the builder's widget.
+/// * [replyActions]: the actions, such as copy or regenerate, shown under a
+///   finished reply in [AIConversationView], once its text or generated UI
+///   (see [AIConversationView.ui]) has finished appearing. Nothing by default;
+///   an [AIReplyActionsView] is what to return. Like the rows, it is built again
 ///   only when the reply changes, so read the rating, which changes without
 ///   the reply changing, through a [Listenable]:
 ///
@@ -333,14 +336,21 @@ final class AIUserMessageProps {
 @immutable
 final class AIAssistantMessageProps {
   /// Creates an [AIAssistantMessageProps].
-  const AIAssistantMessageProps({required this.message, this.approver, this.onAttachmentTap});
+  ///
+  /// [text] defaults to the message's text.
+  const AIAssistantMessageProps({required this.message, this._text, this.approver, this.onAttachmentTap});
 
   /// The reply, which is one of the app's own messages: cast it to read what
   /// else it holds.
   final AIMessage message;
 
-  /// The answer, in markdown.
-  String get text => message.text;
+  final String? _text;
+
+  /// The reply's text, in markdown, or an empty string when its generated UI
+  /// (see [AIConversationView.ui]) is shown instead.
+  ///
+  /// The conversation shows that UI below the builder's widget.
+  String get text => _text ?? message.text;
 
   /// Whether the agent is still writing it.
   bool get isGenerating => message.isGenerating;
@@ -367,7 +377,8 @@ final class AIReplyActionsProps {
   /// The reply, which is one of the app's own messages: cast it to act on it.
   final AIMessage message;
 
-  /// The reply's text, in markdown.
+  /// The reply's text, in markdown. It can be empty for a reply that shows
+  /// only generated UI (see [AIConversationView.ui]).
   String get text => message.text;
 
   /// Whether it is the latest reply in the conversation, such as the only one

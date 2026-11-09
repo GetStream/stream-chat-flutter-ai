@@ -11,6 +11,8 @@ import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.da
 import 'package:stream_chat_flutter_ai/src/conversation/ai_thinking_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_user_message_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';
+import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
+import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
@@ -51,6 +53,9 @@ import 'package:stream_core_flutter/core.dart';
 /// the builders, [onAttachmentTap] and [approver] should be created once
 /// rather than in `build`, since new ones rebuild every row.
 ///
+/// When given a [ui] host, replies that carry generated UI show that UI
+/// instead of their text, below their steps.
+///
 /// Place the composer below the list rather than over it, so the list knows how
 /// much of it is visible.
 class AIConversationView extends StatefulWidget {
@@ -61,6 +66,7 @@ class AIConversationView extends StatefulWidget {
     this.pendingMessage,
     this.isThinking = false,
     this.approver,
+    this.ui,
     this.loadOlderMessages,
     this.onAttachmentTap,
     this.footer,
@@ -86,6 +92,17 @@ class AIConversationView extends StatefulWidget {
 
   /// Who answers tool calls' questions on this device.
   final AIToolApprover? approver;
+
+  /// Shows the generated UI of the agent's replies, with the host's renderers
+  /// and the app's components.
+  ///
+  /// A reply whose UI isn't in a format any renderer reads shows its text
+  /// instead. While a reply has nothing but such UI, the thinking indicator
+  /// stays.
+  ///
+  /// Keep the same host for as long as the conversation is shown. A new host
+  /// starts every reply's UI over, losing state such as form values.
+  final AIUIHost? ui;
 
   /// Loads the messages before the first one, which the list asks for as the
   /// person scrolls to its start. It shows a spinner meanwhile, and what is on
@@ -228,8 +245,18 @@ class _AIConversationViewState extends State<AIConversationView> {
   // Works out the rows once per build, since matching messages on their way
   // remembers what it has seen.
   List<ConversationTurn> _turns() {
-    _entries = _tracker.entries(widget.messages, widget.pendingMessage);
-    _thinking = widget.isThinking || _tracker.isAwaitingReply(widget.messages, widget.pendingMessage);
+    final ui = widget.ui;
+    // The rows build only the replies on screen, so the engines take every
+    // reply's UI first.
+    ui?.receive(widget.messages);
+    // The same answer as the rows': whether the engine built a widget.
+    final canShowUI = ui == null
+        ? showsNoUI
+        : (AIUIDocument document, String messageId) =>
+              AIUIView(host: ui, document: document, messageId: messageId).canShow;
+    _entries = _tracker.entries(widget.messages, widget.pendingMessage, canShowUI: canShowUI);
+    _thinking =
+        widget.isThinking || _tracker.isAwaitingReply(widget.messages, widget.pendingMessage, canShowUI: canShowUI);
     final turns = ConversationTurn.of(_entries);
     _clock.update(
       latest: turns.lastOrNull?.id,
@@ -291,6 +318,7 @@ class _AIConversationViewState extends State<AIConversationView> {
           minHeight: max(0, height - padding.bottom),
           footer: widget.footer,
           approver: widget.approver,
+          ui: widget.ui,
           onAttachmentTap: widget.onAttachmentTap,
           padding: EdgeInsets.only(left: padding.left, right: padding.right),
         );
@@ -370,6 +398,7 @@ class _TurnView extends StatelessWidget {
     required this.minHeight,
     required this.footer,
     required this.approver,
+    required this.ui,
     required this.onAttachmentTap,
     required this.padding,
   });
@@ -381,6 +410,7 @@ class _TurnView extends StatelessWidget {
   final double minHeight;
   final Widget? footer;
   final AIToolApprover? approver;
+  final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
   final EdgeInsets padding;
 
@@ -408,6 +438,7 @@ class _TurnView extends StatelessWidget {
                     key: ValueKey(entry.id),
                     entry: entry,
                     approver: approver,
+                    ui: ui,
                     onAttachmentTap: onAttachmentTap,
                   ),
                 if (isLatest && isThinking) const Align(alignment: Alignment.centerLeft, child: AIThinkingView()),
@@ -424,7 +455,7 @@ class _TurnView extends StatelessWidget {
 /// What a row shows, which decides whether it is built again.
 @immutable
 class _Shown {
-  _Shown(ConversationEntry entry, this.approver, this.onAttachmentTap)
+  _Shown(ConversationEntry entry, this.approver, this.ui, this.onAttachmentTap)
     : isPending = entry.message == null,
       role = entry.message?.role ?? AIMessageRole.user,
       text = entry.message?.text ?? entry.pending?.text ?? '',
@@ -435,7 +466,8 @@ class _Shown {
           if (part.reasoning case final step?) entry.message!.reasoningText(step),
       ],
       attachments = entry.attachments,
-      isLatestReply = entry.isLatestReply;
+      isLatestReply = entry.isLatestReply,
+      uiDocument = entry.message?.uiDocument;
 
   final bool isPending;
   final AIMessageRole role;
@@ -445,8 +477,10 @@ class _Shown {
   final List<String?> reasoning;
   final List<AIMessageAttachment> attachments;
   final AIToolApprover? approver;
+  final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
   final bool isLatestReply;
+  final AIUIDocument? uiDocument;
 
   @override
   bool operator ==(Object other) =>
@@ -459,18 +493,27 @@ class _Shown {
       listEquals(other.reasoning, reasoning) &&
       listEquals(other.attachments, attachments) &&
       identical(other.approver, approver) &&
+      identical(other.ui, ui) &&
       other.onAttachmentTap == onAttachmentTap &&
-      other.isLatestReply == isLatestReply;
+      other.isLatestReply == isLatestReply &&
+      other.uiDocument == uiDocument;
 
   @override
   int get hashCode => Object.hash(isPending, role, text, isGenerating, parts.length, attachments.length, isLatestReply);
 }
 
 class _EntryView extends StatefulWidget {
-  const _EntryView({super.key, required this.entry, required this.approver, required this.onAttachmentTap});
+  const _EntryView({
+    super.key,
+    required this.entry,
+    required this.approver,
+    required this.ui,
+    required this.onAttachmentTap,
+  });
 
   final ConversationEntry entry;
   final AIToolApprover? approver;
+  final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 
   @override
@@ -483,6 +526,8 @@ class _EntryViewState extends State<_EntryView> {
   final _writing = ValueNotifier<bool?>(null);
   _Shown? _shown;
   Widget? _built;
+  AIUIView? _generated;
+  (AIUIHost, AIUIDocument, String)? _generatedFor;
 
   @override
   void initState() {
@@ -506,12 +551,30 @@ class _EntryViewState extends State<_EntryView> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _Shown(widget.entry, widget.approver, widget.onAttachmentTap);
+    final shown = _Shown(widget.entry, widget.approver, widget.ui, widget.onAttachmentTap);
     if (shown != _shown) {
       _shown = shown;
       _built = null;
     }
     return _built ??= AnswerWritingScope(writing: _writing, child: _content(context));
+  }
+
+  // The UI the agent generated for the reply, when one of the host's renderers
+  // shows it. The engine is asked for it again only as the reply's document
+  // changes, not each time the row builds.
+  AIUIView? _generatedUI(AIMessage reply) {
+    final ui = widget.ui;
+    final document = reply.uiDocument;
+    if (ui == null || document == null) {
+      _generated = null;
+      _generatedFor = null;
+      return null;
+    }
+    final shown = (ui, document, reply.id);
+    if (shown == _generatedFor) return _generated;
+    _generatedFor = shown;
+    final view = AIUIView(host: ui, document: document, messageId: reply.id);
+    return _generated = view.canShow ? view : null;
   }
 
   Widget _content(BuildContext context) {
@@ -529,12 +592,16 @@ class _EntryViewState extends State<_EntryView> {
     }
 
     final reply = message!;
+    final generated = _generatedUI(reply);
     final assistant = AIAssistantMessageProps(
       message: reply,
+      text: generated == null ? null : '',
       approver: widget.approver,
       onAttachmentTap: widget.onAttachmentTap,
     );
-    final showsActions = !reply.isGenerating && reply.text.isNotEmpty && _writing.value != true;
+    final isWriting = _writing.value == true || (generated?.document.isStreaming ?? false);
+    final hasAnswer = reply.text.isNotEmpty || generated != null;
+    final showsActions = !reply.isGenerating && hasAnswer && !isWriting;
     final actions = showsActions
         ? context.aiComponentBuilder<AIReplyActionsProps>()?.call(
             context,
@@ -548,7 +615,7 @@ class _EntryViewState extends State<_EntryView> {
       children: [
         context.aiComponentBuilder<AIAssistantMessageProps>()?.call(context, assistant) ??
             AIAssistantMessageView(
-              text: reply.text,
+              text: assistant.text,
               isGenerating: reply.isGenerating,
               parts: reply.parts,
               attachments: reply.attachments,
@@ -556,6 +623,7 @@ class _EntryViewState extends State<_EntryView> {
               reasoningText: reply.reasoningText,
               onAttachmentTap: widget.onAttachmentTap,
             ),
+        if (generated != null) Padding(padding: const EdgeInsets.only(top: 8), child: generated),
         AnimatedSwitcher(
           duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 200),
           // The gap above the actions comes and goes with them, so an answer
