@@ -33,7 +33,6 @@ Widget buildA2UICheckBox(BuildContext context, A2UIComponentScope scope) {
       A2UIPressable(
         onTap: canEdit ? () => scope.write('value', !isChecked) : null,
         isButton: false,
-        hint: accessibility.description,
         child: Opacity(
           opacity: canEdit ? 1 : a2uiReadOnlyOpacity,
           child: Row(

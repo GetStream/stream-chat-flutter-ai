@@ -285,16 +285,81 @@ void main() {
     expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isFalse);
   });
 
-  testWidgets("a button's label is the agent's accessibility label, on the button itself", (tester) async {
+  group('a button of an icon', () {
+    const icon = {'component': 'Icon', 'name': 'favorite'};
+
+    testWidgets("is the design system's icon button, read by the agent's label as its tooltip", (tester) async {
+      final events = <A2UIActionEvent>[];
+      await pumpSurface(
+        tester,
+        components: _button(child: icon, accessibility: {'label': 'Save the place'}),
+        events: events,
+      );
+
+      expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.child, isNull);
+      expect(
+        tester.getSemantics(find.byType(StreamButton)),
+        isSemantics(
+          tooltip: 'Save the place',
+          isButton: true,
+          isEnabled: true,
+          hasEnabledState: true,
+          hasTapAction: true,
+        ),
+      );
+
+      await tester.tap(find.byType(StreamButton));
+      await tester.pump();
+      expect(events.single.name, 'book');
+    });
+
+    testWidgets('without a label has no tooltip', (tester) async {
+      await pumpSurface(tester, components: _button(child: icon));
+
+      expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.child, isNull);
+      expect(find.byType(Tooltip), findsNothing);
+    });
+
+    testWidgets('is disabled while one of its checks fails', (tester) async {
+      final events = <A2UIActionEvent>[];
+      await pumpSurface(
+        tester,
+        components: _button(child: icon, accessibility: {'label': 'Save the place'}, checks: [_acceptedCheck]),
+        data: _notAccepted,
+        events: events,
+      );
+
+      expect(
+        tester.getSemantics(find.byType(StreamButton)),
+        isSemantics(isButton: true, hasEnabledState: true, isEnabled: false, hasTapAction: false),
+      );
+      await tester.tap(find.byType(StreamButton), warnIfMissed: false);
+      await tester.pump();
+      expect(events, isEmpty);
+    });
+  });
+
+  testWidgets('a button of text is read by its text, with no tooltip', (tester) async {
+    await pumpSurface(tester, components: _button(accessibility: {'label': 'Book a table'}));
+
+    expect(tester.widget<StreamButton>(find.byType(StreamButton)).props.tooltip, isNull);
+    expect(tester.getSemantics(find.bySemanticsLabel('Book')), isSemantics(isButton: true, hasTapAction: true));
+  });
+
+  testWidgets("an app's button builder gets an icon button's tooltip", (tester) async {
+    StreamButtonProps? props;
     await pumpSurface(
       tester,
-      components: _button(accessibility: {'label': 'Book a table', 'description': 'Sends the booking'}),
+      components: _button(child: {'component': 'Icon', 'name': 'favorite'}, accessibility: {'label': 'Save the place'}),
+      builders: StreamComponentBuilders(
+        button: (context, given) {
+          props = given;
+          return const SizedBox();
+        },
+      ),
     );
 
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('Book a table')),
-      isSemantics(label: 'Book a table', hint: 'Sends the booking', isButton: true, hasTapAction: true),
-    );
+    expect((props?.tooltip, props?.child), ('Save the place', null));
   });
 
   testWidgets("a button without an accessibility label is read as its child's text", (tester) async {
@@ -362,6 +427,7 @@ List<Map<String, Object?>> _button({
   String text = 'Book',
   List<Map<String, Object?>>? checks,
   Map<String, Object?>? accessibility,
+  Map<String, Object?>? child,
 }) {
   return [
     {
@@ -375,7 +441,10 @@ List<Map<String, Object?>> _button({
         'event': {'name': 'book'},
       },
     },
-    {'id': '${id}_label', 'component': 'Text', 'text': text},
+    {
+      'id': '${id}_label',
+      ...child ?? {'component': 'Text', 'text': text},
+    },
   ];
 }
 

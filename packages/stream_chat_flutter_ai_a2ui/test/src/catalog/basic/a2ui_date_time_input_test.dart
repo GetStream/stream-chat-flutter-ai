@@ -60,10 +60,12 @@ void main() {
       tester,
       components: inColumn([
         _input(id: 'when'),
+        // With an empty label, which the design system's field would draw
+        // inside it.
         {
           'id': 'name',
           'component': 'TextField',
-          'label': 'Name',
+          'label': '',
           'value': {'@path': '/name'},
         },
       ]),

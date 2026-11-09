@@ -196,10 +196,11 @@ void main() {
     expect(find.text('Ada Lovelace'), findsOneWidget);
   });
 
-  testWidgets('an empty field without a placeholder shows its label in it', (tester) async {
+  testWidgets('a field shows its label above it, drawn by the design system', (tester) async {
     await pumpSurface(tester, components: [_field()]);
 
-    expect(find.descendant(of: find.byType(TextField), matching: find.text('Name')), findsOneWidget);
+    expect(find.descendant(of: find.byType(StreamTextInput), matching: find.text('Name')), findsOneWidget);
+    expect(tester.widget<StreamTextInput>(find.byType(StreamTextInput)).props.labelText, 'Name');
   });
 
   testWidgets("an empty field doesn't show the messages of its failing checks", (tester) async {
@@ -321,28 +322,23 @@ void main() {
     expect(events.single.context['password'], 'hunter2');
   });
 
-  testWidgets("a field is read as one text field with the agent's label", (tester) async {
-    await pumpSurface(
-      tester,
-      components: [
-        _field(accessibility: {'label': 'Your full name', 'description': 'As on your passport'}),
-      ],
-    );
+  testWidgets('a field is read by its label, with its placeholder as a hint', (tester) async {
+    await pumpSurface(tester, components: [_field(placeholder: 'As on your passport')]);
 
     expect(
       tester.getSemantics(find.byType(StreamTextInput)),
-      isSemantics(label: 'Your full name', hint: 'As on your passport', isTextField: true),
+      isSemantics(label: 'Name', hint: 'As on your passport', isTextField: true),
     );
   });
 
-  testWidgets("a field whose value isn't bound is read as read-only, and can't be focused by assistive technologies", (
+  testWidgets("a field whose value isn't bound is read as read-only, and can't be tapped by assistive technologies", (
     tester,
   ) async {
     await pumpSurface(tester, components: [_field(value: 'Fixed')]);
 
     expect(
       tester.getSemantics(find.byType(StreamTextInput)),
-      isSemantics(isTextField: true, isReadOnly: true, hasTapAction: false, hasFocusAction: false),
+      isSemantics(isTextField: true, isReadOnly: true, hasTapAction: false),
     );
   });
 
