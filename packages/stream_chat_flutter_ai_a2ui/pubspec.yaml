@@ -1,0 +1,49 @@
+name: stream_chat_flutter_ai_a2ui
+homepage: https://github.com/GetStream/stream-chat-flutter-ai
+description: A2UI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in A2UI in its replies.
+repository: https://github.com/GetStream/stream-chat-flutter-ai
+issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
+# Not published yet: the package has no public API so far.
+publish_to: none
+
+# Note: The environment configuration and dependency versions are managed by Melos.
+#
+# Do not edit them manually.
+#
+# Steps to update dependencies:
+#   1. Modify the version in the root pubspec.yaml, under `melos.command.bootstrap`.
+#   2. Run `melos bootstrap` to apply changes.
+#
+# Steps to add a new dependency:
+#   1. Add the dependency to this list.
+#   2. Add it to the root pubspec.yaml for future updates.
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+# This package is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  # The A2UI protocol: messages, surfaces, data models and the basic catalog.
+  # Only `lib/src/core/` uses it, so it can be replaced without changing the
+  # rest of the package. Kept below 0.5.0, whose changes are breaking.
+  a2ui_core: ">=0.4.0 <0.5.0"
+  # Deep equality for the package's value types that hold JSON.
+  collection: ^1.19.0
+  flutter:
+    sdk: flutter
+  # Resolved to this workspace's own copy; pinned to its version once this
+  # package is published.
+  stream_chat_flutter_ai: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Reads the A2UI conformance suites, which are YAML.
+  yaml: ^3.1.3
+
+flutter:
+  # As the packages it depends on declare it; Flutter warns when they differ.
+  uses-material-design: true
