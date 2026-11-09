@@ -169,36 +169,20 @@ final class A2UINode extends ChangeNotifier {
   /// A link the action opens, such as with `openUrl`, goes to [onOpenLink],
   /// and only while the action runs. Without [onOpenLink], the link is
   /// reported as not opened. A function no catalog has that the action calls
-  /// reaches the processor's `onAgentFunction` as the person's own act.
+  /// reaches the processor's `onAgentFunction` as the person's own act, as
+  /// does one the action sends only once the calls in its arguments answered.
   Future<void> act(String name, {A2UIOpenLink? onOpenLink}) async {
     if (_disposed) return;
     final action = _node.props.peek()[name];
     if (action is! Future<void> Function()) return;
-    final processor = _surface._processor;
     try {
-      final Future<void> running;
-      // The core sends a function the action calls to the agent before the
-      // action first waits, so only that part counts as the person's act;
-      // what the action starts to run later doesn't.
-      processor._userActs += 1;
-      try {
-        running = runZoned(action, zoneValues: {_openLinkKey: onOpenLink});
-      } finally {
-        processor._userActs -= 1;
-      }
-      await running;
-    } on core.A2uiError catch (error) {
-      _surface._processor._report(_errorFromCore(error, surfaceId: _surface.id));
+      // The flag follows every await of the action, so a call the core sends
+      // only once the calls in its arguments answered is the person's act too.
+      await runZoned(action, zoneValues: {_openLinkKey: onOpenLink, _userActKey: true});
     } catch (error) {
-      // Anything else, such as the app's own [onOpenLink] throwing, is a
-      // problem of the action too.
-      _surface._processor._report(
-        A2UIError(
-          code: A2UIErrorCode.executionError,
-          message: "The action of component '$id' failed: $error",
-          surfaceId: _surface.id,
-        ),
-      );
+      if (_errorFromAct(error, surfaceId: _surface.id, componentId: id) case final error?) {
+        _surface._processor._report(error);
+      }
     }
   }
 

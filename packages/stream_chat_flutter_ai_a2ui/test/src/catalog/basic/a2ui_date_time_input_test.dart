@@ -152,8 +152,14 @@ void main() {
     final errors = <A2UIError>[];
     await pumpSurface(
       tester,
-      components: [_input(min: 'soon')],
-      data: {'day': '2026-10-10'},
+      // Bound, as a2ui_core rejects a written minimum that isn't a date.
+      components: [
+        {
+          ..._input(),
+          'min': {'@path': '/min'},
+        },
+      ],
+      data: {'day': '2026-10-10', 'min': 'soon'},
       errors: errors,
     );
 

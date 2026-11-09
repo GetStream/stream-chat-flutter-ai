@@ -5,10 +5,10 @@ packages:
     dependency: transitive
     description:
       name: a2ui_core
-      sha256: "1067c6964267a381b666154b10c734528dd8ada369a7de3da4aee587af762e38"
+      sha256: "72457ec49de30f1503959a96a9f90dfb4cc5d5c35016a499a8491a17f3114b93"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.0"
+    version: "0.5.0"
   alchemist:
     dependency: transitive
     description:

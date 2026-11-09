@@ -51,8 +51,8 @@ void main() {
       ),
     ]);
 
-    // A root of another type is removed, then added: two changes.
-    expect(notified, 2);
+    // The core replaces a root of another type in one batch: one change.
+    expect(notified, 1);
   });
 
   test('root is the replacing component once the root is replaced', () {

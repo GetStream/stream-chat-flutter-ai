@@ -97,59 +97,131 @@ Future<void> _runAgentBinding(Map<String, Object?> testCase, Map<String, Object?
           'version': '1.0',
           'updateComponents': {
             'surfaceId': surfaceId,
-            'components': [scenario['component']],
+            'components': scenario['components'] ?? [scenario['component']],
           },
         },
       ]);
-  final root = harness.processor.surface(surfaceId)!.root!;
+  final surface = harness.processor.surface(surfaceId)!;
+  final observe = (scenario['observe'] as Map<String, Object?>?) ?? const {};
+  final observed = _node(surface, (observe['componentId'] as String?) ?? 'root');
+  final property = (observe['property'] as String?) ?? 'text';
   // The core answers and reports in microtasks after the call; this lets them
   // run, as there is no single event to wait for.
   await pumpEventQueue();
   final expected = testCase['expect']! as Map<String, Object?>;
-  expect(root.property('text'), expected['initialValue']);
+  expect(observed.property(property), expected['initialValue']);
   final call = harness.sent.singleWhere((message) => message.containsKey('callAgentFunction'));
   _assertContains(expected['outboundCall'], call);
-  final callId = (call['callAgentFunction']! as Map<String, Object?>)['functionCallId'];
-  harness.process([
-    {
-      'version': '1.0',
-      'agentFunctionResponse': {'functionCallId': callId, 'value': scenario['inboundResponseValue']},
-    },
-  ]);
+  harness.process([_agentResponse(call, scenario)]);
   // The core answers and reports in microtasks after the call; this lets them
   // run, as there is no single event to wait for.
   await pumpEventQueue();
-  expect(root.property('text'), expected['resolvedValue']);
+  expect(observed.property(property), expected['resolvedValue']);
+  for (final MapEntry(key: id, :value) in ((expected['siblings'] as Map<String, Object?>?) ?? const {}).entries) {
+    final sibling = _node(surface, id);
+    for (final MapEntry(key: name, value: expectedValue) in (value! as Map<String, Object?>).entries) {
+      expect(sibling.property(name), expectedValue, reason: '$id.$name');
+    }
+  }
+  if (expected['validationResult'] case final Map<String, Object?> result) {
+    final failing = observed.failingChecks;
+    expect(failing.isEmpty, result['valid']);
+    if (result['message'] case final String message) expect(failing.first.message, message);
+    if (result['severity'] case final String severity) expect(failing.first.severity.name, severity);
+  }
+  _assertSurfaceError(expected, harness.errors);
 }
 
 Future<void> _runAgentActionFallback(Map<String, Object?> testCase, Map<String, Object?> scenario) async {
   final catalogId = scenario['catalogId']! as String;
   final surfaceId = scenario['surfaceId']! as String;
+  final localFunctions = (scenario['localFunctions'] as Map<String, Object?>?) ?? const {};
   final harness =
       _Harness([
         const A2UIDebugCatalog.basic(A2UICatalogs.basicCatalogId),
-        A2UIDebugCatalog.basic(catalogId),
+        A2UIDebugCatalog.basic(
+          catalogId,
+          functions: [
+            for (final MapEntry(key: name, value: spec) in localFunctions.entries)
+              _localFunction(name, spec! as Map<String, Object?>),
+          ],
+        ),
       ])..process([
         {
           'version': '1.0',
           'createSurface': {'surfaceId': surfaceId, 'catalogId': catalogId},
         },
       ]);
-  final result = debugAct(harness.processor.surface(surfaceId)!, scenario['actionPayload']);
+  final surface = harness.processor.surface(surfaceId)!;
+  final result = debugAct(surface, scenario['actionPayload']);
   // The core answers and reports in microtasks after the call; this lets them
   // run, as there is no single event to wait for.
   await pumpEventQueue();
   final expected = testCase['expect']! as Map<String, Object?>;
   final call = harness.sent.singleWhere((message) => message.containsKey('callAgentFunction'));
   _assertContains(expected['outboundCall'], call);
+  harness.process([_agentResponse(call, scenario)]);
+  final value = await result;
+  if (expected.containsKey('result')) _assertContains(expected['result'], value);
+  if (expected['dataModel'] case final Map<String, Object?> dataModel) _assertContains(dataModel, surface.read('/'));
+  _assertSurfaceError(expected, harness.errors);
+}
+
+A2UINode _node(A2UISurface surface, String id) {
+  A2UINode? find(A2UINode node) {
+    if (node.id == id) return node;
+    for (final name in ['children', 'child']) {
+      for (final child in node.children(name)) {
+        if (find(child) case final A2UINode found) return found;
+      }
+    }
+    return null;
+  }
+
+  return find(surface.root!) ?? fail('No component $id under the root.');
+}
+
+// The agent's answer to [call], as the scenario gives it: a value, or an
+// error.
+Map<String, Object?> _agentResponse(Map<String, Object?> call, Map<String, Object?> scenario) {
   final callId = (call['callAgentFunction']! as Map<String, Object?>)['functionCallId'];
-  harness.process([
-    {
-      'version': '1.0',
-      'agentFunctionResponse': {'functionCallId': callId, 'value': scenario['inboundResponseValue']},
+  return {
+    'version': '1.0',
+    'agentFunctionResponse': {
+      'functionCallId': callId,
+      if (scenario['inboundResponseError'] case final Object error)
+        'error': error
+      else
+        'value': scenario['inboundResponseValue'],
     },
-  ]);
-  _assertContains(expected['result'], await result);
+  };
+}
+
+// Checks the surface reported the scenario's `surfaceError`, or nothing when
+// it expects none.
+void _assertSurfaceError(Map<String, Object?> expected, List<A2UIError> errors) {
+  final surfaceError = expected['surfaceError'];
+  if (surfaceError is! Map<String, Object?>) {
+    expect(errors, isEmpty, reason: 'A case that expects no error reported one.');
+    return;
+  }
+  // This package's errors name no function call, so the call id the case
+  // expects isn't compared.
+  _assertErrorMatches({...surfaceError}..remove('functionCallId'), errors);
+}
+
+// A function of the scenario's catalog that runs on the renderer: it writes
+// what its `effect` says and returns `true`.
+A2UIDebugFunction _localFunction(String name, Map<String, Object?> spec) {
+  final setData = (spec['effect'] as Map<String, Object?>?)?['setData'] as Map<String, Object?>?;
+  return A2UIDebugFunction(
+    name,
+    definition: {'returnType': ?spec['returnType']},
+    body: (_, scope) {
+      if (setData != null) scope.write(setData['path']! as String, setData['value']);
+      return true;
+    },
+  );
 }
 
 // The functions of the suite's `handle_rpc` cases, as the reference harnesses
