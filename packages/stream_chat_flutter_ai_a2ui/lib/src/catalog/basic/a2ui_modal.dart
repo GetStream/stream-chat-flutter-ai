@@ -11,13 +11,13 @@ import 'package:stream_core_flutter/core.dart';
 /// Builds a `Modal`: its `trigger` in place, which opens its `content` in a
 /// sheet from the bottom of the screen.
 ///
-/// A `Button` in the trigger opens the sheet when tapped and still runs its
-/// own action; a disabled one opens nothing. A trigger that isn't a button
-/// opens the sheet when the person taps it. The sheet is the Stream design
-/// system's sheet; it scrolls when its content is taller than it, and closes
-/// with its close button, a swipe down or a tap outside it; it also closes
-/// when the modal leaves the surface. A modal with its sheet open stays while
-/// a list it is in scrolls it out of view.
+/// A `Button` in the trigger opens the sheet when tapped and still runs its own
+/// action; a disabled one opens nothing. A trigger that isn't a button opens
+/// the sheet when the person taps it. The sheet is the Stream design system's
+/// sheet; it scrolls when its content is taller than it, and closes with the
+/// close button at its top, a swipe down or a tap outside it; it also closes
+/// when the modal leaves the surface. A modal with its sheet open stays while a
+/// list it is in scrolls it out of view.
 ///
 /// Internal to the package.
 @internal
@@ -195,17 +195,8 @@ class _A2UIModalSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: A2UIPressable(
-                onTap: () => Navigator.of(context).pop(),
-                label: MaterialLocalizations.of(context).closeButtonLabel,
-                child: const SizedBox.square(
-                  dimension: A2UIPressable.minHeight,
-                  child: Icon(Icons.close_rounded),
-                ),
-              ),
-            ),
+            // The design system's header, with no title: its close button.
+            StreamSheetHeader(),
             Flexible(
               child: SingleChildScrollView(
                 controller: scrollController,

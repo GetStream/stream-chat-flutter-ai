@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// A box that gives [child] a width of at most [naturalWidth] when it is given
 /// no width limit, such as in a row that scrolls, and passes any other limit
@@ -118,48 +119,97 @@ bool a2uiBlocks(List<A2UICheckFailure> failures) {
   return failures.any((failure) => failure.severity == A2UICheckSeverity.error);
 }
 
-/// The look of a field a person types into, drawn from [theme]: filled with
-/// [A2UIThemeData.subtleSurface], with [A2UIThemeData.controlCornerRadius] corners,
-/// [padding] around the text, [hint] while it is empty, and a 1-point
-/// [A2UIThemeData.error] outline when [hasError].
+/// The look of a field, drawn as the Stream design system draws its text
+/// input from its theme: outlined in the border color, in the active border
+/// color while it has focus, and in the error border color when [hasError],
+/// with [hint] while it is empty in the tertiary text color.
+///
+/// The text input theme the app sets, its border, corners, fill and padding,
+/// applies too.
 ///
 /// Assistive technologies read the [hint] with the field, unless [readsHint]
 /// is false, such as for a hint that repeats the field's label.
 ///
 /// Internal to the package.
 @internal
-InputDecoration a2uiFieldDecoration(
-  A2UIResolvedTheme theme, {
+InputDecoration a2uiStreamFieldDecoration(
+  BuildContext context, {
   required String? hint,
   bool readsHint = true,
   required bool hasError,
-  required EdgeInsetsGeometry padding,
 }) {
-  final radius = BorderRadius.circular(theme.controlCornerRadius);
-  final border = OutlineInputBorder(borderRadius: radius, borderSide: BorderSide.none);
-  final errorBorder = OutlineInputBorder(
-    borderRadius: radius,
-    borderSide: BorderSide(color: theme.error, width: _errorOutlineWidth),
-  );
+  final colors = context.streamColorScheme;
+  final spacing = context.streamSpacing;
+  final style = context.streamTextInputTheme.style;
+  final radius = (style?.borderRadius ?? BorderRadius.all(context.streamRadius.lg)).resolve(Directionality.of(context));
+  OutlineInputBorder outline(BorderSide? side, BorderSide fallback) {
+    return OutlineInputBorder(borderRadius: radius, borderSide: side ?? fallback);
+  }
+
+  final border = outline(style?.border, BorderSide(color: colors.borderDefault));
+  final focusBorder = outline(style?.focusBorder, BorderSide(color: colors.borderActive));
+  final errorBorder = outline(style?.errorBorder, BorderSide(color: colors.borderError));
   final shown = hasError ? errorBorder : border;
-  final hintStyle = theme.body.copyWith(color: theme.secondaryText);
+  final hintStyle =
+      WidgetStateProperty.resolveAs<TextStyle?>(style?.hintStyle, const {}) ??
+      context.streamTextTheme.bodyDefault.copyWith(color: colors.textTertiary);
   return InputDecoration(
     hintText: readsHint ? hint : null,
     hint: readsHint || hint == null ? null : ExcludeSemantics(child: Text(hint, style: hintStyle)),
     hintStyle: hintStyle,
-    filled: true,
-    fillColor: theme.subtleSurface,
+    filled: style?.fillColor != null,
+    fillColor: style?.fillColor,
     isDense: true,
-    contentPadding: padding,
+    contentPadding: style?.contentPadding ?? EdgeInsets.symmetric(vertical: spacing.sm, horizontal: spacing.md),
     border: shown,
     enabledBorder: shown,
-    focusedBorder: shown,
+    focusedBorder: hasError ? errorBorder : focusBorder,
     disabledBorder: shown,
   );
 }
 
-// The width of the outline of a field whose check fails.
-const _errorOutlineWidth = 1.0;
+/// The frame of the Stream design system's text input around [child], drawn
+/// from its theme as the input draws it: outlined in the border color, with
+/// its corners, fill and the padding around its text, and outlined in the
+/// error border color when [hasError].
+///
+/// It is for a component that looks like a field but isn't typed into, such
+/// as a date input.
+///
+/// Internal to the package.
+@internal
+class A2UIStreamFieldFrame extends StatelessWidget {
+  /// Creates an [A2UIStreamFieldFrame].
+  const A2UIStreamFieldFrame({super.key, this.hasError = false, required this.child});
+
+  /// Whether the frame is drawn in the error border color, such as when a
+  /// check of the component fails.
+  final bool hasError;
+
+  /// What the frame holds.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.streamSpacing;
+    final style = context.streamTextInputTheme.style;
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      constraints: style?.constraints,
+      decoration: ShapeDecoration(
+        color: style?.fillColor,
+        shape: RoundedSuperellipseBorder(
+          side: hasError
+              ? style?.errorBorder ?? BorderSide(color: context.streamColorScheme.borderError)
+              : style?.border ?? BorderSide(color: context.streamColorScheme.borderDefault),
+          borderRadius: style?.borderRadius ?? BorderRadius.all(context.streamRadius.lg),
+        ),
+      ),
+      padding: style?.contentPadding ?? EdgeInsets.symmetric(vertical: spacing.sm, horizontal: spacing.md),
+      child: child,
+    );
+  }
+}
 
 /// A part of a component a person activates, such as a button or a
 /// checkbox's row: it calls [onTap] when tapped, when activated with the
