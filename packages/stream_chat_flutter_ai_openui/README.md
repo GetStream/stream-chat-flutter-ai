@@ -64,6 +64,18 @@ prompt, with its components, examples and rules, the app's components and the ho
 final renderer = OpenUIRenderer(instructions: 'Show places as cards, and plans as steps.');
 ```
 
+## Customization
+
+Each level overrides more than the one before, and the rest keeps its defaults:
+
+1. **The app's Stream theme.** Replies follow its colors, text styles and light and dark mode, with no setup.
+2. **`OpenUITheme` / `OpenUIThemeData`**: [the look](#the-look) of OpenUI replies alone.
+3. **`StreamComponentFactory` slots**: the design system's buttons, fields and sheets that OpenUI replies are drawn
+   with, replaced for the whole app.
+4. **`OpenUILibrary.replacing` and `removing`**: [draw a component another way, or take it out](#the-components).
+5. **The app's components**: [widgets of your own the agent can place](#the-apps-components).
+6. **The renderer's hooks**: `instructions`, `mediaUrl` and `onError`, in [showing replies](#showing-replies).
+
 ## The components
 
 `OpenUILibrary.chat`, the default, is OpenUI's chat library, whose programs are a `Card` with the answer in it, and
