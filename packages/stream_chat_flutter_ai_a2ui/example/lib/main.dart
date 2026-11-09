@@ -85,7 +85,7 @@ Future<List<Example>> _loadExamples() async {
       messages: A2UIStream.messages(await rootBundle.loadString('assets/ohrid_prompt_example.jsonl')),
     ),
   ];
-  for (final path in files) {
+  for (final path in [...files, 'assets/media_example.json']) {
     final json = jsonDecode(await rootBundle.loadString(path)) as Map<String, Object?>;
     examples.add(
       Example(

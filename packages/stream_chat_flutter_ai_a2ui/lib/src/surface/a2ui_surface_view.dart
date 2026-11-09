@@ -23,9 +23,11 @@ class A2UISurfaceView extends StatelessWidget {
   ///
   /// The surface is drawn with [theme] layered over the nearest [A2UITheme],
   /// and takes each value neither sets from the [StreamTheme] around it, so
-  /// it follows light and dark mode. An image
-  /// whose URL has a scheme loads from the URL [mediaUrl] gives for it, and
-  /// only web links load unless it is given another function.
+  /// it follows light and dark mode.
+  ///
+  /// Media whose URL has a scheme loads from the URL [mediaUrl] gives for it:
+  /// an image, a video's poster, a video and an audio clip. Only web links
+  /// load unless it is given another function.
   ///
   /// A link a person's action opens, such as a button whose action is the
   /// agent's `openUrl`, goes to [onOpenLink]; only web links do. Without
@@ -49,7 +51,8 @@ class A2UISurfaceView extends StatelessWidget {
   /// Overrides for the look of the surface's components, or `null` for none.
   final A2UIThemeData? theme;
 
-  /// The function the surface's images are loaded through.
+  /// The function the surface's images, videos and audio clips are loaded
+  /// through.
   final A2UIMediaUrl mediaUrl;
 
   /// The function that opens the links a person's actions open, or `null`.
