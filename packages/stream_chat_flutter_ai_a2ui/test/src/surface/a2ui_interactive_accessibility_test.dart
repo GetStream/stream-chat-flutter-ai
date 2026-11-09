@@ -3,20 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../a2ui_test_app.dart';
 
-// A component a person interacts with is one node for assistive
-// technologies, labelled with the agent's accessibility attributes.
+// A component a person interacts with that the package draws itself is one
+// node for assistive technologies, labelled with the agent's accessibility
+// attributes. One drawn with the Stream design system is read as the design
+// system reads it.
 void main() {
   testWidgets("an interactive component's label is on one node only", (tester) async {
-    await pumpSurface(tester, components: _button({'label': 'Book a table'}));
+    await pumpSurface(tester, components: _slider({'label': 'Party size'}), data: {'size': 2});
 
-    expect(find.bySemanticsLabel('Book a table'), findsOneWidget);
+    expect(find.bySemanticsLabel('Party size'), findsOneWidget);
   });
 
-  testWidgets("an interactive component's label is on the node a person taps", (tester) async {
-    await pumpSurface(tester, components: _button({'label': 'Book a table'}));
+  testWidgets("an interactive component's label is on the node a person uses", (tester) async {
+    await pumpSurface(tester, components: _slider({'label': 'Party size'}), data: {'size': 2});
 
     expect(
-      tester.getSemantics(find.bySemanticsLabel('Book a table')).getSemanticsData().hasAction(SemanticsAction.tap),
+      tester.getSemantics(find.bySemanticsLabel('Party size')).getSemanticsData().hasAction(SemanticsAction.increase),
       isTrue,
     );
   });
@@ -87,5 +89,19 @@ List<Map<String, Object?>> _button(Map<String, Object?> accessibility) {
       },
     },
     {'id': 'label', 'component': 'Text', 'text': 'Book'},
+  ];
+}
+
+List<Map<String, Object?>> _slider(Map<String, Object?> accessibility) {
+  return [
+    {
+      'id': 'root',
+      'component': 'Slider',
+      'label': 'Guests',
+      'min': 1,
+      'max': 8,
+      'value': {'@path': '/size'},
+      'accessibility': accessibility,
+    },
   ];
 }

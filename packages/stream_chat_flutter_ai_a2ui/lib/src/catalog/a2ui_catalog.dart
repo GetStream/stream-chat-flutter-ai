@@ -40,10 +40,12 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_video.dart';
 ///
 /// A component a person interacts with, such as a `Button`, a `TextField`,
 /// a `CheckBox`, a `ChoicePicker`, a `Slider`, a `DateTimeInput` or a
-/// `Modal`, gets the agent's accessibility label and description on the part
-/// the person interacts with, so it is read as one control; a builder that
-/// replaces one reads them from `value('accessibility')`. Other components
-/// get them around what their builder returns.
+/// `Modal`, is read as its builder makes it: those drawn with the Stream
+/// design system as the design system reads them, and the others with the
+/// agent's accessibility label and description on the part the person
+/// interacts with. A builder that replaces one reads them from
+/// `value('accessibility')`. Other components get them around what their
+/// builder returns.
 typedef A2UIComponentBuilder = Widget Function(BuildContext context, A2UIComponentScope scope);
 
 /// The components a reply's A2UI is drawn with: a builder for each component
