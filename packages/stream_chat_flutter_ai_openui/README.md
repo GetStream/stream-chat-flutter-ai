@@ -81,7 +81,7 @@ Each level overrides more than the one before, and the rest keeps its defaults:
 `OpenUILibrary.chat`, the default, is OpenUI's chat library, whose programs are a `Card` with the answer in it, and
 `OpenUILibrary.standard` its standard library, whose programs are a `Stack`. Both draw their content, data display,
 card, layout, list, table, form, button and chart components. The charts are the core package's `ChartView`, drawn in
-the colors of `OpenUIColors.chartPalette`.
+the colors of `OpenUIThemeData.chartPalette`.
 
 To draw a component another way, replace its builder; the agent still writes the component as the library describes
 it. `buildDefault` draws what the package draws for it:
@@ -134,7 +134,7 @@ spacing, corner radii and text styles; the values it leaves unset still come fro
 
 ```dart
 final renderer = OpenUIRenderer(
-  theme: const OpenUIThemeData(colors: OpenUIColors(accent: Color(0xFFE65100))),
+  theme: OpenUIThemeData(accent: const Color(0xFFE65100)),
 );
 ```
 
