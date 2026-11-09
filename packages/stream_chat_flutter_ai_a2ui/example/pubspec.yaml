@@ -1,0 +1,39 @@
+name: stream_chat_flutter_ai_a2ui_example
+description: "A conversation and a gallery of the A2UI replies stream_chat_flutter_ai_a2ui shows."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+# This app is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Resolves to the local `packages/stream_chat_flutter_ai` member of this
+  # workspace: the Stream theme and the generative UI host the gallery shows
+  # surfaces in. The constraint comes from the root bootstrap list.
+  stream_chat_flutter_ai: ^0.1.0
+  # Resolves to the local `packages/stream_chat_flutter_ai_a2ui` member of this
+  # workspace.
+  stream_chat_flutter_ai_a2ui: any
+  stream_core_flutter: ^0.5.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    # The examples published with A2UI's basic catalog, as in the package's
+    # `test/fixtures/upstream_examples`.
+    - assets/examples/
+    # The Ohrid trip example the Stream agent backend gives its model, as in
+    # the package's `test/fixtures`.
+    - assets/ohrid_prompt_example.jsonl
+    # A Video and an AudioPlayer, with the links of the basic catalog's movie
+    # and podcast examples.
+    - assets/media_example.json
+    # A button that opens a web page.
+    - assets/link_example.json
