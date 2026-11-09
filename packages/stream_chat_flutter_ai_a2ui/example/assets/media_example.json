@@ -1,0 +1,36 @@
+{
+  "name": "Video and audio",
+  "description": "A trailer with its poster and a podcast episode, with the links of the basic catalog's movie and podcast examples.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "gallery-media",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "gallery-media",
+        "components": [
+          {"id": "root", "component": "Card", "child": "content"},
+          {"id": "content", "component": "Column", "children": ["title", "trailer", "episode"]},
+          {"id": "title", "component": "Text", "text": "Interstellar", "variant": "body"},
+          {
+            "id": "trailer",
+            "component": "Video",
+            "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+            "posterUrl": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop"
+          },
+          {
+            "id": "episode",
+            "component": "AudioPlayer",
+            "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            "description": "The Future of AI in Product Design"
+          }
+        ]
+      }
+    }
+  ]
+}
