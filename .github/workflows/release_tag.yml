@@ -60,20 +60,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # pub.dev rejects a tag that doesn't match the pubspec version, but
-          # only after the tag is pushed — catch the mismatch before that.
-          version=$(sed -n 's/^version: *//p' packages/stream_chat_flutter_ai/pubspec.yaml)
-          if [[ "$TAG" != "v$version" ]]; then
-            echo "::error ::❌ Tag $TAG does not match pubspec version $version."
-            exit 1
-          fi
+          # Every publishable package is released in lockstep, so each
+          # pubspec must carry the tag's version.
+          .github/workflows/scripts/verify-release-versions.sh "$TAG"
 
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
             echo "::error ::❌ Tag $TAG already exists."
             exit 1
           fi
 
-          echo "✅ $TAG matches the pubspec and is not tagged yet."
+          echo "✅ $TAG matches every publishable package and is not tagged yet."
 
       - name: 🚀 Create and Push Tag
         shell: bash

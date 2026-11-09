@@ -1,10 +1,17 @@
 name: stream_chat_flutter_ai_a2ui
+version: 0.1.0
+# Published from its first release on: the release PR drops this line.
+publish_to: none
 homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: A2UI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in A2UI in its replies.
 repository: https://github.com/GetStream/stream-chat-flutter-ai
 issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
-# Not published yet.
-publish_to: none
+topics:
+  - a2ui
+  - ai
+  - chat
+  - generative-ui
+  - llm
 
 # Note: The environment configuration and dependency versions are managed by Melos.
 #
@@ -45,9 +52,9 @@ dependencies:
   json_schema_builder: ^0.1.7
   # Plays the audio agents place in their replies.
   just_audio: ^0.10.5
-  # Resolved to this workspace's own copy; pinned to its version once this
-  # package is published.
-  stream_chat_flutter_ai: any
+  # Released in lockstep with this package: the release bumps both versions
+  # and this constraint together.
+  stream_chat_flutter_ai: ^0.1.0
   # Stream's design system: the theme tokens and the buttons, check boxes,
   # fields, images and sheets A2UI components are drawn with, so an app's
   # component builders apply to them too.
