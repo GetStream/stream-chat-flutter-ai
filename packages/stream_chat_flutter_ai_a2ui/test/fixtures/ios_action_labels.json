@@ -1,0 +1,166 @@
+{
+  "buttonText" : [
+    {
+      "buttonText" : "Update the plan",
+      "case" : "literal"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "empty"
+    },
+    {
+      "buttonText" : "   ",
+      "case" : "blank"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "absoluteBinding"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "relativeBinding"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "functionCall"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "noChild"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "childMissing"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "childNotText"
+    },
+    {
+      "buttonText" : "<nil>",
+      "case" : "numberText"
+    }
+  ],
+  "words" : [
+    {
+      "label" : "Submit form",
+      "name" : "submit_form"
+    },
+    {
+      "label" : "Submit form",
+      "name" : "submitForm"
+    },
+    {
+      "label" : "Submit form",
+      "name" : "SubmitForm"
+    },
+    {
+      "label" : "Update plan",
+      "name" : "update_plan"
+    },
+    {
+      "label" : "Ask",
+      "name" : "ask"
+    },
+    {
+      "label" : "Ask",
+      "name" : "ASK"
+    },
+    {
+      "label" : "Httprequest",
+      "name" : "HTTPRequest"
+    },
+    {
+      "label" : "Get httpresponse",
+      "name" : "getHTTPResponse"
+    },
+    {
+      "label" : "Book now",
+      "name" : "book-now"
+    },
+    {
+      "label" : "Book now",
+      "name" : "book now"
+    },
+    {
+      "label" : "A b",
+      "name" : "a__b"
+    },
+    {
+      "label" : "X",
+      "name" : "__x__"
+    },
+    {
+      "label" : "",
+      "name" : "_"
+    },
+    {
+      "label" : "",
+      "name" : ""
+    },
+    {
+      "label" : "X1y2",
+      "name" : "x1Y2"
+    },
+    {
+      "label" : "Camel case name",
+      "name" : "camelCaseName"
+    },
+    {
+      "label" : "Été plan",
+      "name" : "ÉtéPlan"
+    },
+    {
+      "label" : "Straße öffnen",
+      "name" : "straße_öffnen"
+    },
+    {
+      "label" : "日本語 ok",
+      "name" : "日本語_ok"
+    },
+    {
+      "label" : "Ok",
+      "name" : "OK"
+    },
+    {
+      "label" : "Ok now",
+      "name" : "okNow"
+    },
+    {
+      "label" : "V1 0",
+      "name" : "v1_0"
+    },
+    {
+      "label" : "A b c d",
+      "name" : "a-B_c D"
+    },
+    {
+      "label" : "",
+      "name" : "   "
+    },
+    {
+      "label" : "Select place",
+      "name" : "selectPlace"
+    },
+    {
+      "label" : "Ask about",
+      "name" : "ask_about"
+    },
+    {
+      "label" : "Trip2day",
+      "name" : "trip2Day"
+    },
+    {
+      "label" : "A bc",
+      "name" : "aBC"
+    },
+    {
+      "label" : "Abc",
+      "name" : "ABc"
+    },
+    {
+      "label" : "İstanbul trip",
+      "name" : "İstanbul_trip"
+    }
+  ]
+}

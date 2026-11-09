@@ -54,23 +54,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          version=$(sed -n 's/^version: *//p' packages/stream_chat_flutter_ai/pubspec.yaml)
-          if [[ "$TAG" != "v$version" ]]; then
-            echo "::error ::❌ Tag $TAG does not match pubspec version $version."
-            exit 1
-          fi
+          .github/workflows/scripts/verify-release-versions.sh "$TAG"
 
-          echo "✅ $TAG matches the pubspec."
+          echo "✅ $TAG matches every publishable package."
 
       # Not `melos run lint:pub`: that skips versions already on pub.dev, so a
-      # manual run before the version bump would validate nothing.
+      # manual run before the version bump would validate nothing. In the pub
+      # workspace a dependent resolves its sibling locally, so this passes
+      # before the sibling's new version is on pub.dev.
       - name: 🌵 Dry Run
-        working-directory: packages/stream_chat_flutter_ai
-        run: flutter pub publish --dry-run
+        run: melos exec --no-private --order-dependents --concurrency 1 --fail-fast -- flutter pub publish --dry-run
 
+      # Publishes dependencies first (`orderDependents`), so pub.dev already
+      # has stream_chat_flutter_ai X.Y.Z when the packages that depend on it
+      # upload. A re-run of this workflow skips packages already published.
       - name: 📢 Release to pub.dev
+        id: publish
         if: github.event_name == 'push'
         run: melos run release:pub
+
+      # Shown only when the upload fails, which it does for a package's first
+      # version.
+      - name: 📝 First Release Notice
+        if: failure() && steps.publish.outcome == 'failure'
+        run: |
+          echo "::notice title=First release of a package::pub.dev can't create a package through automated publishing. A package's first version (such as stream_chat_flutter_ai_a2ui's) is uploaded by hand by a publisher member from this tag; then enable automated publishing on its pub.dev admin page and re-run this workflow."
 
       - name: 🏷️ Extract Version Info
         if: github.event_name == 'push'

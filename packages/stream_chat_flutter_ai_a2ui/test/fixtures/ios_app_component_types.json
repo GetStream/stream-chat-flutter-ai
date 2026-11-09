@@ -1,0 +1,62 @@
+[
+  {
+    "name" : "place_card",
+    "type" : "PlaceCard"
+  },
+  {
+    "name" : "weather-widget",
+    "type" : "WeatherWidget"
+  },
+  {
+    "name" : "trip map",
+    "type" : "TripMap"
+  },
+  {
+    "name" : "PlaceCard",
+    "type" : "PlaceCard"
+  },
+  {
+    "name" : "placeCard",
+    "type" : "PlaceCard"
+  },
+  {
+    "name" : "a__b",
+    "type" : "AB"
+  },
+  {
+    "name" : "_place_",
+    "type" : "Place"
+  },
+  {
+    "name" : "9 lives",
+    "type" : "9Lives"
+  },
+  {
+    "name" : "ßeta_card",
+    "type" : "SSetaCard"
+  },
+  {
+    "name" : "éclair_list",
+    "type" : "ÉclairList"
+  },
+  {
+    "name" : "surface",
+    "type" : "Surface"
+  },
+  {
+    "name" : "card",
+    "type" : "Card"
+  },
+  {
+    "name" : "x",
+    "type" : "X"
+  },
+  {
+    "name" : "",
+    "type" : ""
+  },
+  {
+    "name" : "__",
+    "type" : ""
+  }
+]
