@@ -31,8 +31,15 @@ void main() {
   });
 }
 
-// None yet: the package has no public API.
-const _expectedNames = <String>{};
+// The public API: the theme, the catalog and what its builders read.
+const _expectedNames = {
+  'A2UICatalog',
+  'A2UIChild',
+  'A2UIComponentBuilder',
+  'A2UIComponentScope',
+  'A2UITheme',
+  'A2UIThemeData',
+};
 
 String _barrel() => File('lib/stream_chat_flutter_ai_a2ui.dart').readAsStringSync();
 

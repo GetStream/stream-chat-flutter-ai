@@ -29,7 +29,8 @@ uses, so a core minor bump is released in step with chat.
 A second package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
 plugin for the core package's generative UI. It uses only the core package's public API, and hides
 `a2ui_core` (the A2UI protocol library) inside `lib/src/core/`: no other file imports it, and no
-`a2ui_core` type appears in its API, so the protocol library can be replaced.
+`a2ui_core` type appears in its API, so the protocol library can be replaced. The same holds for
+`json_schema_builder`, the schema library `a2ui_core`'s catalogs are written in.
 
 The Stream Chat SDK itself lives in the separate
 [GetStream/stream-chat-flutter](https://github.com/GetStream/stream-chat-flutter) repo, and
@@ -47,6 +48,7 @@ analysis_options.yaml                   # lint + formatter config for every memb
 packages/stream_chat_flutter_ai/        # the published package
 packages/stream_chat_flutter_ai/example # showcase app, publish_to: none
 packages/stream_chat_flutter_ai_a2ui/   # the A2UI renderer plugin, publish_to: none until released
+packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_to: none
 ```
 
 Consequences worth remembering:

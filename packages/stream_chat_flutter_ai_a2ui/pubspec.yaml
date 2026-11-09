@@ -30,15 +30,26 @@ dependencies:
   # Only `lib/src/core/` uses it, so it can be replaced without changing the
   # rest of the package. Kept below 0.5.0, whose changes are breaking.
   a2ui_core: ">=0.4.0 <0.5.0"
+  # The images agents place in their replies, loaded and cached.
+  cached_network_image: ^3.4.1
   # Deep equality for the package's value types that hold JSON.
   collection: ^1.19.0
   flutter:
     sdk: flutter
+  # The Markdown of text components, as the core package draws Markdown.
+  flutter_markdown_plus: ^1.0.7
+  # The icons an agent draws with an SVG path.
+  flutter_svg: ^2.3.0
+  # The schema type `a2ui_core` takes for a catalog's components. Only
+  # `lib/src/core/` uses it, as it does `a2ui_core`.
+  json_schema_builder: ^0.1.7
   # Resolved to this workspace's own copy; pinned to its version once this
   # package is published.
   stream_chat_flutter_ai: any
 
 dev_dependencies:
+  # Golden tests, as in the core package.
+  alchemist: ^0.14.0
   flutter_test:
     sdk: flutter
   # Reads the A2UI conformance suites, which are YAML.

@@ -54,6 +54,13 @@ final class A2UINode extends ChangeNotifier {
     return _value(_node.props.peek()[name]);
   }
 
+  /// The property [name] as the agent wrote it, with bindings and function
+  /// calls unread, or `null` when the component doesn't set it.
+  Object? writtenProperty(String name) {
+    if (_disposed) return null;
+    return _surface._model.componentsModel.get(id)?.properties[name];
+  }
+
   Object? _value(Object? value) {
     return switch (value) {
       final core.ResolvedBinding<Object?> binding => _plain(binding.value),
@@ -103,6 +110,20 @@ final class A2UINode extends ChangeNotifier {
     } on core.A2uiError catch (error) {
       _surface._processor._report(_errorFromCore(error, surfaceId: _surface.id));
     }
+    _surface._processor._checkSize(_surface.id);
+  }
+
+  /// Reports [error], which the builder of this component threw, through the
+  /// processor's `onError` as an `EXECUTION_ERROR` that names the component.
+  void reportBuildError(Object error) {
+    if (_disposed) return;
+    _surface._processor._report(
+      A2UIError(
+        code: A2UIErrorCode.executionError,
+        message: "Building component '$id' of type '$type' failed: $error",
+        surfaceId: _surface.id,
+      ),
+    );
   }
 
   /// Runs the action in the property [name], such as a `Button`'s `action`, as
