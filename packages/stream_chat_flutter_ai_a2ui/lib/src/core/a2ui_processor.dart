@@ -79,9 +79,20 @@ final class A2UIProcessor extends ChangeNotifier {
   /// A text given to [apply] that isn't a JSON object is skipped and goes to
   /// `onUnreadable` instead of `onError`.
   ///
-  /// None of the three is called after [dispose].
+  /// A function a surface calls that no catalog has, such as one of the app's
+  /// tools, goes to `onAgentFunction`, and what it completes with is the
+  /// function's value where the surface uses it; a failure is reported through
+  /// `onError` as `EXECUTION_ERROR`. Without `onAgentFunction`, such a
+  /// function fails, and is reported the same way. An answer that arrives
+  /// after [reset] or [dispose] is dropped.
   ///
-  /// None of the three may throw: one that does stops [apply] partway, and
+  /// A function that hasn't answered after [agentFunctionTimeout] fails as
+  /// timed out, reported through `onError`. Its answer, if it comes later, is
+  /// dropped, and the function's name goes to `onLateAnswer`.
+  ///
+  /// None of these is called after [dispose].
+  ///
+  /// None of these may throw: one that does stops [apply] partway, and
   /// leaves the problem it was given marked as reported. Its creator runs app
   /// code behind its own guard, as the engine does.
   ///
@@ -92,6 +103,8 @@ final class A2UIProcessor extends ChangeNotifier {
     this._onAction,
     this._onError,
     this._onUnreadable,
+    this._onAgentFunction,
+    this._onLateAnswer,
     @visibleForTesting this._debugCoreFactory,
   }) : _defaultsCatalog = true,
        _debugChecks = null,
@@ -112,6 +125,8 @@ final class A2UIProcessor extends ChangeNotifier {
     A2UIDebugChecks? checks,
     A2UIDebugOutboundCallback? onOutbound,
   }) : _onUnreadable = null,
+       _onAgentFunction = null,
+       _onLateAnswer = null,
        _debugCoreFactory = null,
        _defaultsCatalog = false,
        _debugChecks = checks,
@@ -123,10 +138,19 @@ final class A2UIProcessor extends ChangeNotifier {
   final A2UIActionCallback? _onAction;
   final A2UIErrorCallback? _onError;
   final VoidCallback? _onUnreadable;
+  final A2UIAgentFunctionCallback? _onAgentFunction;
+  final void Function(String functionName)? _onLateAnswer;
   final A2UIDebugCoreFactory? _debugCoreFactory;
   final bool _defaultsCatalog;
   final A2UIDebugChecks? _debugChecks;
   final A2UIDebugOutboundCallback? _debugOnOutbound;
+
+  // The timers of the functions the core is waiting on, which end with it.
+  final Set<Timer> _callTimeouts = {};
+
+  /// How long a function no catalog has may take to answer before it fails
+  /// as timed out, as on Stream's iOS and Android SDKs.
+  static const agentFunctionTimeout = Duration(seconds: 30);
 
   late core.MessageProcessor<core.ComponentApi> _core;
   final List<core.Subscription> _coreSubscriptions = [];
@@ -136,6 +160,9 @@ final class A2UIProcessor extends ChangeNotifier {
   // The core creates a surface from inside `processMessages`, and tells this
   // processor of it with no way to say it is too large, so it is said here.
   String? _tooLargeSurfaceId;
+  // How many of the person's own acts are running their synchronous part
+  // now, which is when the core sends the functions they call.
+  var _userActs = 0;
   bool _disposed = false;
 
   // The version string the core reads A2UI 1.0 messages by.
@@ -166,10 +193,18 @@ final class A2UIProcessor extends ChangeNotifier {
     assert(!_disposed, 'A2UIProcessor.apply was called after dispose.');
     if (_disposed) return;
     final before = [..._surfaces.values];
-    for (final text in messages) {
-      _applyText(text);
-      // A callback may have disposed this processor.
-      if (_disposed) return;
+    // Messages that arrive while the person's act runs, such as from the app's
+    // code that the act calls, aren't the person's act.
+    final userActs = _userActs;
+    _userActs = 0;
+    try {
+      for (final text in messages) {
+        _applyText(text);
+        // A callback may have disposed this processor.
+        if (_disposed) return;
+      }
+    } finally {
+      _userActs = userActs;
     }
     if (!_isSame(before)) notifyListeners();
   }
@@ -403,6 +438,21 @@ final class A2UIProcessor extends ChangeNotifier {
     return {...message, 'version': _coreVersion};
   }
 
+  /// Gives `report` what keeps the tree of each surface from being whole: a
+  /// component that holds itself or names a child that doesn't exist, no
+  /// component with the id `root`, or components that hold each other in a
+  /// circle.
+  ///
+  /// A component the root doesn't reach is fine, such as one the agent
+  /// replaced while it wrote. Nothing is reported through `onError`.
+  void checkTopology(A2UIErrorCallback report) {
+    assert(!_disposed, 'A2UIProcessor.checkTopology was called after dispose.');
+    if (_disposed) return;
+    for (final surface in _surfaces.values) {
+      _topologyErrors(surface, _catalogs).forEach(report);
+    }
+  }
+
   /// Removes every surface, as if no message had been applied, so the messages
   /// can be applied again from the start.
   ///
@@ -421,15 +471,19 @@ final class A2UIProcessor extends ChangeNotifier {
 
   core.MessageProcessor<core.ComponentApi> _makeCore() {
     final onOutbound = _debugOnOutbound;
-    final processor =
+    late final core.MessageProcessor<core.ComponentApi> processor;
+    processor =
         _debugCoreFactory?.call(_catalogs._catalogs, _handleAction) ??
         core.MessageProcessor<core.ComponentApi>(
           catalogs: _catalogs._catalogs,
           validationConfig: _debugChecks?._config,
           onAction: _handleAction,
-          outboundListener: onOutbound == null
-              ? null
-              : (message) => onOutbound(_fromCoreVersion(_plainMap(message.toJson()))),
+          defaultTimeout: agentFunctionTimeout,
+          outboundListener: switch ((onOutbound, _onAgentFunction)) {
+            (final onOutbound?, _) => (message) => onOutbound(_fromCoreVersion(_plainMap(message.toJson()))),
+            (null, final onAgentFunction?) => (message) => _handleOutbound(message, processor, onAgentFunction),
+            (null, null) => null,
+          },
         );
     _coreSubscriptions
       ..add(processor.model.onSurfaceCreated.subscribe(_handleSurfaceCreated))
@@ -459,6 +513,65 @@ final class A2UIProcessor extends ChangeNotifier {
     );
   }
 
+  // Runs a function the agent's UI calls that no catalog has with
+  // [onAgentFunction], and answers [asker], the core that called it. A core
+  // that was reset or disposed meanwhile has no call waiting for the answer,
+  // and drops it. What the core sends the agent otherwise, such as its answer
+  // to a function the agent calls, has no one to go to in a chat.
+  void _handleOutbound(
+    core.RendererToAgentMessage message,
+    core.MessageProcessor<core.ComponentApi> asker,
+    A2UIAgentFunctionCallback onAgentFunction,
+  ) {
+    if (message is! core.CallAgentFunctionMessage) return;
+    final call = core.FunctionCall.fromJson(message.callFunction);
+    final agentCall = A2UIAgentFunctionCall(
+      name: call.call,
+      surfaceId: message.surfaceId,
+      arguments: _plainMap(call.args),
+      isUserInitiated: _userActs > 0,
+    );
+    final functionCallId = message.functionCallId;
+    // The core fails the call once this long has passed, and drops what
+    // answers it after that.
+    var isLate = false;
+    late final Timer timeout;
+    timeout = Timer(agentFunctionTimeout, () {
+      isLate = true;
+      _callTimeouts.remove(timeout);
+    });
+    _callTimeouts.add(timeout);
+    void answer(core.A2uiFunctionResponse response) {
+      timeout.cancel();
+      _callTimeouts.remove(timeout);
+      // A core that was reset or disposed meanwhile dropped the call on
+      // purpose; only an answer the timeout beat is worth telling about.
+      if (isLate && identical(asker, _core) && !_disposed) _onLateAnswer?.call(call.call);
+      _answer(asker, response);
+    }
+
+    unawaited(
+      Future.sync(() => onAgentFunction(agentCall)).then(
+        (value) => answer(core.A2uiFunctionResponse.value(functionCallId, value)),
+        onError: (Object error) => answer(
+          core.A2uiFunctionResponse.error(
+            functionCallId,
+            core.A2uiFunctionResponseError(
+              code: A2UIErrorCode.executionError,
+              message: "Function '${call.call}' failed: $error",
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static void _answer(core.MessageProcessor<core.ComponentApi> asker, core.A2uiFunctionResponse response) {
+    asker.rpc.handleAgentFunctionResponse(
+      core.AgentFunctionResponseMessage(version: _coreVersion, response: response),
+    );
+  }
+
   // Reports [error] unless it was reported already, since a surface finds the
   // same problem each time its components are resolved again.
   void _report(A2UIError error) {
@@ -475,6 +588,11 @@ final class A2UIProcessor extends ChangeNotifier {
       subscription.unsubscribe();
     }
     _coreSubscriptions.clear();
+    // The core's calls end with it, so none of them can be late any more.
+    for (final timeout in _callTimeouts) {
+      timeout.cancel();
+    }
+    _callTimeouts.clear();
     final surfaces = [..._surfaces.values];
     _surfaces.clear();
     _core.dispose();
@@ -487,8 +605,8 @@ final class A2UIProcessor extends ChangeNotifier {
     }
   }
 
-  /// Releases the surfaces and stops calling `onAction`, `onError` and
-  /// `onUnreadable`.
+  /// Releases the surfaces and stops calling `onAction`, `onError`,
+  /// `onUnreadable` and `onAgentFunction`.
   ///
   /// The processor's creator calls it when the reply goes away.
   @override

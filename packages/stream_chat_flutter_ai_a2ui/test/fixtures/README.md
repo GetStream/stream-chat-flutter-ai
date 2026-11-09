@@ -20,3 +20,9 @@
   `null`).
 - `upstream_examples/` — the 43 examples published with the A2UI 1.0 basic catalog (a2ui-project/a2ui @ `d378d20`,
   `catalogs/basic/v1/examples/`), unchanged.
+- `ios_action_labels.json` — the label of an action: StreamChatA2UI's `A2UIEngine.words(of:)` for 30 event names
+  (`words`), and its `buttonText(of:messageID:)` rule over 10 shapes of a button's child (`buttonText`, `<nil>` when it
+  gives none), produced by running them (stream-chat-swift `develop` @ `78b4612`, `Sources/StreamChatA2UI/AIUI/A2UIEngine.swift`
+  lines 161-189: `words(of:)` copied unchanged, `buttonText` with the same casts over plain component properties,
+  into a Swift driver). The package follows the `buttonText` rule where iOS and Android agree; for a text bound to an
+  absolute path, blank text and a number it follows Android, so those cases document iOS only.
