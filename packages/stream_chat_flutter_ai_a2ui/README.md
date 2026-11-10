@@ -329,5 +329,3 @@ video pauses; audio keeps playing on Android, and on iOS follows the app's audio
   a streaming conversation, a page of examples for each component, and the examples published with A2UI's basic
   catalog. Each lists the actions the agent would get and the links that would open.
 - [Component reference](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md).
-- [How the package works](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/docs/a2ui), and how it is
-  tested: the A2UI conformance suites run against it, vendored unchanged.

@@ -59,6 +59,12 @@ void main() {
     expect({for (final match in linked) match[1]}, {for (final type in A2UICatalog.basic.types) _snake(type)});
   });
 
+  test('the published documents never mention the internal docs', () {
+    for (final path in ['README.md', 'doc/components.md', 'example/README.md']) {
+      expect(File(path).readAsStringSync(), isNot(contains('docs/a2ui')), reason: path);
+    }
+  });
+
   for (final path in [
     'README.md',
     'doc/components.md',
