@@ -574,7 +574,7 @@ void main() {
       expect(tester.widget<Text>(find.text('Big')).style!.color, Colors.white);
     });
 
-    testWidgets('CompositeCardBlock draws its header, body and footer, with an empty footer button', (tester) async {
+    testWidgets('CompositeCardBlock draws its header, body and footer, with its footer button', (tester) async {
       final runtime = testRuntime();
       addTearDown(runtime.dispose);
       await pumpOpenUI(
@@ -589,7 +589,7 @@ void main() {
       // A body Text is drawn extra small.
       expect(_styleOf(tester, 'Line').fontSize, theme.caption.fontSize);
       expect(find.text('USD 9'), findsOneWidget);
-      expect(find.text('Buy'), findsNothing);
+      expect(find.text('Buy'), findsOneWidget);
       expect(tester.getTopLeft(find.text('USD 9')).dy, greaterThan(tester.getTopLeft(find.text('Line')).dy));
     });
   });

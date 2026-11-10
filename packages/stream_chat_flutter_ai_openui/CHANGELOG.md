@@ -19,3 +19,4 @@
   `BoldText`, `IconText`, `ImageText`, `ImageTextLarge`, the metric indicators and the five card blocks; the chat
   `Card` shows its `sources` as a strip that opens on a tap, and `[n]` in text links to the nth source. Their `action`
   and a `Button` in a card do nothing yet.
+- Layout, list, table, form and button components of both libraries are drawn, with their state, `$variable` bindings, validation and actions; forms check their required fields and keep their defaults once the reply ends; the actions of cards and buttons run.

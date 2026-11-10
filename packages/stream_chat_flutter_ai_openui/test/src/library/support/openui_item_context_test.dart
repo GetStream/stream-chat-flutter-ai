@@ -1,61 +1,88 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_item_context.dart';
 
 void main() {
-  const item = {'itemIndex': 0.0, 'itemTitle': 'One'};
+  const json = {'itemIndex': 0.0, 'itemTitle': 'One'};
+  const item = {'itemIndex': OpenUINumber(0), 'itemTitle': OpenUIString('One')};
+  OpenUIValue merge(Object? action, [Map<String, OpenUIValue> context = item]) =>
+      mergeOpenUIItemContext(action == null ? null : OpenUIValue.fromJson(action), context);
+  Matcher isJson(Object? expected) => equals(OpenUIValue.fromJson(expected));
 
   group('mergeOpenUIItemContext', () {
     test('without an action makes a continue_conversation action with the item as params', () {
-      expect(mergeOpenUIItemContext(null, item), {'type': 'continue_conversation', 'params': item});
+      expect(merge(null), isJson({'type': 'continue_conversation', 'params': json}));
     });
 
     test('a single action keeps its params, url and context, and the item wins on a clash', () {
-      final merged = mergeOpenUIItemContext({
+      final merged = merge({
         'type': 'open_url',
         'url': 'https://a.dev',
         'context': 'ctx',
         'params': {'itemTitle': 'old', 'keep': 1.0},
-      }, item);
-
-      expect(merged, {
-        'type': 'open_url',
-        'params': {'itemTitle': 'One', 'keep': 1.0, 'url': 'https://a.dev', 'context': 'ctx', 'itemIndex': 0.0},
       });
+
+      expect(
+        merged,
+        isJson({
+          'type': 'open_url',
+          'params': {'itemTitle': 'One', 'keep': 1.0, 'url': 'https://a.dev', 'context': 'ctx', 'itemIndex': 0.0},
+        }),
+      );
     });
 
     test('a single action with no type is a continue_conversation, and an empty context is left out', () {
-      expect(mergeOpenUIItemContext({'context': ''}, item), {'type': 'continue_conversation', 'params': item});
+      expect(merge({'context': ''}), isJson({'type': 'continue_conversation', 'params': json}));
     });
 
     test('a plan adds the item to the context of each continue_conversation step, after what it has', () {
-      final merged = mergeOpenUIItemContext({
+      final merged = merge({
         'steps': [
           {'type': 'continue_conversation', 'context': 'Pick'},
           {'type': 'continue_conversation'},
           {'type': 'open_url', 'url': 'https://a.dev'},
         ],
-      }, item);
+      });
 
       const suffix = 'Selected item: {"itemIndex":0,"itemTitle":"One"}';
-      expect(merged, {
-        'steps': [
-          {'type': 'continue_conversation', 'context': 'Pick\n$suffix'},
-          {'type': 'continue_conversation', 'context': suffix},
-          {'type': 'open_url', 'url': 'https://a.dev'},
-        ],
-      });
+      expect(
+        merged,
+        isJson({
+          'steps': [
+            {'type': 'continue_conversation', 'context': 'Pick\n$suffix'},
+            {'type': 'continue_conversation', 'context': suffix},
+            {'type': 'open_url', 'url': 'https://a.dev'},
+          ],
+        }),
+      );
     });
 
     test('a plan is returned as it is when the item is empty', () {
-      final plan = {
+      final plan = OpenUIValue.fromJson(const {
         'steps': [
           {'type': 'continue_conversation'},
         ],
-      };
+      });
 
       expect(mergeOpenUIItemContext(plan, const {}), same(plan));
+    });
+
+    test('a plan keeps the expression of a step it does not change', () {
+      const expression = OpenUIExpression(AstNumber(1));
+      final plan = OpenUIObject({
+        'steps': OpenUIArray([
+          OpenUIObject(const {'type': OpenUIString('set'), 'valueAST': expression}),
+        ]),
+      });
+
+      final merged = mergeOpenUIItemContext(plan, item) as OpenUIObject;
+
+      expect(
+        ((merged.fields['steps']! as OpenUIArray).items.single as OpenUIObject).fields['valueAST'],
+        same(expression),
+      );
     });
   });
 

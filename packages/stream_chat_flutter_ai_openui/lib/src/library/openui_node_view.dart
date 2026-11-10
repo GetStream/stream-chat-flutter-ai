@@ -117,6 +117,9 @@ final class _NodeScope extends OpenUIComponentScope {
   OpenUIValue? _prop(String name) => _node.props[name];
 
   @override
+  ElementNode get node => _node;
+
+  @override
   String get type => _node.typeName;
 
   @override
@@ -124,6 +127,9 @@ final class _NodeScope extends OpenUIComponentScope {
 
   @override
   Object? value(String name) => _json(_prop(name));
+
+  @override
+  OpenUIValue? prop(String name) => _prop(name);
 
   @override
   String? string(String name) => switch (_prop(name)) {
