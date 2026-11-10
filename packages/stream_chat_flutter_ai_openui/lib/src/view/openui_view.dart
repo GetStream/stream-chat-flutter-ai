@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
@@ -32,7 +31,9 @@ class OpenUIView extends StatelessWidget {
   ///
   /// Media loads from the URL [mediaUrl] gives for it; only web links load
   /// unless it is given another function. A web or email link a person taps
-  /// goes to [onOpenLink]; without it, no link opens.
+  /// goes to [onOpenLink]; without it, no link opens. What a component's
+  /// builder throws goes to [onBuildError], or to [FlutterError.reportError]
+  /// without it.
   const OpenUIView({
     super.key,
     required this.runtime,
@@ -40,6 +41,8 @@ class OpenUIView extends StatelessWidget {
     this.theme,
     this.mediaUrl = openUIWebMediaUrl,
     this.onOpenLink,
+    this.onBuildError,
+    this.onUntitledLabel,
   });
 
   /// The runtime of the reply's program.
@@ -57,6 +60,14 @@ class OpenUIView extends StatelessWidget {
   /// The function that opens the links a person taps, or `null`.
   final OpenUIOpenLink? onOpenLink;
 
+  /// The function that gets what a component's builder threw, or `null`.
+  final OpenUIBuildErrorHandler? onBuildError;
+
+  /// The function that gets, each time the view builds, the label of an
+  /// action from a control without one, in the app's language
+  /// ([AITranslations.uiActionUntitled]), or `null`.
+  final ValueChanged<String>? onUntitledLabel;
+
   // The component types without a builder each runtime has reported.
   static final _unknownTypes = Expando<Set<String>>();
 
@@ -65,6 +76,7 @@ class OpenUIView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    onUntitledLabel?.call(AITranslations.of(context).uiActionUntitled);
     final theme = OpenUITheme.of(context).merge(this.theme);
     return OpenUITheme(
       data: theme,
@@ -85,6 +97,7 @@ class OpenUIView extends StatelessWidget {
                   openLink: onOpenLink,
                   isStreaming: runtime.isStreaming,
                   unknownTypes: _unknownTypes[runtime] ??= {},
+                  onBuildError: onBuildError,
                   child: _QueryLoading(
                     isLoading: runtime.isQueryLoading,
                     spacing: theme.sSpacing!,

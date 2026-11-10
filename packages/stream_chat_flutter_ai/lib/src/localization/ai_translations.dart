@@ -282,6 +282,10 @@ abstract class AITranslations {
   /// Tooltip on the thumbs-down button under a reply.
   String get rateReplyNegative;
 
+  /// The message sent when the person taps a control in a reply's generated
+  /// UI that has no label of its own, such as a button without text.
+  String get uiActionUntitled;
+
   /// Label of the menu item that copies one of the person's messages.
   String get copyMessage;
 
@@ -524,6 +528,9 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get rateReplyNegative => 'Bad response';
+
+  @override
+  String get uiActionUntitled => 'Continue';
 
   @override
   String get copyMessage => 'Copy';

@@ -36,6 +36,8 @@
   run on its own.
 - `AITranslations.playMedia` and `pauseMedia` — the labels of the buttons that play and pause a video or
   an audio clip in generated UI.
+- `AITranslations.uiActionUntitled` — the message sent for a tap on a control in a reply's generated UI
+  that has no label of its own (`Continue` by default).
 - `CodeBlockThemeData` — themes a code block's background, header, language label, copy icons and
   base code style. Its `brightness` pins the block light or dark, which picks the default colors and
   tells the highlighter which palette to use.

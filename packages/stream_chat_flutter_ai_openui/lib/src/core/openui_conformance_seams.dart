@@ -23,6 +23,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_lang_parser
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_stream_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parser_errors.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/statement_merger.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/upstream_shape.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/evaluator.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/form_validation.dart';
@@ -34,6 +35,9 @@ import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
 
 export 'package:stream_chat_flutter_ai_openui/src/core/runtime/evaluator.dart' show BindablePropTest, OpenUIFunction;
 export 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
+
+/// The program `existing` with the edit-mode answer `patch` applied.
+String debugMergeStatements(String existing, String patch) => StatementMerger.merge(existing, patch);
 
 /// What reading `text` against `schema` gives, as OpenUI's own parser writes
 /// it: `root`, `meta`, `stateDeclarations`, `queryStatements` and
