@@ -12,6 +12,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_generator.
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prop_type.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/schemas/built_in_libraries.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/library/skipped_component_log.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
 
@@ -110,6 +111,35 @@ final class LibraryDefinition {
     if (BuiltinCalls.isBuiltin(name)) return false;
     if (_actionShapes.containsKey(name)) return false;
     return !BuiltinCalls.isReservedCall(name);
+  }
+
+  /// A function that says whether a component named `name` can join this
+  /// library, and claims the name when it can.
+  ///
+  /// A name can't join when it can't be called in a program (see
+  /// [isCallableName]) or when it is already a component, function or action
+  /// of this library or one the function claimed before. It logs why, in
+  /// debug mode, when it turns a name down.
+  bool Function(String name) componentNameClaim() {
+    final taken = {
+      ...componentNames,
+      for (final function in functions) function.name,
+      for (final action in actions) action.name,
+    };
+    return (name) {
+      if (!isCallableName(name)) {
+        logSkippedComponent('OpenUI: skipped the component "$name": its name can\'t be called in a program.');
+        return false;
+      }
+      if (!taken.add(name)) {
+        logSkippedComponent(
+          'OpenUI: skipped the component "$name": the library already has a component, function or action '
+          'by that name.',
+        );
+        return false;
+      }
+      return true;
+    };
   }
 
   static List<ComponentSchema> _ordered(List<ComponentSchema> components) {
@@ -231,41 +261,6 @@ final class LibraryDefinition {
     };
   }
 
-  /// The library as a spec.
-  ///
-  /// It holds `root` when the library has one, each component's `signature`
-  /// and `description` by name as `components`, `componentGroups`,
-  /// `functions` and `actions` when it has any, and its JSON Schema as
-  /// `schema`.
-  Map<String, Object?> toSpec() {
-    Map<String, Object?> entry(String signature, String description) {
-      return {'signature': signature, 'description': description};
-    }
-
-    return {
-      'root': ?root,
-      'components': {
-        for (final component in components) component.name: entry(component.signature, component.description),
-      },
-      if (componentGroups.isNotEmpty)
-        'componentGroups': [
-          for (final group in componentGroups)
-            {
-              'name': group.name,
-              'components': group.components,
-              if (group.notes.isNotEmpty) 'notes': group.notes,
-            },
-        ],
-      if (functions.isNotEmpty)
-        'functions': {
-          for (final function in functions) function.name: entry(function.signature, function.description),
-        },
-      if (actions.isNotEmpty)
-        'actions': {for (final action in actions) action.name: entry(action.signature, action.description)},
-      'schema': toJsonSchema(),
-    };
-  }
-
   /// The system prompt that teaches a model to write programs with this
   /// library, generated with `options`, or with [defaultPromptOptions] when
   /// `options` is `null`.
@@ -335,14 +330,10 @@ final class LibraryDefinition {
     String group = 'App components',
     List<String> notes = const [],
   }) {
-    final taken = {
-      ...componentNames,
-      for (final function in functions) function.name,
-      for (final action in actions) action.name,
-    };
+    final claim = componentNameClaim();
     final added = [
       for (final component in components)
-        if (isCallableName(component.name) && taken.add(component.name)) component,
+        if (claim(component.name)) component,
     ];
     if (added.isEmpty) return this;
     final names = [for (final component in added) component.name];
