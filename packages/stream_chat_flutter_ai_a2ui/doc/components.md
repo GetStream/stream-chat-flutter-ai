@@ -612,5 +612,6 @@ An action or a check may call a function with `{"@call": "name", "args": {...}}`
 `regex`, `length`, `numeric`, `email`, `formatString`, `formatNumber`, `formatCurrency`, `formatDate`, `pluralize`,
 `openUrl`, `and`, `or` and `not`; the renderer runs them. A function no catalog has is sent to the host as one of its
 `tools`, with its arguments read from the data model: a read-only tool when the surface calls it, any other only from a
-person's tap on a component whose action calls it. `openUrl` doesn't run in the renderer: an `http`, `https`, `mailto` or `tel` link goes to the
-host's `open`, which decides whether it opens. See [`link_example.json`](../example/assets/link_example.json).
+person's tap on a component whose action calls it. `openUrl` doesn't run in the renderer: an `http`, `https`,
+`mailto` or `tel` link goes to the host's `open`, which decides whether it opens. See
+[`link_example.json`](../example/assets/link_example.json).
