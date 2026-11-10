@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 
@@ -35,10 +37,19 @@ Uri? openUIWebMediaUrl(Uri url) => _isWeb(url) ? url : null;
 void openOpenUILink(BuildContext context, String? href) {
   // Read on a tap, outside a build, so without depending on the scope.
   final openLink = context.getInheritedWidgetOfExactType<OpenUIViewScope>()?.openLink;
-  if (openLink == null || href == null) return;
-  final url = Uri.tryParse(href);
-  if (url == null || !(_isWeb(url) || url.isScheme('mailto'))) return;
+  final url = openableOpenUILink(href);
+  if (openLink == null || url == null) return;
   openLink(url);
+}
+
+/// The URL of [href] when it is a web or email link, `http`, `https` or
+/// `mailto`, and `null` when it is `null`, isn't a URL, or is any other kind.
+///
+/// Internal to the package.
+@internal
+Uri? openableOpenUILink(String? href) {
+  final url = href == null ? null : Uri.tryParse(href);
+  return url != null && (_isWeb(url) || url.isScheme('mailto')) ? url : null;
 }
 
 bool _isWeb(Uri url) => (url.isScheme('http') || url.isScheme('https')) && url.host.isNotEmpty;
@@ -53,6 +64,7 @@ class OpenUIViewScope extends InheritedWidget {
   /// Creates the scope of the OpenUI below [child].
   const OpenUIViewScope({
     super.key,
+    required this.runtime,
     required this.library,
     required this.theme,
     required this.mediaUrl,
@@ -61,6 +73,10 @@ class OpenUIViewScope extends InheritedWidget {
     required this.unknownTypes,
     required super.child,
   });
+
+  /// The runtime of the reply's program, whose state components read and
+  /// write.
+  final OpenUIRuntime runtime;
 
   /// The library the components are built with.
   final OpenUILibrary library;
@@ -94,7 +110,8 @@ class OpenUIViewScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(OpenUIViewScope oldWidget) {
-    return library != oldWidget.library ||
+    return runtime != oldWidget.runtime ||
+        library != oldWidget.library ||
         theme != oldWidget.theme ||
         mediaUrl != oldWidget.mediaUrl ||
         openLink != oldWidget.openLink ||

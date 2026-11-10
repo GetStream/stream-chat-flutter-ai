@@ -82,6 +82,7 @@ class OpenUIView extends StatelessWidget {
                 final root = runtime.root.value;
                 if (root == null) return const SizedBox.shrink();
                 return OpenUIViewScope(
+                  runtime: runtime,
                   library: library,
                   theme: resolved,
                   mediaUrl: mediaUrl,

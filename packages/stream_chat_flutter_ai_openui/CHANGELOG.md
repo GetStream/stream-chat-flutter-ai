@@ -13,3 +13,9 @@
   `OpenUIComponentBuilder` draws a component from an `OpenUIComponentScope` (`type`, `isStreaming`, `value`, `string`,
   `text`, `number`, `boolean`, `stringList`, `numberList`, `buildProp`, `buildDefault`). The chat `Card`, `CardHeader`
   and `TextContent` are drawn so far.
+- Content, data display and card components of both libraries are drawn: `MarkDownRenderer`, `Callout`, `TextCallout`,
+  `Separator`, `InlineHeader`, `Label`, `Image`, `ImageBlock`, `ImageGallery` (with a viewer of its images), `CodeBlock`,
+  `Tag`, `TagBlock`, `Icon` (Lucide names, with the icons of the Stream design system), `EntityList`, `Text`,
+  `BoldText`, `IconText`, `ImageText`, `ImageTextLarge`, the metric indicators and the five card blocks; the chat
+  `Card` shows its `sources` as a strip that opens on a tap, and `[n]` in text links to the nth source. Their `action`
+  and a `Button` in a card do nothing yet.
