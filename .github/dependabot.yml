@@ -31,6 +31,7 @@ updates:
       - "/packages/stream_chat_flutter_ai/example"
       - "/packages/stream_chat_flutter_ai_a2ui"
       - "/packages/stream_chat_flutter_ai_a2ui/example"
+      - "/packages/stream_chat_flutter_ai_openui"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
