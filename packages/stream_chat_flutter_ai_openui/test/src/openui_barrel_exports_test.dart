@@ -31,8 +31,14 @@ void main() {
   });
 }
 
-// None yet: the package has no public API.
-const _expectedNames = <String>{};
+const _expectedNames = {
+  'OpenUIComponentBuilder',
+  'OpenUIComponentName',
+  'OpenUIComponentScope',
+  'OpenUILibrary',
+  'OpenUITheme',
+  'OpenUIThemeData',
+};
 
 String _barrel() => File('lib/stream_chat_flutter_ai_openui.dart').readAsStringSync();
 
