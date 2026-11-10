@@ -15,9 +15,40 @@ import '../openui_test_app.dart';
 Widget _brand(BuildContext context, OpenUIComponentScope scope) => const Text('brand');
 Widget _other(BuildContext context, OpenUIComponentScope scope) => const Text('other');
 
+const _drawn = [
+  'CardHeader',
+  'TextContent',
+  'MarkDownRenderer',
+  'Callout',
+  'TextCallout',
+  'Separator',
+  'InlineHeader',
+  'Label',
+  'Image',
+  'ImageBlock',
+  'ImageGallery',
+  'CodeBlock',
+  'Tag',
+  'TagBlock',
+  'Icon',
+  'EntityList',
+  'Text',
+  'BoldText',
+  'IconText',
+  'ImageText',
+  'ImageTextLarge',
+  'MetricIndicatorInline',
+  'MetricIndicatorWithStrikethrough',
+  'SnippetCardBlock',
+  'OverviewCardBlock',
+  'ContextCardBlock',
+  'CompositeCardBlock',
+  'VisualCardBlock',
+];
+
 void main() {
   group('built-in libraries', () {
-    test('chat has the chat library components and draws Card, CardHeader and TextContent', () {
+    test('chat has the chat library components and draws Card and the content, data and card components', () {
       final chat = OpenUILibrary.chat;
 
       expect(chat.types, LibraryDefinition.chat.componentNames);
@@ -25,14 +56,14 @@ void main() {
       expect(chat['Card'], buildOpenUIChatCard);
       expect(chat['CardHeader'], buildOpenUICardHeader);
       expect(chat['TextContent'], buildOpenUITextContent);
-      expect(chat.types.where((type) => chat[type] != null), unorderedEquals(['Card', 'CardHeader', 'TextContent']));
+      expect(chat.types.where((type) => chat[type] != null), unorderedEquals(['Card', ..._drawn]));
     });
 
-    test('standard has the standard library components and draws CardHeader and TextContent', () {
+    test('standard has the standard library components and draws the same components, other than Card', () {
       final standard = OpenUILibrary.standard;
 
       expect(standard.types, LibraryDefinition.standard.componentNames);
-      expect(standard.types.where((type) => standard[type] != null), unorderedEquals(['CardHeader', 'TextContent']));
+      expect(standard.types.where((type) => standard[type] != null), unorderedEquals(_drawn));
     });
 
     test('a type with no builder gives null', () {
