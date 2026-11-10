@@ -613,6 +613,44 @@ void main() {
         expect(tester.getSize(find.byType(StreamLoadingSpinner)), const Size.square(20));
       });
 
+      const buttonGap = 8.0;
+
+      // With the end out of view, so the button is shown at full size.
+      Future<double> buttonBottomGap(WidgetTester tester) async {
+        await tester.drag(find.byType(Scrollable), const Offset(0, 500));
+        await tester.pumpAndSettle();
+        final button = find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(StreamButton));
+        return tester.getRect(find.byType(AIConversationView)).bottom - tester.getRect(button).bottom;
+      }
+
+      testWidgets('puts the scroll-to-latest button 8 above a custom bottom padding', (tester) async {
+        const bottomPadding = 200.0;
+        await _pump(tester, _history(6), padding: const EdgeInsets.only(bottom: bottomPadding));
+        expect(await buttonBottomGap(tester), bottomPadding + buttonGap);
+      });
+
+      testWidgets('keeps the end in view when the bottom padding grows while the list shows its end', (tester) async {
+        const small = EdgeInsets.only(bottom: 16);
+        await _pump(tester, _history(6), padding: small);
+        final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+        expect(position.pixels, position.maxScrollExtent);
+
+        await _pump(tester, _history(6), padding: const EdgeInsets.only(bottom: 200));
+        expect(position.maxScrollExtent - position.pixels, lessThanOrEqualTo(1));
+      });
+
+      testWidgets('keeps a scrolled-up list where it is when the bottom padding grows', (tester) async {
+        await _pump(tester, _history(6));
+        await tester.drag(find.byType(Scrollable), const Offset(0, 500));
+        await tester.pumpAndSettle();
+        final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+        final before = position.pixels;
+        expect(position.maxScrollExtent - before, greaterThan(100));
+
+        await _pump(tester, _history(6), padding: const EdgeInsets.only(bottom: 200));
+        expect(position.pixels, before);
+      });
+
       testWidgets('gives the scroll-to-latest button a 40 dp circle in a 48 dp tap target', (tester) async {
         await _pump(tester, _history(6));
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));

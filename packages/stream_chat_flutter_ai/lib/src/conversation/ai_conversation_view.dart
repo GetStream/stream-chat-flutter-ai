@@ -126,6 +126,32 @@ class AIConversationView extends StatefulWidget {
   final Widget? emptyContent;
 
   /// The space around the turns.
+  ///
+  /// An app that floats its composer over the list gives it a bottom padding
+  /// the size of the composer, which keeps the latest message and the
+  /// scroll-to-latest button above it. A list showing its end keeps showing it
+  /// when the padding changes, such as when the composer grows.
+  ///
+  /// With `extendBody`, a [Scaffold] lays its body under the
+  /// `bottomNavigationBar` and passes the bar's height down as
+  /// `MediaQuery.paddingOf(context).bottom`:
+  ///
+  /// ```dart
+  /// Scaffold(
+  ///   extendBody: true,
+  ///   bottomNavigationBar: Padding(
+  ///     // The bar doesn't move with the keyboard on its own.
+  ///     padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+  ///     child: SafeArea(top: false, child: ChatComposer(onSendPressed: send)),
+  ///   ),
+  ///   body: Builder(
+  ///     builder: (context) => AIConversationView(
+  ///       messages: messages,
+  ///       padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.paddingOf(context).bottom),
+  ///     ),
+  ///   ),
+  /// )
+  /// ```
   final EdgeInsets padding;
 
   @override
@@ -158,6 +184,19 @@ class _AIConversationViewState extends State<AIConversationView> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(AIConversationView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final old = oldWidget.padding;
+    final padding = widget.padding;
+    if (old.top == padding.top && old.bottom == padding.bottom) return;
+    // A list at its end, such as one whose composer just grew, keeps showing
+    // it. One the person scrolled up, or with room under a turn just sent, stays.
+    if (_lastTurn == null || !_controller.hasClients) return;
+    final position = _controller.position;
+    if (position.maxScrollExtent - position.pixels <= 1) _jumpToEnd();
   }
 
   void _updateEndInView() {
@@ -361,9 +400,9 @@ class _AIConversationViewState extends State<AIConversationView> {
               ),
             ),
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 8,
+              left: padding.left,
+              right: padding.right,
+              bottom: padding.bottom + 8,
               child: Center(
                 child: IgnorePointer(
                   ignoring: _endInView,

@@ -172,7 +172,9 @@
   its spinner comes into view and again each time the first turn changes while it stays there, and a
   button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
   thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest
-  turn, such as for an error with a way to retry.
+  turn, such as for an error with a way to retry. A bottom `padding` the size of a composer floated
+  over the list keeps the latest message and the scroll-to-latest button above it, and a list
+  showing its end keeps showing it when that padding changes.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
   `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
   `AIMessageRole` is a `String` extension type and an open set, with `values` and `isKnown`.
