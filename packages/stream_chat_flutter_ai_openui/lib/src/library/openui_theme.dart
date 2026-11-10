@@ -301,6 +301,9 @@ class OpenUIThemeData with Diagnosticable {
   final TextStyle? caption;
 
   /// The style of code, such as of a code block.
+  ///
+  /// It doesn't style inline code in Markdown text yet.
+  // TODO(FLU-1238): pass it to `AIMarkdownBody` once that has a hook for it.
   final TextStyle? code;
 
   /// The style of metrics, the large numbers of a data card.
