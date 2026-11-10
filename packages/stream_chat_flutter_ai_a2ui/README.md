@@ -1,7 +1,7 @@
 # A2UI for Stream Chat AI Flutter components
 
 Shows the interactive UI that an agent writes in [A2UI](https://a2ui.org) 1.0 in its replies, through the
-generative UI of [`stream_chat_flutter_ai`](../stream_chat_flutter_ai).
+generative UI of [`stream_chat_flutter_ai`](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/packages/stream_chat_flutter_ai).
 
 ## Installation
 
@@ -115,28 +115,28 @@ corners are the A2UI theme's. A secret field is never given to the `textInput` b
 
 ## The components
 
-`A2UICatalog.basic` draws the components of A2UI 1.0's basic catalog. [The component reference](doc/components.md) lists
+`A2UICatalog.basic` draws the components of A2UI 1.0's basic catalog. [The component reference](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md) lists
 each one's properties, what it writes to the surface's data model, how it is checked and how it is drawn.
 
 | Component | Shows | Writes to the data model | Runs an action |
 | --- | --- | --- | --- |
-| [`Text`](doc/components.md#text) | Markdown text, in a body or caption style | | |
-| [`Image`](doc/components.md#image) | An image, in a box sized by its variant | | |
-| [`Icon`](doc/components.md#icon) | A named icon, or a shape drawn from an SVG path | | |
-| [`Video`](doc/components.md#video) | A poster; plays the video when tapped | | |
-| [`AudioPlayer`](doc/components.md#audioplayer) | A play button and a caption | | |
-| [`Row`](doc/components.md#row), [`Column`](doc/components.md#column) | Children side by side, or one below the other, with weights | | |
-| [`List`](doc/components.md#list) | Children in a column, or in a row that scrolls; may be a template over a list | | |
-| [`Card`](doc/components.md#card) | One child on the surface color | | |
-| [`Divider`](doc/components.md#divider) | A horizontal or vertical line | | |
-| [`Tabs`](doc/components.md#tabs) | Tab titles over the selected tab's child | | |
-| [`Modal`](doc/components.md#modal) | A trigger that opens a sheet with its content | | Its trigger's, if a `Button` |
-| [`Button`](doc/components.md#button) | A button, disabled while one of its checks fails | | Yes |
-| [`TextField`](doc/components.md#textfield) | A text field: short, long, number or secret | The text | |
-| [`CheckBox`](doc/components.md#checkbox) | A check box with a label | `true` or `false` | |
-| [`ChoicePicker`](doc/components.md#choicepicker) | Options to pick one or several of, as rows or chips, filterable | The picked values | |
-| [`Slider`](doc/components.md#slider) | A slider over a range, with optional steps | The number | |
-| [`DateTimeInput`](doc/components.md#datetimeinput) | A date, a time, or both, picked in the device's pickers | An ISO 8601 date or time | |
+| [`Text`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#text) | Markdown text, in a body or caption style | | |
+| [`Image`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#image) | An image, in a box sized by its variant | | |
+| [`Icon`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#icon) | A named icon, or a shape drawn from an SVG path | | |
+| [`Video`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#video) | A poster; plays the video when tapped | | |
+| [`AudioPlayer`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#audioplayer) | A play button and a caption | | |
+| [`Row`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#row), [`Column`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#column) | Children side by side, or one below the other, with weights | | |
+| [`List`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#list) | Children in a column, or in a row that scrolls; may be a template over a list | | |
+| [`Card`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#card) | One child on the surface color | | |
+| [`Divider`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#divider) | A horizontal or vertical line | | |
+| [`Tabs`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#tabs) | Tab titles over the selected tab's child | | |
+| [`Modal`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#modal) | A trigger that opens a sheet with its content | | Its trigger's, if a `Button` |
+| [`Button`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#button) | A button, disabled while one of its checks fails | | Yes |
+| [`TextField`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#textfield) | A text field: short, long, number or secret | The text | |
+| [`CheckBox`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#checkbox) | A check box with a label | `true` or `false` | |
+| [`ChoicePicker`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#choicepicker) | Options to pick one or several of, as rows or chips, filterable | The picked values | |
+| [`Slider`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#slider) | A slider over a range, with optional steps | The number | |
+| [`DateTimeInput`](https://github.com/GetStream/stream-chat-flutter-ai/blob/main/packages/stream_chat_flutter_ai_a2ui/doc/components.md#datetimeinput) | A date, a time, or both, picked in the device's pickers | An ISO 8601 date or time | |
 
 To draw a component another way, replace its builder. The agent still writes it as A2UI describes it:
 
@@ -151,9 +151,10 @@ final renderer = A2UIRenderer(catalog: catalog);
 A builder of a component a person uses writes what they enter with `scope.write` and runs the component's action with
 `scope.performAction`.
 
-The [example app](example) shows a conversation whose replies are A2UI, one of them written part by part as an agent
+The [example app](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/packages/stream_chat_flutter_ai_a2ui/example) shows a conversation whose replies are A2UI, one of them written part by part as an agent
 would; a page of examples for each component, with its variants and edge cases; and a gallery of the examples published
 with A2UI's basic catalog. Each lists the actions the agent would get, and the links that would open.
+How the package works inside is described in [docs/a2ui](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/docs/a2ui).
 
 ## Video and audio
 
