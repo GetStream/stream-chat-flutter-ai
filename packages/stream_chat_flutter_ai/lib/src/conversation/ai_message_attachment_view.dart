@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/src/notice.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -64,14 +65,7 @@ class AIMessageAttachmentView extends StatelessWidget {
       );
     }
     if (opened || !context.mounted) return;
-    final message = Text(AITranslations.of(context).cannotOpenAttachment);
-    final messenger = StreamSnackbarMessenger.maybeOf(context);
-    if (messenger != null) {
-      messenger.show(StreamSnackbar(message: message, variant: .error));
-    } else {
-      // An app has a core snackbar scope only if it installs one: nothing in StreamTheme does.
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: message));
-    }
+    showErrorSnackbar(context, message: AITranslations.of(context).cannotOpenAttachment);
   }
 
   @override

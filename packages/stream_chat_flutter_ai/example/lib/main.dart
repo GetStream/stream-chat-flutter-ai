@@ -1075,6 +1075,19 @@ class DutchTranslations implements AITranslations {
   String get allowPhotoAccess => "Geef toegang tot je foto's";
 
   @override
+  String get microphonePermissionDenied => 'Toegang tot de microfoon is nodig om audio op te nemen';
+
+  @override
+  String get openSettings => 'Instellingen';
+
+  @override
+  String get photosNotAddedTitle => "Foto's niet toegevoegd";
+
+  @override
+  String get photosNotAddedMessage =>
+      "Sommige foto's konden niet worden geladen. Controleer je internetverbinding als ze in iCloud staan en probeer het opnieuw.";
+
+  @override
   String get takePhoto => 'Maak een foto';
 
   @override

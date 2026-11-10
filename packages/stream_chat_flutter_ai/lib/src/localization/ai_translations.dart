@@ -113,6 +113,20 @@ abstract class AITranslations {
   /// in place of the recent photos when photo access has been denied.
   String get allowPhotoAccess;
 
+  /// Message of the notice shown when the microphone permission is denied and
+  /// the person taps the voice-input button.
+  String get microphonePermissionDenied;
+
+  /// Label of the notice's action that opens the system settings, where the
+  /// microphone permission can be granted.
+  String get openSettings;
+
+  /// Title of the notice shown when a photo the person picked can't be added.
+  String get photosNotAddedTitle;
+
+  /// Message of the notice shown when a photo the person picked can't be added.
+  String get photosNotAddedMessage;
+
   /// Tooltip on the attachment sheet's camera tile.
   String get takePhoto;
 
@@ -383,6 +397,19 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get allowPhotoAccess => 'Allow photo access';
+
+  @override
+  String get microphonePermissionDenied => 'Microphone permission is required to record audio';
+
+  @override
+  String get openSettings => 'Settings';
+
+  @override
+  String get photosNotAddedTitle => 'Photos not added';
+
+  @override
+  String get photosNotAddedMessage =>
+      "Some photos couldn't be loaded. If they're in iCloud, check your internet connection and try again.";
 
   @override
   String get takePhoto => 'Take a photo';

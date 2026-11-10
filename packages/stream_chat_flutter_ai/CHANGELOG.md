@@ -243,6 +243,14 @@
 - The `math` builder of `streamAIComponentBuilders` and `AIMathProps` — render LaTeX in every `AIMarkdownBody` given no
   `mathBuilder` of its own, such as the replies in an `AIConversationView`, which had no way to
   render it.
+- A notice when the microphone permission is denied and the person taps the mic: by default a snackbar
+  with a "Settings" action that stays until dismissed and, in a `ChatComposer`, floats above the composer rather than
+  over it, or `SpeechToTextConfig.onPermissionDenied` instead. The mic stays
+  tappable after a denial rather than rendering disabled.
+- A "Photos not added" alert when a photo picked in the attachment sheet can't be loaded, such as an
+  iCloud-only photo with no connection, or the photo library picker fails.
+- `AITranslations.microphonePermissionDenied`, `openSettings`, `photosNotAddedTitle` and
+  `photosNotAddedMessage`.
 
 🔄 Changed
 
@@ -283,6 +291,9 @@
 
 🐞 Fixed
 
+- `SpeechToTextController.start` threw an unhandled error on an Android 12 or later device with no
+  speech recognizer. It reports the error to `FlutterError` and returns `false`, and the mic is
+  disabled.
 - On Android 13, `ComposerAttachmentSheet` showed "Allow photo access" even after photos were
   allowed, unless the app also declared `READ_MEDIA_VIDEO`. It now asks for photos only, so an app
   no longer needs `READ_MEDIA_VIDEO`, which Google Play asks you to justify.

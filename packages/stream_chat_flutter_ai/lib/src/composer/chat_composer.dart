@@ -388,24 +388,28 @@ class _ChatComposerState extends State<ChatComposer> {
           'Flexible — ChatComposer already wraps the result in one.',
         );
 
-        return Padding(
-          // The same side inset as AISuggestionsView's chips, which usually sit
-          // right above.
-          padding: EdgeInsets.symmetric(horizontal: context.streamSpacing.md, vertical: context.streamSpacing.xs),
-          child: Row(
-            // Centered, not `.end` — the pill is taller than the fixed-size
-            // leading/trailing circles (its height grows with multi-line
-            // text), and bottom-aligning them dumps 100% of that extra
-            // height above the circles as a lopsided gap. Centering keeps
-            // the circles evenly inset, matching the reference Android
-            // layout, where both the "+" and mic sit centered within the
-            // pill's height rather than flush to its bottom edge.
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (showLeading) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
-              Expanded(child: input),
-              if (showTrailing) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
-            ],
+        // What the composer tells the person, such as that the microphone is
+        // denied, floats above it rather than over its buttons.
+        return StreamSnackbarPopup(
+          child: Padding(
+            // The same side inset as AISuggestionsView's chips, which usually sit
+            // right above.
+            padding: EdgeInsets.symmetric(horizontal: context.streamSpacing.md, vertical: context.streamSpacing.xs),
+            child: Row(
+              // Centered, not `.end` — the pill is taller than the fixed-size
+              // leading/trailing circles (its height grows with multi-line
+              // text), and bottom-aligning them dumps 100% of that extra
+              // height above the circles as a lopsided gap. Centering keeps
+              // the circles evenly inset, matching the reference Android
+              // layout, where both the "+" and mic sit centered within the
+              // pill's height rather than flush to its bottom edge.
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (showLeading) ...[leading, const SizedBox(key: _leadingGapKey, width: 8)],
+                Expanded(child: input),
+                if (showTrailing) ...[const SizedBox(key: _trailingGapKey, width: 8), trailing],
+              ],
+            ),
           ),
         );
       },
