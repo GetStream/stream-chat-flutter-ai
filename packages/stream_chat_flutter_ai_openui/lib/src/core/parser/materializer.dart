@@ -4,6 +4,8 @@
 @internal
 library;
 
+import 'dart:collection';
+
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
@@ -12,6 +14,70 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart'
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/schema_validation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
+
+/// What one pass of resolving a program's statements shares: the statements,
+/// the library, and what the pass has found.
+final class MaterializeContext {
+  /// Creates the context of a pass over [symbols] against [schema].
+  ///
+  /// When [partial], the program was cut short, so checks that more text
+  /// could still satisfy are skipped. [currentStatementId] is the statement
+  /// read first, and [unreached] the value statements to track as orphans.
+  MaterializeContext({
+    required this.symbols,
+    required this.schema,
+    required this.partial,
+    required this.currentStatementId,
+    required Iterable<String> unreached,
+  }) : unreached = LinkedHashSet.of(unreached);
+
+  /// The expression each statement's name stands for.
+  final Map<String, AstNode> symbols;
+
+  /// The library the program is read against.
+  final OpenUILibrarySchema schema;
+
+  /// Whether the program was cut short.
+  final bool partial;
+
+  /// The statement being resolved, which errors are attributed to.
+  String? currentStatementId;
+
+  /// The value statements no reference has reached yet, in program order.
+  final LinkedHashSet<String> unreached;
+
+  /// The problems found so far.
+  final List<ValidationError> errors = [];
+
+  /// The references that couldn't be resolved so far, once per use.
+  final List<String> unresolved = [];
+
+  /// The statements being resolved; a reference back to one of them is a
+  /// cycle.
+  final Set<String> visited = {};
+
+  /// How deep resolving has gone, references included.
+  int depth = 0;
+
+  /// How many nodes the statement being resolved has used, each use of a
+  /// reference counted again.
+  int nodes = 0;
+
+  /// Records `code` in `component` at `path`, attributed to
+  /// [currentStatementId].
+  void report(OpenUIErrorCode code, String component, String path, String message, {bool isWarning = false}) {
+    errors.add(
+      ValidationError(
+        code: code,
+        component: component,
+        path: path,
+        message: message,
+        statementId: currentStatementId,
+        isWarning: isWarning,
+      ),
+    );
+  }
+}
 
 /// The resolver of a program's statements, which turns them, in one pass,
 /// into what the program renders.
@@ -29,7 +95,8 @@ abstract final class Materializer {
   /// stack.
   static const maxDepth = 256;
 
-  /// How many nodes one pass resolves; past it nodes are `null`.
+  /// How many nodes the resolving of one statement uses; past it nodes are
+  /// `null`.
   ///
   /// Every use of a reference counts its statement's nodes again. Statements
   /// that each use the previous one twice double the work at every level, so
