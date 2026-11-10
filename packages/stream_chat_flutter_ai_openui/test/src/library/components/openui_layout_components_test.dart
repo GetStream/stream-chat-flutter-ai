@@ -250,6 +250,8 @@ void main() {
       await tester.pump();
       expect(find.text('First'), findsOneWidget);
       expect(tester.getSemantics(find.text('One')).flagsCollection.isExpanded, Tristate.isTrue);
+      // The state is announced once, by the semantics' own flag.
+      expect(tester.getSemantics(find.text('One')).hint, isEmpty);
 
       await tester.tap(find.text('Two'));
       await tester.pump();
@@ -379,6 +381,56 @@ root = Stack([Modal("Details", $open, [Button("Hide", @Set($open, false))])])
       expect(runtime.state.value.keys, isNot(contains('open')));
     });
 
+    testWidgets('without a binding stays closed when the modal is built again', (tester) async {
+      final (runtime, _) = await _pump(tester, 'root = Stack([Modal("Note", true, [TextContent("Hi")])])');
+      await tester.pumpAndSettle();
+      expect(find.text('Hi'), findsOneWidget);
+
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      // The reply scrolls out of view and back: its widgets are built anew.
+      await tester.pumpWidget(const SizedBox());
+      await pumpOpenUI(tester, runtime, library: _standard);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hi'), findsNothing);
+    });
+
+    testWidgets('unbound modals are dismissed independently, and the closed state stays out of the state', (
+      tester,
+    ) async {
+      const program = 'root = Stack([Modal("One", true, [TextContent("A")]), Modal("Two", true, [TextContent("B")])])';
+      final (runtime, _) = await _pump(tester, program);
+      await tester.pumpAndSettle();
+      expect(find.text('B'), findsOneWidget);
+
+      // The sheet on top is the second modal's.
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(find.text('B'), findsNothing);
+      expect(find.text('A'), findsOneWidget);
+      expect(runtime.state.value, isEmpty);
+
+      await tester.pumpWidget(const SizedBox());
+      await pumpOpenUI(tester, runtime, library: _standard);
+      await tester.pumpAndSettle();
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('B'), findsNothing);
+    });
+
+    testWidgets('a modal the reply rewrites is not kept closed', (tester) async {
+      final (runtime, _) = await _pump(tester, 'root = Stack([Modal("Note", true, [TextContent("Hi")])])');
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(find.text('Hi'), findsNothing);
+
+      await _update(tester, runtime, 'root = Stack([Modal("Note", true, [TextContent("Changed")])])');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Changed'), findsOneWidget);
+    });
+
     testWidgets('closes when it leaves the reply, and its content updates while open', (tester) async {
       final (runtime, _) = await _pump(tester, 'root = Stack([Modal("Note", true, [TextContent("Hi")])])');
       await tester.pumpAndSettle();
@@ -442,6 +494,35 @@ root = Stack([Modal("Details", $open, [Button("Hide", @Set($open, false))])])
       ]),
     );
     expect(find.text('1 change'), findsNothing);
+  });
+
+  testWidgets('an EditableTable puts its rows back when its edits are reset', (tester) async {
+    final (runtime, events) = await _pump(
+      tester,
+      'root = Stack([EditableTable("items", [{type: "text", key: "name", header: "Name"}], [{id: "1", values: ["Pen"]}])])',
+    );
+
+    await tester.enterText(find.byType(TextField), 'Ink');
+    await tester.pump();
+    expect(find.text('1 change'), findsOneWidget);
+
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+
+    expect(find.text('1 change'), findsNothing);
+    expect(tester.widget<EditableText>(find.byType(EditableText)).controller.text, 'Pen');
+    expect(events, isEmpty);
+    expect(
+      runtime.fieldValue('items', 'items'),
+      isNot(
+        OpenUIValue.fromJson(const [
+          {
+            'id': '1',
+            'values': ['Ink'],
+          },
+        ]),
+      ),
+    );
   });
 
   testWidgets('EditableTable columns without a key keep their own cells', (tester) async {

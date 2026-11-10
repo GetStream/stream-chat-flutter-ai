@@ -9,6 +9,10 @@ import 'package:stream_core_flutter/core.dart';
 /// than the design system's colors links too. A text style replaces its token
 /// as a whole, except that the design system's text color stays when it sets none.
 ///
+/// The components are drawn under Material 3 even in a Material 2 app, as the
+/// design system's components that are built on Material ones, such as its
+/// checkbox, draw their look only there.
+///
 /// So a [theme] of defaults only, as the design system's theme around gives
 /// them, changes nothing. Everything else of the app's themes stays, the
 /// component builders the app gives the design system among it.
@@ -32,6 +36,9 @@ class OpenUIStreamTheme extends StatelessWidget {
     final material = Theme.of(context);
     return Theme(
       data: material.copyWith(
+        // ThemeData's constructors can't keep the rest of the app's theme.
+        // ignore: deprecated_member_use
+        useMaterial3: true,
         extensions: [
           for (final extension in material.extensions.values)
             if (extension is! StreamTheme) extension,

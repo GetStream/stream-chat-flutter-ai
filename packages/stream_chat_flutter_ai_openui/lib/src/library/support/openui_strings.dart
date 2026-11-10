@@ -41,12 +41,6 @@ abstract final class OpenUIStrings {
   /// What the upper thumb of the range slider labelled [label] reads as.
   static String sliderUpper(String label) => '$label, maximum';
 
-  /// What an open section reads as.
-  static const expanded = 'Expanded';
-
-  /// What a closed section reads as.
-  static const collapsed = 'Collapsed';
-
   /// What shows the previous page of a table.
   static const previousPage = 'Previous page';
 

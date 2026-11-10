@@ -20,7 +20,7 @@ import 'package:stream_core_flutter/core.dart';
 Widget buildOpenUITabs(BuildContext context, OpenUIComponentScope scope) {
   final items = _ContainerItem.all(scope, 'items', requireValue: true);
   if (items.isEmpty) return const SizedBox.shrink();
-  return _OpenUITabs(items: items, isStreaming: scope.isStreaming);
+  return _OpenUITabs(node: scope.node, items: items, isStreaming: scope.isStreaming);
 }
 
 /// Builds an `Accordion`: the `trigger` of each of its `items` as a header
@@ -34,7 +34,7 @@ Widget buildOpenUITabs(BuildContext context, OpenUIComponentScope scope) {
 Widget buildOpenUIAccordion(BuildContext context, OpenUIComponentScope scope) {
   final items = _ContainerItem.all(scope, 'items', requireValue: true);
   if (items.isEmpty) return const SizedBox.shrink();
-  return _OpenUIAccordion(items: items, isStreaming: scope.isStreaming);
+  return _OpenUIAccordion(node: scope.node, items: items, isStreaming: scope.isStreaming);
 }
 
 /// Builds a `SectionBlock`: its `sections`, each a heading (`trigger`) with
@@ -51,7 +51,7 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
   final sections = _ContainerItem.all(scope, 'sections', requireValue: false);
   if (sections.isEmpty) return const SizedBox.shrink();
   if (scope.boolean('isFoldable') ?? true) {
-    return _OpenUISections(sections: sections, isStreaming: scope.isStreaming);
+    return _OpenUISections(node: scope.node, sections: sections, isStreaming: scope.isStreaming);
   }
   final theme = OpenUIViewScope.of(context).theme;
   return Column(
@@ -175,6 +175,11 @@ Widget buildOpenUICarousel(BuildContext context, OpenUIComponentScope scope) {
   return _OpenUICarousel(scope: scope, slides: slides, variant: scope.string('variant') == 'sunk' ? 'sunk' : 'card');
 }
 
+// The item of [node], tabs, an accordion or a section block, that the form
+// around [context] asks to show because a field in it failed its check.
+String? _revealed(BuildContext context, ElementNode node) =>
+    OpenUIFormScope.maybeOf(context)?.validation.takeReveal(node);
+
 // An item of tabs, an accordion or a section block.
 class _ContainerItem {
   const _ContainerItem(this.value, this.trigger, this.scope);
@@ -210,8 +215,9 @@ class _ContainerItem {
 }
 
 class _OpenUITabs extends StatefulWidget {
-  const _OpenUITabs({required this.items, required this.isStreaming});
+  const _OpenUITabs({required this.node, required this.items, required this.isStreaming});
 
+  final ElementNode node;
   final List<_ContainerItem> items;
   final bool isStreaming;
 
@@ -228,6 +234,16 @@ class _OpenUITabsState extends State<_OpenUITabs> {
   void initState() {
     super.initState();
     _follow();
+  }
+
+  // A form that failed on a field in an item that isn't shown asks for it.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revealed(context, widget.node) case final item?) {
+      _touched = true;
+      _selected = item;
+    }
   }
 
   @override
@@ -315,8 +331,9 @@ class _OpenUITabsState extends State<_OpenUITabs> {
 }
 
 class _OpenUIAccordion extends StatefulWidget {
-  const _OpenUIAccordion({required this.items, required this.isStreaming});
+  const _OpenUIAccordion({required this.node, required this.items, required this.isStreaming});
 
+  final ElementNode node;
   final List<_ContainerItem> items;
   final bool isStreaming;
 
@@ -333,6 +350,15 @@ class _OpenUIAccordionState extends State<_OpenUIAccordion> {
   void initState() {
     super.initState();
     _openNewest();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revealed(context, widget.node) case final item?) {
+      _touched = true;
+      _open = item;
+    }
   }
 
   @override
@@ -363,8 +389,9 @@ class _OpenUIAccordionState extends State<_OpenUIAccordion> {
 }
 
 class _OpenUISections extends StatefulWidget {
-  const _OpenUISections({required this.sections, required this.isStreaming});
+  const _OpenUISections({required this.node, required this.sections, required this.isStreaming});
 
+  final ElementNode node;
   final List<_ContainerItem> sections;
   final bool isStreaming;
 
@@ -381,6 +408,15 @@ class _OpenUISectionsState extends State<_OpenUISections> {
   void initState() {
     super.initState();
     _update(wasStreaming: widget.isStreaming);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revealed(context, widget.node) case final item?) {
+      _touched = true;
+      _open.add(item);
+    }
   }
 
   @override
@@ -447,7 +483,6 @@ class _Disclosures extends StatelessWidget {
                   expanded: isOpen(item),
                   child: OpenUIPressable(
                     onTap: () => onToggle(item),
-                    hint: isOpen(item) ? OpenUIStrings.expanded : OpenUIStrings.collapsed,
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: spacing),
                       child: Row(

@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 /// Runs [action], the action of the control labelled [label] that [scope]
@@ -48,7 +50,17 @@ class OpenUIFormValidation extends ChangeNotifier {
   String? formName;
 
   final _fields = <String, (OpenUIValue?, OpenUIValue?, Object)>{};
+  List<OpenUIFormField> _tree = const [];
+  List<OpenUIRevealStep> _reveal = const [];
   Map<String, String> _errors = const {};
+
+  /// The fields of the form as the reply's component tree has them, which the
+  /// form checks whether or not they are on screen, until a field that is on
+  /// screen registers itself under the same name.
+  ///
+  /// Empty while the reply streams.
+  // ignore: use_setters_to_change_properties
+  void setFields(List<OpenUIFormField> fields) => _tree = fields;
 
   /// The error of the field [name], or `null` when it has none.
   String? errorOf(String name) => _errors[name];
@@ -76,14 +88,48 @@ class OpenUIFormValidation extends ChangeNotifier {
 
   /// Checks every registered field and shows their errors; returns whether
   /// the form passes.
+  ///
+  /// When the first field that fails isn't on screen, the tabs, accordion
+  /// items and sections that hold it are asked to show it, see [takeReveal].
   bool validateForm() {
-    final errors = runtime.validate(
-      formName,
-      {for (final MapEntry(:key, :value) in _fields.entries) key: value.$1},
-      bindings: {for (final MapEntry(:key, :value) in _fields.entries) key: value.$2},
-    );
+    final rules = <String, OpenUIValue?>{
+      for (final field in _tree)
+        if (field.hasRules) field.name: field.rules,
+    };
+    final bindings = <String, OpenUIValue?>{
+      for (final field in _tree)
+        if (field.hasRules) field.name: field.binding,
+    };
+    // A field that is on screen is checked with its own rules.
+    for (final MapEntry(:key, :value) in _fields.entries) {
+      rules[key] = value.$1;
+      bindings[key] = value.$2;
+    }
+    final errors = runtime.validate(formName, rules, bindings: bindings);
     _setErrors(errors);
+    final first = _tree.where((field) => errors.containsKey(field.name)).firstOrNull;
+    if (first != null && !_fields.containsKey(first.name) && first.chain.isNotEmpty) _requestReveal(first.chain);
     return errors.isEmpty;
+  }
+
+  // Asks the containers on [chain] to show their items, so the field's error
+  // is on screen. A container that is built after the one around it, which
+  // takes its item while it builds, finds its request when it is built.
+  void _requestReveal(List<OpenUIRevealStep> chain) {
+    _reveal = [...chain];
+    notifyListeners();
+    // What no container took, such as one that left the reply, is dropped.
+    SchedulerBinding.instance.addPostFrameCallback((_) => _reveal = const []);
+  }
+
+  /// The `value` of the item of [container] a failed check asks to show, or
+  /// `null` when there is none; asking again takes it away.
+  String? takeReveal(ElementNode container) {
+    final index = _reveal.indexWhere((step) => isSameOpenUINode(step.container, container));
+    if (index < 0) return null;
+    final step = _reveal[index];
+    _reveal = [..._reveal]..removeAt(index);
+    return step.item;
   }
 
   /// Hides the error of the field [name].

@@ -122,6 +122,12 @@ abstract base class OpenUIComponentScope {
   @internal
   StateField stateField(String name);
 
+  /// The component this scope is of.
+  ///
+  /// Internal to the package.
+  @internal
+  ElementNode get node;
+
   /// The widget [builder] builds, built again each time a `$variable` or form
   /// field of the reply changes.
   ///

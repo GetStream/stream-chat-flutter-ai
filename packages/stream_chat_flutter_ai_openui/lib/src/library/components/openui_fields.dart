@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
@@ -48,6 +49,33 @@ void saveOpenUIDefault(BuildContext context, String name, String componentType, 
   runtime.setFieldValue(formName, name, value, componentType: componentType);
 }
 
+/// Keeps [value], what the field [scope] draws shows by default, as its value.
+///
+/// A field that isn't bound keeps it as [saveOpenUIDefault] does. A field
+/// bound to a `$variable` shows its default without writing it in OpenUI; here
+/// it is written, through the binding, once the reply ends and only when the
+/// variable has no value, so what the field shows is what its actions, its
+/// required check and the form's state read. That differs from OpenUI, which
+/// leaves the variable unset until the person changes the field.
+///
+/// Internal to the package.
+@internal
+void saveOpenUIFieldDefault(
+  BuildContext context,
+  OpenUIComponentScope scope,
+  String componentType,
+  OpenUIValue? value,
+) {
+  if (value == null) return;
+  final field = openUIFieldState(context, scope, componentType);
+  if (!field.isBound) {
+    saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
+    return;
+  }
+  if (OpenUIViewScope.of(context).runtime.isStreaming || !JS.isNullish(field.value)) return;
+  field.set(value);
+}
+
 /// Checks the field [scope] draws now, when it is in a form and has rules.
 ///
 /// Internal to the package.
@@ -64,42 +92,59 @@ void validateOpenUIField(BuildContext context, OpenUIComponentScope scope) {
   );
 }
 
-// Keeps the field's own `value`, when it is one and not a `$variable`, as
-// its value, so the form checks and sends what the field shows.
-void _saveLiteral(BuildContext context, OpenUIComponentScope scope, String componentType) {
-  final value = scope.prop('value');
-  if (value == null || value is OpenUINull || ReactiveBinding.targetOf(value) != null) return;
-  saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
+// A read-only text input that shows [text], or [hintText] without one, and
+// calls [onTap] to choose it: how a Select and a DatePicker look like an Input.
+class _PickerInput extends StatefulWidget {
+  const _PickerInput({
+    required this.text,
+    required this.hintText,
+    required this.hasError,
+    this.trailing,
+    required this.onTap,
+    this.labelText,
+    this.small = false,
+  });
+
+  final String text;
+  final String hintText;
+  final String? labelText;
+  final bool hasError;
+  final bool small;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  State<_PickerInput> createState() => _PickerInputState();
 }
 
-/// The box a field's value shows in: a sunken surface, outlined in the danger
-/// color when the field has an error.
-///
-/// Internal to the package.
-@internal
-class OpenUIFieldChrome extends StatelessWidget {
-  /// Creates the box around [child].
-  const OpenUIFieldChrome({super.key, required this.hasError, required this.child});
+class _PickerInputState extends State<_PickerInput> {
+  late final _controller = TextEditingController(text: widget.text);
 
-  /// Whether the field has an error.
-  final bool hasError;
+  @override
+  void didUpdateWidget(_PickerInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_controller.text != widget.text) _controller.text = widget.text;
+  }
 
-  /// The field's value.
-  final Widget child;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
-    final colors = theme;
-    return Container(
-      constraints: BoxConstraints(minHeight: openUIScaled(context, 40)),
-      padding: EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: 10),
-      decoration: BoxDecoration(
-        color: colors.sunkenSurface,
-        borderRadius: BorderRadius.circular(theme.smallCornerRadius),
-        border: Border.all(color: hasError ? colors.error : const Color(0x00000000), width: 1.5),
-      ),
-      child: child,
+    return StreamTextInput(
+      controller: _controller,
+      readOnly: true,
+      enabled: widget.onTap != null,
+      labelText: widget.labelText,
+      hintText: widget.hintText,
+      trailing: widget.trailing,
+      helperState: widget.hasError ? StreamHelperState.error : null,
+      style: widget.small ? StreamTextInputStyle(textStyle: theme.bodySmall) : null,
+      onTap: widget.onTap,
     );
   }
 }
@@ -224,7 +269,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
       // A password is never bound, so it is checked with what was typed.
       binding: _isPassword ? null : scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: _isPassword ? null : () => _saveLiteral(context, scope, componentType),
+      saveDefault: () => saveOpenUIFieldDefault(context, scope, componentType, openUIFieldDefault(scope)),
       child: scope.watchState((context) {
         final value = _field(context).value;
         _show(JS.isNullish(value) ? '' : JS.stringOf(value));
@@ -272,7 +317,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
           hintText: placeholder,
           hintStyle: theme.body.copyWith(color: colors.tertiaryText),
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.sSpacing + 2),
+          contentPadding: EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.mSpacing),
           enabledBorder: border(hasError ? colors.error : colors.border),
           disabledBorder: border(colors.border),
           focusedBorder: border(hasError ? colors.error : colors.accent),
@@ -293,8 +338,6 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
 /// Internal to the package.
 @internal
 Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUIViewScope.of(context).theme;
-  final colors = theme;
   final options = [
     for (final node in scope.elements('items'))
       if (scope.scopeOf(node) case final item)
@@ -306,13 +349,17 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
     rules: scope.prop('rules'),
     binding: scope.prop('value'),
     isStreaming: scope.isStreaming,
-    saveDefault: () => _saveLiteral(context, scope, 'Select'),
+    saveDefault: () => saveOpenUIFieldDefault(context, scope, 'Select', openUIFieldDefault(scope)),
     child: scope.watchState((context) {
       final field = openUIFieldState(context, scope, 'Select');
       final selected = JS.isNullish(field.value) ? null : JS.stringOf(field.value);
       final label = options.where((option) => option.$1 == selected).firstOrNull?.$2;
-      final style = scope.string('size') == 'small' ? theme.bodySmall : theme.body;
-      return OpenUIPressable(
+      return _PickerInput(
+        text: label ?? '',
+        hintText: scope.text('placeholder') ?? OpenUIStrings.selectPlaceholder,
+        hasError: hasError,
+        small: scope.string('size') == 'small',
+        trailing: Icon(context.streamIcons.chevronDown),
         onTap: scope.isStreaming
             ? null
             : () async {
@@ -321,29 +368,6 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
                 openUIFieldState(context, scope, 'Select').set(OpenUIString(value));
                 validateOpenUIField(context, scope);
               },
-        child: OpenUIFieldChrome(
-          hasError: hasError,
-          child: Row(
-            spacing: theme.sSpacing,
-            children: [
-              Expanded(
-                child: Text(
-                  label ?? scope.text('placeholder') ?? OpenUIStrings.selectPlaceholder,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: style.copyWith(color: label == null ? colors.tertiaryText : colors.text),
-                ),
-              ),
-              ExcludeSemantics(
-                child: Icon(
-                  context.streamIcons.chevronDown,
-                  size: openUIScaled(context, 16),
-                  color: colors.secondaryText,
-                ),
-              ),
-            ],
-          ),
-        ),
       );
     }),
   );
@@ -360,7 +384,6 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUIViewScope.of(context).theme;
-  final colors = theme;
   final range = scope.string('mode') == 'range';
   final hasError = _errorOf(context, scope) != null;
   return OpenUIFieldHost(
@@ -368,7 +391,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
     rules: scope.prop('rules'),
     binding: scope.prop('value'),
     isStreaming: scope.isStreaming,
-    saveDefault: () => _saveLiteral(context, scope, 'DatePicker'),
+    saveDefault: () => saveOpenUIFieldDefault(context, scope, 'DatePicker', openUIFieldDefault(scope)),
     child: scope.watchState((context) {
       final value = openUIFieldState(context, scope, 'DatePicker').value;
       void write(OpenUIValue next) {
@@ -377,32 +400,17 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
       }
 
       Widget row(String title, DateTime? date, ValueChanged<DateTime> onPick, {DateTime? first}) {
-        return OpenUIPressable(
-          label: title,
+        return _PickerInput(
+          labelText: range ? title : null,
+          text: date == null ? '' : openUIDateString(date),
+          hintText: OpenUIStrings.chooseDate,
+          hasError: hasError,
           onTap: scope.isStreaming
               ? null
               : () async {
                   final picked = await pickOpenUIDate(context, initial: date ?? first, first: first);
                   if (picked != null && context.mounted) onPick(picked);
                 },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              spacing: theme.sSpacing,
-              children: [
-                Expanded(
-                  child: Text(title, style: theme.bodySmall.copyWith(color: colors.secondaryText)),
-                ),
-                Text(
-                  date == null ? OpenUIStrings.chooseDate : openUIDateString(date),
-                  style: theme.bodySmall.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: date == null ? colors.accent : colors.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
         );
       }
 
@@ -440,7 +448,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
         final date = openUIParseDate(value is OpenUIString ? value.value : null);
         content = row(OpenUIStrings.date, date, (date) => write(OpenUIString(openUIDateString(date))));
       }
-      return OpenUIFieldChrome(hasError: hasError, child: content);
+      return content;
     }),
   );
 }
@@ -496,6 +504,13 @@ List<double> openUISliderValues(OpenUIValue? value, double lower, double upper) 
   return numbers;
 }
 
+/// [values], a slider's values, as its state keeps them.
+///
+/// Internal to the package.
+@internal
+OpenUIValue openUISliderStored(List<double> values) =>
+    OpenUIArray([for (final value in values) OpenUINumber((value * 1000).roundToDouble() / 1000)]);
+
 class _OpenUISlider extends StatefulWidget {
   const _OpenUISlider({required this.scope});
 
@@ -507,9 +522,6 @@ class _OpenUISlider extends StatefulWidget {
 
 class _OpenUISliderState extends State<_OpenUISlider> {
   List<double>? _draft;
-
-  static OpenUIValue _stored(List<double> values) =>
-      OpenUIArray([for (final value in values) OpenUINumber((value * 1000).roundToDouble() / 1000)]);
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +551,7 @@ class _OpenUISliderState extends State<_OpenUISlider> {
       final values = _draft ?? stored;
       void commit(List<double> next) {
         setState(() => _draft = null);
-        openUIFieldState(context, scope, 'Slider').set(_stored(next));
+        openUIFieldState(context, scope, 'Slider').set(openUISliderStored(next));
         validateOpenUIField(context, scope);
       }
 
@@ -588,7 +600,7 @@ class _OpenUISliderState extends State<_OpenUISlider> {
         rules: scope.prop('rules'),
         binding: scope.prop('value'),
         isStreaming: scope.isStreaming,
-        saveDefault: field.isBound ? null : () => saveOpenUIDefault(context, name, 'Slider', _stored(stored)),
+        saveDefault: () => saveOpenUIFieldDefault(context, scope, 'Slider', openUISliderStored(stored)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: theme.xsSpacing,
@@ -618,7 +630,7 @@ class _OpenUISliderState extends State<_OpenUISlider> {
                   activeTrackColor: colors.accent,
                   inactiveTrackColor: colors.border,
                   thumbColor: colors.accent,
-                  overlayColor: colors.accent.withValues(alpha: 0.12),
+                  overlayColor: colors.accent.withValues(alpha: openUIHighlightAlpha),
                   disabledActiveTrackColor: colors.tertiaryText,
                   disabledInactiveTrackColor: colors.border,
                   disabledThumbColor: colors.tertiaryText,

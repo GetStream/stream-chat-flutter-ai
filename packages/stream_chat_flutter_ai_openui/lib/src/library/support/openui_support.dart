@@ -6,6 +6,13 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_stream_theme.dart'
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
+/// How opaque the accent is where it highlights something, such as a chosen
+/// chip, a slider's overlay or a list's marker.
+///
+/// Internal to the package.
+@internal
+const double openUIHighlightAlpha = 0.12;
+
 /// The color the variant [name] draws with: `success`, `warning`, `danger` or
 /// `error`, `info`, or the neutral color for any other.
 ///

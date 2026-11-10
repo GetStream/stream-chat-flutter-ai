@@ -47,7 +47,10 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
         width: side,
         height: side,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: colors.accent.withValues(alpha: 0.12), shape: BoxShape.circle),
+        decoration: BoxDecoration(
+          color: colors.accent.withValues(alpha: openUIHighlightAlpha),
+          shape: BoxShape.circle,
+        ),
         child: Text(
           '${index + 1}',
           textScaler: TextScaler.noScaling,

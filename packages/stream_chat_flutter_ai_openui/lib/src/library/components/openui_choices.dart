@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fiel
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_grid.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
@@ -93,9 +94,7 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
       rules: rules,
       binding: scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: field.isBound || checked.isEmpty
-          ? null
-          : () => saveOpenUIDefault(context, name, type, OpenUIObject(checked)),
+      saveDefault: () => saveOpenUIFieldDefault(context, scope, type, openUIFieldDefault(scope)),
       child: OpenUISurface(
         variant: isSwitch ? scope.string('variant') ?? 'clear' : 'clear',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows),
@@ -131,9 +130,9 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
       rules: scope.prop('rules'),
       binding: scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: field.isBound || shown == null
+      saveDefault: shown == null
           ? null
-          : () => saveOpenUIDefault(context, name, 'RadioGroup', OpenUIString(shown)),
+          : () => saveOpenUIFieldDefault(context, scope, 'RadioGroup', OpenUIString(shown)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: theme.sSpacing,
@@ -214,6 +213,34 @@ Widget buildOpenUIChips(BuildContext context, OpenUIComponentScope scope) =>
 Widget buildOpenUIOptionCards(BuildContext context, OpenUIComponentScope scope) =>
     _OpenUISelection(scope: scope, cards: true);
 
+/// Whether the `Chips` or `OptionCards` [scope] draws choose one value.
+///
+/// Internal to the package.
+@internal
+bool openUISelectionIsSingle(OpenUIComponentScope scope) =>
+    (scope.string('type') ?? (scope.type == 'OptionCards' ? 'single' : 'multiple')) == 'single';
+
+/// The values [value] holds as the choice of a `Chips` or `OptionCards`: the
+/// first for a [single] choice, every string otherwise; `null` when it holds
+/// none.
+///
+/// Internal to the package.
+@internal
+List<String>? openUISelectionValues(OpenUIValue? value, {required bool single}) {
+  return switch (value) {
+    OpenUIString(:final value) => value.isEmpty ? const [] : [value],
+    OpenUIArray(:final items) when single => switch (items.firstOrNull) {
+      OpenUIString(:final value) => value.isEmpty ? const [] : [value],
+      _ => null,
+    },
+    OpenUIArray(:final items) => [
+      for (final item in items)
+        if (item case OpenUIString(:final value)) value,
+    ],
+    _ => null,
+  };
+}
+
 class _OpenUISelection extends StatelessWidget {
   const _OpenUISelection({required this.scope, required this.cards});
 
@@ -222,33 +249,9 @@ class _OpenUISelection extends StatelessWidget {
 
   String get _type => cards ? 'OptionCards' : 'Chips';
 
-  bool get _single => (scope.string('type') ?? (cards ? 'single' : 'multiple')) == 'single';
+  bool get _single => openUISelectionIsSingle(scope);
 
-  // The values [value] holds: the first for a single choice, every string
-  // otherwise.
-  List<String>? _valuesOf(OpenUIValue? value) {
-    return switch (value) {
-      OpenUIString(:final value) => value.isEmpty ? const [] : [value],
-      OpenUIArray(:final items) when _single => switch (items.firstOrNull) {
-        OpenUIString(:final value) => value.isEmpty ? const [] : [value],
-        _ => null,
-      },
-      OpenUIArray(:final items) => [
-        for (final item in items)
-          if (item case OpenUIString(:final value)) value,
-      ],
-      _ => null,
-    };
-  }
-
-  // The default value as it is kept: a string for a single choice, a list
-  // otherwise.
-  OpenUIValue? _storedDefault() {
-    final values = _valuesOf(scope.prop('defaultValue'));
-    if (values == null) return null;
-    if (_single) return values.isEmpty ? null : OpenUIString(values.first);
-    return OpenUIArray([for (final value in values) OpenUIString(value)]);
-  }
+  List<String>? _valuesOf(OpenUIValue? value) => openUISelectionValues(value, single: _single);
 
   @override
   Widget build(BuildContext context) {
@@ -304,7 +307,7 @@ class _OpenUISelection extends StatelessWidget {
         rules: scope.prop('rules'),
         binding: null,
         isStreaming: scope.isStreaming,
-        saveDefault: () => saveOpenUIDefault(context, name, _type, _storedDefault()),
+        saveDefault: () => saveOpenUIFieldDefault(context, scope, _type, openUIFieldDefault(scope)),
         child: cards
             ? OpenUIResponsiveGrid(minItemWidth: 140, maxColumns: 3, spacing: theme.sSpacing, children: widgets)
             : SizedBox(
@@ -336,15 +339,15 @@ class _Chip extends StatelessWidget {
           });
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: selected ? colors.accent.withValues(alpha: 0.14) : colors.sunkenSurface,
+        color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.sunkenSurface,
         borderRadius: BorderRadius.circular(theme.pillCornerRadius),
         border: Border.all(color: selected ? colors.accent : const Color(0x00000000)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.sSpacing),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          spacing: 6,
+          spacing: theme.xsSpacing,
           children: [
             if (iconData != null)
               ExcludeSemantics(
@@ -398,7 +401,7 @@ class _OptionCard extends StatelessWidget {
           height: side,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? colors.accent.withValues(alpha: 0.14) : colors.subtleFill,
+            color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.subtleFill,
             borderRadius: BorderRadius.circular(theme.smallCornerRadius),
           ),
           child: ExcludeSemantics(
@@ -412,7 +415,7 @@ class _OptionCard extends StatelessWidget {
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: selected ? colors.accent.withValues(alpha: 0.08) : colors.sunkenSurface,
+              color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.sunkenSurface,
               borderRadius: radius,
               border: Border.all(color: selected ? colors.accent : const Color(0x00000000), width: 1.5),
             ),

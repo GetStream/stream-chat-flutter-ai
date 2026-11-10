@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show MaterialLocalizations;
+import 'package:flutter/material.dart' show Material, MaterialLocalizations, MaterialType;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -14,8 +15,10 @@ import 'package:stream_core_flutter/core.dart';
 ///
 /// An `open` bound to a `$variable` is set to `false` when the person closes
 /// the sheet, and the sheet opens and closes as the variable changes. Without
-/// a binding the sheet opens when `open` is `true` and, once closed, stays
-/// closed. The sheet closes when the modal leaves the reply.
+/// a binding the sheet opens when `open` is `true`, and the person closing it
+/// is kept for the reply, so it stays closed when the modal is built again,
+/// such as after scrolling out of view and back, until the reply rewrites it. The sheet closes when
+/// the modal leaves the reply.
 ///
 /// Internal to the package.
 @internal
@@ -35,7 +38,6 @@ class _OpenUIModalState extends State<_OpenUIModal> {
   // built apart from the reply, so a change reaches it through here.
   ValueNotifier<(OpenUIComponentScope, CapturedThemes)>? _content;
   StreamSheetRoute<void>? _sheet;
-  bool _closedLocally = false;
   bool _wantsOpen = false;
   bool _scheduled = false;
 
@@ -109,7 +111,7 @@ class _OpenUIModalState extends State<_OpenUIModal> {
         if (field.isBound) {
           field.set(const OpenUIBool(false));
         } else {
-          setState(() => _closedLocally = true);
+          setState(() => _closedModals(OpenUIViewScope.of(context).runtime).add(_key));
         }
       }),
     );
@@ -120,7 +122,8 @@ class _OpenUIModalState extends State<_OpenUIModal> {
     final scope = widget.scope;
     return scope.watchState((context) {
       final field = scope.stateField('open');
-      final open = field.isBound ? _isTrue(field.value) : !_closedLocally && scope.boolean('open') == true;
+      final closed = !field.isBound && _closedModals(OpenUIViewScope.of(context).runtime).contains(_key);
+      final open = field.isBound ? _isTrue(field.value) : !closed && scope.boolean('open') == true;
       if (open != _wantsOpen || open) {
         _wantsOpen = open;
         _schedule();
@@ -128,6 +131,17 @@ class _OpenUIModalState extends State<_OpenUIModal> {
       return const SizedBox.shrink();
     });
   }
+
+  // What names this modal among the reply's: its statement and what it
+  // holds, so a modal the reply rewrites into another one is not kept closed.
+  (String?, OpenUIObject) get _key => (widget.scope.node.statementId, OpenUIObject(widget.scope.node.props));
+
+  // The unbound modals a person closed, kept apart from the reply's state so
+  // they never reach the form state an action sends; they outlive the widget,
+  // which is built again when the reply scrolls back into view.
+  static final _closed = Expando<Set<(String?, OpenUIObject)>>();
+
+  static Set<(String?, OpenUIObject)> _closedModals(OpenUIRuntime runtime) => _closed[runtime] ??= {};
 
   static bool _isTrue(OpenUIValue? value) => value == const OpenUIBool(true) || value == const OpenUIString('true');
 }
@@ -148,19 +162,23 @@ class _OpenUIModalSheet extends StatelessWidget {
           Builder(
             builder: (context) {
               final theme = OpenUIViewScope.of(context).theme;
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  StreamSheetHeader(title: Text(scope.text('title') ?? '')),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      controller: scrollController,
-                      padding: EdgeInsets.all(theme.lSpacing),
-                      child: scope.buildProp('children'),
+              // The sheet is a route of the app's, which may have no Material.
+              return Material(
+                type: MaterialType.transparency,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    StreamSheetHeader(title: Text(scope.text('title') ?? '')),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        controller: scrollController,
+                        padding: EdgeInsets.all(theme.lSpacing),
+                        child: scope.buildProp('children'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             },
           ),
