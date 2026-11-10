@@ -60,7 +60,7 @@ class _OpenUIValueView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final view = OpenUIViewScope.of(context);
-    final theme = OpenUITheme.of(context);
+    final theme = view.theme;
     switch (value) {
       case OpenUIElement(:final node):
         return OpenUINodeView(node: node);
@@ -68,7 +68,7 @@ class _OpenUIValueView extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: theme.mSpacing!,
+          spacing: theme.mSpacing,
           children: [
             for (final (index, item) in items.indexed)
               if (_draws(item, view)) _OpenUIValueView(item, key: _keyOf(item, index, items)),

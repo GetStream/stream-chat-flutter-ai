@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 
@@ -10,7 +11,7 @@ import '../../openui_test_app.dart';
 void main() {
   for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {
     group('drawn with the theme ($name)', () {
-      final theme = OpenUIThemeData.defaults(stream);
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), stream);
 
       Future<void> draw(WidgetTester tester, String program) async {
         final runtime = testRuntime();
@@ -24,7 +25,7 @@ void main() {
         final box = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).last;
         final decoration = box.decoration as BoxDecoration;
         expect(decoration.color, theme.subtleFill);
-        expect(decoration.borderRadius, BorderRadius.circular(theme.pillCornerRadius!));
+        expect(decoration.borderRadius, BorderRadius.circular(theme.pillCornerRadius));
         final text = tester.widget<Text>(find.text('New'));
         expect(text.style!.color, theme.secondaryText);
         expect(text.style!.fontWeight, FontWeight.w500);
@@ -35,7 +36,7 @@ void main() {
         await draw(tester, 'Tag("Ok", Icon("check"), "lg", "success")');
 
         final decoration = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).last.decoration as BoxDecoration;
-        expect(decoration.color, theme.success!.withValues(alpha: 0.14));
+        expect(decoration.color, theme.success.withValues(alpha: 0.14));
         expect(tester.widget<Text>(find.text('Ok')).style!.color, theme.success);
         final icon = tester.widget<Icon>(find.byType(Icon));
         expect(icon.icon, stream.icons.checkmark);
@@ -71,7 +72,7 @@ void main() {
         final dim = tester
             .widgetList<ColoredBox>(find.byType(ColoredBox))
             .where(
-              (box) => box.color == theme.border!.withValues(alpha: 0.6),
+              (box) => box.color == theme.border.withValues(alpha: 0.6),
             );
         expect(dim, hasLength(1));
       });
@@ -79,8 +80,8 @@ void main() {
       testWidgets('Text and BoldText draw in their sizes with subtext below', (tester) async {
         await draw(tester, 'Text("text", "Plain", "note", "text", "sm"), BoldText("text", "Bold", "", "text", "lg")');
 
-        expect(_styleOf(tester, 'Plain').fontSize, theme.bodySmall!.fontSize);
-        expect(_styleOf(tester, 'Bold').fontSize, theme.title!.fontSize);
+        expect(_styleOf(tester, 'Plain').fontSize, theme.bodySmall.fontSize);
+        expect(_styleOf(tester, 'Bold').fontSize, theme.title.fontSize);
         expect(_styleOf(tester, 'Bold').fontWeight, FontWeight.w600);
         expect(tester.widget<Text>(find.text('note')).style!.color, theme.secondaryText);
       });
@@ -100,7 +101,7 @@ void main() {
         await draw(tester, 'MetricIndicatorInline("USD 1,200", "vs last", {direction: "up", value: 5})');
 
         final value = tester.widget<Text>(find.text('USD 1,200'));
-        expect(value.style!.fontSize, theme.metric!.fontSize);
+        expect(value.style!.fontSize, theme.metric.fontSize);
         expect(value.style!.color, theme.text);
         expect(find.text('5%'), findsOneWidget);
         expect(tester.widget<Text>(find.text('5%')).style!.color, theme.success);
@@ -416,7 +417,7 @@ void main() {
       expect(tops, hasLength(2));
       expect(
         tester.widget<Text>(find.text('one')).style!.fontSize,
-        OpenUIThemeData.defaults(StreamTheme.light()).bodySmall!.fontSize,
+        OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light()).bodySmall.fontSize,
       );
     });
   });
@@ -426,7 +427,7 @@ void main() {
         'SnippetCardItem("a", IconText(Icon("check"), "soft", "s", "One", "", false, "horizontal"), Text("text", "9"))';
 
     testWidgets('draw their items as sunken cards of rounded corners', (tester) async {
-      final theme = OpenUIThemeData.defaults(StreamTheme.light());
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
       final runtime = testRuntime();
       addTearDown(runtime.dispose);
       await pumpOpenUI(tester, runtime, program: 'root = Card([SnippetCardBlock([$snippet, $snippet])])');
@@ -437,7 +438,7 @@ void main() {
             (box) => (box.decoration as BoxDecoration).color == theme.sunkenSurface,
           );
       expect(cards.length, greaterThanOrEqualTo(2));
-      expect((cards.first.decoration as BoxDecoration).borderRadius, BorderRadius.circular(theme.mediumCornerRadius!));
+      expect((cards.first.decoration as BoxDecoration).borderRadius, BorderRadius.circular(theme.mediumCornerRadius));
       expect(find.text('One'), findsNWidgets(2));
     });
 
@@ -449,8 +450,8 @@ void main() {
       await pumpOpenUI(tester, runtime, program: 'root = Card([SnippetCardBlock([$snippet, $snippet], "carousel")])');
 
       expect(find.byType(SingleChildScrollView), findsNothing);
-      final theme = OpenUIThemeData.defaults(StreamTheme.light());
-      expect(_styleOf(tester, '9').fontSize, theme.caption!.fontSize);
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
+      expect(_styleOf(tester, '9').fontSize, theme.caption.fontSize);
     });
 
     testWidgets('lay out in columns by width, up to three, and stretch to the row height', (tester) async {
@@ -498,8 +499,14 @@ void main() {
       expect(await gapOf('200'), 48);
       expect(await gapOf('-5'), 0);
       expect(await gapOf('20'), 20);
-      expect(await gapOf('"xl"'), OpenUIThemeData.defaults(StreamTheme.light()).xlSpacing);
-      expect(await gapOf('{}'), OpenUIThemeData.defaults(StreamTheme.light()).mSpacing);
+      expect(
+        await gapOf('"xl"'),
+        OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light()).xlSpacing,
+      );
+      expect(
+        await gapOf('{}'),
+        OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light()).mSpacing,
+      );
     });
 
     testWidgets('a block without items draws nothing', (tester) async {
@@ -520,7 +527,7 @@ void main() {
             'root = Card([ContextCardBlock([ContextCardItem("a", Tag("Hot", null, "sm", "danger"), "Body A"), ContextCardItem("b", "Plain title", "Body B")])])',
       );
 
-      final theme = OpenUIThemeData.defaults(StreamTheme.light());
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
       expect(find.text('Hot'), findsOneWidget);
       expect(tester.widget<Text>(find.text('Plain title')).style!.color, theme.secondaryText);
       expect(_styleOf(tester, 'Body A').fontWeight, FontWeight.w600);
@@ -576,10 +583,10 @@ void main() {
             'root = Card([CompositeCardBlock([CompositeCardItem("a", Text("text", "Head"), [Text("text", "Line", "", "text", "lg")], {price: Text("text", "USD 9"), button: Button("Buy")})])])',
       );
 
-      final theme = OpenUIThemeData.defaults(StreamTheme.light());
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
       expect(find.text('Head'), findsOneWidget);
       // A body Text is drawn extra small.
-      expect(_styleOf(tester, 'Line').fontSize, theme.caption!.fontSize);
+      expect(_styleOf(tester, 'Line').fontSize, theme.caption.fontSize);
       expect(find.text('USD 9'), findsOneWidget);
       expect(find.text('Buy'), findsNothing);
       expect(tester.getTopLeft(find.text('USD 9')).dy, greaterThan(tester.getTopLeft(find.text('Line')).dy));

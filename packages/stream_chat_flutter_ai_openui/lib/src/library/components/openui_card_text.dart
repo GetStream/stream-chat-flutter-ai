@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `Text`: its `value` as inline Markdown in the size its `size`
@@ -25,20 +25,18 @@ Widget buildOpenUIText(BuildContext context, OpenUIComponentScope scope) => _tex
 Widget buildOpenUIBoldText(BuildContext context, OpenUIComponentScope scope) => _text(context, scope, bold: true);
 
 Widget _text(BuildContext context, OpenUIComponentScope scope, {required bool bold}) {
-  final theme = OpenUITheme.of(context);
-  final styles = theme;
-  final colors = theme;
+  final theme = OpenUIViewScope.of(context).theme;
   final style = switch (scope.string('size')) {
-    'xs' => styles.caption!,
-    'sm' => styles.bodySmall!,
-    'lg' => bold ? styles.title! : styles.bodyLarge!,
-    _ => bold ? styles.heading! : styles.body!,
+    'xs' => theme.caption,
+    'sm' => theme.bodySmall,
+    'lg' => bold ? theme.title : theme.bodyLarge,
+    _ => bold ? theme.heading : theme.body,
   };
   final subtext = scope.text('subtext') ?? '';
   final subtextColor = switch (scope.string('subtextVariant')) {
-    'metric' when subtext.startsWith('+') => colors.success!,
-    'metric' when subtext.startsWith('-') || subtext.startsWith('−') => colors.error!,
-    _ => colors.secondaryText!,
+    'metric' when subtext.startsWith('+') => theme.success,
+    'metric' when subtext.startsWith('-') || subtext.startsWith('−') => theme.error,
+    _ => theme.secondaryText,
   };
   return Column(
     mainAxisSize: MainAxisSize.min,
@@ -57,7 +55,7 @@ Widget _text(BuildContext context, OpenUIComponentScope scope, {required bool bo
       if (subtext.isNotEmpty)
         Text(
           subtext,
-          style: styles.caption!.copyWith(
+          style: theme.caption.copyWith(
             color: subtextColor,
             fontFeatures: scope.string('subtextVariant') != 'text' ? const [FontFeature.tabularFigures()] : null,
           ),
@@ -86,7 +84,7 @@ class OpenUITitleSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +92,7 @@ class OpenUITitleSubtitle extends StatelessWidget {
       children: [
         OpenUIMarkdownText(
           data: title,
-          style: theme.bodySmall!.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+          style: theme.bodySmall.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
         ),
         if (subtitle != null && subtitle!.isNotEmpty)
           OpenUIMarkdownText(data: subtitle!, style: theme.caption, color: theme.secondaryText),
@@ -138,14 +136,14 @@ Widget buildOpenUIIconText(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIImageText(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final requested = scope.number('imageSize');
   final size = requested == null || !requested.isFinite ? 40.0 : requested.clamp(8.0, 200.0);
   return _withLeading(
     context,
     scope,
     leading: ClipRRect(
-      borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+      borderRadius: BorderRadius.circular(theme.smallCornerRadius),
       // A picture has no text to size it, so its side is its own.
       child: SizedBox.square(
         dimension: size,
@@ -166,18 +164,18 @@ Widget _withLeading(
   required Widget leading,
   required Widget title,
 }) {
-  final spacing = OpenUITheme.of(context);
+  final spacing = OpenUIViewScope.of(context).theme;
   if (scope.string('layout') == 'vertical') {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: spacing.sSpacing!,
+      spacing: spacing.sSpacing,
       children: [leading, title],
     );
   }
   return Row(
     mainAxisSize: MainAxisSize.min,
-    spacing: spacing.mSpacing!,
+    spacing: spacing.mSpacing,
     children: [
       leading,
       Flexible(child: title),
@@ -191,14 +189,14 @@ Widget _withLeading(
 /// Internal to the package.
 @internal
 Widget buildOpenUIImageTextLarge(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   return Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.sSpacing!,
+    spacing: theme.sSpacing,
     children: [
       ClipRRect(
-        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
         // A picture has no text to size it, so its height is its own.
         child: SizedBox(
           height: 140,
@@ -219,17 +217,16 @@ class _IconBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
-    final colors = theme;
+    final theme = OpenUIViewScope.of(context).theme;
     final (foreground, background) = switch (variant) {
-      'inverted' => (colors.onAccent!, colors.text!),
-      'filled' => (colors.onAccent!, colors.accent!),
+      'inverted' => (theme.onAccent, theme.text),
+      'filled' => (theme.onAccent, theme.accent),
       'info' || 'success' || 'warning' || 'danger' => (
-        openUIVariantColor(colors, variant),
-        openUIVariantColor(colors, variant).withValues(alpha: 0.14),
+        openUIVariantColor(theme, variant),
+        openUIVariantColor(theme, variant).withValues(alpha: 0.14),
       ),
-      'soft' => (colors.accent!, colors.accent!.withValues(alpha: 0.12)),
-      _ => (colors.text!, colors.sunkenSurface!),
+      'soft' => (theme.accent, theme.accent.withValues(alpha: 0.12)),
+      _ => (theme.text, theme.sunkenSurface),
     };
     final dimension = openUIScaled(context, switch (size) {
       'xs' => 24.0,

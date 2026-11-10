@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -12,7 +13,7 @@ import '../../openui_test_app.dart';
 void main() {
   for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {
     group('drawn with the theme ($name)', () {
-      final theme = OpenUIThemeData.defaults(stream);
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), stream);
 
       testWidgets('Callout tints its surface with its variant color and draws its title and description', (
         tester,
@@ -28,8 +29,8 @@ void main() {
 
         final box = tester.widget<DecoratedBox>(find.byKey(const ValueKey('callout')));
         final decoration = box.decoration as BoxDecoration;
-        expect(decoration.color, theme.warning!.withValues(alpha: 0.12));
-        expect(decoration.borderRadius, BorderRadius.circular(theme.mediumCornerRadius!));
+        expect(decoration.color, theme.warning.withValues(alpha: 0.12));
+        expect(decoration.borderRadius, BorderRadius.circular(theme.mediumCornerRadius));
         final title = tester.widget<Text>(find.text('Careful'));
         expect(title.style!.color, theme.text);
         expect(title.style!.fontWeight, FontWeight.w600);
@@ -85,7 +86,7 @@ void main() {
         final label = tester.widget<Text>(find.text('Name')).style!;
         expect(label.color, theme.text);
         expect(label.fontWeight, FontWeight.w500);
-        expect(_styleOf(tester, 'Head').fontSize, theme.heading!.fontSize);
+        expect(_styleOf(tester, 'Head').fontSize, theme.heading.fontSize);
         expect(_styleOf(tester, 'About').color, theme.secondaryText);
       });
     });
@@ -102,7 +103,7 @@ void main() {
             'root = Card([MarkDownRenderer("a **b**"), MarkDownRenderer("c", "sunk"), MarkDownRenderer("d", "card")])',
       );
 
-      final theme = OpenUIThemeData.defaults(StreamTheme.light());
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
       expect(_styleOf(tester, 'b').fontWeight, FontWeight.bold);
       final colors = tester
           .widgetList<DecoratedBox>(find.byType(DecoratedBox))
@@ -299,7 +300,7 @@ void main() {
       expect(find.text('Beta'), findsOneWidget);
 
       expect(find.text('3'), findsOneWidget);
-      final theme = OpenUIThemeData.defaults(StreamTheme.light());
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
       final badge = tester
           .widgetList<DecoratedBox>(find.byType(DecoratedBox))
           .where(

@@ -8,7 +8,7 @@
 library;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/schema_validation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -43,7 +42,10 @@ const _imageHeight = 180.0;
 const _tileExtent = 100.0;
 
 Widget _rounded(BuildContext context, Widget child) {
-  return ClipRRect(borderRadius: BorderRadius.circular(OpenUITheme.of(context).mediumCornerRadius!), child: child);
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(OpenUIViewScope.of(context).theme.mediumCornerRadius),
+    child: child,
+  );
 }
 
 /// Builds an `ImageGallery`: its `images` as wrapping tiles 100 square, which
@@ -82,8 +84,8 @@ class _Gallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
-    final spacing = theme.sSpacing!;
+    final theme = OpenUIViewScope.of(context).theme;
+    final spacing = theme.sSpacing;
     return SizedBox(
       width: double.infinity,
       child: Wrap(
@@ -98,7 +100,7 @@ class _Gallery extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _preview(context, index),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+                  borderRadius: BorderRadius.circular(theme.smallCornerRadius),
                   child: OpenUIRemoteImage(source: image.src, alt: image.alt),
                 ),
               ),
@@ -119,6 +121,7 @@ class _Gallery extends StatelessWidget {
         OpenUIViewScope(
           runtime: view.runtime,
           library: view.library,
+          theme: view.theme,
           mediaUrl: view.mediaUrl,
           openLink: view.openLink,
           isStreaming: view.isStreaming,
@@ -151,7 +154,7 @@ class _PreviewState extends State<_Preview> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     return Material(
       color: theme.surface,
       child: SafeArea(
@@ -161,7 +164,7 @@ class _PreviewState extends State<_Preview> {
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: Padding(
-                padding: EdgeInsets.all(theme.sSpacing!),
+                padding: EdgeInsets.all(theme.sSpacing),
                 child: StreamButton(
                   type: .ghost,
                   size: .small,
@@ -178,18 +181,18 @@ class _PreviewState extends State<_Preview> {
                   final image = widget.images[index];
                   final caption = image.details ?? image.alt;
                   return Column(
-                    spacing: theme.mSpacing!,
+                    spacing: theme.mSpacing,
                     children: [
                       Expanded(
                         child: OpenUIRemoteImage(source: image.src, alt: image.alt, fit: BoxFit.contain),
                       ),
                       if (caption != null)
                         Padding(
-                          padding: EdgeInsets.fromLTRB(theme.lSpacing!, 0, theme.lSpacing!, theme.lSpacing!),
+                          padding: EdgeInsets.fromLTRB(theme.lSpacing, 0, theme.lSpacing, theme.lSpacing),
                           child: Text(
                             caption,
                             textAlign: TextAlign.center,
-                            style: theme.bodySmall!.copyWith(color: theme.secondaryText),
+                            style: theme.bodySmall.copyWith(color: theme.secondaryText),
                           ),
                         ),
                     ],
