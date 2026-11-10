@@ -4,19 +4,19 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_example/answer_source_switcher.dart';
 import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
 import 'package:stream_chat_flutter_ai_ondevice/stream_chat_flutter_ai_ondevice.dart';
+import 'package:stream_core_flutter/core.dart';
 
 void main() => runApp(const ExampleApp());
 
 /// Charts follow the host app rather than the package's own constants.
 ///
 /// One instance covers light and dark: everything this leaves unset — the grid
-/// line, the axis labels, the heatmap ramp — still derives from the ambient
-/// `ColorScheme`. Delete the `extensions:` lines below to get the defaults back.
+/// line, the axis labels, the heatmap ramp — still derives from the Stream
+/// theme. Delete the `extensions:` lines below to get the defaults back.
 const _chartTheme = ChartThemeData(seriesColors: _brandChartPalette);
 
 /// A light code frame for the light theme: pinning the brightness picks the
@@ -25,7 +25,7 @@ const _chartTheme = ChartThemeData(seriesColors: _brandChartPalette);
 /// frame; pin `Brightness.dark` in both to keep code dark in either mode.
 const _lightCodeBlockTheme = CodeBlockThemeData(brightness: Brightness.light);
 
-/// A six-hue palette seeded on the same blue as the color scheme.
+/// A six-hue palette seeded on Stream's accent blue.
 const _brandChartPalette = [
   Color(0xFF005FFF),
   Color(0xFF00C1FF),
@@ -40,17 +40,31 @@ class ExampleApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Stream's design system, which the AI components are built on: its
+    // colors, text styles and icons, in light and dark.
+    final light = StreamTheme.light();
+    final dark = StreamTheme.dark();
     return MaterialApp(
       title: 'Stream Chat Flutter AI',
+      // Seeded on Stream's accent too, so the Material parts the app uses
+      // itself (its dialog, snackbar and the text cursor) match.
       theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.light,
-        extensions: const [AITheme(chartTheme: _chartTheme, codeBlockTheme: _lightCodeBlockTheme)],
+        colorSchemeSeed: light.colorScheme.accentPrimary,
+        scaffoldBackgroundColor: light.colorScheme.backgroundApp,
+        extensions: [
+          light,
+          const AITheme(chartTheme: _chartTheme, codeBlockTheme: _lightCodeBlockTheme),
+        ],
       ),
       darkTheme: ThemeData(
-        colorSchemeSeed: const Color(0xFF005FFF),
         brightness: Brightness.dark,
-        extensions: const [AITheme(chartTheme: _chartTheme)],
+        colorSchemeSeed: dark.colorScheme.accentPrimary,
+        scaffoldBackgroundColor: dark.colorScheme.backgroundApp,
+        extensions: [
+          dark,
+          const AITheme(chartTheme: _chartTheme),
+        ],
       ),
       // English needs no entry: a locale the delegate has nothing for falls
       // back to DefaultAITranslations.
@@ -66,47 +80,90 @@ class ExampleApp extends StatelessWidget {
   }
 }
 
-/// A single message in the conversation.
+/// A single message in the conversation, as [AIConversationView] reads it.
 ///
-/// [isUser] messages render as plain bubbles; assistant messages render
-/// through [StreamingMessageView] so markdown, code fences and chart fences
-/// are all handled.
-class _Message {
-  const _Message({
+/// User messages render as bubbles; assistant messages render their reasoning
+/// and tool calls as steps, then the answer through [StreamingMessageView], so
+/// markdown, code fences and chart fences are all handled.
+class _Message with AIMessage {
+  _Message({
+    String? id,
     required this.text,
     required this.isUser,
+    this.isGenerating = false,
     this.reasoning = '',
     this.isThinking = false,
     this.toolCalls = const [],
     this.note = '',
-  });
+  }) : id = id ?? 'message_${_nextId++}';
 
+  static int _nextId = 0;
+
+  @override
+  final String id;
+
+  @override
   final String text;
+
   final bool isUser;
 
+  @override
+  AIMessageRole get role => isUser ? AIMessageRole.user : AIMessageRole.assistant;
+
+  @override
+  final bool isGenerating;
+
   /// What the app says about a reply it couldn't finish, such as that the
-  /// on-device model is unavailable. Shown under the reply, and never sent to
-  /// a model as part of the conversation.
+  /// on-device model is unavailable. Shown under the reply, or in its place
+  /// when the reply has nothing else to show, and never sent to a model as
+  /// part of the conversation.
   final String note;
 
-  /// The model's reasoning so far, shown in a [StreamingReasoningView] above
-  /// the reply. Empty for user messages.
+  /// The model's reasoning so far, shown as a reasoning step above the reply.
+  /// Empty for user messages.
   final String reasoning;
 
   /// Whether the fake model is still thinking about this reply.
   final bool isThinking;
 
-  /// The tools the fake model called before answering, shown as rows by
-  /// [AIMessagePartsView] between the reasoning and the reply.
+  /// The tools the fake model called before answering, shown as steps between
+  /// the reasoning and the reply.
   final List<AIToolCallPart> toolCalls;
 
-  _Message copyWith({String? text, String? reasoning, bool? isThinking, List<AIToolCallPart>? toolCalls}) => _Message(
+  @override
+  List<AIMessagePart> get parts => [
+    if (reasoning.isNotEmpty)
+      AIMessagePart.fromReasoning(
+        AIReasoningPart(
+          id: '${id}_reasoning',
+          status: isThinking ? AIReasoningStatus.streaming : AIReasoningStatus.completed,
+          summary: isThinking ? null : _reasoningSummary,
+        ),
+      ),
+    ...toolCalls.map(AIMessagePart.fromToolCall),
+  ];
+
+  // The whole reasoning, rather than the preview a backend would put on the
+  // step.
+  @override
+  String? reasoningText(AIReasoningPart step) => reasoning;
+
+  _Message copyWith({
+    String? text,
+    bool? isGenerating,
+    String? reasoning,
+    bool? isThinking,
+    List<AIToolCallPart>? toolCalls,
+    String? note,
+  }) => _Message(
+    id: id,
     text: text ?? this.text,
     isUser: isUser,
+    isGenerating: isGenerating ?? this.isGenerating,
     reasoning: reasoning ?? this.reasoning,
     isThinking: isThinking ?? this.isThinking,
     toolCalls: toolCalls ?? this.toolCalls,
-    note: note,
+    note: note ?? this.note,
   );
 }
 
@@ -357,7 +414,6 @@ class AssistantScreen extends StatefulWidget {
 
 class _AssistantScreenState extends State<AssistantScreen> {
   late final ChatComposerController _composerController;
-  final _scrollController = ScrollController();
   final _messages = <_Message>[];
 
   /// Non-null while a pause is pending — before the reasoning starts, or while
@@ -398,12 +454,26 @@ class _AssistantScreenState extends State<AssistantScreen> {
     send: _sendToolResult,
   );
 
-  /// Whether the fake backend has finished sending chunks for the current reply.
-  ///
-  /// The backend finishes well before the typewriter does, so this alone is not
-  /// when the reply is done: it feeds `StreamingMessageView.expectMoreText`, and
-  /// the composer leaves its generating state from `onFinished`.
-  bool _streamComplete = true;
+  /// Created once, not in `build`: new builders would rebuild every row.
+  late final _builders = StreamComponentBuilders(
+    extensions: streamAIComponentBuilders(
+      // The full constructor rather than `.part`, so a reply's first reasoning
+      // step carries on the conversation's "Thinking…" count from
+      // `props.duration` instead of restarting it.
+      reasoning: (context, props) => StreamingReasoningView(
+        text: props.text ?? props.reasoning.preview ?? props.reasoning.summary ?? '',
+        isThinking: props.reasoning.isStreaming,
+        duration: props.duration ?? props.reasoning.duration,
+        summary: props.reasoning.summary,
+        footnote: 'Reasoning is generated by the model and may be incomplete.',
+      ),
+      // Fences are recognised and framed by the package, but the grammars that
+      // color them live here. See `code_highlighter.dart`.
+      codeBlock: (context, props) =>
+          CodeBlockView(code: props.code, language: props.language, highlighter: highlightCode, theme: props.theme),
+      assistantMessage: _assistantMessage,
+    ),
+  );
 
   /// How much of the reply each simulated chunk delivers.
   static const _chunkSize = 40;
@@ -433,18 +503,19 @@ class _AssistantScreenState extends State<AssistantScreen> {
   @override
   void initState() {
     super.initState();
+    const icons = StreamIcons();
     _composerController = ChatComposerController(
-      chatOptions: const [
+      chatOptions: [
         ChatOption(
           id: 'image',
           text: 'Create image',
-          icon: Icons.image_outlined,
+          icon: icons.image,
           description: 'Visualize anything',
         ),
         ChatOption(
           id: 'summarize',
           text: 'Summarize',
-          icon: Icons.summarize_outlined,
+          icon: icons.file,
           description: 'Condense a long text',
         ),
       ],
@@ -461,7 +532,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _toolRunner.close();
     unawaited(_localReply?.cancel());
     _composerController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -474,18 +544,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
     setState(() {
       _messages.add(_Message(text: message, isUser: true));
       _composerController.isGenerating = true;
-      _streamComplete = false;
     });
     _composerController.clear();
-    _scrollToEnd();
 
     if (_offline) {
       unawaited(_replyLocally());
       return;
     }
 
-    // Stand in for a real request: pause on the typing indicator, then let the
-    // model think out loud before it answers.
+    // Stand in for a real request: pause while the turn says it's thinking,
+    // then let the model think out loud before it answers.
     _thinkingTimer = Timer(const Duration(milliseconds: 600), _streamReasoning);
   }
 
@@ -494,7 +562,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// runs the tools once the fold is done, so the two don't move at once.
   void _streamReasoning() {
     if (!mounted) return;
-    setState(() => _messages.add(const _Message(text: '', isUser: false, isThinking: true)));
+    // Marked generating until its last chunk arrives, which keeps it typing
+    // out as chunks land.
+    setState(() => _messages.add(_Message(text: '', isUser: false, isGenerating: true, isThinking: true)));
 
     var delivered = 0;
     _reasoningTimer = Timer.periodic(const Duration(milliseconds: 90), (timer) {
@@ -502,7 +572,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
       delivered = min(delivered + 12, _cannedReasoning.length);
       setState(() => _messages.last = _messages.last.copyWith(reasoning: _cannedReasoning.substring(0, delivered)));
-      _scrollToEnd();
 
       if (delivered == _cannedReasoning.length) {
         timer.cancel();
@@ -521,7 +590,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
     final (:call, :takes, :summary) = _cannedToolCalls[index];
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
-    _scrollToEnd();
 
     _toolTimer = Timer(takes, () {
       if (!mounted) return;
@@ -543,7 +611,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
     // A fresh id per reply: the runner runs each call id only once.
     final call = _clockCall.copyWith(id: '${_clockCall.id}_${_messages.length}');
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
-    _scrollToEnd();
     unawaited(_toolRunner.handleCalls(_messages.last.toolCalls));
   }
 
@@ -578,7 +645,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
   void _askToEmail() {
     _answerFailedOnce = false;
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, _emailCall]));
-    _scrollToEnd();
   }
 
   /// Replaces the last message's tool call with [id] by [update]'s result.
@@ -646,7 +712,6 @@ class _AssistantScreenState extends State<AssistantScreen> {
       authorization: _linearCall.authorization?.copyWith(expiresAt: DateTime.now().add(const Duration(minutes: 5))),
     );
     setState(() => _messages.last = _messages.last.copyWith(toolCalls: [..._messages.last.toolCalls, call]));
-    _scrollToEnd();
   }
 
   /// Stands in for opening [url] in a browser: a dialog plays the provider's
@@ -661,8 +726,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
         title: Text(call.authorization?.title ?? 'Sign in'),
         content: Text("Pretend you're at Linear's sign-in page.\n\n$url"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Back without connecting')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Connect')),
+          StreamButton(
+            style: .secondary,
+            type: .ghost,
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Back without connecting'),
+          ),
+          StreamButton(onPressed: () => Navigator.pop(context, true), child: const Text('Connect')),
         ],
       ),
     );
@@ -729,11 +799,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
       delivered = min(delivered + _chunkSize, _cannedReply.length);
       setState(() => _messages.last = _messages.last.copyWith(text: _cannedReply.substring(0, delivered)));
-      _scrollToEnd();
 
       if (delivered == _cannedReply.length) {
         timer.cancel();
-        setState(() => _streamComplete = true);
+        setState(() {
+          _messages.last = _messages.last.copyWith(isGenerating: false);
+          _composerController.isGenerating = false;
+        });
       }
     });
   }
@@ -749,7 +821,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       for (final message in _messages)
         if (message.isUser) AIConversationTurn.user(message.text) else AIConversationTurn.assistant(message.text),
     ];
-    setState(() => _messages.add(const _Message(text: '', isUser: false)));
+    setState(() => _messages.add(_Message(text: '', isUser: false, isGenerating: true)));
 
     // status() answers unavailable rather than throwing.
     final status = await _localModel.status();
@@ -774,8 +846,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
         .listen(
           (answer) {
             if (!mounted) return;
-            setState(() => _messages[_messages.length - 1] = _Message(text: answer, isUser: false));
-            _scrollToEnd();
+            setState(() => _messages.last = _messages.last.copyWith(text: answer));
           },
           onError: (Object error) {
             failed = true;
@@ -793,7 +864,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           onDone: () {
             if (failed) return;
             _localReply = null;
-            _finishWhenTyped();
+            _finishLocalReply();
           },
         );
   }
@@ -804,20 +875,17 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _localReply = null;
     if (!mounted) return;
     setState(() {
-      _messages[_messages.length - 1] = _Message(text: _messages.last.text, isUser: false, note: note);
-      _streamComplete = true;
+      _messages.last = _messages.last.copyWith(note: note, isGenerating: false);
       _composerController.isGenerating = false;
     });
   }
 
-  /// Ends a local reply whose stream closed. The reply's `onFinished` leaves
-  /// the generating state once it is typed out; an empty answer never shows,
-  /// so it leaves at once.
-  void _finishWhenTyped() {
+  /// Ends a local reply whose stream closed.
+  void _finishLocalReply() {
     if (!mounted) return;
     setState(() {
-      _streamComplete = true;
-      if (_messages.last.text.isEmpty) _composerController.isGenerating = false;
+      _messages.last = _messages.last.copyWith(isGenerating: false);
+      _composerController.isGenerating = false;
     });
   }
 
@@ -831,9 +899,11 @@ class _AssistantScreenState extends State<AssistantScreen> {
     _localReply = null;
     if (!mounted) return;
     setState(() {
-      // Stopping mid-reply ends the thinking and cancels a tool still running.
+      // Stopping mid-reply ends the reply and its thinking, and cancels a tool
+      // still running.
       if (_messages.lastOrNull case final last? when !last.isUser) {
         _messages.last = last.copyWith(
+          isGenerating: false,
           isThinking: false,
           toolCalls: [
             for (final call in last.toolCalls)
@@ -841,125 +911,52 @@ class _AssistantScreenState extends State<AssistantScreen> {
           ],
         );
       }
-      _streamComplete = true;
       _composerController.isGenerating = false;
-    });
-  }
-
-  void _scrollToEnd() {
-    // Wait for the new message to be laid out before scrolling to it.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final last = _messages.lastOrNull;
+    // While nothing on screen moves — before the reply starts, or between its
+    // steps, such as after the tools finish and before the answer starts — the
+    // turn says the agent is thinking. The reasoning says so itself while it
+    // streams, a running tool's row spins, and a call waiting on the user isn't
+    // the agent.
+    final waiting =
+        _composerController.isGenerating &&
+        last != null &&
+        (last.isUser || (last.text.isEmpty && !last.isThinking && last.toolCalls.every((c) => c.status.isFinished)));
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: StreamAppBar(
         title: const Text('AI Assistant'),
-        actions: [
-          AnswerSourceSwitcher(
-            model: _localModel,
-            useDevice: _offline,
-            onChanged: (useDevice) => setState(() => _offline = useDevice),
-          ),
-        ],
+        trailing: AnswerSourceSwitcher(
+          model: _localModel,
+          useDevice: _offline,
+          onChanged: (useDevice) => setState(() => _offline = useDevice),
+        ),
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: _messages.isEmpty
-                  ? const _EmptyState()
-                  : ListView.separated(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _messages.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        if (message.isUser) return _UserBubble(text: message.text);
-                        final isLatest = index == _messages.length - 1;
-                        final reply = StreamingMessageView(
-                          text: message.text,
-                          // Only the latest reply can still be streaming, and
-                          // only it drives the composer.
-                          expectMoreText: isLatest && !_streamComplete,
-                          onFinished: isLatest ? () => _composerController.isGenerating = false : null,
-                          // The package recognises LaTeX but ships no math
-                          // engine; this is the seam where a host supplies one.
-                          mathBuilder: (context, tex, style, {required inline}) => Math.tex(
-                            tex,
-                            textStyle: style,
-                            mathStyle: inline ? MathStyle.text : MathStyle.display,
-                            onErrorFallback: (error) => Text(tex, style: style),
-                          ),
-                          // Same arrangement for code: fences are recognised
-                          // and framed by the package, but the grammars that
-                          // color them live here. See `code_highlighter.dart`.
-                          codeHighlighter: highlightCode,
-                        );
-                        final note = message.note.isEmpty
-                            ? null
-                            : Text(
-                                message.note,
-                                style: TextStyle(
-                                  fontStyle: FontStyle.italic,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                              );
-                        if (message.reasoning.isEmpty && message.toolCalls.isEmpty && note == null) return reply;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 12,
-                          children: [
-                            if (message.reasoning.isNotEmpty)
-                              StreamingReasoningView(
-                                text: message.reasoning,
-                                isThinking: message.isThinking,
-                                summary: _reasoningSummary,
-                                footnote: 'Reasoning is generated by the model and may be incomplete.',
-                              ),
-                            if (message.toolCalls.isNotEmpty)
-                              AIMessagePartsView(
-                                parts: [...message.toolCalls.map(AIMessagePart.fromToolCall)],
-                                approver: _approver,
-                              ),
-                            if (message.text.isNotEmpty) reply,
-                            ?note,
-                          ],
-                        );
-                      },
-                    ),
-            ),
-            ListenableBuilder(
-              listenable: _composerController,
-              builder: (context, child) {
-                // The reasoning panel says "Thinking…" itself while it
-                // streams, and a running tool's row spins.
-                final last = _messages.lastOrNull;
-                final busy = last != null && (last.isThinking || last.toolCalls.any((c) => !c.status.isFinished));
-                if (!_composerController.isGenerating || busy) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: AITypingIndicatorView(
-                      text: 'Thinking',
-                      textStyle: theme.textTheme.bodyMedium,
-                      dotColor: theme.colorScheme.primary,
-                    ),
-                  ),
-                );
-              },
+              child: StreamComponentFactory(
+                builders: _builders,
+                // Scrolls each question to the top and lets its reply type
+                // out below it, leaving the list alone while the user scrolls.
+                child: AIConversationView(
+                  messages: _messages,
+                  isThinking: waiting,
+                  approver: _approver,
+                  // A reply that failed before saying anything shows nothing,
+                  // so the conversation leaves it out, and its note with it.
+                  footer: last != null && !last.isUser && last.text.isEmpty && last.note.isNotEmpty
+                      ? _Note(last.note)
+                      : null,
+                  emptyContent: const _EmptyState(),
+                ),
+              ),
             ),
             if (_messages.isEmpty)
               AISuggestionsView(
@@ -985,25 +982,27 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.streamColorScheme;
+    final text = context.streamTextTheme;
+    final spacing = context.streamSpacing;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: EdgeInsets.symmetric(horizontal: spacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome, size: 48, color: theme.colorScheme.primary),
-            const SizedBox(height: 16),
+            Icon(context.streamIcons.messageBubbles, size: 48, color: colors.accentPrimary),
+            SizedBox(height: spacing.md),
             Text(
               'How can I help?',
-              style: theme.textTheme.headlineSmall,
+              style: text.headingMd.copyWith(color: colors.textPrimary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: spacing.xs),
             Text(
               'Pick a suggestion below, or type a message to see the '
               'streaming, code-block and chart renderers.',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: text.bodyDefault.copyWith(color: colors.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1013,27 +1012,41 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _UserBubble extends StatelessWidget {
-  const _UserBubble({required this.text});
+/// The package's reply row, with the app's [_Message.note] under it.
+Widget _assistantMessage(BuildContext context, AIAssistantMessageProps props) {
+  final reply = AIAssistantMessageView(
+    text: props.text,
+    isGenerating: props.isGenerating,
+    parts: props.parts,
+    attachments: props.attachments,
+    approver: props.approver,
+    reasoningText: props.message.reasoningText,
+    onAttachmentTap: props.onAttachmentTap,
+  );
+  // The row is built again only when what the package shows changes; the note
+  // lands with the end of generation, which is such a change.
+  final note = (props.message as _Message).note;
+  if (note.isEmpty) return reply;
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: 8,
+    children: [reply, _Note(note)],
+  );
+}
+
+/// Why a reply ended early, such as the on-device model not being available.
+class _Note extends StatelessWidget {
+  const _Note(this.text);
 
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 320),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          text,
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onPrimaryContainer),
-        ),
+    return Text(
+      text,
+      style: context.streamTextTheme.captionDefault.copyWith(
+        fontStyle: FontStyle.italic,
+        color: context.streamColorScheme.textSecondary,
       ),
     );
   }
@@ -1103,6 +1116,10 @@ class DutchTranslations implements AITranslations {
       USpecKind.bubble => 'Bellendiagram',
       USpecKind.heatmap => 'Heatmap',
       USpecKind.histogram => 'Histogram',
+      USpecKind.horizontalBar => 'Liggend staafdiagram',
+      USpecKind.radar => 'Radardiagram',
+      USpecKind.radial => 'Radiaal diagram',
+      USpecKind.singleStackedBar => 'Gestapelde balk',
     };
     final name = [kind, ?chart.title].join(', ');
     if (chart.isEmpty) return '$name, geen gegevens';
@@ -1251,6 +1268,12 @@ class DutchTranslations implements AITranslations {
 
   @override
   String attachmentDetails(String type, String size) => '$type · $size';
+
+  @override
+  String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
 
   @override
   String fileSize(int bytes) {

@@ -11,15 +11,20 @@ it makes integrating with and rendering responses from LLM providers such as Cha
 Anthropic or any custom backend easier, by providing rich out-of-the-box components able to render
 Markdown, code blocks, tables, charts, thinking indicators and more.
 
-The package has **no dependency on `stream_chat`, `stream_chat_flutter` or any other Stream Chat
-package** — every widget operates on plain strings, callbacks and controllers, so it drops into any
-Flutter app and pairs with any backend or LLM provider. See
+The package has **no dependency on `stream_chat`, `stream_chat_flutter` or any other Stream Chat or
+backend package** — every widget operates on plain strings, callbacks and controllers, so it drops
+into any Flutter app and pairs with any backend or LLM provider. It is built on Stream's design
+system, [`stream_core_flutter`](https://pub.dev/packages/stream_core_flutter), so it looks and
+extends the same way as Stream Chat's widgets. See
 [Using with Stream Chat](#using-with-stream-chat) below for wiring it up to a Stream Chat channel.
 
 To start, this library includes the following components:
 
 **`StreamingMessageView`** — renders text, markdown and code in real time with a
 character-by-character animation, similar to ChatGPT.
+
+**`AIMarkdownBody`** — the markdown renderer behind `StreamingMessageView`, for markdown without the
+typewriter animation.
 
 **`AITypingIndicatorView`** — displays the different states of the LLM (thinking, checking external
 sources, etc) with animated dots.
@@ -36,17 +41,37 @@ highlighting.
 **`SpeechToTextButton`** — records voice input and streams the recognized transcript into the
 composer.
 
+**`AISuggestionsView`** — a row of quick-reply chips to dock above the composer, such as on a "new
+chat" screen.
+
+**`AIConversationView`** — a whole conversation laid out the way an AI assistant does it, built from
+**`AIUserMessageView`**, **`AIAssistantMessageView`** and **`AIMessageAttachmentView`** rows, with
+**`AIReplyActionsView`** (copy, share, regenerate, rate) under each finished reply.
+
 **`AIMessagePartsView`** — the steps an agent took while replying: its reasoning
 (**`StreamingReasoningView`**), its tool calls (**`AIToolCallView`**) and the tool calls waiting for
-the user's approval (**`AIToolApprovalView`**).
+the user's approval (**`AIToolApprovalView`**) or sign-in (**`AIToolAuthorizationView`**).
+
+**`AIToolApprover`** / **`AIToolAuthorizer`** — send the user's answer to a tool approval, or their
+sign-in at a tool's provider, to your backend.
 
 **`AIToolRegistry`** / **`AIClientToolRunner`** — client-side tool calling, letting the agent reach
 into your app to open a screen, show an alert or read a sensor, and get the result back.
+
+**`AIClientIdentity.installId`** — an id for this install of your app, so an agent can aim a tool
+call at one of a person's devices.
 
 **`AILocalModel`** — a base class to implement over an on-device model, for answering when the
 agent can't, such as when the user is offline. The companion package
 [`stream_chat_flutter_ai_ondevice`](https://pub.dev/packages/stream_chat_flutter_ai_ondevice)
 implements it over the model built into the device.
+
+**`AIVoiceGlowView`** / **`AIVoiceWaveView`** — a voice agent on a call, as a glowing globe or a
+waveform that moves with the agent's state and audio level.
+
+**`streamAIComponentBuilders`** — replaces the components the package builds inside its own
+widgets, such as the code blocks in markdown or the messages of an `AIConversationView`, with your
+own.
 
 This repository also includes a [showcase app](example) demonstrating every component, which needs
 no API key to run.
@@ -65,12 +90,15 @@ it 😎.
 
 ## 📦 Installation
 
-`stream_chat_flutter_ai` has no dependency on Stream Chat — install it on its own:
+`stream_chat_flutter_ai` has no dependency on Stream Chat — install it on its own (it needs Flutter
+3.44 / Dart 3.12 or later):
 
 ```yaml
 dependencies:
   stream_chat_flutter_ai: ^0.1.0
 ```
+
+It requires Dart 3.11 or later and Flutter 3.41 or later.
 
 ## ⚙️ Usage
 
@@ -112,20 +140,20 @@ StreamingMessageView(
 
 ### `AITypingIndicatorView`
 
-Shows the current AI state ("Thinking…", "Checking sources…") with animated pulsing dots.
+Shows the current AI state ("Thinking…", "Checking sources…") next to Stream's
+`StreamTypingIndicatorDots`.
 
 ```dart
 AITypingIndicatorView(
   text: 'AI is thinking',
   dotColor: Colors.blue, // optional overrides; unset ones come from the theme
-  dotCount: 3,
   dotSize: 8,
 );
 ```
 
 Style it app-wide with `AITheme(typingIndicatorTheme: TypingIndicatorThemeData(...))` or for a
-subtree with `TypingIndicatorTheme`; by default the caption is `bodyMedium` in `onSurfaceVariant`
-and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
+subtree with `TypingIndicatorTheme`; by default the caption is the Stream theme's `bodyDefault` in
+`textSecondary` and the dots match it. The indicator is a screen-reader live region labelled with `text`, so keep
 it mounted and change `text` to have each new state announced. With reduced motion on, the dots
 are static, and `StreamingMessageView` shows each update in full instead of typing it out.
 
@@ -248,11 +276,17 @@ the same dark frame (`#1E1E1E` with `#D4D4D4` text) in light and dark mode alike
 
 `brightness` pins whether the block is a dark or a light surface. It is exactly what your
 highlighter receives as `request.brightness`, and every color default follows it:
-`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). For code
-blocks that stay dark whatever the app's mode, set it once:
+`Brightness.light` alone gives a light frame (`#F6F8FA` with `#1F2328` text). The dark
+frame is already the default, so for code blocks that follow the app's mode, set
+`Brightness.light` on your light theme only:
 
 ```dart
-AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.dark))
+MaterialApp(
+  theme: ThemeData(
+    extensions: const [AITheme(codeBlockTheme: CodeBlockThemeData(brightness: Brightness.light))],
+  ),
+  darkTheme: ThemeData.dark(), // keeps the default dark frame
+)
 ```
 
 Colors you set still win over those defaults, and are then yours to keep consistent with
@@ -304,7 +338,7 @@ the heatmap are painted by `fl_chart`; the heatmap is a plain widget grid. Parse
 contain JSON chart data with `USpecParser`:
 
 ```dart
-// Reads USpec, Chart.js, Plotly, ECharts, Highcharts, Vega-Lite and a flat pie schema.
+// Reads USpec, Chart.js, Plotly heatmaps, ECharts, Highcharts, Vega-Lite and a flat pie schema.
 final spec = USpecParser.tryParse(jsonString);
 if (spec != null) ChartView(spec: spec);
 ```
@@ -315,7 +349,6 @@ package's `AITheme` extension:
 ```dart
 MaterialApp(
   theme: ThemeData(
-    colorSchemeSeed: brandBlue,
     extensions: const [
       AITheme(chartTheme: ChartThemeData(seriesColors: [Color(0xFF005FFF), Color(0xFF00C1FF)])),
     ],
@@ -324,7 +357,7 @@ MaterialApp(
 )
 ```
 
-Every field is nullable, and leaving one unset means "derive it from the ambient `ThemeData`" — so
+Every field is nullable, and leaving one unset means "derive it from the Stream theme (`StreamTheme`)" — so
 overriding the palette leaves the grid lines, axis labels and heatmap ramp following your app, in
 light and dark alike. The sizing fields (`height`, the scatter and bubble radii, `histogramBinCount`)
 have no theme to derive from, so they fall back to fixed defaults instead. Override it for a
@@ -377,9 +410,10 @@ A message composer designed for AI-powered conversations. Features:
 - A **send / stop toggle** — the send button (↑) becomes a stop button (⏹) while the
   AI is generating a response.
 - An optional **voice / send toggle** (`enableSpeechToText: true`) — a single control that
-  shows a microphone while the field is empty and swaps to send as soon as you type.
-- Factory-based slot customisation via `ChatComposerFactory` — leading, trailing, the input
-  field, and the attachment sheet.
+  shows a microphone while the field is empty, swaps to send as soon as you type and to stop while
+  the AI is generating.
+- Replaceable slots — leading, trailing, the input field, and the attachment sheet — through
+  `streamAIComponentBuilders` (see [Composer slots](#composer-slots)).
 
 ```dart
 ChatComposer(
@@ -417,62 +451,53 @@ controller.isGenerating = true;
 controller.isGenerating = false;
 ```
 
-### `ChatComposerFactory`
+### Composer slots
 
-Subclass to override any of the composer's four slots. Each slot receives a props object — a
-`ChatComposerSlotProps` subclass — rather than a bare controller, which is what lets a slot be
-handed values `ChatComposer` itself owns:
+The composer's four slots are replaced through `streamAIComponentBuilders` (see
+[Replacing components](#replacing-components-streamaicomponentbuilders)). Each slot receives a props
+object, a `ChatComposerSlotProps` subclass, rather than a bare controller, which is what lets a slot
+be handed values `ChatComposer` itself owns:
 
-| Slot | Props | Default | Returns |
-|---|---|---|---|
-| `buildLeading` | `ChatComposerLeadingProps` | outlined circular "+" button | `Widget?` — `null` hides it |
-| `buildTrailing` | `ChatComposerTrailingProps` | `null` (nothing) | `Widget?` — `null` hides it |
-| `buildInput` | `ChatComposerInputProps` | `ChatComposerInput` | `Widget` |
-| `buildAttachmentSheet` | `ChatComposerAttachmentSheetProps` | `ComposerAttachmentSheet` | `Widget` |
+| Builder | Props | Default |
+|---|---|---|
+| `composerLeading` | `ChatComposerLeadingProps` | `ComposerAttachmentButton`, the "+" button |
+| `composerTrailing` | `ChatComposerTrailingProps` | nothing |
+| `composerInput` | `ChatComposerInputProps` | `ChatComposerInput` |
+| `composerAttachmentSheet` | `ChatComposerAttachmentSheetProps` | `ComposerAttachmentSheet` |
+
+Return `ChatComposer.hidden` from `composerLeading` or `composerTrailing` to leave that slot out,
+such as for a composer without the "+" button.
 
 Every one of those props carries the composer's wiring — `controller`, `focusNode`, `onSend` and
 `onStop` — so any slot can drive the composer, not just the input. `ChatComposerInputProps` adds
 the text-field configuration (`hintText`, `minLines`, `maxLines`, `textInputAction`,
-`enableSpeechToText`, `speechToTextConfig`) on top; the other three add nothing and exist to name
-the slot.
+`enableSpeechToText`, `speechToTextConfig`) on top, and `ChatComposerAttachmentSheetProps` the
+sheet's `scrollController`.
+
+The samples below use core's `StreamButton` and `showStreamSheet`, which come from
+`package:stream_core_flutter/core.dart`.
 
 ```dart
-class MyComposerFactory extends ChatComposerFactory {
+streamAIComponentBuilders(
   // Replace the leading "+" button.
-  @override
-  Widget? buildLeading(BuildContext context, ChatComposerLeadingProps props) {
-    return IconButton(icon: const Icon(Icons.attach_file), onPressed: () { ... });
-  }
-
+  composerLeading: (context, props) => StreamButton.icon(
+    icon: Icon(context.streamIcons.attachment),
+    onPressed: () { ... },
+  ),
   // Keep the default input pill, but decorate around it.
-  @override
-  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: ChatComposerInput(props: props),
-    );
-  }
-
-  // Swap the contents of the sheet the leading button opens. Presentation
-  // (`showModalBottomSheet`, drag handle) stays with the button, so don't draw
-  // a drag handle of your own — override `buildLeading` to change how the
-  // sheet is presented, or whether it is at all.
-  @override
-  Widget buildAttachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) {
-    return MyPicker(controller: props.controller);
-  }
-}
-
-// Pass to the composer:
-ChatComposer(
-  factory: MyComposerFactory(),
-  ...
-);
+  composerInput: (context, props) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: ChatComposerInput(props: props),
+  ),
+  // Swap the contents of the sheet the "+" button opens. The button presents
+  // it with `showStreamSheet`, so don't draw a drag handle of your own.
+  composerAttachmentSheet: (context, props) => MyPicker(controller: props.controller),
+)
 ```
 
-Only `buildInput`'s result is rebuilt by the composer. `buildAttachmentSheet` runs inside a modal
-route, outside that rebuild — a replacement sheet rendering controller state (a selection count,
-tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
+The leading, trailing and input slots are rebuilt with the composer. The attachment sheet runs
+inside its own route, outside that rebuild — a replacement sheet rendering controller state (a
+selection count, tiles disabled at `maxAttachments`) has to listen to `props.controller` itself, as
 `ComposerAttachmentSheet` does.
 
 To replace the input field outright rather than decorate it, build from `props`:
@@ -480,55 +505,21 @@ To replace the input field outright rather than decorate it, build from `props`:
 `onStopPressed` — `onSend` also clears the controller and returns focus to `props.focusNode`
 afterwards, so calling it beats reimplementing the send path. `props.onStop` is `null` when the
 host passed no `onStopPressed`, so a custom input can hide its stop control instead of offering a
-dead one.
-
-```dart
-class MyInputFactory extends ChatComposerFactory {
-  @override
-  Widget buildInput(BuildContext context, ChatComposerInputProps props) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: props.controller.textEditingController,
-            focusNode: props.focusNode,
-            // `props.hintText` is null unless the host passed
-            // `ChatComposer.hintText`; the composer leaves the placeholder to
-            // you. Drop the fallback if your input has a hint of its own.
-            decoration: InputDecoration(
-              hintText: props.hintText ?? AITranslations.of(context).composerHint,
-            ),
-          ),
-        ),
-        IconButton(icon: const Icon(Icons.send), onPressed: props.onSend),
-      ],
-    );
-  }
-}
-```
-
-`buildInput`'s result is placed in an `Expanded` by the composer, so don't return an `Expanded`
-yourself (a debug assert catches it). Unlike the leading and trailing slots it is non-nullable —
-there is no layout for "no input field"; return `const SizedBox.shrink()` if you really want an
-empty one.
+dead one. The composer places the input in an `Expanded`, so don't return an `Expanded` yourself (a
+debug assert catches it). Leave `props.hintText` to fall back to
+`AITranslations.of(context).composerHint` when it is `null`.
 
 Because the wiring is on the shared base, a control that sends doesn't have to live inside the
 input at all — the trailing slot is empty by default and takes the same props:
 
 ```dart
-class MySendButtonFactory extends ChatComposerFactory {
-  @override
-  Widget? buildTrailing(BuildContext context, ChatComposerTrailingProps props) {
-    return IconButton(
-      icon: const Icon(Icons.send),
-      // `canSend` is the whole rule: there is something to send, and a
-      // response isn't already streaming. `onSend` no-ops when it is false,
-      // so wiring the button to it unconditionally leaves it looking enabled
-      // and doing nothing.
-      onPressed: props.canSend ? props.onSend : null,
-    );
-  }
-}
+composerTrailing: (context, props) => StreamButton.icon(
+  icon: Icon(context.streamIcons.send),
+  // `canSend` is the whole rule: there is something to send, and a response
+  // isn't already streaming. `onSend` no-ops when it is false, so wiring the
+  // button to it unconditionally leaves it looking enabled and doing nothing.
+  onPressed: props.canSend ? props.onSend : null,
+),
 ```
 
 By default the composer refuses to send while `controller.isGenerating` is `true` — the same rule
@@ -544,10 +535,7 @@ To change one value and keep everything else the host configured, use `props.cop
 re-listing the fields — a field you forget silently reverts to its default:
 
 ```dart
-@override
-Widget buildInput(BuildContext context, ChatComposerInputProps props) {
-  return ChatComposerInput(props: props.copyWith(hintText: 'Ask the docs…'));
-}
+composerInput: (context, props) => ChatComposerInput(props: props.copyWith(hintText: 'Ask the docs…')),
 ```
 
 ---
@@ -578,11 +566,13 @@ Column(
 ### `SpeechToTextButton`
 
 A microphone button that feeds partial and final speech recognition results directly
-into an `ChatComposerController`'s text field. The button hides itself automatically
-when the AI is generating or the text field is non-empty. Prefer
+into a `ChatComposerController`'s text field. Placed on its own, the button is always shown:
+it doesn't hide while the AI is generating or the field has text, and it turns disabled once
+a tap finds no speech recognizer on the device. Prefer
 `ChatComposer(enableSpeechToText: true, ...)` over placing this widget manually — that
-swaps it into the send button's own slot for a single toggling control, rather than a
-separate button alongside send.
+puts the microphone in the send button's own slot while the field is empty, swapping to
+send as you type and to stop while the AI is generating, rather than a separate button
+alongside send.
 
 ```dart
 SpeechToTextButton(
@@ -608,9 +598,17 @@ SpeechToTextButton(
 <string>Speech recognition is used to convert your voice to text.</string>
 ```
 
-**Android** — `android/app/src/main/AndroidManifest.xml`:
+**Android** — `android/app/src/main/AndroidManifest.xml`. The `<queries>` entry lets
+`speech_to_text` find the on-device recognizer on Android 11 and later; merge its `<intent>` into
+your manifest's existing `<queries>` element if it has one:
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+<queries>
+    <intent>
+        <action android:name="android.speech.RecognitionService"/>
+    </intent>
+</queries>
 ```
 
 **macOS** — `macos/Runner/Info.plist`:
@@ -629,6 +627,33 @@ SpeechToTextButton(
 <true/>
 ```
 
+#### Attachment sheet permissions
+
+`ChatComposer`'s default "+" button opens an attachment sheet that reads the photo library and takes
+photos, which needs these whether or not you enable speech-to-text:
+
+**iOS** and **macOS** — `Info.plist`:
+```xml
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Photo library access is needed to attach images to your message.</string>
+<key>NSCameraUsageDescription</key>
+<string>Camera access is needed to attach a new photo to your message.</string>
+```
+
+**Android** — `android/app/src/main/AndroidManifest.xml`:
+```xml
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+<uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
+```
+
+**macOS** — `DebugProfile.entitlements` and `Release.entitlements`:
+```xml
+<key>com.apple.security.personal-information.photos-library</key>
+<true/>
+<key>com.apple.security.files.user-selected.read-only</key>
+<true/>
+```
+
 ### Agent steps: `AIMessagePartsView`
 
 An agent writes each step it takes — a round of reasoning, a tool call — as a custom attachment on
@@ -644,7 +669,8 @@ AIMessagePartsView(parts: AIMessagePart.parseAll(attachments));
 Reasoning gets a `StreamingReasoningView`, a tool call an `AIToolCallView`, and a step this version
 can't read a neutral `AIUnsupportedPartView`. To show some steps your own way, return a widget from
 `partBuilder` (any part) or `toolCallBuilder` (tool calls only); return `null` to keep the default,
-or `AIMessagePartsView.hidden` to leave the step out:
+or `AIMessagePartsView.hidden` to leave the step out (a tool call waiting for this person's
+approval or sign-in still shows its question):
 
 ```dart
 AIMessagePartsView(
@@ -761,7 +787,7 @@ user gets an `AIToolAuthorizationView` under its row, with **Connect** and **Not
 ```dart
 late final approver = AIToolApprover(
   identity: AIClientIdentity(userId: currentUser.id, clientId: installId),
-  decide: (call, decision) => backend.answerToolCall(call.id, decision.value),
+  decide: (call, decision) => backend.answerToolCall(call.id, decision),
   authorizer: AIToolAuthorizer(
     // Open the page; complete with whether the person connected.
     connect: (call, url) => signIn(url),
@@ -861,11 +887,12 @@ Future<bool> signIn(Uri url) async {
 }
 ```
 
-Without an authorizer, the row still says "Waiting for you to sign in" to the person it waits for
-(and "Waiting for sign-in" to everyone else), but nothing is offered. A
-call you draw yourself gets no sign-in; put an `AIToolAuthorizationView(call: call, approver:
-approver)` in your widget then. Pass it a `builder`, or set `AIComponentBuilders.toolAuthorization`,
-to ask in your own design. The default `AIToolAuthorizationCard` uses `ToolApprovalThemeData`.
+Without an authorizer, nothing is offered and the row reads "Waiting for sign-in" for everyone,
+the person it waits for included: it says "Waiting for you to sign in" only where Connect is
+there to tap. A call you draw yourself gets no sign-in; put an
+`AIToolAuthorizationView(call: call, approver: approver)` in your widget then. Pass it a `builder`,
+or register a `toolAuthorization` builder with `streamAIComponentBuilders`, to ask in your own
+design. The default `AIToolAuthorizationCard` uses `ToolApprovalThemeData`.
 
 ### `AIToolRegistry`
 
@@ -943,8 +970,9 @@ starts.
 
 Then route invocations. `dispatch` runs the tool's actions in order, guarding each
 one; `resolve` returns them unrun if you want to schedule them yourself — run those
-with `runActions` to get the same guarding, rather than reimplementing it. `dispatch`
-reports whether *a tool was registered* under the invoked name — not whether it
+with `runActions` to guard them as `dispatch` does, rather than reimplementing it. Unlike
+`dispatch`, `resolve` lets a throw from the tool's `handleInvocation` through, so catch it
+yourself. `dispatch` reports whether *a tool was registered* under the invoked name — not whether it
 succeeded. A `false` is normal rather than an error: because registrations outlive
 the build that made them, an older version of your app can register a tool this build
 no longer has; a debug build also prints the name and what *is* registered, for the
@@ -1011,12 +1039,18 @@ it on every streaming update is safe, in flight or not; `send` posts
 the caller and feeds the result to the model. Make that endpoint idempotent on
 `tool_call_id`: a retry can post the same result twice.
 
-A tool that throws or times out (`runTimeout`) is answered with a generic failure, and
-one whose result can't be JSON-encoded with "The result couldn't be read"; the error
-itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
+A failed tool is still answered, so the agent isn't left waiting:
+
+- one that throws or times out (`runTimeout`) with a generic failure;
+- a plain `AIClientTool` whose call arrives without the arguments its schema requires with "This
+  call's arguments didn't reach the device";
+- one whose result can't be JSON-encoded with "The result couldn't be read".
+
+The error itself only goes to `FlutterError.onError` and `onToolError` (override the wording with
 `failureMessage`). `send` is tried up to `maxAttempts` times with exponential backoff,
 then reported through `onDeliveryError`; the result is kept and sent again, without
-rerunning the tool, if a later `handle` still sees the call waiting.
+rerunning the tool, if a later `handle` still sees the call waiting, or when you call
+`retryUndelivered()`, such as once the device is back online.
 
 A call for a tool the runner doesn't have is left alone, as on iOS, so several runners
 can share one `AIClientIdentity`, each with its own tools. The catch: if no runner has
@@ -1076,8 +1110,29 @@ to the latest message.
 Give it your messages as `AIMessage`s — mix `AIMessage` into your own type or wrap one:
 
 ```dart
+class ChatMessageAdapter with AIMessage {
+  ChatMessageAdapter(this.message, {this.isGenerating = false});
+
+  final Message message;
+
+  @override
+  final bool isGenerating;
+
+  @override
+  String get id => message.id;
+
+  @override
+  AIMessageRole get role => message.extraData['ai_generated'] == true ? AIMessageRole.assistant : AIMessageRole.user;
+
+  @override
+  String get text => message.text ?? '';
+}
+```
+
+```dart
 AIConversationView(
-  messages: [for (final m in channel.messages) ChatMessageAdapter(m)],
+  // generatingId: the message being generated, from the `ai_indicator` events (see Using with Stream Chat).
+  messages: [for (final m in channel.state!.messages) ChatMessageAdapter(m, isGenerating: m.id == generatingId)],
   pendingMessage: sending, // shows a question at once, until its copy arrives
   isThinking: waitingForReply, // "Thinking… 4s" under the question
   approver: approver,
@@ -1099,8 +1154,8 @@ its `since`.
 
 The rows are `AIUserMessageView` and `AIAssistantMessageView`, with attachments as
 `AIMessageAttachmentView`. Under each finished reply there is room for actions, empty until you
-set `AIComponentBuilders.replyActions`, typically to an `AIReplyActionsView` (copy, share,
-regenerate, rate).
+set the `replyActions` builder of `streamAIComponentBuilders`, typically to an `AIReplyActionsView`
+(copy, share, regenerate, rate).
 
 The conversation caches its rows: a row is built again only when what its message says changes, or
 the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
@@ -1117,21 +1172,23 @@ show state of your own, such as a reply's rating:
 // In your State:
 final ratings = ValueNotifier<Map<String, AIMessageRating>>({});
 
-late final builders = AIComponentBuilders(
-  replyActions: (context, props) => ValueListenableBuilder(
-    valueListenable: ratings,
-    builder: (context, rated, _) => AIReplyActionsView(
-      text: props.text,
-      actions: AIReplyActions(
-        rating: rated[props.message.id],
-        onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
+late final builders = StreamComponentBuilders(
+  extensions: streamAIComponentBuilders(
+    replyActions: (context, props) => ValueListenableBuilder(
+      valueListenable: ratings,
+      builder: (context, rated, _) => AIReplyActionsView(
+        text: props.text,
+        actions: AIReplyActions(
+          rating: rated[props.message.id],
+          onRate: (rating) => rate(props.message, rating), // sets `ratings.value` to a new map
+        ),
       ),
     ),
   ),
 );
 
-// In build:
-AIComponentFactory(builders: builders, child: conversation)
+// In build, or once above your MaterialApp with Stream Chat's builders:
+StreamComponentFactory(builders: builders, child: conversation)
 ```
 
 Copy and share are always there: sharing opens the platform share sheet with the reply's text, or an
@@ -1140,9 +1197,9 @@ record that the reply was shared, set `AIReplyActions.onShare`.
 
 Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
 any other kind as a file card. A kind of your own, such as an artifact or a file in an agent's
-sandbox, keeps its raw fields in `extraData`; render it yourself by setting
-`AIComponentBuilders.messageAttachment`, and return the default for every other kind. For example,
-for a Vision-Agents artifact `{type: "athena_image", artifact_id, revision, title, alt}`:
+sandbox, keeps its raw fields in `extraData`; render it yourself with the `messageAttachment`
+builder, and return the default for every other kind. For example, for a Vision-Agents artifact
+`{type: "athena_image", artifact_id, revision, title, alt}`:
 
 ```dart
 // In your AIMessage:
@@ -1151,7 +1208,7 @@ List<AIMessageAttachment> get attachments => [
     AIMessageAttachment(kind: AIMessageAttachmentKind(raw['type']! as String), extraData: raw),
 ];
 
-// In your AIComponentBuilders:
+// In your streamAIComponentBuilders:
 messageAttachment: (context, props) => switch (props.attachment.kind) {
   'athena_image' => ArtifactImage(
     id: props.attachment.extraData['artifact_id']! as String,
@@ -1186,36 +1243,85 @@ SizedBox.square(
   dimension: 280,
   child: AIVoiceGlowView(
     state: agentSpeaking ? AIVoiceAgentState.speaking : AIVoiceAgentState.listening,
-    colors: const [Color(0xFF005FFF), Color(0xFF8E44FF)], // one to five; the theme's primary by default
+    colors: const [Color(0xFF005FFF), Color(0xFF8E44FF)], // one to five; Stream's accentPrimary by default
     audioLevel: participant.audioLevel,
   ),
 )
 ```
 
-### Replacing components: `AIComponentFactory`
+### Replacing components: `streamAIComponentBuilders`
 
-`AIComponentFactory` replaces the components the package creates inside its own widgets, the same
-way `StreamComponentFactory` does in Stream's other Flutter SDKs: the code blocks and charts in
-markdown, the reasoning, tool call and unsupported-step views, the tool approval and sign-in cards, the messages
-of an `AIConversationView`, and (through `composer`) the `ChatComposerFactory` a `ChatComposer` uses
-when it is given none. Each builder in `AIComponentBuilders` is nullable; leave one out and its
+The package registers its replaceable components with `stream_core_flutter`'s
+`StreamComponentFactory`, the same factory Stream Chat's widgets read: the code blocks and charts in
+markdown, the reasoning, tool call and unsupported-step views, the tool approval and sign-in cards,
+the messages of an `AIConversationView`, the reply actions and the composer's slots.
+`streamAIComponentBuilders` returns one extension per builder you pass; leave one out and its
 component keeps its default. A part builder may return `AIMessagePartsView.hidden` to leave the
 step out.
+
+Put one `StreamComponentFactory` above your `MaterialApp`, with Stream Chat's builders and the AI
+ones in the same list. If you also pass `componentBuilders` to `StreamChat`, put the AI builders in
+that list too: `StreamChat` then adds a factory of its own below yours, and a nested factory
+replaces its parent's builders rather than adding to them.
+
+This package exports the factory types and `StreamTheme` with its tokens. Core's widgets, such as
+`StreamButton` or `showStreamSheet` in the snippets below, come from `stream_core_flutter`: add it
+to your app and import `package:stream_core_flutter/core.dart`.
 
 ```dart
 Widget codeBlock(BuildContext context, AICodeBlockProps props) =>
     MyCodeBlock(code: props.code, language: props.language);
 
-AIComponentFactory(
-  builders: const AIComponentBuilders(codeBlock: codeBlock),
+StreamComponentFactory(
+  builders: StreamComponentBuilders(
+    button: myButton, // core's own components, which the AI widgets use too
+    extensions: [
+      ...streamChatComponentBuilders(messageItem: myMessageItem), // from stream_chat_flutter
+      ...streamAIComponentBuilders(codeBlock: codeBlock),
+    ],
+  ),
   child: MaterialApp(home: ...),
 );
 ```
 
-Per-widget builders (`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.builder`,
-`AIToolAuthorizationView.builder`,
-`ChatComposer.factory`) still win where given. Keep the builders stable, ideally `const` with
-top-level functions: a new instance rebuilds every widget that reads it.
+A nested factory replaces its parent's builders rather than adding to them. Per-widget builders
+(`partBuilder`, `toolCallBuilder`, `AIToolApprovalView.builder`, `AIToolAuthorizationView.builder`)
+still win where given. Keep the builders stable, ideally top-level functions: new ones rebuild every
+widget that reads them.
+
+The factory can also sit lower, such as around one screen: the routes the package pushes (the
+attachment sheet and the message's context menu) carry it over.
+
+Every builder, the default it replaces and what it gets:
+
+| Builder | Default | Props |
+| --- | --- | --- |
+| `codeBlock` | `CodeBlockView` | `AICodeBlockProps`: `code`, `language`, `highlighter`, `theme` |
+| `chart` | `ChartView` | `AIChartProps`: `spec` |
+| `reasoning` | `StreamingReasoningView.part` | `AIReasoningProps`: `reasoning`, `text`, `duration` |
+| `toolCall` | `AIToolCallView` | `AIToolCallProps`: `call` |
+| `toolApproval` | `AIToolApprovalCard` | `AIToolApprovalProps`: `call`, `toolName`, `state`, `onAnswer`, `theme` |
+| `toolAuthorization` | `AIToolAuthorizationCard` | `AIToolAuthorizationProps`: `call`, `authorization`, `state`, `onConnect`, `onDecline`, `theme` |
+| `unsupportedPart` | `AIUnsupportedPartView` | `AIUnsupportedPartProps`: `part` |
+| `userMessage` | `AIUserMessageView` | `AIUserMessageProps` |
+| `assistantMessage` | `AIAssistantMessageView` | `AIAssistantMessageProps` |
+| `replyActions` | nothing | `AIReplyActionsProps` |
+| `messageAttachment` | `AIMessageAttachmentView` | `AIMessageAttachmentProps` |
+| `composerLeading` | `ComposerAttachmentButton` (the "+") | `ChatComposerLeadingProps` |
+| `composerInput` | `ChatComposerInput` | `ChatComposerInputProps` |
+| `composerTrailing` | nothing | `ChatComposerTrailingProps` |
+| `composerAttachmentSheet` | `ComposerAttachmentSheet` | `ChatComposerAttachmentSheetProps` |
+
+Return `ChatComposer.hidden` from `composerLeading` or `composerTrailing` to leave the slot out, gap
+and all.
+
+The widgets are built from core's components (`StreamButton`, `StreamLoadingSpinner`,
+`StreamContextMenu`, `StreamListTile`, `StreamSheetHeader`, `StreamTypingIndicatorDots`,
+`StreamErrorBadge`, `StreamFileTypeIcon`, `StreamMessageComposerMediaAttachment`), so core's own
+builders in the same `StreamComponentBuilders`, such as `button` or `loadingSpinner`, restyle the AI
+widgets along with the rest of the app. The shimmers on reasoning and waiting tool calls are drawn
+with core's default skeleton directly, so a `skeletonLoading` builder for placeholders doesn't reach
+them.
 
 Four slots belong to `AIConversationView`:
 
@@ -1234,7 +1340,37 @@ Four slots belong to `AIConversationView`:
 
 ### Theming
 
-Colors come from `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`. It carries one
+The package is built on Stream's design system, `stream_core_flutter`. Its defaults come from
+`StreamTheme`, the `ThemeExtension` Stream Chat's widgets read too: the color scheme, text theme,
+spacing, radii and icons. Register one to restyle the AI components and Stream Chat together; with
+none, they use Stream's defaults for the app's brightness:
+
+```dart
+MaterialApp(
+  theme: ThemeData(
+    extensions: [
+      StreamTheme(colorScheme: StreamColorScheme.fromSeed(brand: brandBlue)),
+    ],
+  ),
+  darkTheme: ThemeData(
+    brightness: Brightness.dark,
+    extensions: [
+      StreamTheme(
+        brightness: Brightness.dark,
+        colorScheme: StreamColorScheme.fromSeed(brand: brandBlue, brightness: Brightness.dark),
+      ),
+    ],
+  ),
+  ...
+)
+```
+
+The buttons, sheets, list tiles, spinners and icons inside the AI widgets are core's own components
+(`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadingSpinner`, `StreamIcons`, …), so
+`StreamTheme`'s component themes and the core builders of `StreamComponentBuilders` reach them as
+well.
+
+On top of that, `AITheme`, a `ThemeExtension` registered on your app's `ThemeData`, carries one
 data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerThemeData`,
 `ConversationThemeData`, `ReasoningThemeData`, `ReplyActionsThemeData`, `SuggestionsThemeData`,
 `ToolApprovalThemeData`, `ToolCallThemeData` and `TypingIndicatorThemeData`:
@@ -1242,7 +1378,6 @@ data class per component — `ChartThemeData`, `CodeBlockThemeData`, `ComposerTh
 ```dart
 MaterialApp(
   theme: ThemeData(
-    colorSchemeSeed: brandBlue,
     extensions: const [
       AITheme(
         composerTheme: ComposerThemeData(sendButtonColor: Color(0xFF005FFF)),
@@ -1255,20 +1390,20 @@ MaterialApp(
 ```
 
 Every field on every one of them is nullable, and leaving one unset means "derive it from the
-ambient `ThemeData`" — so overriding the send button leaves the pill, the border, the hint and the
-attachment sheet following your app, in light and dark alike. Registering no extension at all gets
-the appearance the package has always had; theming is opt-in.
+`StreamTheme`" (except for code blocks, which keep a fixed dark frame unless you set
+`CodeBlockThemeData`) — so overriding the send button leaves the pill, the border, the hint and the
+attachment sheet following your app, in light and dark alike. Theming is opt-in.
 
 `ComposerThemeData` covers `ChatComposer` and `ComposerAttachmentSheet`: `fillColor` and
-`borderColor` (the pill, the leading "+" button and the sheet's tiles — the surfaces meant to read
-as one control), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
+`borderColor` (the pill, the leading "+" button and the sheet's camera tile — the surfaces meant to
+read as one control; transparent with an outline by default), `hintStyle`, `iconColor` and `disabledIconColor`, `sendButtonColor`,
 `stopButtonColor`, `recordingButtonColor`, `actionButtonForegroundColor` (the glyph on that filled
 circle), `selectedOptionColor` and `selectedOptionForegroundColor`, `photoSelectionColor` (the photo
 grid's ring and check), and `attachmentPlaceholderColor` with `attachmentPlaceholderForegroundColor`
-(a thumbnail's placeholder and remove badge, and the glyphs on them). Each foreground field is paired
+(a thumbnail's placeholder and the icon on one that failed to load). Each foreground field is paired
 with the surface it is drawn on, so overriding one pair never leaves an icon on a surface it wasn't
 chosen for. `SuggestionsThemeData` has three: `backgroundColor`, `borderColor` and `textStyle`.
-`TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize`, `dotCount` and `dotSpacing`.
+`TypingIndicatorThemeData` has `textStyle`, `dotColor`, `dotSize` and `dotSpacing`.
 `ConversationThemeData` covers `AIConversationView` and its message views:
 `userMessageBackgroundColor` and `userMessageTextStyle` (the person's bubble),
 `attachmentBackgroundColor`, `attachmentTitleStyle` and `attachmentDetailsStyle` (a file
@@ -1281,7 +1416,7 @@ Narrow any of them to a subtree with its scope — `ChartTheme`, `CodeBlockTheme
 `ConversationTheme`, `ReasoningTheme`, `ReplyActionsTheme`, `SuggestionsTheme`, `ToolApprovalTheme`,
 `ToolCallTheme` or `TypingIndicatorTheme` — or give one widget its own through `theme:` on `ChartView`,
 `HeatmapChartView`, `CodeBlockView`, `StreamingReasoningView`, `AIToolCallView`,
-`AIToolApprovalView` or `AIToolApprovalCard`:
+`AIToolApprovalView`, `AIToolApprovalCard`, `AIToolAuthorizationView` or `AIToolAuthorizationCard`:
 
 ```dart
 ComposerTheme(
@@ -1296,18 +1431,18 @@ Four things worth knowing:
   registers others, re-list them:
   `theme.copyWith(extensions: [...theme.extensions.values, const AITheme()])`.
 - **`disabledIconColor` derives from the *resolved* `iconColor`.** Set only `iconColor` and the
-  disabled states dim to match it, rather than to a dimmed `onSurface` that no longer relates.
-- **The idle microphone uses `sendButtonColor`, not `recordingButtonColor`.** It occupies the send
-  button's slot, and the two are meant to read as one control morphing in place;
-  `recordingButtonColor` applies only while it is listening.
+  disabled states dim to match it, rather than to a dimmed `textPrimary` that no longer relates.
+- **The idle microphone is a ghost button in `iconColor`**, not a filled one. It turns into a
+  filled stop button in `recordingButtonColor` while it is listening.
 - **Nesting a scope replaces rather than layers**, the way `IconTheme` does. Use
   each scope's `.merge` (`ComposerTheme.merge`, `TypingIndicatorTheme.merge`, …) to add to an
   enclosing scope instead of shadowing it. All ten are `InheritedTheme`s, so they carry across a
   `Navigator` — a scope above the composer still reaches the attachment sheet that
-  `showModalBottomSheet` pushes.
+  `showStreamSheet` pushes.
 
-The suggestion chips default to the same tokens as the composer's input pill, since a suggestion
-row is normally docked directly above it. Recolor that surface and you want both.
+The input pill, the "+" button, the sheet's camera tile and the suggestion chips are outlined rather
+than filled by default: `fillColor` and `SuggestionsThemeData.backgroundColor` are transparent, so
+they sit on whatever surface the composer is placed on. Set both to fill them.
 
 ---
 
@@ -1370,9 +1505,11 @@ and add the rest later. The delegate adds no dependency; `GlobalMaterialLocaliza
 The example app under `example/` has this wired up — an `AITranslationsDelegate` carrying a Dutch
 translation — so run it on a device set to Dutch to see the placeholder and the tooltips follow.
 
-Most of these strings are `Tooltip` messages on icon-only buttons — the send, stop, mic, "+", copy
-and dismiss controls — which makes them the only accessible label those buttons expose. Translating
-them is what makes the composer legible to a screen reader in another locale.
+Many of these strings are `Tooltip` messages on icon-only buttons — the composer's send, stop, mic,
+"+", dismiss and remove-attachment controls, a code block's copy button, copy, share, regenerate and
+rate under a reply, and scroll to latest — which makes them the only accessible label those buttons
+expose. Translating them is what makes these controls
+legible to a screen reader in another locale.
 
 To pin one language over part of the tree instead — a screen that is always in one language, a
 preview, a test — wrap it in an `AITranslationsScope`:
@@ -1420,7 +1557,7 @@ String chartSemanticsLabel(ChartSemantics chart) {
   if (chart.isEmpty) return '$kind, geen gegevens';
   final count = switch (chart.kind) {
     USpecKind.bar => '${chart.categoryCount} categorieën',
-    USpecKind.pie => '${chart.pointCount} segmenten',
+    USpecKind.pie => '${chart.sliceLabels.length} segmenten',
     USpecKind.heatmap => '${chart.rowCount} rijen bij ${chart.columnCount} kolommen',
     _ => '${chart.pointCount} punten',
   };
@@ -1430,10 +1567,10 @@ String chartSemanticsLabel(ChartSemantics chart) {
 
 Switch on `chart.kind` — it covers all eight `USpecKind`s, and a label that names the wrong kind is
 worse than a generic one. The count fields are not interchangeable either: `categoryCount` is the x
-axis a bar chart draws, `pointCount` counts plotted points (a pie's slices, a histogram's samples),
-and `rowCount`/`columnLabels` are a heatmap's grid. Check `chart.isEmpty` before reading
-`valueMin`/`valueMax`: they are `null` for a chart with no points. `sizeMin`/`sizeMax` are non-null
-only for a bubble chart, the one kind that draws `UPoint.size`.
+axis a bar chart draws, `pointCount` counts plotted points (a histogram's samples), `sliceLabels`
+names the slices a pie draws, and `rowCount`/`columnLabels` are a heatmap's grid. Check
+`chart.isEmpty` before reading `valueMin`/`valueMax`: they are `null` for a chart with no points.
+`sizeMin`/`sizeMax` are non-null only for a bubble chart, the one kind that draws `UPoint.size`.
 
 ---
 
@@ -1443,19 +1580,36 @@ The components in this package are provider-agnostic: they take plain text, call
 and controllers, so you decide how to source and stream AI responses. If you're building
 on top of [Stream Chat](https://getstream.io/chat/sdk/flutter/), here's how the pieces
 typically connect to a `Channel` from `stream_chat_flutter`. This requires adding
-`stream_chat_flutter` as a dependency of your app (not of this package):
+`stream_chat_flutter` as a dependency of your app (not of this package).
+
+`stream_chat_flutter` 10.x ships older versions of some of these widgets. Hide them when you import
+both packages, so the ones from this package are used:
+
+```dart
+import 'package:stream_chat_flutter/stream_chat_flutter.dart'
+    hide
+        StreamingMessageView,
+        AITypingIndicatorView,
+        AnimatedDots,
+        TypewriterState,
+        TypewriterValue,
+        TypewriterController,
+        TypewriterWidgetBuilder;
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+```
+
+Track which message the backend is generating from the `ai_indicator` events:
 
 ```dart
 channel.on(EventType.aiIndicatorUpdate).listen((event) {
-  final state = event.aiState;     // AITypingState enum
-  final msgId = event.aiMessage;   // ID of the message being generated
+  final state = event.aiState; // AITypingState enum
   controller.isGenerating = state == AITypingState.generating;
-  setState(() => backendDone = false);
+  setState(() => generatingId = event.messageId); // ID of the message being generated
   // show AITypingIndicatorView / switch to StreamingMessageView
 });
 
 channel.on(EventType.aiIndicatorClear).listen((_) {
-  setState(() => backendDone = true);
+  setState(() => generatingId = null);
   // hide the indicator; the final message may still be typing out
 });
 ```
@@ -1467,7 +1621,7 @@ Leave that to the message view instead:
 ```dart
 StreamingMessageView(
   text: message.text ?? '',
-  expectMoreText: !backendDone,
+  expectMoreText: message.id == generatingId,
   onFinished: () => controller.isGenerating = false,
 );
 ```

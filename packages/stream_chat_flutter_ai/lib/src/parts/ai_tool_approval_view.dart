@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
@@ -13,6 +13,7 @@ import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiToolApprovalView}
 /// Asks the person a tool call waits for whether it may run — the question on
@@ -60,7 +61,7 @@ import 'package:stream_chat_flutter_ai/src/tools/ai_client_identity.dart';
 /// )
 /// ```
 ///
-/// Without one it shows [AIComponentBuilders.toolApproval] — by default an
+/// Without one it shows the `toolApproval` builder of [streamAIComponentBuilders] — by default an
 /// [AIToolApprovalCard], styled by [theme], then the nearest
 /// [ToolApprovalTheme], then [AITheme.toolApprovalTheme]. Override that slot
 /// to replace the card everywhere.
@@ -75,7 +76,7 @@ class AIToolApprovalView extends StatefulWidget {
   /// Who answers on this device, how the answer is sent, and where it is.
   final AIToolApprover approver;
 
-  /// Builds your own content in place of [AIComponentBuilders.toolApproval].
+  /// Builds your own content in place of the `toolApproval` builder of [streamAIComponentBuilders].
   final AIToolApprovalContentBuilder? builder;
 
   /// Overrides for the default card, layered over the ambient
@@ -157,7 +158,7 @@ class _AIToolApprovalViewState extends State<AIToolApprovalView> {
       onAnswer: _answerFor(call),
       theme: widget.theme,
     );
-    return AIComponentFactory.of(context).toolApproval?.call(context, props) ??
+    return context.aiComponentBuilder<AIToolApprovalProps>()?.call(context, props) ??
         AIToolApprovalCard(
           approval: props.approval,
           toolName: props.toolName,
@@ -241,6 +242,8 @@ class AIToolApprovalCard extends StatelessWidget {
     final translations = AITranslations.of(context);
     final busy = state.isBusy;
     final sending = state is AIToolApprovalSending;
+    final colors = context.streamColorScheme;
+    final spacing = context.streamSpacing;
 
     final title = _nonBlank(approval?.title) ?? translations.toolApprovalTitle(toolName);
     final allowLabel = _nonBlank(approval?.allowTitle) ?? translations.toolApprovalAllow;
@@ -255,10 +258,10 @@ class AIToolApprovalCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.backgroundColor,
             border: Border.all(color: theme.borderColor),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(context.streamRadius.lg),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(spacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -269,27 +272,38 @@ class AIToolApprovalCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(line, style: theme.messageStyle),
                   ),
-                const SizedBox(height: 12),
+                SizedBox(height: spacing.sm),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: spacing.xs,
+                  runSpacing: spacing.xs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    FilledButton(
+                    StreamButton(
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.allowed),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: theme.accentColor,
-                        foregroundColor: theme.onAccentColor,
-                        visualDensity: VisualDensity.compact,
+                      size: .medium,
+                      themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
+                        backgroundColor: .resolveWith(
+                          (states) =>
+                              states.contains(WidgetState.disabled) ? colors.backgroundDisabled : theme.accentColor,
+                        ),
+                        foregroundColor: .resolveWith(
+                          (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.onAccentColor,
+                        ),
                       ),
                       child: Text(allowLabel),
                     ),
-                    OutlinedButton(
+                    StreamButton(
                       onPressed: busy ? null : () => onAnswer(AIToolApprovalDecision.declined),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.accentColor,
-                        side: BorderSide(color: theme.borderColor),
-                        visualDensity: VisualDensity.compact,
+                      style: .secondary,
+                      type: .outline,
+                      size: .medium,
+                      themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
+                        foregroundColor: .resolveWith(
+                          (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.accentColor,
+                        ),
+                        borderColor: .all(theme.borderColor),
                       ),
                       child: Text(declineLabel),
                     ),
@@ -300,7 +314,7 @@ class AIToolApprovalCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_rounded, size: 16, color: theme.messageStyle.color),
+                            Icon(context.streamIcons.checkmark, size: 16, color: theme.messageStyle.color),
                             const SizedBox(width: 4),
                             Text(translations.toolApprovalSent, style: theme.messageStyle),
                           ],
@@ -310,7 +324,7 @@ class AIToolApprovalCard extends StatelessWidget {
                 ),
                 if (state.hasFailed)
                   Padding(
-                    padding: const EdgeInsets.only(top: 12),
+                    padding: EdgeInsets.only(top: spacing.sm),
                     child: Semantics(
                       liveRegion: true,
                       child: Text(translations.toolApprovalNotSent, style: theme.failureStyle),
@@ -335,17 +349,18 @@ class _SendingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    const size = 16.0;
     return Semantics(
       container: true,
       label: AITranslations.of(context).toolApprovalSending,
-      child: SizedBox.square(
-        dimension: size,
-        // A spinner never stops, so reduced motion gets a still "in progress".
-        child: reduceMotion
-            ? Icon(Icons.more_horiz_rounded, size: size, color: color)
-            : CircularProgressIndicator(strokeWidth: 2, color: color),
-      ),
+      // A spinner never stops, so reduced motion gets a still "in progress".
+      child: reduceMotion
+          ? Icon(context.streamIcons.moreHorizontal, size: 16, color: color)
+          : StreamLoadingSpinner(
+              size: .xs,
+              color: color,
+              backgroundColor: StreamColors.transparent,
+              trackColor: StreamColors.transparent,
+            ),
     );
   }
 }

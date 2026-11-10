@@ -5,6 +5,7 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
 
 class _Message with AIMessage {
   _Message(
@@ -50,7 +51,9 @@ List<_Message> _history(int count) => [
 Widget _actions(BuildContext context, AIReplyActionsProps props) =>
     Text('actions for ${props.message.id}${props.isLatestReply ? ' (latest)' : ''}');
 
-const _withActions = AIComponentBuilders(replyActions: _actions);
+final _withActions = StreamComponentBuilders(
+  extensions: streamAIComponentBuilders(replyActions: _actions),
+);
 
 Future<void> _pump(
   WidgetTester tester,
@@ -58,10 +61,11 @@ Future<void> _pump(
   AIPendingMessage? pending,
   bool isThinking = false,
   Future<void> Function()? loadOlder,
-  AIComponentBuilders builders = _withActions,
+  StreamComponentBuilders? builders,
   Widget? footer,
   Widget? empty,
   ThemeData? theme,
+  EdgeInsets padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
   bool settle = true,
   bool reduceMotion = true,
 }) async {
@@ -69,8 +73,8 @@ Future<void> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    AIComponentFactory(
-      builders: builders,
+    StreamComponentFactory(
+      builders: builders ?? _withActions,
       child: MaterialApp(
         theme: theme,
         home: MediaQuery(
@@ -84,6 +88,7 @@ Future<void> _pump(
               loadOlderMessages: loadOlder,
               footer: footer,
               emptyContent: empty,
+              padding: padding,
             ),
           ),
         ),
@@ -114,6 +119,10 @@ Future<TestGesture> _holdPastStart(WidgetTester tester) async {
 }
 
 Finder _text(String text) => find.textContaining(text, findRichText: true);
+
+/// Returns how far [text] is below the top of the list.
+double _below(WidgetTester tester, String text) =>
+    tester.getTopLeft(find.text(text)).dy - tester.getTopLeft(find.byType(AIConversationView)).dy;
 
 /// Pumps [frames] frames of [step], for views that never settle.
 Future<void> _frames(WidgetTester tester, Duration step, int frames) async {
@@ -173,13 +182,79 @@ void main() {
       expect(find.text('actions for r1'), findsOneWidget);
     });
 
-    testWidgets('makes the latest turn at least as tall as the list', (tester) async {
-      await _pump(tester, [_user('u1'), _reply('r1')]);
-      final list = tester.getSize(find.byType(AIConversationView));
-      final turn = tester.getRect(
-        find.ancestor(of: find.byType(AIUserMessageView), matching: find.byType(ConstrainedBox)).first,
+    testWidgets('makes a short latest turn fill the list above its bottom padding', (tester) async {
+      for (final bottom in [16.0, 200.0]) {
+        await _pump(tester, [_user('u1'), _reply('r1')], padding: EdgeInsets.fromLTRB(16, 0, 16, bottom));
+        final list = tester.getSize(find.byType(AIConversationView));
+        final turn = tester.getRect(
+          find.ancestor(of: find.byType(AIUserMessageView), matching: find.byType(ConstrainedBox)).first,
+        );
+        expect(turn.height + bottom, list.height);
+      }
+    });
+
+    testWidgets('lays out under a bottom padding taller than the list', (tester) async {
+      await _pump(tester, [_user('u1'), _reply('r1')], padding: const EdgeInsets.fromLTRB(16, 0, 16, 700));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets("shows a new conversation's first question where it shows every later one", (tester) async {
+      for (final bottom in [16.0, 200.0]) {
+        final padding = EdgeInsets.fromLTRB(16, 0, 16, bottom);
+        await _pump(tester, const [], padding: padding);
+        final first = [_user('u1', 'A first question')];
+        await _pump(tester, first, padding: padding);
+        final firstTop = _below(tester, 'A first question');
+        await _pump(tester, [...first, _reply('r1')], padding: padding);
+        expect(_below(tester, 'A first question'), firstTop, reason: 'its reply leaves it in place');
+
+        await _pump(tester, [...first, _reply('r1'), _user('u2', 'A second question')], padding: padding);
+        expect(_below(tester, 'A second question'), firstTop, reason: 'with $bottom under the turns');
+        expect(firstTop, greaterThanOrEqualTo(0));
+      }
+    });
+
+    testWidgets('opens a conversation with a short latest turn where a question sent goes', (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      final history = [..._history(2), _user('u2', 'The latest question'), _reply('r2', text: 'Short')];
+      await _pump(tester, history, padding: padding);
+      final opened = _below(tester, 'The latest question');
+
+      await _pump(tester, [...history, _user('u3', 'A new question')], padding: padding);
+      expect(_below(tester, 'A new question'), opened);
+    });
+
+    testWidgets("scrolls back to a short latest turn's top from the scroll-to-latest button", (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      final history = _history(2);
+      await _pump(tester, history, padding: padding);
+      await _pump(tester, [...history, _user('u2', 'A new question')], padding: padding);
+      final sent = _below(tester, 'A new question');
+
+      await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Scroll to latest'));
+      await tester.pumpAndSettle();
+      expect(_below(tester, 'A new question'), sent);
+    });
+
+    testWidgets('keeps the scroll-to-latest button hidden once a question is sent', (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      final history = _history(2);
+      await _pump(tester, history, padding: padding);
+      await _pump(tester, [...history, _user('u2', 'A new question')], padding: padding);
+      final button = tester.widget<IgnorePointer>(
+        find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(IgnorePointer)).first,
       );
-      expect(turn.height, greaterThanOrEqualTo(list.height));
+      expect(button.ignoring, isTrue, reason: 'the end is in view');
+    });
+
+    testWidgets('keeps the bottom padding under a long latest reply at its end', (tester) async {
+      const padding = EdgeInsets.fromLTRB(16, 0, 16, 200);
+      await _pump(tester, _history(2), padding: padding);
+      final list = tester.getRect(find.byType(AIConversationView));
+      final lastLine = tester.getBottomLeft(_text('Line of answer 1.').last).dy;
+      expect(lastLine, lessThanOrEqualTo(list.bottom - padding.bottom));
     });
 
     testWidgets('opens a long conversation at its end', (tester) async {
@@ -388,11 +463,13 @@ void main() {
 
     testWidgets('builds a finished reply again only when what it shows changes', (tester) async {
       var builds = 0;
-      final counting = AIComponentBuilders(
-        assistantMessage: (context, props) {
-          builds++;
-          return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
-        },
+      final counting = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          assistantMessage: (context, props) {
+            builds++;
+            return AIAssistantMessageView(text: props.text, isGenerating: props.isGenerating, parts: props.parts);
+          },
+        ),
       );
       await _pump(tester, [
         _user('u1'),
@@ -431,11 +508,13 @@ void main() {
 
     testWidgets('builds a reply again only when its attachments change, not when decoded again', (tester) async {
       var builds = 0;
-      final counting = AIComponentBuilders(
-        assistantMessage: (context, props) {
-          builds++;
-          return AIAssistantMessageView(text: props.text, attachments: props.attachments);
-        },
+      final counting = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          assistantMessage: (context, props) {
+            builds++;
+            return AIAssistantMessageView(text: props.text, attachments: props.attachments);
+          },
+        ),
       );
       List<AIMessage> conversation(String title) {
         final raw = jsonDecode('{"type": "athena_image", "artifact_id": "a1", "meta": {"title": "$title"}}');
@@ -505,7 +584,7 @@ void main() {
         await _pump(
           tester,
           [_user('u1', 'Q1'), _reply('r1'), _user('u2', 'Q2'), _reply('r2')],
-          builders: const AIComponentBuilders(),
+          builders: StreamComponentBuilders(),
         );
         await tester.drag(find.byType(Scrollable), const Offset(0, 200));
         await tester.pumpAndSettle();
@@ -519,19 +598,16 @@ void main() {
         await _pump(tester, _history(1), loadOlder: () => Completer<void>().future, settle: false);
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
         await _frames(tester, const Duration(milliseconds: 16), 5);
-        expect(tester.getSize(find.byType(CircularProgressIndicator)), const Size.square(20));
-        expect(tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator)).strokeWidth, 2);
+        expect(tester.getSize(find.byType(StreamLoadingSpinner)), const Size.square(20));
       });
 
       testWidgets('gives the scroll-to-latest button a 40 dp circle in a 48 dp tap target', (tester) async {
         await _pump(tester, _history(6));
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
         await tester.pumpAndSettle();
-        final button = find.byTooltip('Scroll to latest');
-        final circle = find.ancestor(
-          of: button,
-          matching: find.byWidgetPredicate((w) => w is Material && w.shape is CircleBorder),
-        );
+        final button = find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(StreamButton));
+        final circle = find.descendant(of: button, matching: find.byType(Material)).first;
+        expect(tester.getSize(button), const Size.square(48));
         expect(tester.getSize(circle), const Size.square(40));
       });
 
@@ -546,15 +622,12 @@ void main() {
         expect(find.text('Question 5'), findsOneWidget);
       });
 
-      testWidgets("casts the scroll-to-latest button's shadow in the theme's shadow color", (tester) async {
-        await _pump(tester, _history(6), theme: ThemeData(shadowColor: const Color(0xFF112233)));
-        final box = tester.widget<DecoratedBox>(
-          find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(DecoratedBox)).at(0),
+      testWidgets("draws the scroll-to-latest button as core's floating button", (tester) async {
+        await _pump(tester, _history(6));
+        final button = tester.widget<StreamButton>(
+          find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(StreamButton)),
         );
-        final shadow = (box.decoration as BoxDecoration).boxShadow!.single;
-        expect(shadow.color, const Color(0xFF112233).withValues(alpha: 0.14));
-        expect(shadow.offset, const Offset(0, 2));
-        expect(shadow.blurRadius, 6);
+        expect(button.props.isFloating, isTrue);
       });
 
       testWidgets('shows the scroll-to-latest button once the end is more than 24 out of view', (tester) async {

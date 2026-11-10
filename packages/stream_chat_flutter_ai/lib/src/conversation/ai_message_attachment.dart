@@ -2,7 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 // Imported for the doc links below only.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 
@@ -40,7 +40,8 @@ extension type const AIMessageAttachmentKind(String _) implements String {
 ///
 /// An attachment of a kind of your own carries its raw fields in [extraData],
 /// such as an artifact's `{type: "athena_image", artifact_id, revision, title,
-/// alt}`, for [AIComponentBuilders.messageAttachment] to show:
+/// alt}`, for the `messageAttachment` builder of [streamAIComponentBuilders] to
+/// show:
 ///
 /// ```dart
 /// AIMessageAttachment(kind: AIMessageAttachmentKind(raw['type']! as String), extraData: raw)

@@ -2,8 +2,10 @@ import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
-import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_core_flutter/core.dart';
+
+const _icons = StreamIcons();
 
 Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
   theme: theme,
@@ -55,12 +57,73 @@ IconData? _icon(WidgetTester tester) {
 
 Color? _iconColor(WidgetTester tester) => tester.widget<Icon>(_inView(find.byType(Icon))).color;
 
+final _badge = _inView(find.byType(StreamErrorBadge));
+
+/// The fill of a failed call's error badge.
+Color? _badgeColor(WidgetTester tester) {
+  final box = tester.widget<DecoratedBox>(
+    find.descendant(
+      of: _badge,
+      matching: find.byWidgetPredicate((w) => w is DecoratedBox && w.position == DecorationPosition.background),
+    ),
+  );
+  return (box.decoration as BoxDecoration).color;
+}
+
+/// The size the error badge is drawn at, once scaled to the icon size.
+Size _badgeSize(WidgetTester tester) => tester.getSize(find.ancestor(of: _badge, matching: find.byType(FittedBox)));
+
 /// The texts in the row, in order.
 List<String> _texts(WidgetTester tester) =>
     tester.widgetList<Text>(_inView(find.byType(Text))).map((t) => t.data!).toList();
 
 void main() {
   group('AIToolCallView', () {
+    testWidgets("reads the app's StreamTheme, not Stream's light defaults", (tester) async {
+      const textPrimary = Color(0xFF123456);
+      final stream = StreamTheme.light();
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(call: _call()),
+          theme: ThemeData(
+            extensions: [StreamTheme(colorScheme: stream.colorScheme.copyWith(textPrimary: textPrimary))],
+          ),
+        ),
+      );
+
+      expect(tester.widget<Text>(find.text('get weather')).style!.color, textPrimary);
+    });
+
+    testWidgets("an AITheme field wins over the app's StreamTheme", (tester) async {
+      const themed = Color(0xFF654321);
+      final stream = StreamTheme.light();
+      await tester.pumpWidget(
+        _wrap(
+          AIToolCallView(call: _call()),
+          theme: ThemeData(
+            extensions: [
+              StreamTheme(colorScheme: stream.colorScheme.copyWith(textPrimary: const Color(0xFF123456))),
+              const AITheme(
+                toolCallTheme: ToolCallThemeData(titleStyle: TextStyle(color: themed)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(tester.widget<Text>(find.text('get weather')).style!.color, themed);
+    });
+
+    testWidgets('leaves 8 between the icon and the title', (tester) async {
+      _reduceMotion(tester);
+      await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.completed))));
+
+      expect(
+        tester.getTopLeft(find.text('get weather')).dx - tester.getTopRight(_inView(find.byType(Icon))).dx,
+        8,
+      );
+    });
+
     testWidgets("a declined call's icon follows its status", (tester) async {
       await tester.pumpWidget(
         _wrap(
@@ -70,7 +133,7 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 100));
-      expect(_icon(tester), Icons.back_hand_outlined, reason: 'the backend has yet to cancel it');
+      expect(_icon(tester), _icons.raiseHandFill, reason: 'the backend has yet to cancel it');
       expect(tester.binding.hasScheduledFrame, isTrue, reason: 'the hand shimmers while the status waits');
 
       await tester.pumpWidget(
@@ -81,7 +144,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(_icon(tester), Icons.close_rounded);
+      expect(_icon(tester), _icons.xmark);
       expect(tester.binding.hasScheduledFrame, isFalse);
     });
 
@@ -186,7 +249,7 @@ void main() {
           ),
         );
         expect(_texts(tester), ['get weather', 'Declined']);
-        expect(_icon(tester), Icons.close_rounded);
+        expect(_icon(tester), _icons.xmark);
       });
 
       testWidgets('the summary wins over the status text', (tester) async {
@@ -297,29 +360,28 @@ void main() {
       testWidgets('per status', (tester) async {
         _reduceMotion(tester);
         final theme = ThemeData();
-        final colors = theme.colorScheme;
+        final colors = StreamTheme.light().colorScheme;
         final cases = <({AIToolCallPart call, IconData icon, Color color})>[
           (
             call: _call(status: AIToolCallStatus.awaitingApproval),
-            icon: Icons.back_hand_outlined,
-            color: colors.primary,
+            icon: _icons.raiseHandFill,
+            color: colors.accentPrimary,
           ),
           (
             call: _call(status: AIToolCallStatus.awaitingAuthorization),
             icon: Icons.key_outlined,
-            color: colors.primary,
+            color: colors.accentPrimary,
           ),
           (
             call: _call(status: AIToolCallStatus.awaitingClient),
             icon: Icons.smartphone_outlined,
-            color: colors.primary,
+            color: colors.accentPrimary,
           ),
-          (call: _call(status: AIToolCallStatus.failed), icon: Icons.priority_high_rounded, color: colors.error),
-          (call: _call(status: AIToolCallStatus.cancelled), icon: Icons.close_rounded, color: colors.onSurfaceVariant),
+          (call: _call(status: AIToolCallStatus.cancelled), icon: _icons.xmark, color: colors.textSecondary),
           (
             call: _call(status: AIToolCallStatus.cancelled, approval: _declined),
-            icon: Icons.close_rounded,
-            color: colors.onSurfaceVariant,
+            icon: _icons.xmark,
+            color: colors.textSecondary,
           ),
         ];
         for (final (:call, :icon, :color) in cases) {
@@ -334,17 +396,26 @@ void main() {
             theme: theme,
           ),
         );
-        expect(_icon(tester), Icons.check_rounded);
-        final success = _iconColor(tester)!;
-        expect(success.g, greaterThan(success.r), reason: 'a green');
+        expect(_icon(tester), _icons.checkmark);
+        expect(_iconColor(tester), colors.accentSuccess);
+
+        // A failed call shows core's error badge rather than a glyph of its own.
+        await tester.pumpWidget(
+          _wrap(
+            AIToolCallView(call: _call(status: AIToolCallStatus.failed)),
+            theme: theme,
+          ),
+        );
+        expect(_badge, findsOneWidget);
+        expect(_badgeColor(tester), colors.accentError);
       });
 
-      testWidgets('spins a 12 dp ring with a 1.5 stroke at the default size', (tester) async {
+      testWidgets("spins core's extra small spinner, a 12 dp ring, at the default size", (tester) async {
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.running))));
 
         final spinner = find.byType(CircularProgressIndicator);
         expect(tester.getSize(spinner), const Size.square(12));
-        expect(tester.widget<CircularProgressIndicator>(spinner).strokeWidth, 1.5);
+        expect(tester.widget<CircularProgressIndicator>(spinner).strokeWidth, 2);
       });
 
       testWidgets('an unknown status spins, and debug builds report it once per change', (tester) async {
@@ -382,12 +453,12 @@ void main() {
           AIToolCallStatus.awaitingClient,
         ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(ShaderMask)), findsOneWidget, reason: status);
+          expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget, reason: status);
           expect(tester.hasRunningAnimations, isTrue);
         }
 
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.completed))));
-        expect(_inView(find.byType(ShaderMask)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
       });
 
@@ -395,7 +466,7 @@ void main() {
         _reduceMotion(tester);
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call())));
         expect(_inView(find.byType(CircularProgressIndicator)), findsNothing);
-        expect(_icon(tester), Icons.more_horiz_rounded);
+        expect(_icon(tester), _icons.moreHorizontal);
         expect(tester.hasRunningAnimations, isFalse);
 
         for (final status in [
@@ -404,7 +475,7 @@ void main() {
           AIToolCallStatus.awaitingClient,
         ]) {
           await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
-          expect(_inView(find.byType(ShaderMask)), findsNothing, reason: status);
+          expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing, reason: status);
           expect(tester.hasRunningAnimations, isFalse, reason: status);
         }
       });
@@ -414,18 +485,18 @@ void main() {
             tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: status))));
 
         await pump(AIToolCallStatus.running);
-        expect(_inView(find.byType(ShaderMask)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
 
         await pump(AIToolCallStatus.awaitingApproval);
-        expect(_inView(find.byType(ShaderMask)), findsOneWidget);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget);
         expect(tester.hasRunningAnimations, isTrue);
 
         await pump(AIToolCallStatus.completed);
-        expect(_inView(find.byType(ShaderMask)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
 
         await pump(AIToolCallStatus.awaitingClient);
-        expect(_inView(find.byType(ShaderMask)), findsOneWidget);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget);
         expect(tester.hasRunningAnimations, isTrue, reason: 'the stopped shimmer starts again');
       });
 
@@ -443,9 +514,9 @@ void main() {
             ),
           ),
         );
-        final shimmer = tester.widget<Shimmer>(_inView(find.byType(Shimmer)));
-        expect(shimmer.base, const Color(0xFF0000D1));
-        expect(shimmer.highlight, const Color(0xFF0000D3));
+        final shimmer = tester.widget<DefaultStreamSkeletonLoading>(_inView(find.byType(DefaultStreamSkeletonLoading)));
+        expect(shimmer.props.baseColor, const Color(0xFF0000D1));
+        expect(shimmer.props.highlightColor, const Color(0xFF0000D3));
         expect(_iconColor(tester), const Color(0xFF0000D1));
       });
 
@@ -459,7 +530,7 @@ void main() {
         addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
         await tester.pump();
         expect(_inView(find.byType(CircularProgressIndicator)), findsNothing);
-        expect(_icon(tester), Icons.more_horiz_rounded);
+        expect(_icon(tester), _icons.moreHorizontal);
         expect(tester.hasRunningAnimations, isFalse);
 
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
@@ -471,11 +542,11 @@ void main() {
       testWidgets('shimmers again when reduced motion turns off', (tester) async {
         _reduceMotion(tester);
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call(status: AIToolCallStatus.awaitingApproval))));
-        expect(_inView(find.byType(ShaderMask)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
 
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
         await tester.pump();
-        expect(_inView(find.byType(ShaderMask)), findsOneWidget);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsOneWidget);
         expect(tester.hasRunningAnimations, isTrue);
       });
 
@@ -485,7 +556,7 @@ void main() {
 
         _reduceMotion(tester);
         await tester.pump();
-        expect(_inView(find.byType(ShaderMask)), findsNothing);
+        expect(_inView(find.byType(DefaultStreamSkeletonLoading)), findsNothing);
         expect(tester.hasRunningAnimations, isFalse);
       });
     });
@@ -637,22 +708,17 @@ void main() {
           ),
         );
 
-        final textTheme = Theme.of(tester.element(_view)).textTheme;
+        final streamTheme = StreamTheme.of(tester.element(_view));
         final title = tester.widget<Text>(find.text('get weather')).style!;
-        expect(title.color, theme.colorScheme.onSurface);
-        expect(title.fontSize, textTheme.bodyMedium!.fontSize);
+        expect(title.color, streamTheme.colorScheme.textPrimary);
+        expect(title.fontSize, streamTheme.textTheme.bodyDefault.fontSize);
         final detail = tester.widget<Text>(find.text('Timed out')).style!;
-        expect(detail.color, theme.colorScheme.onSurfaceVariant);
-        expect(detail.fontSize, textTheme.bodySmall!.fontSize);
-        expect(tester.widget<Icon>(_inView(find.byType(Icon))).size, 16);
-        expect(
-          tester.getTopLeft(find.text('get weather')).dx - tester.getTopRight(_inView(find.byType(Icon))).dx,
-          8,
-          reason: 'the gap after the icon',
-        );
+        expect(detail.color, streamTheme.colorScheme.textSecondary);
+        expect(detail.fontSize, streamTheme.textTheme.captionDefault.fontSize);
+        expect(_badgeSize(tester), const Size.square(16));
 
         await tester.pumpWidget(_wrap(AIToolCallView(call: _call()), theme: theme));
-        expect(spinnerColor(tester), theme.colorScheme.primary);
+        expect(spinnerColor(tester), streamTheme.colorScheme.accentPrimary);
       });
 
       testWidgets('the default success green differs between light and dark', (tester) async {
@@ -686,21 +752,23 @@ void main() {
           );
           if (scope != null) child = ToolCallTheme(data: scope, child: child);
           await tester.pumpWidget(_wrap(child, theme: theme));
+          // The badge animates between fills.
+          await tester.pumpAndSettle();
         }
 
         await pump();
-        expect(_iconColor(tester), const Color(0xFF0000A1), reason: 'AITheme over the defaults');
-        expect(tester.widget<Icon>(_inView(find.byType(Icon))).size, 20);
+        expect(_badgeColor(tester), const Color(0xFF0000A1), reason: 'AITheme over the defaults');
+        expect(_badgeSize(tester), const Size.square(20));
         expect(tester.widget<Text>(find.text('get weather')).style!.fontSize, 30);
 
         await pump(scope: const ToolCallThemeData(failureColor: Color(0xFF0000A2)));
-        expect(_iconColor(tester), const Color(0xFF0000A2), reason: 'the scope over AITheme');
+        expect(_badgeColor(tester), const Color(0xFF0000A2), reason: 'the scope over AITheme');
 
         await pump(
           scope: const ToolCallThemeData(failureColor: Color(0xFF0000A2)),
           local: const ToolCallThemeData(failureColor: Color(0xFF0000A3), titleStyle: TextStyle(fontSize: 12)),
         );
-        expect(_iconColor(tester), const Color(0xFF0000A3), reason: 'the widget over the scope');
+        expect(_badgeColor(tester), const Color(0xFF0000A3), reason: 'the widget over the scope');
         final style = tester.widget<Text>(find.text('get weather')).style!;
         expect(style.fontSize, 12);
         expect(style.color, const Color(0xFF0000B1), reason: "the widget's style merges over the themed one");
@@ -720,8 +788,9 @@ void main() {
             theme: theme,
           ),
         );
-        expect(tester.widget<Text>(find.text('get weather')).style!.color, theme.colorScheme.onSurface);
-        expect(tester.widget<Text>(find.text("Didn't complete")).style!.color, theme.colorScheme.onSurfaceVariant);
+        final colors = StreamTheme.light().colorScheme;
+        expect(tester.widget<Text>(find.text('get weather')).style!.color, colors.textPrimary);
+        expect(tester.widget<Text>(find.text("Didn't complete")).style!.color, colors.textSecondary);
       });
 
       testWidgets('foreground-painted styles keep their paint, with the neutral icon in its color', (tester) async {

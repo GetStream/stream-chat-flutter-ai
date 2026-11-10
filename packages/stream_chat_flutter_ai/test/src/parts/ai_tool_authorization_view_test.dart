@@ -238,7 +238,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
+      expect(find.byIcon(const StreamIcons().moreHorizontal), findsOneWidget);
       fake.connects.single.complete(true);
       // Let a connected sign-in settle, so no timer is left.
       await tester.pump(const Duration(seconds: 30));
@@ -298,15 +298,17 @@ void main() {
       AIToolAuthorizationProps? seen;
       await tester.pumpWidget(
         _wrap(
-          AIComponentFactory(
-            builders: AIComponentBuilders(
-              toolAuthorization: (context, props) {
-                seen = props;
-                return TextButton(
-                  onPressed: props.onConnect,
-                  child: Text('Sign in to ${props.authorization.provider}'),
-                );
-              },
+          StreamComponentFactory(
+            builders: StreamComponentBuilders(
+              extensions: streamAIComponentBuilders(
+                toolAuthorization: (context, props) {
+                  seen = props;
+                  return TextButton(
+                    onPressed: props.onConnect,
+                    child: Text('Sign in to ${props.authorization.provider}'),
+                  );
+                },
+              ),
             ),
             child: AIToolAuthorizationView(call: signInCall(), approver: approver),
           ),

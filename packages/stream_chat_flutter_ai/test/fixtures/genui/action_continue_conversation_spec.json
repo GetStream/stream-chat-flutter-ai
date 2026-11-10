@@ -1,0 +1,13 @@
+{
+  "ai_ui_action": {
+    "v": 1,
+    "message_id": "4f1c",
+    "format": "openui",
+    "name": "continue_conversation",
+    "payload": {
+      "context": "Update the plan with my choices",
+      "form": "refine",
+      "values": { "pace": "packed", "interests": ["food", "swimming"] }
+    }
+  }
+}

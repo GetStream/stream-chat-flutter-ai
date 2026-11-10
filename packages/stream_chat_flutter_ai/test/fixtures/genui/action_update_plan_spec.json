@@ -1,0 +1,13 @@
+{
+  "ai_ui_action": {
+    "v": 1,
+    "message_id": "4f1c",
+    "format": "a2ui",
+    "name": "update_plan",
+    "payload": {
+      "surfaceId": "ohrid-weekend",
+      "sourceComponentId": "update",
+      "context": { "pace": ["packed"], "interests": ["food", "swimming"] }
+    }
+  }
+}

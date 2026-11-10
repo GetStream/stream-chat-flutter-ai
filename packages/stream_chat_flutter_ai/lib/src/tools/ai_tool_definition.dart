@@ -46,6 +46,7 @@ final class AIToolDefinition {
     this.instructions,
     this.parameters = _kEmptyObjectSchema,
     this.showExternalSourcesIndicator = false,
+    this.isReadOnly = false,
   }) : assert(name != '', 'a tool name must not be empty');
 
   /// The tool's name, which the agent uses to invoke it.
@@ -90,6 +91,15 @@ final class AIToolDefinition {
   /// to `AITypingIndicatorView`, whose `text` is an arbitrary string.
   final bool showExternalSourcesIndicator;
 
+  /// Whether the tool only reads data and changes nothing, such as one that
+  /// lists the person's calendar events.
+  ///
+  /// Generated UI can run a read-only tool on its own, such as to load data it
+  /// shows. A tool that isn't read-only only runs when the person asks for it,
+  /// such as by tapping a button (see `AIUIHosting.runTool`). Defaults to
+  /// `false`. Not part of [toJson].
+  final bool isReadOnly;
+
   /// This tool's registration payload, ready for `jsonEncode`.
   ///
   /// Keys are camelCase, and a null [instructions] is omitted rather than sent
@@ -126,6 +136,7 @@ final class AIToolDefinition {
           other.description == description &&
           other.instructions == instructions &&
           other.showExternalSourcesIndicator == showExternalSourcesIndicator &&
+          other.isReadOnly == isReadOnly &&
           const DeepCollectionEquality().equals(other.parameters, parameters);
 
   @override
@@ -134,6 +145,7 @@ final class AIToolDefinition {
     description,
     instructions,
     showExternalSourcesIndicator,
+    isReadOnly,
     const DeepCollectionEquality().hash(parameters),
   );
 
@@ -147,11 +159,13 @@ final class AIToolDefinition {
     String? instructions,
     Map<String, Object?>? parameters,
     bool? showExternalSourcesIndicator,
+    bool? isReadOnly,
   }) => AIToolDefinition(
     name: name ?? this.name,
     description: description ?? this.description,
     instructions: instructions ?? this.instructions,
     parameters: parameters ?? this.parameters,
     showExternalSourcesIndicator: showExternalSourcesIndicator ?? this.showExternalSourcesIndicator,
+    isReadOnly: isReadOnly ?? this.isReadOnly,
   );
 }

@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
+import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 
@@ -64,6 +67,13 @@ abstract mixin class AIMessage {
 
   /// What it carries besides its text, such as images and files.
   List<AIMessageAttachment> get attachments => const [];
+
+  /// The generated UI the agent wrote for this reply, or `null` if it has none.
+  ///
+  /// When the conversation's [AIUIHost] can show it, it's shown instead of
+  /// [text]. Usually read from the message's custom data with
+  /// `AIUIDocument.fromCustomData(message.extraData)`.
+  AIUIDocument? get uiDocument => null;
 
   /// The whole of a reasoning step's thinking when the app has it, such as from
   /// live updates. Without it the step shows its own preview.

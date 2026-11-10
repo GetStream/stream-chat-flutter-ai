@@ -1,0 +1,9 @@
+{
+  "ai_ui_action": {
+    "v": 1,
+    "message_id": "m1",
+    "format": "openui",
+    "name": "ask_about",
+    "payload": { "title": "Monastery of Saint Naum" }
+  }
+}
