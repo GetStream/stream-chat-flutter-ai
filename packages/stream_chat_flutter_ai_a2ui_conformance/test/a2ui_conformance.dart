@@ -84,7 +84,7 @@ void skipConformanceSuite(String suite, {required String reason}) {
   test('the $suite suite', () {}, skip: reason);
 }
 
-const _root = 'test/conformance/upstream';
+const _root = 'test/upstream';
 
 List<Map<String, Object?>> _cases(String suite) {
   final yaml = loadYaml(File('$_root/conformance/core/$suite.yaml').readAsStringSync());

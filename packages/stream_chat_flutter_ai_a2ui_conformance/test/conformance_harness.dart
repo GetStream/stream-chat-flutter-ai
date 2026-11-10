@@ -3,8 +3,8 @@ part of 'a2ui_conformance.dart';
 // A processor under test, with everything it reported, dispatched and sent.
 final class _Harness {
   _Harness(List<A2UIDebugCatalog> catalogs, {A2UIDebugChecks? checks}) {
-    processor = A2UIProcessor.debug(
-      catalogs: A2UICatalogs.debug(catalogs),
+    processor = debugProcessor(
+      catalogs: debugCatalogs(catalogs),
       onAction: actions.add,
       onError: errors.add,
       checks: checks,

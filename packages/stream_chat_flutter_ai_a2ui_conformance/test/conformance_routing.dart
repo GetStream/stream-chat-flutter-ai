@@ -14,10 +14,10 @@ Future<void> _runRouteAgentFunction(Map<String, Object?> testCase) async {
     for (final catalog in (testCase['catalogs']! as List<Object?>).cast<Map<String, Object?>>())
       catalog['catalogId']! as String,
   ];
-  final processor = A2UIProcessor.debug(
+  final processor = debugProcessor(
     // Every catalog has the basic functions, which hold the case's
     // `localFunctions` and none of the functions it routes to the agent.
-    catalogs: A2UICatalogs.debug([for (final id in catalogIds) A2UIDebugCatalog.basic(id)]),
+    catalogs: debugCatalogs([for (final id in catalogIds) A2UIDebugCatalog.basic(id)]),
     onAction: actions.add,
     onError: errors.add,
     onOutbound: surfaceBlock['outboundListener'] == false ? null : sent.add,

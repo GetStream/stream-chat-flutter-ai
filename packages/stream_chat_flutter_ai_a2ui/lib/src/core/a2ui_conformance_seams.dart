@@ -1,13 +1,20 @@
 part of 'a2ui_adapter.dart';
 
-// Entry points into the A2UI core that only the A2UI conformance tests use.
+// The tests' way into the adapter and the A2UI core: test-only, and the only
+// test-only code in `lib/`. The A2UI conformance suites use it, and so do a few
+// unit tests. Nothing here is exported, and no production code calls it; the
+// production classes don't know it exists.
 //
 // A conformance case sometimes exercises a part of A2UI that a renderer never
 // reaches on its own: a catalog document, a function called by name, a path
-// resolved outside a template, a raw action, the answers a renderer sends back
-// to the agent. Each entry point here is the narrowest way in for one kind of
-// case, and works in the package's own types, so a replacement core has to
-// provide the same ones to pass the same suites.
+// resolved outside a template, a raw action, strict graph checks, the answers
+// a renderer sends back to the agent. Each entry point here is the narrowest
+// way in for one kind of case, and works in the package's own types, so a
+// replacement core has to provide the same ones to pass the same suites.
+//
+// This file is a part of the adapter's library so it can reach the private
+// members of the production classes it builds on. What it needs from them must
+// be what they already use themselves, never a member added for a test.
 
 /// Signature for the body of an [A2UIDebugFunction]: what it returns for
 /// [args], reading and writing the data model through [scope].
@@ -205,6 +212,66 @@ final class A2UIDebugChecks {
       allowMissingRoot: allowMissingRoot,
     );
   }
+}
+
+/// Signature for the callback that receives what a processor sends the agent,
+/// as A2UI writes it.
+///
+/// Only the conformance tests use it.
+typedef A2UIDebugOutboundCallback = void Function(Map<String, Object?> message);
+
+/// Signature for a function that makes the A2UI core a processor applies
+/// messages with, holding `catalogs` and sending its actions to `onAction`.
+///
+/// Only tests use it, to stand in a core that fails.
+typedef A2UIDebugCoreFactory =
+    core.MessageProcessor<core.ComponentApi> Function(
+      List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> catalogs,
+      void Function(core.A2uiRendererAction action) onAction,
+    );
+
+/// The catalogs a conformance case needs, the first of which is the app's.
+///
+/// Only the conformance tests use it.
+A2UICatalogs debugCatalogs(List<A2UIDebugCatalog> catalogs) {
+  return A2UICatalogs._(catalogs.first.id, [for (final catalog in catalogs) catalog._build()]);
+}
+
+/// A processor as a conformance case needs one: it gives a surface naming no
+/// catalog none, makes [checks] of each message, and passes what it sends the
+/// agent to [onOutbound], such as the answer to a function the agent calls.
+///
+/// [A2UIProcessor.reset] gives it a production core again, without [checks]
+/// or [onOutbound]. Only tests use it.
+A2UIProcessor debugProcessor({
+  required A2UICatalogs catalogs,
+  A2UIActionCallback? onAction,
+  A2UIErrorCallback? onError,
+  A2UIDebugChecks? checks,
+  A2UIDebugOutboundCallback? onOutbound,
+}) {
+  final processor = A2UIProcessor(catalogs: catalogs, onAction: onAction, onError: onError);
+  debugReplaceCore(
+    processor,
+    (catalogs, onAction) => core.MessageProcessor<core.ComponentApi>(
+      catalogs: catalogs,
+      validationConfig: checks?._config,
+      onAction: onAction,
+      defaultTimeout: A2UIProcessor.agentFunctionTimeout,
+      outboundListener: onOutbound == null ? null : (message) => onOutbound(_plainMap(message.toJson())),
+    ),
+  );
+  return processor;
+}
+
+/// Makes [processor] apply messages with the core [makeCore] makes, in place
+/// of the one it has. Call it before any message is applied.
+///
+/// [A2UIProcessor.reset] gives it a production core again. Only tests use it.
+void debugReplaceCore(A2UIProcessor processor, A2UIDebugCoreFactory makeCore) {
+  assert(processor.surfaceIds.isEmpty, 'debugReplaceCore was called on a processor with surfaces.');
+  A2UIProcessor._disposeSurfaces(processor._releaseCore(), notify: false);
+  processor._attachCore(makeCore(processor._catalogs._catalogs, processor._handleAction));
 }
 
 /// A component of a surface as the agent wrote it, not resolved.

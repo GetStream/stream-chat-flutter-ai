@@ -34,12 +34,12 @@ void main() {
   // Paths are relative to the package, where its tests run.
   test('every vendored suite is run or skipped', () {
     final run = {
-      for (final file in Directory('test/conformance').listSync())
+      for (final file in Directory('test').listSync())
         if (file.path.endsWith('_conformance_test.dart'))
           file.uri.pathSegments.last.replaceAll('_conformance_test.dart', ''),
     }..remove('skipped_suites');
     final vendored = {
-      for (final file in Directory('test/conformance/upstream/conformance/core').listSync())
+      for (final file in Directory('test/upstream/conformance/core').listSync())
         if (file.path.endsWith('.yaml')) file.uri.pathSegments.last.replaceAll('.yaml', ''),
     };
     expect(

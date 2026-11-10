@@ -1,9 +1,22 @@
-# Why the A2UI package keeps its conformance tests
+# A2UI conformance suites
+
+The [A2UI conformance suites](test/upstream/README.md), vendored unchanged, run against `stream_chat_flutter_ai_a2ui`.
+This package holds only those tests, so they stay out of the published package. It isn't published.
+
+```bash
+flutter test                      # every suite, from this directory
+flutter test --tags conformance   # the same, as the suites are tagged
+```
+
+The suites go through the adapter in `stream_chat_flutter_ai_a2ui`'s `lib/src/core/`, and, for the cases a renderer
+never reaches on its own, through its test-only seams in `lib/src/core/a2ui_conformance_seams.dart`.
+
+## Why the A2UI package keeps its conformance tests
 
 **Short version:** we don't implement the protocol ourselves, but our renderer is still on the hook for it. The
 upstream suites are the cheapest way to prove that, and they've already caught breakage nothing else did.
 
-## What they check here
+### What they check here
 iOS (`StreamChatA2UI`) and Android (`stream-chat-android-ai-a2ui`) implement A2UI by hand, so their conformance tests
 check their own engine: Android runs the vendored upstream suites data-driven, iOS hand-ports selected cases.
 
@@ -12,7 +25,7 @@ against the spec, through the adapter in `lib/src/core/`, never the core directl
 and that's expected. What is ours: the version handling, error-code mapping, default catalog, secrets kept out of what
 goes to the agent, action events, and how all of that behaves with the exact core release we ship.
 
-## Why they pay off
+### Why they pay off
 They are the regression net for core bumps and adapter changes. Moving to `a2ui_core` 0.5.0 alone, they caught:
 - the `"1.0"`→`"v1.0"` shim breaking every message (1,032 failures) while the analyzer was clean;
 - the new error codes and the catalog's user-activation rule;
@@ -23,6 +36,6 @@ They are the regression net for core bumps and adapter changes. Moving to `a2ui_
 They also keep the adapter honest if the core is ever replaced (by `a2ui_flutter`'s or our own): the replacement has to
 pass the same suite.
 
-## Keeping them cheap
+### Keeping them cheap
 If they ever need slimming, drop the suites that only re-test core internals first (expression parsing, function
 evaluation, path resolution); keep the ones that go through what the adapter adds.

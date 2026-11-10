@@ -1,0 +1,36 @@
+name: stream_chat_flutter_ai_a2ui_conformance
+description: "The A2UI conformance suites, run against stream_chat_flutter_ai_a2ui's adapter and the a2ui_core it pins."
+# Tests only: kept out of the published stream_chat_flutter_ai_a2ui package.
+publish_to: none
+
+# Note: The environment configuration and dependency versions are managed by Melos.
+#
+# Do not edit them manually.
+#
+# Steps to update dependencies:
+#   1. Modify the version in the root pubspec.yaml, under `melos.command.bootstrap`.
+#   2. Run `melos bootstrap` to apply changes.
+#
+# Steps to add a new dependency:
+#   1. Add the dependency to this list.
+#   2. Add it to the root pubspec.yaml for future updates.
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+# This package is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Resolves to the local `packages/stream_chat_flutter_ai_a2ui` member of this
+  # workspace, the package the suites run against.
+  stream_chat_flutter_ai_a2ui: any
+  # Reads the A2UI conformance suites, which are YAML.
+  yaml: ^3.1.3
