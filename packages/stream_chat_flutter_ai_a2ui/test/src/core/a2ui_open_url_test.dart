@@ -35,7 +35,20 @@ void main() {
     expect(opened, [Uri.parse('https://example.com/booked')]);
   });
 
-  for (final link in ['mailto:ada@example.com', 'tel:+3590000000', 'javascript:alert(1)', 'file:///etc/passwd']) {
+  // The opener decides whether these open: the host's opens email links and
+  // refuses the others.
+  for (final link in ['mailto:ada@example.com', 'tel:+3590000000', 'https:/menu']) {
+    test("an action's openUrl hands $link to the action's opener", () async {
+      final opened = <Uri>[];
+      final button = _linkButton(link);
+
+      await button.act('action', onOpenLink: opened.add);
+
+      expect(opened, [Uri.parse(link)]);
+    });
+  }
+
+  for (final link in ['javascript:alert(1)', 'file:///etc/passwd', 'intent://scan/#Intent;end']) {
     test("an action's openUrl doesn't open $link", () async {
       final opened = <Uri>[];
       final button = _linkButton(link);
@@ -48,30 +61,12 @@ void main() {
 
   test("an action's openUrl reports a link it doesn't open", () async {
     final errors = <A2UIError>[];
-    final button = _linkButton('mailto:ada@example.com', errors: errors);
+    final button = _linkButton('javascript:alert(1)', errors: errors);
 
     await button.act('action', onOpenLink: (_) {});
     await pumpEventQueue();
 
-    expect(errors.single.message, contains("may not open a 'mailto' link"));
-  });
-
-  test("an action's openUrl doesn't open a mailto link with a host", () async {
-    final opened = <Uri>[];
-    final button = _linkButton('mailto://ada@example.com');
-
-    await button.act('action', onOpenLink: opened.add);
-
-    expect(opened, isEmpty);
-  });
-
-  test("an action's openUrl doesn't open a web link without a host", () async {
-    final opened = <Uri>[];
-    final button = _linkButton('https:/menu');
-
-    await button.act('action', onOpenLink: opened.add);
-
-    expect(opened, isEmpty);
+    expect(errors.single.message, contains('Unsupported URL scheme: javascript'));
   });
 
   test("an action's openUrl without an opener reports the link as not opened", () async {

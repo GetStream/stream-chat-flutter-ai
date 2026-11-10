@@ -360,18 +360,12 @@ final class A2UICatalogs {
   }
 
   // Opens [link] with what the running action was given to open links with
-  // (see `A2UINode.act`). A link an agent writes is untrusted, so only a web
-  // page opens; anything else, such as a `mailto` or `tel` link the core
-  // lets through, is refused. What this throws is reported as a problem of
-  // the action's surface.
+  // (see `A2UINode.act`), which decides which links open: the host's `open`
+  // opens only web and email links unless the app opens links itself. The
+  // core has already refused any link other than an `http`, `https`,
+  // `mailto` or `tel` one. What this throws is reported as a problem of the
+  // action's surface.
   static void _openUrl(Uri link) {
-    final scheme = link.scheme.toLowerCase();
-    if ((scheme != 'http' && scheme != 'https') || link.host.isEmpty) {
-      throw core.A2uiExpressionError(
-        "Function 'openUrl' may not open a '$scheme' link: only web links with a host open.",
-        expression: 'openUrl',
-      );
-    }
     final openLink = Zone.current[_openLinkKey];
     if (openLink is! A2UIOpenLink) {
       throw core.A2uiExpressionError(
