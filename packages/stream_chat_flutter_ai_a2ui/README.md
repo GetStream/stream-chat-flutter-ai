@@ -101,7 +101,9 @@ message's custom data:
 send: (action) => channel.sendMessage(Message(text: action.label, extraData: action.toCustomData())),
 ```
 
-**Links.** A link a button's action opens goes to the host's `open`. By default only web and email links open.
+**Links.** A link a button's action opens goes to the host's `open`, which by default opens only web and email
+links. Only `http`, `https`, `mailto` and `tel` links reach it, so if you give the host your own `open`, check each
+link before you open it.
 
 **Tools.** A function the agent's UI calls that no catalog has runs as one of the host's `tools`. A read-only tool runs
 whenever the UI calls it; any other only from the person's tap.
