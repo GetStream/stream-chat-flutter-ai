@@ -20,6 +20,8 @@ part of 'a2ui_adapter.dart';
 /// [args], reading and writing the data model through [scope].
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 typedef A2UIDebugFunctionBody = Object? Function(Map<String, Object?> args, A2UIDebugScope scope);
 
 /// A function a conformance case gives a catalog, with the definition a
@@ -27,6 +29,7 @@ typedef A2UIDebugFunctionBody = Object? Function(Map<String, Object?> args, A2UI
 ///
 /// Only the conformance tests use it.
 @internal
+@visibleForTesting
 final class A2UIDebugFunction {
   /// Creates an [A2UIDebugFunction] named [name].
   const A2UIDebugFunction(this.name, {this.definition = const {}, required this.body});
@@ -48,6 +51,7 @@ final class A2UIDebugFunction {
 ///
 /// Only the conformance tests use it.
 @internal
+@visibleForTesting
 final class A2UIDebugScope {
   A2UIDebugScope._(this._context);
 
@@ -64,6 +68,7 @@ final class A2UIDebugScope {
 ///
 /// Only the conformance tests use it.
 @internal
+@visibleForTesting
 final class A2UIDebugCatalog {
   /// The A2UI 1.0 basic catalog under [id], with [functions] added; its
   /// `openUrl` opens nothing.
@@ -191,6 +196,7 @@ final class _DebugFunction extends core.FunctionImplementation {
 ///
 /// Only the conformance tests use it.
 @internal
+@visibleForTesting
 final class A2UIDebugChecks {
   /// Creates checks, each strict unless [allowOrphans], [allowDangling] or
   /// [allowMissingRoot] allows what it checks.
@@ -218,12 +224,16 @@ final class A2UIDebugChecks {
 /// as A2UI writes it.
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 typedef A2UIDebugOutboundCallback = void Function(Map<String, Object?> message);
 
 /// Signature for a function that makes the A2UI core a processor applies
 /// messages with, holding `catalogs` and sending its actions to `onAction`.
 ///
 /// Only tests use it, to stand in a core that fails.
+@internal
+@visibleForTesting
 typedef A2UIDebugCoreFactory =
     core.MessageProcessor<core.ComponentApi> Function(
       List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> catalogs,
@@ -233,6 +243,8 @@ typedef A2UIDebugCoreFactory =
 /// The catalogs a conformance case needs, the first of which is the app's.
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 A2UICatalogs debugCatalogs(List<A2UIDebugCatalog> catalogs) {
   return A2UICatalogs._(catalogs.first.id, [for (final catalog in catalogs) catalog._build()]);
 }
@@ -243,6 +255,8 @@ A2UICatalogs debugCatalogs(List<A2UIDebugCatalog> catalogs) {
 ///
 /// [A2UIProcessor.reset] gives it a production core again, without [checks]
 /// or [onOutbound]. Only tests use it.
+@internal
+@visibleForTesting
 A2UIProcessor debugProcessor({
   required A2UICatalogs catalogs,
   A2UIActionCallback? onAction,
@@ -268,6 +282,8 @@ A2UIProcessor debugProcessor({
 /// of the one it has. Call it before any message is applied.
 ///
 /// [A2UIProcessor.reset] gives it a production core again. Only tests use it.
+@internal
+@visibleForTesting
 void debugReplaceCore(A2UIProcessor processor, A2UIDebugCoreFactory makeCore) {
   assert(processor.surfaceIds.isEmpty, 'debugReplaceCore was called on a processor with surfaces.');
   A2UIProcessor._disposeSurfaces(processor._releaseCore(), notify: false);
@@ -278,6 +294,7 @@ void debugReplaceCore(A2UIProcessor processor, A2UIDebugCoreFactory makeCore) {
 ///
 /// Only the conformance tests use it.
 @internal
+@visibleForTesting
 typedef A2UIDebugComponent = ({String type, Map<String, Object?> properties, Map<String, Object?>? metadata});
 
 /// The parts of a template [input] such as `Hello, ${/user/name}!`: literal
@@ -286,6 +303,8 @@ typedef A2UIDebugComponent = ({String type, Map<String, Object?> properties, Map
 ///
 /// Returns an [A2UIError] when [input] doesn't parse. Only the conformance
 /// tests use it.
+@internal
+@visibleForTesting
 Object debugParseExpression(String input) {
   try {
     return _plain(core.ExpressionParser().parse(input))!;
@@ -298,6 +317,8 @@ Object debugParseExpression(String input) {
 /// against `/user`.
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 String debugResolvePath(String path, {String contextPath = '/'}) {
   final model = core.DataModel();
   try {
@@ -316,6 +337,8 @@ String debugResolvePath(String path, {String contextPath = '/'}) {
 ///
 /// Returns an [A2UIError] for a call that fails. Only the conformance tests use
 /// it.
+@internal
+@visibleForTesting
 Future<Object?> debugEvaluateFunction(
   String name,
   Map<String, Object?> args, {
@@ -399,6 +422,7 @@ Future<Object?> _settle(Object? value) async {
 /// Its creator owns it and calls [dispose] when done. Only the conformance
 /// tests use it.
 @internal
+@visibleForTesting
 final class A2UIDebugDataModel {
   /// Creates a data model holding `initial`.
   A2UIDebugDataModel([Object? initial]) : _model = core.DataModel(initial ?? const <String, Object?>{});
@@ -451,6 +475,8 @@ final class A2UIDebugDataModel {
 /// none did or [version] isn't one this package reads.
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 Map<String, Object?>? debugRendererDataModel(A2UIProcessor processor, {required String? version}) {
   if (version != A2UIVersions.current) return null;
   final json = processor._core.getRendererDataModel(version: core.A2uiProtocolVersion.v1_0);
@@ -461,6 +487,8 @@ Map<String, Object?>? debugRendererDataModel(A2UIProcessor processor, {required 
 /// The components of [surface] as the agent wrote them, by id.
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 Map<String, A2UIDebugComponent> debugComponents(A2UISurface surface) {
   return {
     for (final component in surface._model.componentsModel.all)
@@ -478,6 +506,8 @@ Map<String, A2UIDebugComponent> debugComponents(A2UISurface surface) {
 /// The metadata the agent gave [surface], or `null` when it gave none.
 ///
 /// Only the conformance tests use it.
+@internal
+@visibleForTesting
 Map<String, Object?>? debugMetadata(A2UISurface surface) {
   return switch (surface._model.metadata) {
     final Map<String, Object?> metadata => _plainMap(metadata),
@@ -491,6 +521,8 @@ Map<String, Object?>? debugMetadata(A2UISurface surface) {
 ///
 /// Problems are reported through the processor's `onError`. Only the
 /// conformance tests use it.
+@internal
+@visibleForTesting
 Future<Object?> debugAct(
   A2UISurface surface,
   Object? action, {
@@ -542,6 +574,8 @@ Future<Object?> debugAct(
 ///
 /// The caller calls `dispose` when done. Problems are reported through the
 /// processor's `onError`. Only the conformance tests use it.
+@internal
+@visibleForTesting
 ({Object? Function() read, VoidCallback dispose}) debugBind(
   A2UISurface surface,
   Object? value, {
@@ -573,6 +607,8 @@ Future<Object?> debugAct(
 ///
 /// The caller calls `dispose` when done. Problems are reported through the
 /// processor's `onError`. Only the conformance tests use it.
+@internal
+@visibleForTesting
 ({Future<void> Function() run, VoidCallback dispose}) debugBindAction(
   A2UISurface surface,
   Object? action, {
