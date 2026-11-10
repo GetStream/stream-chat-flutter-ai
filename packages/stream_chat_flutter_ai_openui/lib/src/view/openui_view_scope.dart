@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 
 /// Signature for the function a reply's media loads through: the URL to load
 /// for [url], or `null` to load nothing.
@@ -43,8 +44,8 @@ void openOpenUILink(BuildContext context, String? href) {
 bool _isWeb(Uri url) => (url.isScheme('http') || url.isScheme('https')) && url.host.isNotEmpty;
 
 /// What the components of a reply's OpenUI share: the library they are built
-/// with, how media loads and links open, and whether the reply is still
-/// streaming.
+/// with, the theme they draw with, how media loads and links open, and
+/// whether the reply is still streaming.
 ///
 /// Internal to the package.
 @internal
@@ -53,6 +54,7 @@ class OpenUIViewScope extends InheritedWidget {
   const OpenUIViewScope({
     super.key,
     required this.library,
+    required this.theme,
     required this.mediaUrl,
     required this.openLink,
     required this.isStreaming,
@@ -62,6 +64,9 @@ class OpenUIViewScope extends InheritedWidget {
 
   /// The library the components are built with.
   final OpenUILibrary library;
+
+  /// The theme the components draw with.
+  final OpenUIResolvedTheme theme;
 
   /// The function media loads through.
   final OpenUIMediaUrl mediaUrl;
@@ -90,6 +95,7 @@ class OpenUIViewScope extends InheritedWidget {
   @override
   bool updateShouldNotify(OpenUIViewScope oldWidget) {
     return library != oldWidget.library ||
+        theme != oldWidget.theme ||
         mediaUrl != oldWidget.mediaUrl ||
         openLink != oldWidget.openLink ||
         isStreaming != oldWidget.isStreaming ||

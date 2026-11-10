@@ -1,16 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Makes the Stream design system's components below [child] draw with
-/// [theme], whose values are all set: its colors, spacing, corner radii and
-/// text styles replace the tokens [OpenUITheme.of] reads their defaults from in the design system's
-/// theme, and an accent other than the design system's colors links too.
+/// [theme]: its colors, spacing, corner radii and text styles replace the
+/// tokens they default from in the design system's theme, and an accent other
+/// than the design system's colors links too. A text style replaces its token
+/// as a whole, except that the design system's text color stays when it sets none.
 ///
-/// So a [theme] of defaults only, as [OpenUITheme.of] fills them in from the
-/// design system's theme around, changes nothing. Everything else of the app's themes stays,
-/// the component builders the app gives the design system among it.
+/// So a [theme] of defaults only, as the design system's theme around gives
+/// them, changes nothing. Everything else of the app's themes stays, the
+/// component builders the app gives the design system among it.
 ///
 /// Internal to the package.
 @internal
@@ -19,7 +20,7 @@ class OpenUIStreamTheme extends StatelessWidget {
   const OpenUIStreamTheme({super.key, required this.theme, required this.child});
 
   /// The theme the design system's components are drawn with.
-  final OpenUIThemeData theme;
+  final OpenUIResolvedTheme theme;
 
   /// The widget below this one.
   final Widget child;
@@ -44,14 +45,14 @@ class OpenUIStreamTheme extends StatelessWidget {
 }
 
 // The design system's [stream] theme with the tokens [theme] replaces.
-StreamTheme _streamThemeOf(StreamTheme stream, OpenUIThemeData theme) {
+StreamTheme _streamThemeOf(StreamTheme stream, OpenUIResolvedTheme theme) {
   final text = stream.textTheme;
   return stream.copyWith(
         colorScheme: stream.colorScheme.copyWith(
           accentPrimary: theme.accent,
           // Links take the accent, unless it is the design system's own,
           // whose links may have their own color.
-          textLink: theme.accent == stream.colorScheme.accentPrimary ? stream.colorScheme.textLink : theme.accent!,
+          textLink: theme.accent == stream.colorScheme.accentPrimary ? stream.colorScheme.textLink : theme.accent,
           textOnAccent: theme.onAccent,
           textPrimary: theme.text,
           textSecondary: theme.secondaryText,
@@ -74,21 +75,26 @@ StreamTheme _streamThemeOf(StreamTheme stream, OpenUIThemeData theme) {
           xxl: theme.xxlSpacing,
         ),
         radius: stream.radius.copyWith(
-          md: Radius.circular(theme.smallCornerRadius!),
-          lg: Radius.circular(theme.mediumCornerRadius!),
-          xl: Radius.circular(theme.cornerRadius!),
-          max: Radius.circular(theme.pillCornerRadius!),
+          md: Radius.circular(theme.smallCornerRadius),
+          lg: Radius.circular(theme.mediumCornerRadius),
+          xl: Radius.circular(theme.cornerRadius),
+          max: Radius.circular(theme.pillCornerRadius),
         ),
-        // The default OpenUI styles have no color, so the design system's
-        // colors stay.
         textTheme: text.copyWith(
-          headingMd: text.headingMd.merge(theme.title),
-          headingSm: text.headingSm.merge(theme.heading),
-          bodyDefault: text.bodyDefault.merge(theme.body),
-          bodyEmphasis: text.bodyEmphasis.merge(theme.body!.copyWith(fontWeight: text.bodyEmphasis.fontWeight)),
-          captionDefault: text.captionDefault.merge(theme.bodySmall),
-          metadataDefault: text.metadataDefault.merge(theme.caption),
+          headingMd: _replacing(text.headingMd, theme.title),
+          headingSm: _replacing(text.headingSm, theme.heading),
+          bodyDefault: _replacing(text.bodyDefault, theme.body),
+          bodyEmphasis: _replacing(text.bodyEmphasis, theme.body.copyWith(fontWeight: text.bodyEmphasis.fontWeight)),
+          captionDefault: _replacing(text.captionDefault, theme.bodySmall),
+          metadataDefault: _replacing(text.metadataDefault, theme.caption),
         ),
       )
       as StreamTheme;
+}
+
+// [style] in place of the design system's [token], which keeps its color when
+// [style] sets none: the OpenUI styles are colored by the components.
+TextStyle _replacing(TextStyle token, TextStyle style) {
+  if (style.color != null || style.foreground != null) return style;
+  return style.copyWith(color: token.color);
 }

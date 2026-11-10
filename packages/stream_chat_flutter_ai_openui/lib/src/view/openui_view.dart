@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_stream_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -65,28 +66,31 @@ class OpenUIView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context).merge(this.theme);
+    final data = OpenUITheme.of(context).merge(theme);
+    final resolved = OpenUIResolvedTheme.fromData(data, StreamTheme.of(context));
     return OpenUITheme(
-      data: theme,
+      data: data,
       child: OpenUIStreamTheme(
-        theme: theme,
+        theme: resolved,
         child: DefaultTextStyle.merge(
-          style: theme.body!.copyWith(color: theme.text),
+          style: resolved.body.copyWith(color: resolved.text),
           child: IconTheme.merge(
-            data: IconThemeData(color: theme.text),
-            child: ValueListenableBuilder(
-              valueListenable: runtime.root,
-              builder: (context, root, _) {
+            data: IconThemeData(color: resolved.text),
+            child: ListenableBuilder(
+              listenable: Listenable.merge([runtime.root, runtime.streaming]),
+              builder: (context, _) {
+                final root = runtime.root.value;
                 if (root == null) return const SizedBox.shrink();
                 return OpenUIViewScope(
                   library: library,
+                  theme: resolved,
                   mediaUrl: mediaUrl,
                   openLink: onOpenLink,
                   isStreaming: runtime.isStreaming,
                   unknownTypes: _unknownTypes[runtime] ??= {},
                   child: _QueryLoading(
                     isLoading: runtime.isQueryLoading,
-                    spacing: theme.sSpacing!,
+                    spacing: resolved.sSpacing,
                     child: OpenUINodeView(node: root),
                   ),
                 );

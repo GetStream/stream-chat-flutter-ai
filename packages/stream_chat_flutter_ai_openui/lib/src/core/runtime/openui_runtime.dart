@@ -86,7 +86,7 @@ final class OpenUIRuntime {
 
   Map<String, OpenUIValue>? _initialState;
   String? _text;
-  bool _isStreaming = false;
+  final _streaming = ValueNotifier<bool>(false);
   ParseResult? _result;
   String? _storeKey;
   bool _recomputing = false;
@@ -116,7 +116,11 @@ final class OpenUIRuntime {
   Stream<OpenUIActionEvent> get actions => _actions.stream;
 
   /// Whether the reply is still streaming.
-  bool get isStreaming => _isStreaming;
+  bool get isStreaming => _streaming.value;
+
+  /// [isStreaming], notifying when it changes, which a reply that ends with
+  /// the text it already had does without changing [root].
+  ValueListenable<bool> get streaming => _streaming;
 
   /// Reads the reply's whole text so far, `text`.
   ///
@@ -126,9 +130,9 @@ final class OpenUIRuntime {
   /// most [maxPasses] times, and collects the errors.
   void update(String? text, {required bool isStreaming}) {
     if (_disposed) return;
-    if (text == _text && isStreaming == _isStreaming && _result != null) return;
+    if (text == _text && isStreaming == _streaming.value && _result != null) return;
     _text = text;
-    _isStreaming = isStreaming;
+    _streaming.value = isStreaming;
     _result = text == null || text.isEmpty ? null : _parser.set(text, complete: !isStreaming);
     _initializeStore();
     _runQueries();
@@ -160,6 +164,7 @@ final class OpenUIRuntime {
     _queries.dispose();
     unawaited(_actions.close());
     _root.dispose();
+    _streaming.dispose();
     _isQueryLoading.dispose();
     _errors.dispose();
     _state.dispose();
@@ -210,7 +215,7 @@ final class OpenUIRuntime {
   }
 
   void _runQueries() {
-    if (_isStreaming) return;
+    if (_streaming.value) return;
     final result = _result;
     final context = _context();
     OpenUIValue? evaluate(AstNode? node) => node == null ? null : Evaluator.evaluate(node, context);
@@ -264,7 +269,7 @@ final class OpenUIRuntime {
 
   void _collectErrors() {
     if (_disposed) return;
-    if (_isStreaming) {
+    if (_streaming.value) {
       if (_errors.value.isNotEmpty) _errors.value = const [];
       return;
     }

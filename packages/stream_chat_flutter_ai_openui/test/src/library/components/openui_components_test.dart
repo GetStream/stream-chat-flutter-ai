@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 
 import '../../openui_test_app.dart';
@@ -8,7 +9,7 @@ import '../../openui_test_app.dart';
 void main() {
   for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {
     group('drawn with the theme ($name)', () {
-      final theme = OpenUIThemeData.defaults(stream);
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), stream);
 
       testWidgets('Card is a bordered surface as wide as its space, with its children in a column', (tester) async {
         final runtime = testRuntime();
@@ -18,12 +19,12 @@ void main() {
         final box = find.byType(DecoratedBox).first;
         final decoration = tester.widget<DecoratedBox>(box).decoration as BoxDecoration;
         expect(decoration.color, theme.surface);
-        expect(decoration.borderRadius, BorderRadius.circular(theme.cornerRadius!));
+        expect(decoration.borderRadius, BorderRadius.circular(theme.cornerRadius));
         final border = (decoration.border! as Border).top;
         expect(border.width, 0.5);
-        expect(border.color, theme.border!.withValues(alpha: theme.border!.a * 0.6));
+        expect(border.color, theme.border.withValues(alpha: theme.border.a * 0.6));
         expect(tester.getSize(box).width, 360);
-        final padding = theme.lSpacing!;
+        final padding = theme.lSpacing;
         expect(tester.getTopLeft(find.text('A')), tester.getTopLeft(box) + Offset(padding, padding));
         final gap = tester.getTopLeft(find.text('B')).dy - tester.getBottomLeft(find.text('A')).dy;
         expect(gap, theme.mSpacing);
@@ -36,11 +37,11 @@ void main() {
 
         final title = tester.widget<Text>(find.text('Title'));
         expect(title.style!.color, theme.text);
-        expect(title.style!.fontSize, theme.title!.fontSize);
-        expect(title.style!.fontWeight, theme.title!.fontWeight);
+        expect(title.style!.fontSize, theme.title.fontSize);
+        expect(title.style!.fontWeight, theme.title.fontWeight);
         final subtitle = tester.widget<Text>(find.text('Sub'));
         expect(subtitle.style!.color, theme.secondaryText);
-        expect(subtitle.style!.fontSize, theme.bodySmall!.fontSize);
+        expect(subtitle.style!.fontSize, theme.bodySmall.fontSize);
         final gap = tester.getTopLeft(find.text('Sub')).dy - tester.getBottomLeft(find.text('Title')).dy;
         expect(gap, theme.xsSpacing);
       });
@@ -52,8 +53,8 @@ void main() {
 
         final style = _styleOf(tester, 'Hello');
         expect(style.color, theme.text);
-        expect(style.fontSize, theme.body!.fontSize);
-        expect(style.fontWeight, theme.body!.fontWeight);
+        expect(style.fontSize, theme.body.fontSize);
+        expect(style.fontWeight, theme.body.fontWeight);
       });
     });
   }
@@ -90,14 +91,14 @@ void main() {
   });
 
   group('TextContent', () {
-    final styles = OpenUIThemeData.defaults(StreamTheme.light());
+    final styles = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
 
     for (final (size, expected, weight) in [
-      ('small', styles.bodySmall!, styles.bodySmall!.fontWeight),
-      ('large', styles.bodyLarge!, styles.bodyLarge!.fontWeight),
-      ('small-heavy', styles.bodySmall!, FontWeight.w600),
-      ('large-heavy', styles.title!, FontWeight.w700),
-      ('default', styles.body!, styles.body!.fontWeight),
+      ('small', styles.bodySmall, styles.bodySmall.fontWeight),
+      ('large', styles.bodyLarge, styles.bodyLarge.fontWeight),
+      ('small-heavy', styles.bodySmall, FontWeight.w600),
+      ('large-heavy', styles.title, FontWeight.w700),
+      ('default', styles.body, styles.body.fontWeight),
     ]) {
       testWidgets('the size $size draws in its style', (tester) async {
         final runtime = testRuntime();
