@@ -5,8 +5,7 @@ drawn with your app's Stream design system, in light and dark.
 
 This package is a renderer for the generative UI of
 [`stream_chat_flutter_ai`](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/packages/stream_chat_flutter_ai).
-It works on that package's plain `AIUIHost` and `AIUIAction`, and needs no Stream Chat SDK. When the person taps a
-button, you get an `AIUIAction`; forward it to your agent however you like.
+When the person taps a button, the host gets an `AIUIAction`; forward it to your agent.
 
 - [Installation](#installation)
 - [Quickstart](#quickstart)
@@ -96,7 +95,7 @@ final renderer = A2UIRenderer(
   `userMessage` when it wrote one, and the surface's `dataModel` when the agent asked for it.
 
 `toJson()` gives the action for your backend. `toCustomData()` wraps it under the `ai_ui_action` key, for a chat
-message's custom data, such as with the Stream Chat SDK:
+message's custom data:
 
 ```dart
 send: (action) => channel.sendMessage(Message(text: action.label, extraData: action.toCustomData())),
