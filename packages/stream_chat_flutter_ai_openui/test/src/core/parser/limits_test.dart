@@ -53,6 +53,14 @@ void main() {
     expect((root.props['children']! as OpenUIArray).items.length, lessThan(7000));
   });
 
+  test('a root that uses up the node budget leaves state values and queries intact', () {
+    final uses = List.filled(7000, 'item').join(', ');
+    final result = _parse('\$mode = "dark"\nq = Query("tool", {a: 1})\nroot = Stack([$uses])\nitem = Title("x")');
+
+    expect(result.stateDeclarations, {r'$mode': const OpenUIString('dark')});
+    expect(result.queryStatements.single.tool, isNotNull);
+  });
+
   test('a chain of 10,000 operators does not overflow the stack', () {
     expect(() => _parse('root = Title("a"${' + "b"' * 10000})'), returnsNormally);
   });

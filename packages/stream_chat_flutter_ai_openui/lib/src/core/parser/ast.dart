@@ -5,7 +5,7 @@
 library;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 
 /// An expression of OpenUI Lang, as the parser reads it.
@@ -601,7 +601,7 @@ final class StateStatement extends Statement {
 /// A statement `name = Query(tool, args, defaults, refresh)`.
 final class QueryStatement extends Statement {
   /// Creates the query [id] of [call], whose arguments read [deps].
-  const QueryStatement(super.id, this.call, this.deps);
+  QueryStatement(super.id, this.call, List<String>? deps) : deps = deps == null ? null : List.unmodifiable(deps);
 
   /// The `Query(…)` call.
   final AstCall call;
