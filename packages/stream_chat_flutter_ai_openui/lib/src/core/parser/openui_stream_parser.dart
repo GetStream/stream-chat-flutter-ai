@@ -30,9 +30,9 @@ import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 /// its open strings and brackets were closed; when closing them was needed,
 /// the result is marked [ParseMeta.incomplete].
 ///
-/// Some calls return the previous result instead of reading again, so that
-/// reading a reply costs time in proportion to its length however small its
-/// pieces:
+/// Some calls return the previous result instead of reading again, which
+/// keeps the cost of the statement still arriving, and of building the
+/// result, from growing with every piece of a long reply:
 ///
 ///  * when the prepared text hasn't changed since the last call;
 ///  * when the statement still arriving holds at least [longStatement] code
@@ -47,7 +47,8 @@ import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 /// caller says the stream has ended, both rules are lifted, and the result is
 /// what [OpenUILangParser.parse] gives for the whole text, except that
 /// [ParseMeta.statementCount] counts each definition of a name defined twice.
-/// Text given after that continues the same program.
+/// `complete` applies to one call only: text given after it continues the same
+/// program, and the result it gave isn't remembered between calls.
 ///
 /// One parser reads one program. Reading never throws.
 ///
@@ -287,10 +288,10 @@ final class OpenUIStreamParser {
     required int statementCount,
     PartialReference? partialReference,
   }) {
-    _cache.versions = versions;
     return OpenUILangParser.buildResult(
       statements,
       schema,
+      versions: versions,
       incomplete: incomplete,
       statementCount: statementCount,
       partialReference: partialReference,

@@ -125,7 +125,9 @@ final class OpenUILangParser {
   /// the end of a name still arriving.
   ///
   /// With a `cache`, statements whose text and reads are unchanged since an
-  /// earlier pass resolve to what they did then.
+  /// earlier pass resolve to what they did then. `versions` gives each
+  /// statement's version for that cache, and is set on it before anything is
+  /// resolved.
   static ParseResult buildResult(
     Map<String, Statement> statements,
     OpenUILibrarySchema schema, {
@@ -133,7 +135,9 @@ final class OpenUILangParser {
     required int statementCount,
     PartialReference? partialReference,
     MaterializationCache? cache,
+    Map<String, int>? versions,
   }) {
+    if (cache != null && versions != null) cache.versions = versions;
     final entry = _pickEntry(statements, schema.root);
     final symbols = {for (final MapEntry(:key, value: statement) in statements.entries) key: statement.symbol};
     final context = MaterializeContext(
