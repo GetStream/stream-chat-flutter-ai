@@ -96,12 +96,19 @@ class _Gallery extends StatelessWidget {
             // A tile holds an image, not text, so its side is its own.
             ConstrainedBox(
               constraints: BoxConstraints.tight(const Size.square(_tileExtent)),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+              child: Semantics(
+                button: true,
+                // The tile is read by what it shows, and the image in it is not.
+                label: image.alt,
+                excludeSemantics: true,
                 onTap: () => _preview(context, index),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(theme.smallCornerRadius),
-                  child: OpenUIRemoteImage(source: image.src, alt: image.alt),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _preview(context, index),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(theme.smallCornerRadius),
+                    child: OpenUIRemoteImage(source: image.src, alt: image.alt, extent: _tileExtent),
+                  ),
                 ),
               ),
             ),
@@ -145,6 +152,8 @@ class _Preview extends StatefulWidget {
 
 class _PreviewState extends State<_Preview> {
   late final PageController _controller = PageController(initialPage: widget.initial);
+  late int _index = widget.initial;
+  var _showChrome = true;
 
   @override
   void dispose() {
@@ -154,53 +163,33 @@ class _PreviewState extends State<_Preview> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUIViewScope.of(context).theme;
-    return Material(
-      color: theme.surface,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: Padding(
-                padding: EdgeInsets.all(theme.sSpacing),
-                child: StreamButton(
-                  type: .ghost,
-                  size: .small,
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(OpenUIStrings.done),
-                ),
-              ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                itemCount: widget.images.length,
-                itemBuilder: (context, index) {
-                  final image = widget.images[index];
-                  final caption = image.details ?? image.alt;
-                  return Column(
-                    spacing: theme.mSpacing,
-                    children: [
-                      Expanded(
-                        child: OpenUIRemoteImage(source: image.src, alt: image.alt, fit: BoxFit.contain),
-                      ),
-                      if (caption != null)
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(theme.lSpacing, 0, theme.lSpacing, theme.lSpacing),
-                          child: Text(
-                            caption,
-                            textAlign: TextAlign.center,
-                            style: theme.bodySmall.copyWith(color: theme.secondaryText),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+    final current = widget.images[_index];
+    final caption = current.details ?? current.alt;
+    return StreamMediaViewer(
+      showChrome: _showChrome,
+      header: StreamAppBar(
+        automaticallyImplyLeading: false,
+        leading: StreamButton.icon(
+          style: .secondary,
+          type: .ghost,
+          size: .small,
+          icon: Icon(context.streamIcons.xmark),
+          tooltip: OpenUIStrings.done,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      footer: caption == null || caption.isEmpty ? null : StreamBottomAppBar(title: Text(caption)),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _showChrome = !_showChrome),
+        child: PageView.builder(
+          controller: _controller,
+          itemCount: widget.images.length,
+          onPageChanged: (index) => setState(() => _index = index),
+          itemBuilder: (context, index) {
+            final image = widget.images[index];
+            return OpenUIRemoteImage(source: image.src, alt: image.alt, fit: BoxFit.contain);
+          },
         ),
       ),
     );

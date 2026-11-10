@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_node_props.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `SnippetCardBlock`: its `items` as cards, each with a `lhs` and,
 /// beside it or below when there is no room, a smaller `rhs`.
@@ -84,7 +85,8 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
     final image = source != null && source.isNotEmpty;
     final titleNode = item.element('title');
     final body = item.scope.text('body') ?? '';
-    final onImage = image ? const Color(0xFFFFFFFF) : null;
+    final scheme = context.streamColorScheme;
+    final onImage = image ? scheme.textOnAccent : null;
     final titleText = openUIJsonText(item.scope.value('title'));
     final title = titleNode != null && titleNode.typeName == 'Tag'
         ? item.scope.buildNode(titleNode)
@@ -108,12 +110,12 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
                     fit: StackFit.expand,
                     children: [
                       OpenUIRemoteImage(source: source, alt: item.scope.text('bgImageAlt')),
-                      const DecoratedBox(
+                      DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Color(0x26000000), Color(0xB3000000)],
+                            colors: [scheme.backgroundOverlayDark, scheme.backgroundOverlayDarkStrong],
                           ),
                         ),
                       ),
@@ -203,7 +205,8 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
     final bodyNode = item.element('body');
     final bodyScope = bodyNode == null ? null : item.scope.scopeOf(bodyNode);
     final tag = item.element('tag');
-    const white = Color(0xFFFFFFFF);
+    final scheme = context.streamColorScheme;
+    final white = scheme.textOnAccent;
     return ClipRRect(
       borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
       child: Stack(
@@ -214,12 +217,12 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
               fit: StackFit.expand,
               children: [
                 OpenUIRemoteImage(source: item.scope.string('bgImageSrc'), alt: item.scope.text('bgImageAlt')),
-                const DecoratedBox(
+                DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.center,
                       end: Alignment.bottomCenter,
-                      colors: [Color(0x00000000), Color(0xBF000000)],
+                      colors: [scheme.backgroundOverlayDark.withValues(alpha: 0), scheme.backgroundOverlayDarkStrong],
                     ),
                   ),
                 ),

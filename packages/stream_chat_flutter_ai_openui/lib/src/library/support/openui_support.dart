@@ -56,14 +56,44 @@ class OpenUISurface extends StatelessWidget {
   }
 }
 
+/// [text] with the marker that starts a block at the start of each of its
+/// lines escaped, so Markdown reads it as inline text: `# of orders` stays
+/// that, and `1. Paris` isn't a list.
+///
+/// Lines lose their indentation, which would make them code.
+///
+/// Internal to the package.
+@internal
+String openUIEscapeBlockMarkers(String text) => text.split('\n').map(_escapeLine).join('\n');
+
+final _headingMarker = RegExp(r'^#{1,6}(?=\s|$)');
+final _orderedMarker = RegExp(r'^\d{1,9}(?=[.)](\s|$))');
+final _bulletMarker = RegExp(r'^[-+*](?=\s|$)');
+final _ruleLine = RegExp(r'^(?:=+|-+|(?:[-*_][ \t]*){3,})[ \t]*$');
+final _fence = RegExp('^(?:`{3,}|~{3,})');
+
+String _escapeLine(String line) {
+  final text = line.trimLeft();
+  if (text.startsWith('>') || _headingMarker.hasMatch(text) || _fence.hasMatch(text) || _ruleLine.hasMatch(text)) {
+    return '\\$text';
+  }
+  if (_bulletMarker.hasMatch(text)) return '\\$text';
+  final ordered = _orderedMarker.firstMatch(text);
+  if (ordered != null) return '${ordered[0]}\\${text.substring(ordered.end)}';
+  return text;
+}
+
 /// Markdown in [style] and [color], as the design system draws it, with links
 /// opening through the view.
+///
+/// With [inline], [data] is read as inline Markdown: the markers that would
+/// start a block, such as `#` or `1.`, are drawn as the text they are.
 ///
 /// Internal to the package.
 @internal
 class OpenUIMarkdownText extends StatelessWidget {
   /// Creates the Markdown of [data].
-  const OpenUIMarkdownText({super.key, required this.data, this.style, this.color});
+  const OpenUIMarkdownText({super.key, required this.data, this.style, this.color, this.inline = false});
 
   /// The Markdown.
   final String data;
@@ -74,12 +104,18 @@ class OpenUIMarkdownText extends StatelessWidget {
   /// The text color, or `null` for the theme's primary color.
   final Color? color;
 
+  /// Whether [data] is inline Markdown only.
+  final bool inline;
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
     return OpenUIStreamTheme(
       theme: theme.copyWith(body: style, text: color),
-      child: AIMarkdownBody(data: data, onTapLink: (text, href, title) => openOpenUILink(context, href)),
+      child: AIMarkdownBody(
+        data: inline ? openUIEscapeBlockMarkers(data) : data,
+        onTapLink: (text, href, title) => openOpenUILink(context, href),
+      ),
     );
   }
 }
@@ -95,7 +131,7 @@ class OpenUIMarkdownText extends StatelessWidget {
 @internal
 class OpenUIRemoteImage extends StatelessWidget {
   /// Creates the image of [source] described by [alt].
-  const OpenUIRemoteImage({super.key, required this.source, this.alt, this.fit = BoxFit.cover});
+  const OpenUIRemoteImage({super.key, required this.source, this.alt, this.fit = BoxFit.cover, this.extent});
 
   /// The image's address, or `null` for none.
   final String? source;
@@ -106,6 +142,11 @@ class OpenUIRemoteImage extends StatelessWidget {
   /// How the image fills its space.
   final BoxFit fit;
 
+  /// The longer side of the box the image is drawn in, in logical pixels, or
+  /// `null` for the width of the screen. The image is decoded no larger than
+  /// that, as it would fill the memory of a long reply otherwise.
+  final double? extent;
+
   @override
   Widget build(BuildContext context) {
     final uri = source == null ? null : Uri.tryParse(source!.trim());
@@ -113,19 +154,28 @@ class OpenUIRemoteImage extends StatelessWidget {
         ? null
         : OpenUIViewScope.of(context).mediaUrl(uri);
     final label = alt ?? '';
-    final Widget child = url == null
+    final child = url == null
         ? _Placeholder(alt: label)
         : StreamNetworkImage(
             url.toString(),
             fit: fit,
             width: double.infinity,
             height: double.infinity,
+            cacheWidth: _decodeWidth(context, extent),
             placeholderBuilder: (context) => _Placeholder(alt: label, loading: true),
             errorBuilder: (context, error, retry) => _Placeholder(alt: label),
           );
     if (label.isEmpty) return ExcludeSemantics(child: child);
     return Semantics(image: true, label: label, excludeSemantics: true, child: child);
   }
+}
+
+// The width to decode an image at: [extent], the longer side of the box it is
+// drawn in, or the screen's width when that isn't known, in device pixels. Only
+// the width is set, so the image keeps its proportions.
+int _decodeWidth(BuildContext context, double? extent) {
+  final logical = extent ?? MediaQuery.sizeOf(context).width;
+  return (logical * MediaQuery.devicePixelRatioOf(context)).ceil();
 }
 
 class _Placeholder extends StatelessWidget {
@@ -228,9 +278,9 @@ class OpenUITagPill extends StatelessWidget {
     final neutral = variant == null || variant == 'neutral';
     final color = neutral ? theme.secondaryText : openUIVariantColor(theme, variant);
     final (horizontal, vertical, iconSize, style) = switch (size) {
-      'lg' => (12.0, 6.0, 16.0, theme.bodySmall),
-      'md' => (10.0, 4.0, 14.0, theme.caption.copyWith(fontSize: 13)),
-      _ => (8.0, 3.0, 12.0, theme.caption),
+      'lg' => (theme.mSpacing, theme.sSpacing, 16.0, theme.bodySmall),
+      'md' => (theme.mSpacing, theme.xsSpacing, 14.0, theme.caption),
+      _ => (theme.sSpacing, theme.xsSpacing, 12.0, theme.caption),
     };
     return DecoratedBox(
       decoration: BoxDecoration(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
@@ -282,6 +283,49 @@ void main() {
   });
 
   group('sources strip', () {
+    testWidgets('numbers the entries as listed, so one that is no source still counts', (tester) async {
+      final opened = <Uri>[];
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        onOpenLink: opened.add,
+        program:
+            'root = Card([TextContent("A [1] B [2]")], [null, {url: "https://b.dev", title: "B", sourceName: "b"}])',
+      );
+
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsNothing);
+      await tester.tapOnText(find.textRange.ofSubstring('[1]'));
+      expect(opened, isEmpty);
+      await tester.tapOnText(find.textRange.ofSubstring('[2]'));
+      expect(opened, [Uri.parse('https://b.dev')]);
+    });
+
+    for (final (name, url, canOpen, isLink) in [
+      ('a web address', 'https://a.dev', true, true),
+      ('an address the view cannot open', 'ftp://a.dev', true, false),
+      ('a web address when the view opens no links', 'https://a.dev', false, false),
+    ]) {
+      testWidgets('a source with $name ${isLink ? 'is' : 'is not'} announced as a link', (tester) async {
+        final handle = tester.ensureSemantics();
+        final runtime = testRuntime();
+        addTearDown(runtime.dispose);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          onOpenLink: canOpen ? (_) {} : null,
+          program: 'root = Card([TextContent("x")], [{url: "$url", title: "Alpha", sourceName: "a"}])',
+        );
+
+        final flags = tester.getSemantics(find.text('Alpha')).flagsCollection;
+        expect(flags.isLink, isLink);
+        expect(flags.isButton, isLink);
+        handle.dispose();
+      });
+    }
+
     testWidgets('lists each source with its number, title and name, and opens it on tap', (tester) async {
       final opened = <Uri>[];
       final runtime = testRuntime();
@@ -380,25 +424,78 @@ void main() {
       expect(find.text('X'), findsOneWidget);
     });
 
-    testWidgets('ImageGallery wraps tiles by width and opens a preview that Done closes', (tester) async {
+    const gallery =
+        'root = Card([ImageGallery([{src: "https://a.dev/1.png", alt: "One", details: "First"}, {src: "https://a.dev/2.png", alt: "Two"}, {src: "https://a.dev/3.png"}])])';
+
+    testWidgets('ImageGallery wraps its tiles and opens a viewer at the tapped one that Done closes', (tester) async {
       final runtime = testRuntime();
       addTearDown(runtime.dispose);
-      await pumpOpenUI(
-        tester,
-        runtime,
-        program:
-            'root = Card([ImageGallery([{src: "https://a.dev/1.png", alt: "One", details: "First"}, {src: "https://a.dev/2.png", alt: "Two"}])])',
-      );
+      await pumpOpenUI(tester, runtime, program: gallery);
 
-      expect(find.byType(StreamNetworkImage), findsNWidgets(2));
+      expect(find.byType(StreamNetworkImage), findsNWidgets(3));
+      await tester.tap(find.byType(StreamNetworkImage).at(1));
+      await tester.pumpAndSettle();
+      expect(find.byType(StreamMediaViewer), findsOneWidget);
+      expect(find.byType(PageView), findsOneWidget);
+      // Only the tapped image is built in the viewer, besides the tiles.
+      expect(find.byType(StreamNetworkImage), findsNWidgets(4));
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Two'), findsWidgets);
+
+      await tester.tap(find.byTooltip('Done'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StreamMediaViewer), findsNothing);
+    });
+
+    testWidgets('the viewer shows the details of the image, follows the page, and hides its chrome on tap', (
+      tester,
+    ) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, program: gallery);
       await tester.tap(find.byType(StreamNetworkImage).first);
       await tester.pumpAndSettle();
-      expect(find.text('Done'), findsOneWidget);
       expect(find.text('First'), findsOneWidget);
 
-      await tester.tap(find.text('Done'));
+      await tester.fling(find.byType(PageView), const Offset(-600, 0), 1000);
       await tester.pumpAndSettle();
-      expect(find.text('Done'), findsNothing);
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Two'), findsWidgets);
+
+      final viewer = tester.widget<StreamMediaViewer>(find.byType(StreamMediaViewer));
+      expect(viewer.props.showChrome, isTrue);
+      await tester.tapAt(tester.getCenter(find.byType(PageView)));
+      await tester.pumpAndSettle();
+      expect(tester.widget<StreamMediaViewer>(find.byType(StreamMediaViewer)).props.showChrome, isFalse);
+    });
+
+    testWidgets('a tile is a button named by its alt', (tester) async {
+      final handle = tester.ensureSemantics();
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, program: gallery);
+
+      final tile = tester.getSemantics(find.bySemanticsLabel('One'));
+      expect(tile.flagsCollection.isButton, isTrue);
+      expect(tile.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('an image decodes at the size of its box, not its own', (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, program: gallery);
+
+      final ratio = tester.view.devicePixelRatio;
+      final image = tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage).first);
+      expect(image.props.cacheWidth, (100 * ratio).ceil());
+      expect(image.props.cacheHeight, isNull);
+
+      // An image with no box of its own is decoded no wider than the screen.
+      runtime.update('root = Card([ImageBlock("https://a.dev/x.png", "X")])', isStreaming: false);
+      await tester.pump();
+      final block = tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage));
+      expect(block.props.cacheWidth, tester.view.physicalSize.width.ceil());
     });
 
     testWidgets('ImageGallery draws nothing without images', (tester) async {

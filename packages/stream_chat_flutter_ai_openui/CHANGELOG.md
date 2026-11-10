@@ -13,15 +13,9 @@
   `OpenUIComponentBuilder` draws a component from an `OpenUIComponentScope` (`type`, `isStreaming`, `value`, `string`,
   `text`, `number`, `boolean`, `stringList`, `numberList`, `buildProp`, `buildDefault`). The chat `Card`, `CardHeader`
   and `TextContent` are drawn so far.
-- Content components of both libraries are drawn: `MarkDownRenderer`, `Callout` (its `visible` binding and the 3
-  second dismiss included), `TextCallout`, `Separator`, `InlineHeader`, `Label`, `Image`, `ImageBlock`, `ImageGallery`
-  (with a preview of its images) and `CodeBlock`. Images show their `alt` text while they load or when they can't.
-  `CardHeader` shows inline Markdown and links.
-- The chat `Card` shows its `sources` as a strip of numbered sources that open on a tap, and `[n]` in the text of
-  `TextContent` and `MarkDownRenderer` links to the nth source.
-- Data display components are drawn: `Tag`, `TagBlock`, `Icon` (Lucide names, with the icons of the Stream design
-  system) and `EntityList`.
-- Card components are drawn: `Text`, `BoldText`, `IconText`, `ImageText`, `ImageTextLarge`, `MetricIndicatorInline`,
-  `MetricIndicatorWithStrikethrough`, and the `SnippetCardBlock`, `OverviewCardBlock`, `ContextCardBlock`,
-  `CompositeCardBlock` and `VisualCardBlock` that lay out their items as a grid or a carousel. Their `action` and a
-  `Button` in a card do nothing yet.
+- Content, data display and card components of both libraries are drawn: `MarkDownRenderer`, `Callout`, `TextCallout`,
+  `Separator`, `InlineHeader`, `Label`, `Image`, `ImageBlock`, `ImageGallery` (with a viewer of its images), `CodeBlock`,
+  `Tag`, `TagBlock`, `Icon` (Lucide names, with the icons of the Stream design system), `EntityList`, `Text`,
+  `BoldText`, `IconText`, `ImageText`, `ImageTextLarge`, the metric indicators and the five card blocks; the chat
+  `Card` shows its `sources` as a strip that opens on a tap, and `[n]` in text links to the nth source. Their `action`
+  and a `Button` in a card do nothing yet.

@@ -37,10 +37,19 @@ Uri? openUIWebMediaUrl(Uri url) => _isWeb(url) ? url : null;
 void openOpenUILink(BuildContext context, String? href) {
   // Read on a tap, outside a build, so without depending on the scope.
   final openLink = context.getInheritedWidgetOfExactType<OpenUIViewScope>()?.openLink;
-  if (openLink == null || href == null) return;
-  final url = Uri.tryParse(href);
-  if (url == null || !(_isWeb(url) || url.isScheme('mailto'))) return;
+  final url = openableOpenUILink(href);
+  if (openLink == null || url == null) return;
   openLink(url);
+}
+
+/// The URL of [href] when it is a web or email link, `http`, `https` or
+/// `mailto`, and `null` when it is `null`, isn't a URL, or is any other kind.
+///
+/// Internal to the package.
+@internal
+Uri? openableOpenUILink(String? href) {
+  final url = href == null ? null : Uri.tryParse(href);
+  return url != null && (_isWeb(url) || url.isScheme('mailto')) ? url : null;
 }
 
 bool _isWeb(Uri url) => (url.isScheme('http') || url.isScheme('https')) && url.host.isNotEmpty;

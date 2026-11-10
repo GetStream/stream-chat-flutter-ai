@@ -139,7 +139,7 @@ class _EntityRow extends StatelessWidget {
       fontFeatures: row['rightVariant'] == 'number' ? const [FontFeature.tabularFigures()] : null,
     );
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: small ? 5 : 8),
+      padding: EdgeInsets.symmetric(vertical: small ? theme.xsSpacing : theme.sSpacing),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.baseline,

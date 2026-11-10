@@ -99,7 +99,7 @@ class _TrendBadge extends StatelessWidget {
     final icons = context.streamIcons;
     return Semantics(
       container: true,
-      label: up ? OpenUIStrings.trendUp(number) : OpenUIStrings.trendDown(number),
+      label: up ? OpenUIStrings.trendUp('$number%') : OpenUIStrings.trendDown('$number%'),
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(

@@ -50,9 +50,9 @@ void main() {
         EdgeInsets padding(String text) =>
             tester.widget<Padding>(find.ancestor(of: find.text(text), matching: find.byType(Padding)).first).padding
                 as EdgeInsets;
-        expect(padding('S'), const EdgeInsets.symmetric(horizontal: 8, vertical: 3));
-        expect(padding('M'), const EdgeInsets.symmetric(horizontal: 10, vertical: 4));
-        expect(padding('L'), const EdgeInsets.symmetric(horizontal: 12, vertical: 6));
+        expect(padding('S'), EdgeInsets.symmetric(horizontal: theme.sSpacing, vertical: theme.xsSpacing));
+        expect(padding('M'), EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.xsSpacing));
+        expect(padding('L'), EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.sSpacing));
       });
 
       testWidgets('EntityList draws its rows between lines, in the secondary and primary colors', (tester) async {
@@ -105,7 +105,7 @@ void main() {
         expect(value.style!.color, theme.text);
         expect(find.text('5%'), findsOneWidget);
         expect(tester.widget<Text>(find.text('5%')).style!.color, theme.success);
-        expect(find.bySemanticsLabel('Up 5'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 5%'), findsOneWidget);
       });
 
       testWidgets('a trend that goes down is red, and one without a direction draws no badge', (tester) async {
@@ -115,6 +115,7 @@ void main() {
         );
 
         expect(tester.widget<Text>(find.text('2.5%')).style!.color, theme.error);
+        expect(find.bySemanticsLabel('Down 2.5%'), findsOneWidget);
         expect(find.text('5%'), findsNothing);
       });
 

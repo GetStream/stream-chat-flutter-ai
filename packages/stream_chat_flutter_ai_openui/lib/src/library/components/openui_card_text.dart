@@ -49,6 +49,7 @@ Widget _text(BuildContext context, OpenUIComponentScope scope, {required bool bo
         ),
         child: OpenUIMarkdownText(
           data: scope.text('value') ?? '',
+          inline: true,
           style: style.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w400),
         ),
       ),
@@ -92,10 +93,11 @@ class OpenUITitleSubtitle extends StatelessWidget {
       children: [
         OpenUIMarkdownText(
           data: title,
+          inline: true,
           style: theme.bodySmall.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
         ),
         if (subtitle != null && subtitle!.isNotEmpty)
-          OpenUIMarkdownText(data: subtitle!, style: theme.caption, color: theme.secondaryText),
+          OpenUIMarkdownText(data: subtitle!, style: theme.caption, color: theme.secondaryText, inline: true),
       ],
     );
   }
@@ -147,7 +149,7 @@ Widget buildOpenUIImageText(BuildContext context, OpenUIComponentScope scope) {
       // A picture has no text to size it, so its side is its own.
       child: SizedBox.square(
         dimension: size,
-        child: OpenUIRemoteImage(source: scope.string('src'), alt: scope.text('alt')),
+        child: OpenUIRemoteImage(source: scope.string('src'), alt: scope.text('alt'), extent: size),
       ),
     ),
     title: OpenUITitleSubtitle(
