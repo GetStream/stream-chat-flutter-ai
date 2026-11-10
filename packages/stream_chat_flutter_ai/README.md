@@ -455,7 +455,7 @@ controller.isGenerating = false;
 
 ### Composer slots
 
-The composer's four slots are replaced through `streamAIComponentBuilders` (see
+The composer's five slots are replaced through `streamAIComponentBuilders` (see
 [Replacing components](#replacing-components-streamaicomponentbuilders)). Each slot receives a props
 object, a `ChatComposerSlotProps` subclass, rather than a bare controller, which is what lets a slot
 be handed values `ChatComposer` itself owns:
@@ -465,6 +465,7 @@ be handed values `ChatComposer` itself owns:
 | `composerLeading` | `ChatComposerLeadingProps` | `ComposerAttachmentButton`, the "+" button |
 | `composerTrailing` | `ChatComposerTrailingProps` | nothing |
 | `composerInput` | `ChatComposerInputProps` | `ChatComposerInput` |
+| `composerInputTrailing` | `ChatComposerInputTrailingProps` | `SpeechToTextButton`, when `enableSpeechToText` is set |
 | `composerAttachmentSheet` | `ChatComposerAttachmentSheetProps` | `ComposerAttachmentSheet` |
 
 Return `ChatComposer.hidden` from `composerLeading` or `composerTrailing` to leave that slot out,
@@ -474,7 +475,13 @@ Every one of those props carries the composer's wiring — `controller`, `focusN
 `onStop` — so any slot can drive the composer, not just the input. `ChatComposerInputProps` adds
 the text-field configuration (`hintText`, `minLines`, `maxLines`, `textInputAction`,
 `enableSpeechToText`, `speechToTextConfig`) on top, and `ChatComposerAttachmentSheetProps` the
-sheet's `scrollController`.
+sheet's `scrollController`. `ChatComposerInputTrailingProps` is the control at the input's right
+edge, shown while the field is empty or dictation runs, and adds the input's voice-input settings
+and the `speech` controller.
+
+The base also carries `openAttachmentSheet`, which opens the attachment sheet the "+" button opens,
+so a custom `composerLeading` or `composerInputTrailing` can offer the same sheet from its own
+button. It is `null` for props a `ChatComposer` didn't build.
 
 The samples below use core's `StreamButton` and `showStreamSheet`, which come from
 `package:stream_core_flutter/core.dart`.
@@ -1310,6 +1317,7 @@ Every builder, the default it replaces and what it gets:
 | `messageAttachment` | `AIMessageAttachmentView` | `AIMessageAttachmentProps` |
 | `composerLeading` | `ComposerAttachmentButton` (the "+") | `ChatComposerLeadingProps` |
 | `composerInput` | `ChatComposerInput` | `ChatComposerInputProps` |
+| `composerInputTrailing` | `SpeechToTextButton` (with `enableSpeechToText`) | `ChatComposerInputTrailingProps` |
 | `composerTrailing` | nothing | `ChatComposerTrailingProps` |
 | `composerAttachmentSheet` | `ComposerAttachmentSheet` | `ChatComposerAttachmentSheetProps` |
 

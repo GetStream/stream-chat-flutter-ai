@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_button.dart';
+import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 // Here for the [SpeechToTextButton] doc link on `enableSpeechToText` only;
 // nothing in this file's code uses it.
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
@@ -339,7 +340,9 @@ class _ChatComposerState extends State<ChatComposer> {
         // Built once and narrowed per slot: the wiring every slot shares is
         // named here and nowhere else, so a value added later reaches all four
         // without being re-listed four times.
-        final props = ChatComposerInputProps(
+        // Declared first so `openAttachmentSheet` can refer to these props.
+        late final ChatComposerInputProps props;
+        props = ChatComposerInputProps(
           controller: _controller,
           focusNode: _focusNode,
           // Passed through unresolved: `null` means "no hint of your own", and
@@ -356,6 +359,10 @@ class _ChatComposerState extends State<ChatComposer> {
           // tell that stopping is unsupported and hide its own stop
           // affordance.
           onStop: widget.onStopPressed == null ? null : _onStop,
+          openAttachmentSheet: () {
+            if (!context.mounted || _controller.isGenerating) return;
+            unawaited(ComposerAttachmentSheet.show(context, props));
+          },
         );
 
         final leadingProps = ChatComposerLeadingProps.from(props);

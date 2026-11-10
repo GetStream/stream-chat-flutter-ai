@@ -10,7 +10,7 @@
 - `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `AITypingIndicatorView.dotSize` is now nullable; unset, it comes from the theme.
 - `AITypingIndicatorView.dotCount` and `AnimatedDots` are removed; the dots are core's `StreamTypingIndicatorDots`.
-- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`. A `StreamComponentFactory` replaces its parent's builders rather than adding to them, so a per-composer override means a nested factory with all the builders that subtree needs.
+- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerInputTrailing`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`. A `StreamComponentFactory` replaces its parent's builders rather than adding to them, so a per-composer override means a nested factory with all the builders that subtree needs.
 - `ComposerThemeData.fillColor` and `SuggestionsThemeData.backgroundColor` default to transparent, so the composer's pill, "+" button and camera tile, and the suggestion chips, are outlined rather than filled.
 - `ComposerThemeData.sendButtonColor` no longer colors the idle microphone, which is a ghost button in `iconColor`, or the disabled send button, which takes the Stream theme's disabled colors.
 - `ComposerThemeData.fillColor` no longer fills a sheet photo while it loads; `attachmentPlaceholderColor` does.
@@ -28,6 +28,11 @@
 - `ChatComposer.hidden` — returned from the `composerLeading` or `composerTrailing` builder, leaves
   that slot out, gap and all.
 - `ComposerAttachmentButton` — the "+" button a `ChatComposer` leads with by default.
+- `composerInputTrailing` in `streamAIComponentBuilders`, with `ChatComposerInputTrailingProps` —
+  replaces the control at the input's right edge, shown while the field is empty or dictation runs.
+- `ChatComposerSlotProps.openAttachmentSheet` — a custom composer slot, such as `composerLeading`,
+  calls it to open the attachment sheet the "+" button opens.
+- `ComposerAttachmentSheet.show` — opens the attachment sheet from any slot's props.
 - `ComposerAttachmentSheet.scrollController` and `ChatComposerAttachmentSheetProps.scrollController`
   — the sheet's scroll controller. A custom sheet passes it to its scrollable so the sheet scrolls
   with its drag.

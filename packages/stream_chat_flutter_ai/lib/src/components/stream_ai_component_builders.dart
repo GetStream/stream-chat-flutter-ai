@@ -10,6 +10,8 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
@@ -130,8 +132,16 @@ import 'package:stream_core_flutter/core.dart';
 /// * [composerLeading], [composerTrailing] and [composerInput]: the slots of a
 ///   [ChatComposer]. Default to the "+" button, nothing, and
 ///   [ChatComposerInput].
+/// * [composerInputTrailing]: the control at the input's right edge, shown
+///   while no response is generating and the field is empty or dictation runs;
+///   stop and send take the place otherwise. Built whether or not
+///   [ChatComposer.enableSpeechToText] is set, so it can hold any control;
+///   [ChatComposerInputTrailingProps.enableSpeechToText] says whether to draw
+///   a mic. Without it the place holds a [SpeechToTextButton], and only when
+///   [ChatComposer.enableSpeechToText] is set.
 /// * [composerAttachmentSheet]: the sheet the "+" button opens. Defaults to
-///   [ComposerAttachmentSheet].
+///   [ComposerAttachmentSheet]. A custom [composerLeading] opens it with
+///   [ChatComposerSlotProps.openAttachmentSheet].
 Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
   StreamComponentBuilder<AICodeBlockProps>? codeBlock,
   StreamComponentBuilder<AIChartProps>? chart,
@@ -148,6 +158,7 @@ Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
   StreamComponentBuilder<ChatComposerLeadingProps>? composerLeading,
   StreamComponentBuilder<ChatComposerTrailingProps>? composerTrailing,
   StreamComponentBuilder<ChatComposerInputProps>? composerInput,
+  StreamComponentBuilder<ChatComposerInputTrailingProps>? composerInputTrailing,
   StreamComponentBuilder<ChatComposerAttachmentSheetProps>? composerAttachmentSheet,
 }) {
   final builders = [
@@ -166,6 +177,7 @@ Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
     if (composerLeading != null) StreamComponentBuilderExtension(builder: composerLeading),
     if (composerTrailing != null) StreamComponentBuilderExtension(builder: composerTrailing),
     if (composerInput != null) StreamComponentBuilderExtension(builder: composerInput),
+    if (composerInputTrailing != null) StreamComponentBuilderExtension(builder: composerInputTrailing),
     if (composerAttachmentSheet != null) StreamComponentBuilderExtension(builder: composerAttachmentSheet),
   ];
 

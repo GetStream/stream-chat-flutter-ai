@@ -85,10 +85,11 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
 
   @override
   Widget build(BuildContext context) {
-    if (!props.enableSpeechToText) {
+    final slot = context.aiComponentBuilder<ChatComposerInputTrailingProps>();
+    if (!props.enableSpeechToText && slot == null) {
       return ListenableBuilder(
         listenable: props.controller,
-        builder: (context, _) => _buildPill(context),
+        builder: (context, _) => _buildPill(context, slot),
       );
     }
     // Nested rather than `Listenable.merge`d: merge returns a fresh object
@@ -102,12 +103,12 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
       listenable: SpeechToTextController.instance,
       builder: (context, _) => ListenableBuilder(
         listenable: props.controller,
-        builder: (context, _) => _buildPill(context),
+        builder: (context, _) => _buildPill(context, slot),
       ),
     );
   }
 
-  Widget _buildPill(BuildContext context) {
+  Widget _buildPill(BuildContext context, StreamComponentBuilder<ChatComposerInputTrailingProps>? slot) {
     final theme = ResolvedComposerTheme.resolve(context);
     final controller = props.controller;
     // Hoisted: the getter hands back a fresh `List.unmodifiable` copy on every
@@ -168,13 +169,14 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
                 transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
                 child: _TrailingControl(
                   key: ValueKey(
-                    _trailingState(controller, props.enableSpeechToText),
+                    _trailingState(
+                      controller,
+                      enableSpeechToText: props.enableSpeechToText,
+                      hasSlot: slot != null,
+                    ),
                   ),
-                  controller: controller,
-                  onSend: props.onSend,
-                  onStop: props.onStop,
-                  enableSpeechToText: props.enableSpeechToText,
-                  speechToTextConfig: props.speechToTextConfig,
+                  props: props,
+                  slot: slot,
                 ),
               ),
             ],
@@ -188,10 +190,12 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
 /// Identifies which of the trailing control's states is currently active, so
 /// [AnimatedSwitcher] can key on it and animate transitions between them.
 String _trailingState(
-  ChatComposerController controller,
-  bool enableSpeechToText,
-) {
+  ChatComposerController controller, {
+  required bool enableSpeechToText,
+  required bool hasSlot,
+}) {
   if (controller.isGenerating) return 'stop';
+  if (hasSlot && (SpeechToTextController.instance.isListening || !controller.hasContent)) return 'slot';
   // Ahead of the content check: dictation puts its first recognised word in the
   // field, and morphing to send there took away the only control that could
   // stop the session.
@@ -206,33 +210,21 @@ String _trailingState(
 // ---------------------------------------------------------------------------
 
 class _TrailingControl extends StatelessWidget {
-  const _TrailingControl({
-    super.key,
-    required this.controller,
-    required this.onSend,
-    required this.onStop,
-    required this.enableSpeechToText,
-    required this.speechToTextConfig,
-  });
+  const _TrailingControl({super.key, required this.props, required this.slot});
 
-  final ChatComposerController controller;
-  final VoidCallback onSend;
-
-  /// `null` when the host passed no `onStopPressed` — the stop button renders
-  /// disabled rather than offering an action that does nothing.
-  final VoidCallback? onStop;
-  final bool enableSpeechToText;
-  final SpeechToTextConfig speechToTextConfig;
+  final ChatComposerInputProps props;
+  final StreamComponentBuilder<ChatComposerInputTrailingProps>? slot;
 
   @override
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
     final translations = AITranslations.of(context);
+    final controller = props.controller;
 
     if (controller.isGenerating) {
       return ComposerActionButton(
         icon: context.streamIcons.stopFill,
-        onPressed: onStop,
+        onPressed: props.onStop,
         tooltip: translations.stopGenerating,
         color: theme.stopButtonColor,
       );
@@ -240,15 +232,20 @@ class _TrailingControl extends StatelessWidget {
 
     // Checked before `hasContent` — see `_trailingState`, which keys the
     // AnimatedSwitcher on the same ordering.
-    if (enableSpeechToText && (SpeechToTextController.instance.isListening || !controller.hasContent)) {
-      return SpeechToTextButton(controller: controller, config: speechToTextConfig);
+    final speech = SpeechToTextController.instance;
+    final slot = this.slot;
+    if (slot != null && (speech.isListening || !controller.hasContent)) {
+      return slot(context, ChatComposerInputTrailingProps.from(props, speech: speech));
+    }
+    if (props.enableSpeechToText && (speech.isListening || !controller.hasContent)) {
+      return SpeechToTextButton(controller: controller, config: props.speechToTextConfig);
     }
 
     // Disabled rather than absent on an empty field: the button holds its
     // place so the pill's width doesn't jump as the user types.
     return ComposerActionButton(
       icon: context.streamIcons.arrowUp,
-      onPressed: controller.hasContent ? onSend : null,
+      onPressed: controller.hasContent ? props.onSend : null,
       tooltip: translations.send,
       color: theme.sendButtonColor,
     );

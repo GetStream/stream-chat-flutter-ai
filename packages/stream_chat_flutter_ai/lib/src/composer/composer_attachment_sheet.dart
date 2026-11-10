@@ -8,6 +8,7 @@ import 'package:photo_manager/photo_manager.dart';
 // Imported for the [streamAIComponentBuilders] doc links only.
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
@@ -78,6 +79,40 @@ void debugClearAssetPathCache() => _assetPathCache.clear();
 class ComposerAttachmentSheet extends StatefulWidget {
   /// Creates a [ComposerAttachmentSheet].
   const ComposerAttachmentSheet({super.key, required this.controller, this.scrollController});
+
+  /// Opens the attachment sheet from [context] and completes once it is closed.
+  ///
+  /// The sheet is the `composerAttachmentSheet` builder of
+  /// [streamAIComponentBuilders] registered above [context], or a
+  /// [ComposerAttachmentSheet] without one. [props] supplies the wiring the
+  /// sheet's builder receives, and the controller the default sheet edits; the
+  /// props of any slot work.
+  ///
+  /// A [context] below the composer's [Navigator] reaches that builder; the
+  /// sheet keeps it across the push, so it also reaches the route.
+  /// [ChatComposerSlotProps.openAttachmentSheet] calls this with the composer's
+  /// own props and is what a custom slot calls.
+  static Future<void> show(BuildContext context, ChatComposerSlotProps props) {
+    // Read before the push: the sheet is a route of its own, which a factory
+    // below the Navigator doesn't reach.
+    final builder = context.aiComponentBuilder<ChatComposerAttachmentSheetProps>();
+    final components = StreamComponentFactory.of(context);
+    return showStreamSheet<void>(
+      context: context,
+      isDismissible: true,
+      builder: (sheetContext, scrollController) {
+        final sheetProps = ChatComposerAttachmentSheetProps.from(props, scrollController: scrollController);
+        return withStreamComponents(
+          components,
+          Builder(
+            builder: (context) =>
+                builder?.call(context, sheetProps) ??
+                ComposerAttachmentSheet(controller: props.controller, scrollController: scrollController),
+          ),
+        );
+      },
+    );
+  }
 
   /// The controller whose [ChatComposerController.attachments] and
   /// [ChatComposerController.chatOptions] this sheet reads and mutates.
