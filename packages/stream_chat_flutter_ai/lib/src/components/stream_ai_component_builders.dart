@@ -74,20 +74,8 @@ import 'package:stream_core_flutter/core.dart';
 /// * [codeBlock]: a non-chart code fence in markdown. Defaults to
 ///   [CodeBlockView].
 /// * [chart]: a code fence that parsed as chart data. Defaults to [ChartView].
-/// * [math]: a LaTeX expression in markdown, used by an [AIMarkdownBody] given no
-///   `mathBuilder` of its own. Nothing typesets it by default: this package ships
-///   no math engine, so the TeX source shows as text. Set it to reach every reply,
-///   such as in an [AIConversationView]:
-///
-///   ```dart
-///   streamAIComponentBuilders(
-///     math: (context, props) => Math.tex(
-///       props.tex,
-///       textStyle: props.style,
-///       mathStyle: props.inline ? MathStyle.text : MathStyle.display,
-///     ),
-///   )
-///   ```
+/// * [math]: a LaTeX expression in markdown, when the [AIMarkdownBody] has no
+///   `mathBuilder` of its own. Defaults to the TeX source as text.
 /// * [reasoning]: a round of reasoning in [AIMessagePartsView]. Defaults to
 ///   [StreamingReasoningView.part].
 /// * [toolCall]: a tool call's row in [AIMessagePartsView]. Defaults to
