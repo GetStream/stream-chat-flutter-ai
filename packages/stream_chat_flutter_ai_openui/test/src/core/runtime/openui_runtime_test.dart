@@ -302,6 +302,164 @@ void main() {
     expect(runtime.state.value[r'$a'], _v(7));
   });
 
+  group('restored state', () {
+    const first =
+        r'$name = "X"'
+        '\nroot = Stack([Input("n", "N", \$name)])';
+    const second =
+        r'$name = "X"'
+        '\n\$other = 1'
+        '\nroot = Stack([Input("n", "N", \$name)])';
+
+    OpenUIRuntime restored(Map<String, Object?> initialState) => OpenUIRuntime(
+      schema: conformanceLibraries()['spec']!,
+      isBindable: conformanceBindables('spec'),
+      initialState: initialState,
+    );
+
+    OpenUIValue? read(OpenUIRuntime runtime, String name) => runtime.state.value[name];
+
+    test(r'a typed $variable survives a later declaration while the reply streams', () {
+      final rebuilt = restored({r'$name': 'A'})..update(first, isStreaming: true);
+      expect(read(rebuilt, r'$name'), _v('A'));
+      rebuilt.stateField('n', binding: _bindingTo(rebuilt, r'$name')).set(_v('B'));
+      rebuilt.update(second, isStreaming: true);
+
+      expect(read(rebuilt, r'$name'), _v('B'));
+      expect(read(rebuilt, r'$other'), _v(1));
+      rebuilt.dispose();
+    });
+
+    test('a typed form field survives a later declaration while the reply streams', () {
+      final rebuilt = restored({'f': 'A'})..update(first, isStreaming: true);
+      rebuilt.stateField('f').set(_v('B'));
+      rebuilt.update(second, isStreaming: true);
+
+      expect(rebuilt.fieldValue(null, 'f'), _v('B'));
+      rebuilt.dispose();
+    });
+
+    test('restore() after typing still overwrites with the restored value', () {
+      final rebuilt = restored({r'$name': 'A', 'f': 'A'})..update(first, isStreaming: true);
+      rebuilt.stateField('n', binding: _bindingTo(rebuilt, r'$name')).set(_v('B'));
+      rebuilt.stateField('f').set(_v('B'));
+      rebuilt.restore({r'$name': 'C', 'f': 'C'});
+
+      expect(read(rebuilt, r'$name'), _v('C'));
+      expect(rebuilt.fieldValue(null, 'f'), _v('C'));
+      rebuilt.dispose();
+    });
+
+    test(r'restore() runs the queries that read a restored $variable', () async {
+      final rebuilt =
+          OpenUIRuntime(
+            schema: conformanceLibraries()['spec']!,
+            isBindable: conformanceBindables('spec'),
+            tools: tools,
+            timer: timers.call,
+          )..update(
+            r'$s = "a"'
+            '\nq = Query("list", {s: \$s}, null)\nroot = Stack([Input("s", "S", \$s)])',
+            isStreaming: false,
+          );
+      tools.calls.single.answer.complete(_v(1));
+      await pumpMicrotasks();
+      rebuilt.restore({r'$s': 'z'});
+      await timers.elapse(const Duration(milliseconds: 300));
+
+      expect(tools.calls.last.args, {'s': _v('z')});
+      rebuilt.dispose();
+    });
+
+    test('state does not notify on a declaration-only change', () {
+      final rebuilt = restored({r'$name': 'A'})..update(first, isStreaming: true);
+      var notifications = 0;
+      rebuilt.state.addListener(() => notifications += 1);
+      // The declared default changes, the saved value still wins.
+      rebuilt.update(first.replaceFirst('"X"', '"Y"'), isStreaming: true);
+      expect(notifications, 0);
+      rebuilt.update(second, isStreaming: true);
+
+      expect(notifications, 1);
+      expect(read(rebuilt, r'$name'), _v('A'));
+      rebuilt.dispose();
+    });
+
+    test('a persisted value wins over the declared default on the first update', () {
+      final rebuilt = restored({r'$name': 'A'})..update(first, isStreaming: false);
+
+      expect(read(rebuilt, r'$name'), _v('A'));
+      rebuilt.dispose();
+    });
+
+    test('a persisted value given before any text arrived wins over the default that arrives later', () {
+      final rebuilt = restored({r'$name': 'A'})..update(null, isStreaming: true);
+      expect(read(rebuilt, r'$name'), _v('A'));
+      rebuilt.update(first, isStreaming: true);
+
+      expect(read(rebuilt, r'$name'), _v('A'));
+      rebuilt.dispose();
+    });
+
+    test('an untouched key follows its declaration as it changes', () {
+      final rebuilt = restored({r'$kept': 'A'})
+        ..update(
+          r'$name = "X"'
+          '\nroot = Stack([])',
+          isStreaming: true,
+        );
+      expect(read(rebuilt, r'$name'), _v('X'));
+      rebuilt.update(
+        r'$name = "Y"'
+        '\nroot = Stack([])',
+        isStreaming: true,
+      );
+
+      expect(read(rebuilt, r'$name'), _v('Y'));
+      expect(read(rebuilt, r'$kept'), _v('A'));
+      rebuilt.dispose();
+    });
+
+    test('no key is removed when its declaration vanishes while streaming', () {
+      final rebuilt = restored({r'$name': 'A'})
+        ..update(second, isStreaming: true)
+        ..update('root = Stack([])', isStreaming: true);
+
+      expect(read(rebuilt, r'$other'), _v(1));
+      expect(read(rebuilt, r'$name'), _v('A'));
+      rebuilt.dispose();
+    });
+  });
+
+  test('a first update evaluates the tree a number of times that does not grow with its declarations', () {
+    int evaluations(int declarations) {
+      var calls = 0;
+      final counting =
+          OpenUIRuntime(
+            schema: conformanceLibraries()['spec']!,
+            functions: {
+              'Upper': OpenUIFunction((args) {
+                calls += 1;
+                return const OpenUIString('x');
+              }),
+            },
+          )..update(
+            [
+              for (var i = 0; i < declarations; i += 1) '\$v$i = $i',
+              'root = Stack([Text(@Upper("x"))])',
+            ].join('\n'),
+            isStreaming: false,
+          );
+      // ignore: cascade_invocations
+      counting.dispose();
+      return calls;
+    }
+
+    final few = evaluations(1);
+    expect(few, greaterThan(0));
+    expect(evaluations(20), few);
+  });
+
   test(r'a query fetches again when a $variable in its args changes', () async {
     runtime.update(
       r'$s = "a"'
@@ -315,6 +473,23 @@ void main() {
 
     expect(tools.calls.last.args, {'s': _v('b')});
     expect(runtime.isQueryLoading.value, isTrue);
+  });
+
+  test(r'a failed query is not fetched again by keystrokes in a field bound to a $variable', () async {
+    runtime.update(
+      r'$name = ""'
+      '\nq = Query("missing_tool", {}, null)\nroot = Stack([Input("n", "N", \$name)])',
+      isStreaming: false,
+    );
+    tools.calls.single.answer.completeError(Exception('no such tool'));
+    await pumpMicrotasks();
+    for (final text in ['a', 'ab', 'abc']) {
+      runtime.stateField('n', binding: child(0).props['value']).set(_v(text));
+      await timers.elapse(const Duration(milliseconds: 300));
+    }
+
+    expect(tools.calls, hasLength(1));
+    expect(runtime.errors.value, isNotEmpty);
   });
 
   test('an update evaluates the tree at most 8 times when evaluating changes what it reads', () {
@@ -363,6 +538,10 @@ void main() {
     expect(events, isEmpty);
   });
 }
+
+OpenUIValue? _bindingTo(OpenUIRuntime runtime, String target) => runtime.root.value!.props['children'] is OpenUIArray
+    ? ((runtime.root.value!.props['children']! as OpenUIArray).items.first.node.props['value'])
+    : null;
 
 extension on OpenUIValue {
   ElementNode get node => (this as OpenUIElement).node;
