@@ -48,7 +48,7 @@ disabled while one of its checks fails with an error.
 [`A2UIThemeData`](../lib/src/catalog/a2ui_theme.dart) when the app overrides any of them. Where a component is
 drawn by a Stream design system component, the app's own builder for it, registered with `StreamComponentFactory`,
 draws it in A2UI replies too; each section names the hook. To draw a component another way altogether, replace its
-builder in the catalog; see the [README](../README.md#the-components).
+builder in the catalog; see the [README](../README.md#replace-or-remove-a-component).
 
 ## Text
 
@@ -603,7 +603,7 @@ More: [`date_time_input.json`](../example/assets/components/date_time_input.json
 
 The host's `components` are placed by the agent as PascalCase types, such as `PlaceCard`, with the component's
 parameters as properties. They are not part of `A2UICatalog.basic`, hold no other components and no `action`, and are
-described in the [README](../README.md#the-apps-components). The gallery's `place_card` is in the example app's
+described in the [README](../README.md#place-your-apps-components). The gallery's `place_card` is in the example app's
 [Ohrid example](../example/assets/ohrid_prompt_example.jsonl).
 
 ## Agent functions

@@ -69,7 +69,7 @@ void main() {
       final base = File(path).parent.path;
       final missing = [
         for (final match in RegExp(r'\]\(([^)\s]+)\)').allMatches(File(path).readAsStringSync()))
-          if (!_isExternal(match[1]!) && !_exists(base, match[1]!)) match[1],
+          if (!_isExternal(match[1]!) && !_exists(path, base, match[1]!)) match[1],
       ];
 
       expect(missing, isEmpty);
@@ -77,11 +77,24 @@ void main() {
   }
 }
 
-bool _isExternal(String link) => link.startsWith('http') || link.startsWith('#');
+bool _isExternal(String link) => link.startsWith('http');
 
-bool _exists(String base, String link) {
-  final path = '$base/${link.split('#').first}';
-  return FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound;
+bool _exists(String file, String base, String link) {
+  final parts = link.split('#');
+  // A fragment names a heading of the file it is in, or of the one it links.
+  final path = parts.first.isEmpty ? file : '$base/${parts.first}';
+  if (FileSystemEntity.typeSync(path) == FileSystemEntityType.notFound) return false;
+  if (parts.length < 2 || !path.endsWith('.md')) return true;
+  return _anchors(File(path).readAsStringSync()).contains(parts[1]);
+}
+
+// The anchors GitHub gives the headings of [markdown].
+Set<String> _anchors(String markdown) {
+  return {
+    for (final line in const LineSplitter().convert(markdown))
+      if (RegExp('^#{1,6} (.*)').firstMatch(line) case final match?)
+        match[1]!.toLowerCase().replaceAll(RegExp(r'[^\w\s-]'), '').trim().replaceAll(RegExp(r'\s+'), '-'),
+  };
 }
 
 // `AudioPlayer` as `audio_player`, the name of its example.
