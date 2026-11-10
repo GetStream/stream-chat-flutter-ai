@@ -11,11 +11,24 @@ runs:
       shell: bash
       run: melos bootstrap --verbose
 
+    # Every package directly under packages/ — the examples sit one level
+    # deeper, so the glob skips them.
+    #
     # Only analyze lib/; non-client code doesn't need to work on
     # all supported legacy versions.
     #
     # `--exclude-tags golden` is why this doesn't need the committed CI
     # goldens, which are pinned to the `test` job's Flutter version.
-    - name: "Stream Chat Flutter AI Analyze"
+    - name: "Analyze and Test Packages"
       shell: bash
-      run: cd packages/stream_chat_flutter_ai/lib && dart analyze --fatal-infos . && cd .. && flutter test --exclude-tags golden
+      run: |
+        set -euo pipefail
+        for pubspec in packages/*/pubspec.yaml; do
+          package=$(dirname "$pubspec")
+          echo "::group::$package"
+          (cd "$package" && dart analyze --fatal-infos lib)
+          if [[ -d "$package/test" ]]; then
+            (cd "$package" && flutter test --exclude-tags golden)
+          fi
+          echo "::endgroup::"
+        done

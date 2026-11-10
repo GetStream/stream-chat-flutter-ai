@@ -14,7 +14,7 @@ import 'package:stream_chat_flutter_ai/src/reasoning/resolved_reasoning_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: the `theme` parameter is a [ReasoningThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/reasoning_theme.dart';
-import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Live text shorter than this many characters, arriving as the panel first
 /// appears, is
@@ -545,12 +545,15 @@ class _Header extends StatelessWidget {
     );
     Widget icon = Icon(Icons.psychology_outlined, size: iconSize, color: theme.iconColor);
     if (activity case final activity?) {
-      titleText = Shimmer(
-        animation: activity,
-        // The resolved style carries a color or a `foreground` paint.
-        base: titleStyle.color ?? titleStyle.foreground?.color ?? theme.iconColor,
-        highlight: theme.shimmerColor,
-        child: titleText,
+      // Core's default shimmer, not the factory's `skeletonLoading` placeholders.
+      titleText = DefaultStreamSkeletonLoading(
+        props: StreamSkeletonLoadingProps(
+          // The resolved style carries a color or a `foreground` paint.
+          baseColor: titleStyle.color ?? titleStyle.foreground?.color ?? theme.iconColor,
+          highlightColor: theme.shimmerColor,
+          period: const Duration(milliseconds: 1400),
+          child: titleText,
+        ),
       );
       icon = _Pulse(animation: activity, child: icon);
     }
@@ -565,7 +568,7 @@ class _Header extends StatelessWidget {
         RotationTransition(
           // A quarter turn towards the reading direction's "down".
           turns: Tween<double>(begin: 0, end: rtl ? -0.25 : 0.25).animate(fold),
-          child: Icon(Icons.chevron_right, size: iconSize, color: theme.iconColor),
+          child: Icon(context.streamIcons.chevronRight, size: iconSize, color: theme.iconColor),
         ),
       ],
     );

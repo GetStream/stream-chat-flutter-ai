@@ -5,16 +5,20 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_call_part.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/tools/ai_client_tool_runner.dart';
+import 'package:stream_chat_flutter_ai/src/tools/ai_install_id_store.dart';
 
 /// Who is signed in on this device, and which install this is — what a tool
 /// call's `target_user_id` and `target_client_id` are matched against.
 ///
 /// The host supplies both: [userId] from its chat client's signed-in user, and
-/// [clientId] from an id it keeps per install (generated once and persisted).
-/// This package stores neither.
+/// [clientId] from an id kept per install, such as the one [installId] creates
+/// and keeps.
 ///
 /// ```dart
-/// final identity = AIClientIdentity(userId: currentUser.id, clientId: installId);
+/// final identity = AIClientIdentity(
+///   userId: currentUser.id,
+///   clientId: await AIClientIdentity.installId(),
+/// );
 /// ```
 ///
 /// Three matchers say what this device may do with a call, and they treat a
@@ -40,6 +44,26 @@ class AIClientIdentity {
   /// This install, matched against a call's `target_client_id`. `null` when
   /// the host keeps no install id: calls naming an install then never match.
   final String? clientId;
+
+  /// Returns the id of this install of the app, to pass as [clientId].
+  ///
+  /// The first call creates the id and stores it on the device. Later calls,
+  /// including concurrent ones and those in later launches, complete with the
+  /// same id. Clearing the app's data (on the web, the site's data) removes the
+  /// id, as does uninstalling the app on Android and iOS; the next call then
+  /// creates a new one.
+  ///
+  /// On Android, iOS and macOS the id is kept out of backups, so a device
+  /// restored from one gets an id of its own instead of sharing the old
+  /// device's.
+  ///
+  /// Consider reading the id once per sign-in and passing that same value both
+  /// to the [AIClientIdentity] of the runner and approver and as `client_id`
+  /// on every message, so that the two always agree.
+  ///
+  /// If the id can't be read or stored, the returned future completes with
+  /// that error, and the next call tries again.
+  static Future<String> installId() => AIInstallIdStore.installId();
 
   /// Whether [call] waits for this person to answer its question, on this
   /// device. See [AIToolCallPart.isAwaitingApproval].

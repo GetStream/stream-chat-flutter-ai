@@ -11,7 +11,9 @@ syntax-highlighted code blocks, charts, a purpose-built AI composer, and speech-
 
 The package has **no dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 package** — every widget operates on plain strings, callbacks, and controllers, so it can be
-dropped into any Flutter app or paired with any backend/LLM provider. Wiring it up to a Stream Chat
+dropped into any Flutter app or paired with any backend/LLM provider. It is built on Stream's design
+system, [`stream_core_flutter`](https://pub.dev/packages/stream_core_flutter), so it looks and
+extends the same way as Stream Chat's widgets. Wiring it up to a Stream Chat
 channel is documented as an optional integration.
 
 **Quick Links**
@@ -27,6 +29,7 @@ channel is documented as an optional integration.
 | Package | Pub | Description |
 | --- | --- | --- |
 | [`stream_chat_flutter_ai`](packages/stream_chat_flutter_ai) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai) | AI chat UI components: `StreamingMessageView`, `ChatComposer`, `AITypingIndicatorView`, `ChartView`, `CodeBlockView` and more. |
+| [`stream_chat_flutter_ai_a2ui`](packages/stream_chat_flutter_ai_a2ui) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai_a2ui.svg)](https://pub.dev/packages/stream_chat_flutter_ai_a2ui) | Shows the interactive UI an agent writes in [A2UI](https://a2ui.org) in its replies, through the core package's generative UI. |
 
 See the [package README](packages/stream_chat_flutter_ai/README.md) for the full component
 reference.

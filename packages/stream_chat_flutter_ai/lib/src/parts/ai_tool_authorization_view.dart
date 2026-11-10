@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization.dart';
@@ -14,6 +14,7 @@ import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_approval_theme.da
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: [ToolApprovalThemeData] is a parameter type.
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiToolAuthorizationView}
 /// Asks the person a tool call waits for to sign in at the provider it needs
@@ -63,10 +64,11 @@ import 'package:stream_chat_flutter_ai/src/theme/components/tool_approval_theme.
 /// )
 /// ```
 ///
-/// Without one it shows [AIComponentBuilders.toolAuthorization] — by default
+/// Without one it shows the `toolAuthorization` builder registered with
+/// [streamAIComponentBuilders] — by default
 /// an [AIToolAuthorizationCard], styled like the approval card: by [theme],
 /// then the nearest [ToolApprovalTheme], then [AITheme.toolApprovalTheme].
-/// Override that slot to replace the card everywhere.
+/// Register that builder to replace the card everywhere.
 /// {@endtemplate}
 class AIToolAuthorizationView extends StatefulWidget {
   /// {@macro aiToolAuthorizationView}
@@ -79,7 +81,8 @@ class AIToolAuthorizationView extends StatefulWidget {
   /// needs, and where the answer is.
   final AIToolApprover approver;
 
-  /// Builds your own content in place of [AIComponentBuilders.toolAuthorization].
+  /// Builds your own content in place of the `toolAuthorization` builder of
+  /// [streamAIComponentBuilders].
   final AIToolAuthorizationContentBuilder? builder;
 
   /// Overrides for the default card, layered over the ambient
@@ -190,7 +193,7 @@ class _AIToolAuthorizationViewState extends State<AIToolAuthorizationView> {
       onDecline: decline,
       theme: widget.theme,
     );
-    return AIComponentFactory.of(context).toolAuthorization?.call(context, props) ??
+    return context.aiComponentBuilder<AIToolAuthorizationProps>()?.call(context, props) ??
         AIToolAuthorizationCard(
           authorization: props.authorization,
           state: props.state,
@@ -256,6 +259,8 @@ class AIToolAuthorizationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = ResolvedToolApprovalTheme.resolve(context, override: this.theme);
     final translations = AITranslations.of(context);
+    final colors = context.streamColorScheme;
+    final spacing = context.streamSpacing;
     final message = authorization.message?.trim() ?? '';
     final failure = switch (state) {
       AIToolAuthorizationState(connectFailed: true) => translations.toolAuthorizationNotOpened,
@@ -272,10 +277,10 @@ class AIToolAuthorizationCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.backgroundColor,
             border: Border.all(color: theme.borderColor),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(context.streamRadius.lg),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(spacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -286,18 +291,24 @@ class AIToolAuthorizationCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(message, style: theme.messageStyle),
                   ),
-                const SizedBox(height: 12),
+                SizedBox(height: spacing.sm),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: spacing.xs,
+                  runSpacing: spacing.xs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    FilledButton(
+                    StreamButton(
                       onPressed: state.canConnect ? onConnect : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: theme.accentColor,
-                        foregroundColor: theme.onAccentColor,
-                        visualDensity: VisualDensity.compact,
+                      size: .medium,
+                      themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
+                        backgroundColor: .resolveWith(
+                          (states) =>
+                              states.contains(WidgetState.disabled) ? colors.backgroundDisabled : theme.accentColor,
+                        ),
+                        foregroundColor: .resolveWith(
+                          (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.onAccentColor,
+                        ),
                       ),
                       child: Text(
                         state.isConnecting
@@ -305,12 +316,17 @@ class AIToolAuthorizationCard extends StatelessWidget {
                             : translations.toolAuthorizationConnect,
                       ),
                     ),
-                    OutlinedButton(
+                    StreamButton(
                       onPressed: state.isDeclining ? null : onDecline,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.accentColor,
-                        side: BorderSide(color: theme.borderColor),
-                        visualDensity: VisualDensity.compact,
+                      style: .secondary,
+                      type: .outline,
+                      size: .medium,
+                      themeStyle: StreamButtonThemeStyle(
+                        tapTargetSize: .shrinkWrap,
+                        foregroundColor: .resolveWith(
+                          (states) => states.contains(WidgetState.disabled) ? colors.textDisabled : theme.accentColor,
+                        ),
+                        borderColor: .all(theme.borderColor),
                       ),
                       child: Text(translations.toolAuthorizationDecline),
                     ),
@@ -324,7 +340,7 @@ class AIToolAuthorizationCard extends StatelessWidget {
                 ),
                 if (state.isExpired)
                   Padding(
-                    padding: const EdgeInsets.only(top: 12),
+                    padding: EdgeInsets.only(top: spacing.sm),
                     child: Semantics(
                       liveRegion: true,
                       child: Text(translations.toolAuthorizationExpired, style: theme.messageStyle),
@@ -332,7 +348,7 @@ class AIToolAuthorizationCard extends StatelessWidget {
                   ),
                 if (failure != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 12),
+                    padding: EdgeInsets.only(top: spacing.sm),
                     child: Semantics(
                       liveRegion: true,
                       child: Text(failure, style: theme.failureStyle),
@@ -359,15 +375,16 @@ class _Busy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    const size = 16.0;
     final indicator = ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: size,
-        // A spinner never stops, so reduced motion gets a still "in progress".
-        child: reduceMotion
-            ? Icon(Icons.more_horiz_rounded, size: size, color: color)
-            : CircularProgressIndicator(strokeWidth: 2, color: color),
-      ),
+      // A spinner never stops, so reduced motion gets a still "in progress".
+      child: reduceMotion
+          ? Icon(context.streamIcons.moreHorizontal, size: 16, color: color)
+          : StreamLoadingSpinner(
+              size: .xs,
+              color: color,
+              backgroundColor: StreamColors.transparent,
+              trackColor: StreamColors.transparent,
+            ),
     );
     final label = this.label;
     if (label == null) return indicator;

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:flutter/widgets.dart';
 // Imported for the doc links below only.
-import 'package:stream_chat_flutter_ai/src/components/ai_component_factory.dart';
+import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approval_view.dart';
@@ -25,7 +25,7 @@ typedef AIToolApprovalDecider = Future<void> Function(AIToolCallPart call, AIToo
 typedef AIToolApprovalAnswer = void Function(AIToolApprovalDecision decision);
 
 /// Builds your own content for an [AIToolApprovalView] in place of
-/// [AIComponentBuilders.toolApproval].
+/// the `toolApproval` builder of [streamAIComponentBuilders].
 ///
 /// [approval] is the call's question, or `null` when the call awaits approval
 /// without one — ask in your own words then. [state] says where the answer
@@ -40,7 +40,7 @@ typedef AIToolApprovalContentBuilder =
     );
 
 /// Builds your own content for an [AIToolAuthorizationView] in place of
-/// [AIComponentBuilders.toolAuthorization].
+/// the `toolAuthorization` builder of [streamAIComponentBuilders].
 ///
 /// [authorization] is the call's sign-in. [state] says where the person's
 /// answer is; [connect] opens the sign-in and [decline] sends their "not now",

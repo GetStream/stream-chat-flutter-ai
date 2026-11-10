@@ -1,0 +1,41 @@
+# Test fixtures
+
+- `ios_a2ui_stream_messages.json` — the reference splits: the messages StreamChatA2UI's `A2UIStream.messages` finds in 33 texts,
+  produced by running it (stream-chat-swift `develop` @ `be3e9db`,
+  `Sources/StreamChatA2UI/Facade/A2UIStream.swift`, copied unchanged into a Swift driver). Each case holds its
+  `input` and the `messages` found.
+- `ohrid_prompt_example.jsonl` — the A2UI block of the Ohrid weekend example in the prompt the Stream agent
+  backend gives its model (GetStream/Vision-Agents `accelerate` @ `4ff3a65`,
+  `examples/voice_agents/swift_assistant/a2ui/prompt.json`, `examples[0]`), unchanged.
+- `ios_a2ui_flex.json` — the free-space math of a row or a column: StreamChatA2UI's `A2UIFlex.slots` and
+  `A2UIFlex.offsets` for 12 cases each, produced by running them (stream-chat-swift `develop` @ `be3e9db`,
+  `Sources/StreamChatA2UI/Catalog/Components/A2UIFlexLayout.swift`, `enum A2UIFlex` copied unchanged into a Swift
+  driver).
+- `ios_date_values.json` — the ISO 8601 values a `DateTimeInput` writes and the dates it reads:
+  StreamChatA2UI's `A2UIDateTimeInputView.format` and `A2UIDateParser.date` for 3 instants and 12 texts in 4 time
+  zones, produced by running them (stream-chat-swift `develop` @ `be3e9db`,
+  `Sources/StreamChatA2UI/Catalog/Components/InputComponents.swift`, `Catalog/Functions/FormatFunctions.swift`,
+  `Model/RendererMessage.swift` `A2UITimestamp`, copied unchanged into a Swift driver). `kind` is `format` (with
+  `epoch`, `enableDate`, `enableTime` and the `value` written) or `parse` (with the `input` and the `epoch` read, or
+  `null`).
+- `upstream_examples/` — the 43 examples published with the A2UI 1.0 basic catalog (a2ui-project/a2ui @ `d378d20`,
+  `catalogs/basic/v1/examples/`), unchanged.
+- `ios_action_labels.json` — the label of an action: StreamChatA2UI's `A2UIEngine.words(of:)` for 30 event names
+  (`words`), and its `buttonText(of:messageID:)` rule over 10 shapes of a button's child (`buttonText`, `<nil>` when it
+  gives none), produced by running them (stream-chat-swift `develop` @ `78b4612`, `Sources/StreamChatA2UI/AIUI/A2UIEngine.swift`
+  lines 161-189: `words(of:)` copied unchanged, `buttonText` with the same casts over plain component properties,
+  into a Swift driver). The package follows the `buttonText` rule where iOS and Android agree; for a text bound to an
+  absolute path, blank text and a number it follows Android, so those cases document iOS only.
+- `ios_app_component_types.json` — the A2UI type of an app component: StreamChatA2UI's `PortableComponent.typeName`
+  for 15 names (`name` → `type`), produced by running it (stream-chat-swift `develop` @ `78b4612`,
+  `Sources/StreamChatA2UI/Catalog/PortableComponent.swift` lines 21-26, copied unchanged into a Swift driver). The
+  case `ßeta_card` documents iOS only: Dart's `toUpperCase` keeps `ß`.
+- `ios_a2ui_instructions.json` — the instructions an agent is told: StreamChatA2UI's `A2UIRenderer.capabilities`
+  `instructions`, produced by running it (stream-chat-swift `develop` @ `78b4612`, in an XCTest on the iOS
+  simulator). `basic` is `A2UIRenderer()` with no components or tools; `full` is
+  `A2UIRenderer(catalog: BasicCatalog.catalog.removing(components: ["Video"]), catalogId: "app", instructions: "Show places as cards.")`
+  with a `place_card` component (description `A place`, a required string `title`, an event described
+  `Tapping it asks about the place`) and two tools, `list_events` (read-only, a `day` string argument) and
+  `add_reminder`. Every section but the catalog's JSON reads the same in the package; the catalog's JSON is written
+  by the A2UI core library the package uses, so only its components, functions and the app component's schema are
+  compared.

@@ -22,6 +22,8 @@ jobs:
           # with in .github/dependabot.yml.
           scopes: |
             ai
+            a2ui
+            openui
             repo
             docs
             deps
@@ -33,13 +35,15 @@ jobs:
     needs: conventional_pr_title # Trigger after the [conventional_pr_title] completes
     runs-on: ubuntu-latest
     steps:
-      # Only `ai` is mapped, so `repo`/`docs`/`deps` PRs aren't required to
-      # touch a CHANGELOG.
+      # Only `ai`, `a2ui` and `openui` are mapped, so `repo`/`docs`/`deps` PRs
+      # aren't required to touch a CHANGELOG.
       - uses: GetStream/verify-semantic-changelog-update@main
         with:
           scopes: |
             {
-              "ai": "packages/stream_chat_flutter_ai"
+              "ai": "packages/stream_chat_flutter_ai",
+              "a2ui": "packages/stream_chat_flutter_ai_a2ui",
+              "openui": "packages/stream_chat_flutter_ai_openui"
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

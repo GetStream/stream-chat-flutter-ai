@@ -6,6 +6,8 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text_platform_interface/speech_to_text_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 
+const _icons = StreamIcons();
+
 /// The first-use paths: the permission prompt, and what happens when it is
 /// declined.
 ///
@@ -131,7 +133,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byIcon(Icons.mic_none_rounded));
+    await tester.tap(find.byIcon(_icons.voice));
     await tester.pump();
     expect(controller.isAvailable, isNotNull);
     await controller.cancel();

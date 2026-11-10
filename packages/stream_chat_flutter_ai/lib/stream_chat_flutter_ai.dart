@@ -10,6 +10,25 @@ export 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownS
 // react to a dictation failure would otherwise have to depend on
 // `speech_to_text` directly just to name the parameter's type.
 export 'package:speech_to_text/speech_recognition_error.dart' show SpeechRecognitionError;
+// Only what this package's own API needs from Stream's design system: the
+// theme with its tokens, and the component factory the builders register with.
+// Core's widgets (`StreamButton`, `showStreamSheet`, …) come from
+// `stream_core_flutter` itself, so its API doesn't become part of this one.
+export 'package:stream_core_flutter/core.dart'
+    show
+        StreamColorScheme,
+        StreamColors,
+        StreamComponentBuilder,
+        StreamComponentBuilderExtension,
+        StreamComponentBuilders,
+        StreamComponentFactory,
+        StreamComponentFactoryExtension,
+        StreamIcons,
+        StreamRadius,
+        StreamSpacing,
+        StreamTextTheme,
+        StreamTheme,
+        StreamThemeExtension;
 
 export 'src/ai_markdown_body.dart';
 export 'src/ai_typing_indicator_view.dart';
@@ -18,14 +37,14 @@ export 'src/chart/chart_view.dart';
 export 'src/chart/heatmap_chart_view.dart';
 export 'src/chart/uspec.dart';
 export 'src/code_block_view.dart';
-export 'src/components/ai_component_factory.dart';
+export 'src/components/stream_ai_component_builders.dart' hide withStreamComponents;
 export 'src/composer/chat_composer.dart';
 export 'src/composer/chat_composer_controller.dart';
-export 'src/composer/chat_composer_factory.dart';
 export 'src/composer/chat_composer_input.dart';
 export 'src/composer/chat_composer_props.dart';
 export 'src/composer/chat_option.dart';
 export 'src/composer/composer_action_button.dart';
+export 'src/composer/composer_attachment_button.dart';
 export 'src/composer/composer_attachment_sheet.dart';
 export 'src/composer/speech_to_text_button.dart';
 export 'src/composer/speech_to_text_controller.dart';
@@ -37,6 +56,17 @@ export 'src/conversation/ai_message_attachment.dart';
 export 'src/conversation/ai_message_attachment_view.dart';
 export 'src/conversation/ai_thinking_view.dart';
 export 'src/conversation/ai_user_message_view.dart';
+export 'src/genui/ai_ui_action.dart';
+export 'src/genui/ai_ui_arguments.dart';
+export 'src/genui/ai_ui_component.dart';
+export 'src/genui/ai_ui_component_context.dart';
+export 'src/genui/ai_ui_component_definition.dart';
+export 'src/genui/ai_ui_document.dart';
+export 'src/genui/ai_ui_entrance.dart';
+export 'src/genui/ai_ui_format.dart';
+export 'src/genui/ai_ui_host.dart';
+export 'src/genui/ai_ui_parameter.dart';
+export 'src/genui/ai_ui_renderer.dart';
 export 'src/local_model/ai_conversation_turn.dart';
 export 'src/local_model/ai_local_model.dart';
 export 'src/local_model/ai_local_model_exception.dart';
@@ -66,7 +96,6 @@ export 'src/theme/components/suggestions_theme.dart';
 export 'src/theme/components/tool_approval_theme.dart';
 export 'src/theme/components/tool_call_theme.dart';
 export 'src/theme/components/typing_indicator_theme.dart';
-
 export 'src/tools/ai_client_identity.dart';
 export 'src/tools/ai_client_tool_result.dart';
 export 'src/tools/ai_client_tool_runner.dart';

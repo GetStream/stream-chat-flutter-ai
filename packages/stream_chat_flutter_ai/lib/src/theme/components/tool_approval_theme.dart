@@ -6,6 +6,8 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_authorization_view.dart
 // Not doc-only: [ToolApprovalTheme.of] reads it.
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
+// Imported for the doc links below only.
+import 'package:stream_core_flutter/core.dart';
 
 /// Overrides for how [AIToolApprovalCard] and the sign-in card,
 /// [AIToolAuthorizationCard], are drawn: the question and its message, the
@@ -13,7 +15,9 @@ import 'package:stream_chat_flutter_ai/src/theme/theme_lerp.dart';
 /// "couldn't be sent" line.
 ///
 /// Every field is nullable, and `null` means "use the default", which derives
-/// from the ambient [ThemeData] — so one instance covers light and dark mode.
+/// from the Stream theme ([StreamTheme], which falls back to Stream's defaults for
+/// the app's brightness when the app sets none) — so one instance covers light and dark
+/// mode.
 ///
 /// ```dart
 /// MaterialApp(
@@ -40,27 +44,28 @@ class ToolApprovalThemeData with Diagnosticable {
   });
 
   /// The question's style — "Send the summary by email?", or a sign-in's
-  /// "Connect Linear" — merged over a semibold [TextTheme.bodyMedium] in [ColorScheme.onSurface].
+  /// "Connect Linear" — merged over the Stream theme's `bodyEmphasis` in
+  /// `textPrimary`.
   final TextStyle? titleStyle;
 
   /// The style of the agent's reason and of what allowing the call shares,
-  /// merged over [TextTheme.bodySmall] in [ColorScheme.onSurfaceVariant].
+  /// merged over the Stream theme's `captionDefault` in `textSecondary`.
   final TextStyle? messageStyle;
 
-  /// The card's fill. Defaults to [ColorScheme.surfaceContainerLow].
+  /// The card's fill. Defaults to the Stream theme's `backgroundSurfaceCard`.
   final Color? backgroundColor;
 
   /// The card's border, and the decline or Not now button's outline. Defaults to
-  /// [ColorScheme.outlineVariant].
+  /// the Stream theme's `borderDefault`.
   final Color? borderColor;
 
   /// The allow or Connect button's fill, and the decline or Not now button's
-  /// text. Defaults to [ColorScheme.primary].
+  /// text. Defaults to the Stream theme's `accentPrimary`.
   final Color? accentColor;
 
   /// The style of the line shown when an answer or a sign-in's "not now"
-  /// couldn't be sent, or its page couldn't be opened, merged over
-  /// [TextTheme.bodySmall] in [ColorScheme.error].
+  /// couldn't be sent, or its page couldn't be opened, merged over the Stream
+  /// theme's `captionDefault` in `accentError`.
   final TextStyle? failureStyle;
 
   /// Returns a copy with the given fields replaced. A `null` argument keeps the

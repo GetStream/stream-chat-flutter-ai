@@ -7,7 +7,7 @@ import 'package:stream_chat_flutter_ai/src/parts/resolved_tool_call_theme.dart';
 import 'package:stream_chat_flutter_ai/src/theme/ai_theme.dart';
 // Not doc-only: the `theme` parameter is a [ToolCallThemeData].
 import 'package:stream_chat_flutter_ai/src/theme/components/tool_call_theme.dart';
-import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// {@template aiToolCallView}
 /// One tool call an agent made: what it is doing, how it went, and how long it
@@ -44,8 +44,7 @@ import 'package:stream_chat_flutter_ai/src/util/shimmer.dart';
 /// It is a row of text, so give it a bounded width, as a chat list does.
 ///
 /// Styling resolves per field: [theme], then the nearest [ToolCallTheme], then
-/// [AITheme.toolCallTheme], then the defaults, most of them derived from the
-/// ambient [ThemeData].
+/// [AITheme.toolCallTheme], then the defaults derived from the Stream theme.
 ///
 /// **Accessibility.** The row is a single node whose label reads the title,
 /// the status, the summary and the duration, such as "Checking the weather,
@@ -146,11 +145,7 @@ enum _ToolCallState {
   };
 }
 
-class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProviderStateMixin {
-  /// Drives the shimmer while the call waits. Created on first use, so a
-  /// finished call never allocates a ticker.
-  AnimationController? _shimmer;
-
+class _AIToolCallViewState extends State<AIToolCallView> {
   bool _reduceMotion = false;
 
   /// Whether this row has shown the call running or waiting, making it a live
@@ -170,7 +165,6 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    _syncShimmer();
   }
 
   @override
@@ -178,13 +172,6 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
     super.didUpdateWidget(oldWidget);
     if (oldWidget.call.status != widget.call.status) _reportUnknownStatus();
     _announces = _announces || _ToolCallState.of(widget.call).isLive;
-    _syncShimmer();
-  }
-
-  @override
-  void dispose() {
-    _shimmer?.dispose();
-    super.dispose();
   }
 
   /// In debug builds, says so whenever the row starts showing a status this
@@ -197,16 +184,6 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
           'ai_tool_call "${widget.call.id}" has a status this package does not know, "$status"; '
           'it is shown as still running.',
     );
-  }
-
-  /// Runs the shimmer only while the call's icon waits and motion is on.
-  void _syncShimmer() {
-    if (_ToolCallState.ofStatus(widget.call).isAwaiting && !_reduceMotion) {
-      final shimmer = _shimmer ??= AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
-      if (!shimmer.isAnimating) shimmer.repeat();
-    } else {
-      _shimmer?.stop();
-    }
   }
 
   @override
@@ -242,12 +219,7 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
               SizedBox.square(
                 dimension: theme.iconSize,
                 child: Center(
-                  child: _StatusIcon(
-                    state: _ToolCallState.ofStatus(call),
-                    theme: theme,
-                    reduceMotion: _reduceMotion,
-                    shimmer: _shimmer,
-                  ),
+                  child: _StatusIcon(state: _ToolCallState.ofStatus(call), theme: theme, reduceMotion: _reduceMotion),
                 ),
               ),
               const SizedBox(width: gap),
@@ -276,47 +248,61 @@ class _AIToolCallViewState extends State<AIToolCallView> with SingleTickerProvid
 
 /// The icon at the start of the row.
 class _StatusIcon extends StatelessWidget {
-  const _StatusIcon({required this.state, required this.theme, required this.reduceMotion, required this.shimmer});
+  const _StatusIcon({required this.state, required this.theme, required this.reduceMotion});
 
   final _ToolCallState state;
   final ResolvedToolCallTheme theme;
   final bool reduceMotion;
 
-  /// Running while the call waits with motion on; `null` or stopped otherwise.
-  final Animation<double>? shimmer;
-
   @override
   Widget build(BuildContext context) {
+    final icons = context.streamIcons;
     final size = theme.iconSize;
     Widget icon(IconData data, Color color) => Icon(data, size: size, color: color);
-    Widget waiting(IconData data) {
-      // Drawn in the accent; moving, a band of the title's color sweeps over
-      // it.
-      if (reduceMotion || shimmer == null) return icon(data, theme.accentColor);
-      return Shimmer(
-        animation: shimmer!,
-        base: theme.accentColor,
-        highlight: theme.titleStyle.color ?? theme.titleStyle.foreground?.color ?? theme.accentColor,
-        child: icon(data, theme.accentColor),
-      );
-    }
+    // Core's spinner and badge come in fixed sizes, so they are scaled to the
+    // themed icon size.
+    Widget scaled(Widget child) => SizedBox.square(
+      dimension: size,
+      child: FittedBox(child: child),
+    );
+    // Drawn in the accent; moving, a band of the title's color sweeps over it.
+    Widget waiting(IconData data) => reduceMotion
+        ? icon(data, theme.accentColor)
+        // Core's default shimmer, not the factory's `skeletonLoading` placeholders.
+        : DefaultStreamSkeletonLoading(
+            props: StreamSkeletonLoadingProps(
+              baseColor: theme.accentColor,
+              highlightColor: theme.titleStyle.color ?? theme.titleStyle.foreground?.color ?? theme.accentColor,
+              period: const Duration(milliseconds: 1400),
+              child: icon(data, theme.accentColor),
+            ),
+          );
 
     return switch (state) {
       // A spinner never stops, so reduced motion gets a still "in progress".
-      _ToolCallState.running when reduceMotion => icon(Icons.more_horiz_rounded, theme.accentColor),
-      _ToolCallState.running => SizedBox.square(
-        // Inset a little: a ring fills its box, where a glyph leaves a margin.
-        // 12 with a 1.5 stroke at the default size.
-        dimension: size * 0.75,
-        child: CircularProgressIndicator(strokeWidth: size * 3 / 32, color: theme.accentColor),
+      _ToolCallState.running when reduceMotion => icon(icons.moreHorizontal, theme.accentColor),
+      _ToolCallState.running => scaled(
+        StreamLoadingSpinner(
+          size: .xs,
+          color: theme.accentColor,
+          backgroundColor: StreamColors.transparent,
+          trackColor: StreamColors.transparent,
+        ),
       ),
-      _ToolCallState.awaitingApproval => waiting(Icons.back_hand_outlined),
+      _ToolCallState.awaitingApproval => waiting(icons.raiseHandFill),
+      // Core has no key glyph.
       _ToolCallState.awaitingAuthorization => waiting(Icons.key_outlined),
+      // Core's phone icons are handsets, which read as a call.
       _ToolCallState.awaitingClient => waiting(Icons.smartphone_outlined),
-      _ToolCallState.completed => icon(Icons.check_rounded, theme.successColor),
-      _ToolCallState.failed => icon(Icons.priority_high_rounded, theme.failureColor),
+      _ToolCallState.completed => icon(icons.checkmark, theme.successColor),
+      _ToolCallState.failed => scaled(
+        StreamErrorBadgeTheme(
+          data: StreamErrorBadgeThemeData(errorBackgroundColor: theme.failureColor),
+          child: StreamErrorBadge(size: .xs, showBorder: false),
+        ),
+      ),
       // `declined` never gets here, as the icon follows the status alone.
-      _ToolCallState.cancelled || _ToolCallState.declined => icon(Icons.close_rounded, theme.iconColor),
+      _ToolCallState.cancelled || _ToolCallState.declined => icon(icons.xmark, theme.iconColor),
     };
   }
 }

@@ -137,6 +137,18 @@ DateTime? _parseRfc3339(String text) {
   return instant.year < 0 || instant.year > 9999 ? null : instant;
 }
 
+/// A deep copy of a decoded JSON value that can be changed freely: maps (with
+/// their non-string keys dropped) and lists are copied all the way down, and
+/// everything else is returned as is.
+Object? deepCopy(Object? value) => switch (value) {
+  final Map<Object?, Object?> map => <String, Object?>{
+    for (final MapEntry(:key, :value) in map.entries)
+      if (key is String) key: deepCopy(value),
+  },
+  final List<Object?> list => <Object?>[for (final item in list) deepCopy(item)],
+  _ => value,
+};
+
 /// A deeply unmodifiable copy of a decoded JSON value: maps (with their
 /// non-string keys dropped) and lists are copied all the way down, and
 /// everything else is returned as is.

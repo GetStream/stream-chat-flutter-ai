@@ -134,8 +134,9 @@ abstract class AITranslations {
   /// [chartSemanticsLabel].
   String get unnamedChartSeries;
 
-  /// The name to use for a pie slice the data didn't name, given its 1-based
-  /// [number] in the data. Shown in the chart's legend and read out by
+  /// The name to use for a pie slice, a radial chart's ring or a single
+  /// stacked bar's part the data didn't name, given its 1-based [number] in
+  /// the data. Shown in the chart's legend and read out by
   /// [chartSemanticsLabel].
   String unnamedChartSlice(int number);
 
@@ -299,6 +300,14 @@ abstract class AITranslations {
 
   /// A file attachment's [type] and [size], such as "PDF · 2.4 MB".
   String attachmentDetails(String type, String size);
+
+  /// Label of the button that plays a video or an audio clip of a reply's
+  /// generated UI.
+  String get playMedia;
+
+  /// Label of the button that pauses a video or an audio clip of a reply's
+  /// generated UI while it plays.
+  String get pauseMedia;
 
   /// [bytes] as a file size, such as "2.4 MB".
   String fileSize(int bytes);
@@ -535,6 +544,12 @@ class DefaultAITranslations extends AITranslations {
   String attachmentDetails(String type, String size) => '$type · $size';
 
   @override
+  String get playMedia => 'Play';
+
+  @override
+  String get pauseMedia => 'Pause';
+
+  @override
   String fileSize(int bytes) => formatFileSize(bytes);
 
   @override
@@ -567,17 +582,36 @@ class DefaultAITranslations extends AITranslations {
         USpecKind.bubble => 'Bubble chart',
         USpecKind.heatmap => 'Heatmap',
         USpecKind.histogram => 'Histogram',
+        USpecKind.horizontalBar => 'Horizontal bar chart',
+        USpecKind.radar => 'Radar chart',
+        USpecKind.radial => 'Radial chart',
+        USpecKind.singleStackedBar => 'Single stacked bar chart',
       },
       if (chart.title case final title?) title,
     ];
 
     if (chart.isEmpty) return [...parts, 'no data'].join(', ');
 
-    // A pie has one series and no axes, and a histogram's x axis is the buckets
-    // it derived rather than anything the data named.
-    if (chart.kind != USpecKind.pie && chart.kind != USpecKind.histogram) {
+    // A pie, a radial chart and a single stacked bar draw one series and no
+    // axes. A histogram draws one series too, and its x axis is the buckets it
+    // derived rather than anything the data named. A radar's spokes are its
+    // categories.
+    final (hasAxes, hasSeries) = switch (chart.kind) {
+      USpecKind.pie || USpecKind.histogram || USpecKind.radial || USpecKind.singleStackedBar => (false, false),
+      USpecKind.radar => (false, true),
+      USpecKind.line ||
+      USpecKind.bar ||
+      USpecKind.area ||
+      USpecKind.scatter ||
+      USpecKind.bubble ||
+      USpecKind.heatmap ||
+      USpecKind.horizontalBar => (true, true),
+    };
+    if (hasAxes) {
       if (chart.xLabel case final label?) parts.add('$label on the x axis');
       if (chart.yLabel case final label?) parts.add('$label on the y axis');
+    }
+    if (hasSeries) {
       // Skipped for one series, whose name almost always repeats the title or
       // the y label, and for a heatmap, whose series *are* its rows and are
       // named as such below.
@@ -594,10 +628,20 @@ class DefaultAITranslations extends AITranslations {
         if (chart.largestSliceLabel case final label? when chart.largestSlicePercent != null) {
           parts.add('largest $label at ${chart.largestSlicePercent} percent');
         }
-      case USpecKind.bar:
+      case USpecKind.bar || USpecKind.horizontalBar || USpecKind.radar:
         parts
           ..add(_count(chart.categoryCount, 'category', plural: 'categories'))
           ..add(_range(chart));
+      case USpecKind.radial:
+        // The rings' names are drawn outside the semantics tree too.
+        parts
+          ..add('${_count(chart.sliceLabels.length, 'ring')}: ${_names(chart.sliceLabels)}')
+          ..add(_range(chart));
+      case USpecKind.singleStackedBar:
+        parts.add('${_count(chart.sliceLabels.length, 'part')}: ${_names(chart.sliceLabels)}');
+        if (chart.largestSliceLabel case final label? when chart.largestSlicePercent != null) {
+          parts.add('largest $label at ${chart.largestSlicePercent} percent');
+        }
       case USpecKind.histogram:
         parts
           ..add(_count(chart.pointCount, 'sample'))

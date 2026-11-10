@@ -1,0 +1,86 @@
+name: release_tag
+
+on:
+  push:
+    branches: [main]
+
+# No `concurrency` group: this runs on every push to `main`, so a group would let
+# the next merge cancel a release run before it tags. Overlapping runs are safe —
+# only a release commit gets past the job's `if`, and the tag check refuses to
+# tag twice.
+
+jobs:
+  release:
+    # Only run this job for release commits, i.e. a squash-merged
+    # `chore(repo): release vX.Y.Z` PR opened by the `release-pr` skill.
+    if: "${{ startsWith(github.event.head_commit.message, 'chore(repo): release v') }}"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read  # The tag is pushed with BOT_GITHUB_API_TOKEN
+
+    steps:
+      - name: 📚 Checkout branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # A tag pushed with the default GITHUB_TOKEN does not trigger other
+          # workflows, so `release_publish` would never run.
+          token: ${{ secrets.BOT_GITHUB_API_TOKEN }}
+
+      - name: 🏷️ Extract Version Tag
+        id: extract_tag
+        shell: bash
+        # Via env, not inline `${{ }}` — a commit message is untrusted input.
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+
+          # Only the squash title, such as `chore(repo): release v0.2.0 (#47)` —
+          # the body can mention other versions.
+          title="${COMMIT_MSG%%$'\n'*}"
+          echo "📦 Commit title: $title"
+
+          version_regex='^chore\(repo\): release (v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?)( \(#[0-9]+\))?$'
+
+          if [[ "$title" =~ $version_regex ]]; then
+            version="${BASH_REMATCH[1]}"
+            echo "✅ Found version tag: $version"
+            echo "tag=$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error ::❌ The commit title is not a release title."
+            echo "::error ::Expected something like: 'chore(repo): release v1.2.3 (#123)'"
+            exit 1
+          fi
+
+      - name: 🔍 Verify Tag
+        shell: bash
+        env:
+          TAG: ${{ steps.extract_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          # Every publishable package is released in lockstep, so each
+          # pubspec must carry the tag's version.
+          .github/workflows/scripts/verify-release-versions.sh "$TAG"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error ::❌ Tag $TAG already exists."
+            exit 1
+          fi
+
+          echo "✅ $TAG matches every publishable package and is not tagged yet."
+
+      - name: 🚀 Create and Push Tag
+        shell: bash
+        env:
+          TAG: ${{ steps.extract_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "Stream SDK Bot"
+          git config user.email "60655709+Stream-SDK-Bot@users.noreply.github.com"
+
+          echo "Creating and pushing tag: $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"
