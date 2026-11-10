@@ -26,11 +26,15 @@ components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadin
 (theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
 uses, so a core minor bump is released in step with chat.
 
-A second package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
+A package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
 plugin for the core package's generative UI. It uses only the core package's public API, and hides
 `a2ui_core` (the A2UI protocol library) inside `lib/src/core/`: no other file imports it, and no
 `a2ui_core` type appears in its API, so the protocol library can be replaced. The same holds for
 `json_schema_builder`, the schema library `a2ui_core`'s catalogs are written in.
+
+Another, `stream_chat_flutter_ai_ondevice`, is a Flutter plugin (Kotlin + Swift, Pigeon channels) whose
+`AIOnDeviceModel` implements core's `AILocalModel` with Gemini Nano (Android) and Apple's Foundation Models
+(iOS/macOS 26). It depends on core and on no Stream Chat package either.
 
 The Stream Chat SDK itself lives in the separate
 [GetStream/stream-chat-flutter](https://github.com/GetStream/stream-chat-flutter) repo, and
@@ -49,9 +53,10 @@ packages/stream_chat_flutter_ai/             # the core published package
 packages/stream_chat_flutter_ai/example      # showcase app, publish_to: none
 packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin, publish_to: none until released
 packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_to: none
+packages/stream_chat_flutter_ai_ondevice/    # published plugin: on-device model (Gemini Nano / Apple Foundation Models)
 ```
 
-The two packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
+The published packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
 treat every `packages/*/` whose pubspec isn't `publish_to: none` as publishable.
 
 Consequences worth remembering:
@@ -64,6 +69,8 @@ Consequences worth remembering:
   root. A lockfile inside a package directory is stale; delete it.
 - Adding a package means adding its path to the root `workspace:` list (pub requires explicit
   paths — globs don't work there).
+- The ondevice plugin's Swift is shared by iOS and macOS (`darwin/`, `sharedDarwinSource: true`).
+  Generated `*.g.*` files come from `melos run generate:pigeon` — never edit them by hand.
 
 ## Common commands
 
@@ -75,6 +82,7 @@ melos run lint:all       # analyze + format
 melos run test:all       # flutter test --coverage
 melos run lint:pub       # flutter pub publish -n (skips the example, which is private)
 melos run update:goldens # regenerate golden files
+melos run generate:pigeon # regenerate the ondevice plugin's channels from pigeons/messages.dart
 melos run release:pub    # flutter pub publish -f — CI only (release_publish), never run locally
 ```
 
@@ -116,21 +124,21 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 ## Releasing
 
 Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`. The published packages
-(`stream_chat_flutter_ai` and `stream_chat_flutter_ai_a2ui`) are released **in lockstep**: they always share
-one `version:`, one `v<version>` tag publishes both, and the A2UI package depends on
-`stream_chat_flutter_ai: ^<version>`, which lives in the root `melos.command.bootstrap` list like every other
+(`stream_chat_flutter_ai`, `stream_chat_flutter_ai_ondevice` and, once released, `stream_chat_flutter_ai_a2ui`)
+are released **in lockstep**: they always share one `version:`, one `v<version>` tag publishes all of them, and the
+other packages depend on `stream_chat_flutter_ai: ^<version>`, which lives in the root `melos.command.bootstrap` list like every other
 constraint and is copied into the package by `melos bootstrap`. Until its first
 release PR drops `publish_to: none`, the A2UI package is private and the release tooling skips it.
 
-1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps both versions and the lockstep
-   constraint, promotes `## Upcoming` to `## <version>` in both CHANGELOGs and opens a
+1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps every package's version and the lockstep
+   constraint, promotes `## Upcoming` to `## <version>` in every CHANGELOG and opens a
    `chore(repo): release v<version>` PR.
 2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
 3. `release_tag.yml` reads `v<version>` from that commit, checks it matches every publishable pubspec
    (`.github/workflows/scripts/verify-release-versions.sh`) and isn't tagged yet, and pushes the tag with
    `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
-4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC — core first, since the A2UI
-   upload needs core `<version>` on pub.dev — and creates the GitHub Release.
+4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC — core first, since the other
+   uploads need core `<version>` on pub.dev — and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on **each** package's pub.dev admin page (repository
@@ -161,8 +169,9 @@ workflows can't tag or publish a `+build` version.
 ## PR & commit conventions
 
 PR titles are enforced as `<type>(<scope>): <description>` with a required scope from:
-`ai`, `a2ui`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
-`packages/stream_chat_flutter_ai/CHANGELOG.md`, and one scoped `a2ui`
-`packages/stream_chat_flutter_ai_a2ui/CHANGELOG.md` — CI checks this. Changelog entries go under the
+`ai`, `a2ui`, `ondevice`, `repo`, `docs`, `deps`. A PR scoped `ai` must also update
+`packages/stream_chat_flutter_ai/CHANGELOG.md`, one scoped `a2ui`
+`packages/stream_chat_flutter_ai_a2ui/CHANGELOG.md`, and one scoped `ondevice`
+`packages/stream_chat_flutter_ai_ondevice/CHANGELOG.md` — CI checks this. Changelog entries go under the
 existing emoji headings: `💥 Breaking` (first, one line per breaking change), `✅ Added`, `🔄 Changed`,
 `🐞 Fixed`, `🚀 Performance`.

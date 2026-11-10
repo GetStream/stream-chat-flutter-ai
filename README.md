@@ -7,9 +7,11 @@
 
 This repository holds `stream_chat_flutter_ai` — a standalone set of Flutter components for
 building LLM-driven chat experiences: streaming text, animated typing indicators,
-syntax-highlighted code blocks, charts, a purpose-built AI composer, and speech-to-text input.
+syntax-highlighted code blocks, charts, a purpose-built AI composer, and speech-to-text input —
+and `stream_chat_flutter_ai_ondevice`, which answers on the device with the model built into it
+(Gemini Nano on Android, Apple's Foundation Models on iOS and macOS) when your AI agent can't.
 
-The package has **no dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
+Neither package has **any dependency on `stream_chat`, `stream_chat_flutter`, or any other Stream Chat
 package** — every widget operates on plain strings, callbacks, and controllers, so it can be
 dropped into any Flutter app or paired with any backend/LLM provider. It is built on Stream's design
 system, [`stream_core_flutter`](https://pub.dev/packages/stream_core_flutter), so it looks and
@@ -30,9 +32,12 @@ channel is documented as an optional integration.
 | --- | --- | --- |
 | [`stream_chat_flutter_ai`](packages/stream_chat_flutter_ai) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai.svg)](https://pub.dev/packages/stream_chat_flutter_ai) | AI chat UI components: `StreamingMessageView`, `ChatComposer`, `AITypingIndicatorView`, `ChartView`, `CodeBlockView` and more. |
 | [`stream_chat_flutter_ai_a2ui`](packages/stream_chat_flutter_ai_a2ui) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai_a2ui.svg)](https://pub.dev/packages/stream_chat_flutter_ai_a2ui) | Shows the interactive UI an agent writes in [A2UI](https://a2ui.org) in its replies, through the core package's generative UI. |
+| [`stream_chat_flutter_ai_ondevice`](packages/stream_chat_flutter_ai_ondevice) | [![Pub](https://img.shields.io/pub/v/stream_chat_flutter_ai_ondevice.svg)](https://pub.dev/packages/stream_chat_flutter_ai_ondevice) | `AIOnDeviceModel`, an `AILocalModel` that answers offline or over quota with the device's own model. A Flutter plugin for Android (`minSdk 26`), iOS and macOS 26. |
 
-See the [package README](packages/stream_chat_flutter_ai/README.md) for the full component
-reference.
+See the [`stream_chat_flutter_ai` README](packages/stream_chat_flutter_ai/README.md) for the full
+component reference, and the
+[`stream_chat_flutter_ai_ondevice` README](packages/stream_chat_flutter_ai_ondevice/README.md) for
+the on-device model. The two packages are released together, with the same version.
 
 ## Getting Started
 
@@ -54,9 +59,24 @@ StreamingMessageView(
 );
 ```
 
+To answer on the device when your agent can't — the person is offline, or the agent is out of
+quota — add `stream_chat_flutter_ai_ondevice` and stream a reply from the built-in model:
+
+```dart
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_ondevice/stream_chat_flutter_ai_ondevice.dart';
+
+const model = AIOnDeviceModel();
+if (await model.isAvailable) {
+  model
+      .reply(instructions: 'Answer briefly.', turns: [AIConversationTurn.user(question)])
+      .listen((answer) => setState(() => localAnswer = answer)); // the whole answer so far
+}
+```
+
 There is a runnable showcase app in
 [`packages/stream_chat_flutter_ai/example`](packages/stream_chat_flutter_ai/example) — it needs no
-API key.
+API key. Its offline mode answers with the on-device model.
 
 ## Repository layout
 
@@ -71,6 +91,7 @@ melos run analyze                # dart analyze --fatal-infos across the workspa
 melos run format                 # dart format --set-exit-if-changed
 melos run test:all               # flutter test --coverage
 melos run update:goldens         # regenerate golden files
+melos run generate:pigeon        # regenerate the on-device plugin's platform channels
 ```
 
 ## Contributing

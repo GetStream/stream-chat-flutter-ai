@@ -31,6 +31,7 @@ updates:
       - "/packages/stream_chat_flutter_ai/example"
       - "/packages/stream_chat_flutter_ai_a2ui"
       - "/packages/stream_chat_flutter_ai_a2ui/example"
+      - "/packages/stream_chat_flutter_ai_ondevice"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
@@ -39,3 +40,8 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Pigeon 27.3.1 and later need a newer `meta` than Flutter 3.41, the
+      # oldest Flutter supported, pins. Lift this when that minimum moves.
+      - dependency-name: "pigeon"
+        versions: [">=27.3.1"]

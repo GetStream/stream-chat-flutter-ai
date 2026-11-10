@@ -14,6 +14,12 @@ backend, no API key and no LLM provider involved:
   assistant is "thinking", its reasoning and tool calls as steps, and types the
   reply out through `StreamingMessageView`, rendering markdown, a fenced code
   block (`CodeBlockView`) and a chart fence (`ChartView`).
+- `AIOnDeviceModel` (from `stream_chat_flutter_ai_ondevice`) — the switcher in
+  the app bar picks between the cloud and the model built into the device. Its
+  device half shows where the model is: ready, downloadable (tap to download
+  Gemini Nano, after a confirmation), downloading, or not on this device.
+  Simulators, emulators and older devices have none, so it stays disabled
+  there.
 
 ## Running it
 

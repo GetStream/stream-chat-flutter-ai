@@ -12,6 +12,7 @@ workspace:
   - packages/stream_chat_flutter_ai/example
   - packages/stream_chat_flutter_ai_a2ui
   - packages/stream_chat_flutter_ai_a2ui/example
+  - packages/stream_chat_flutter_ai_ondevice
 
 dev_dependencies:
   melos: ^8.2.2
@@ -58,9 +59,13 @@ melos:
         # export; used only inside `stream_chat_flutter_ai_a2ui`'s `lib/src/core/`.
         json_schema_builder: ^0.1.7
         markdown: ^7.3.1
+        # Imported by the on-device model's generated platform channel.
+        meta: ^1.15.0
         objective_c: ^9.3.0
         path_provider: ^2.1.5
         photo_manager: ^3.9.0
+        # The on-device model's platform interface.
+        plugin_platform_interface: ^2.1.0
         # Used only by the example, which supplies the grammars that
         # `CodeBlockView.highlighter` needs. See
         # `example/lib/code_highlighter.dart`.
@@ -89,6 +94,12 @@ melos:
         # Direct because the install id tests substitute a fake
         # `PathProviderPlatform`.
         path_provider_platform_interface: ^2.1.0
+        # Generates the on-device model's platform channel from
+        # `packages/stream_chat_flutter_ai_ondevice/pigeons/messages.dart`;
+        # see the `generate:pigeon` script. Pinned to the newest version that
+        # resolves on Flutter 3.41, the oldest Flutter supported; bump it with
+        # that minimum (28 turns `@async` methods into suspend/async ones).
+        pigeon: 27.3.0
         plugin_platform_interface: ^2.1.0
         # Direct because the reply actions tests substitute their own
         # `SharePlatform`; it arrives transitively via `share_plus`.
@@ -148,6 +159,16 @@ melos:
       packageFilters:
         published: false
         private: false
+
+    generate:pigeon:
+      run: |
+        melos exec -c 1 --file-exists="pigeons/messages.dart" -- "
+          dart run pigeon --input pigeons/messages.dart &&
+          dart format lib/src/messages.g.dart
+        "
+      description: |
+        Generate Pigeon platform-channel bindings (Dart, Kotlin and Swift) for packages with a
+        pigeons/messages.dart schema.
 
     test:all:
       run: melos run test:flutter --no-select

@@ -1,0 +1,54 @@
+name: stream_chat_flutter_ai_ondevice
+homepage: https://github.com/GetStream/stream-chat-flutter-ai
+description: >-
+  An on-device fallback model for stream_chat_flutter_ai: Gemini Nano on Android and Apple's
+  Foundation Models on iOS and macOS, answering when your AI agent can't.
+version: 0.1.0
+repository: https://github.com/GetStream/stream-chat-flutter-ai
+issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
+
+# Note: The environment configuration and dependency versions are managed by Melos.
+#
+# Do not edit them manually.
+#
+# Steps to update dependencies:
+#   1. Modify the version in the root pubspec.yaml, under `melos.command.bootstrap`.
+#   2. Run `melos bootstrap` to apply changes.
+#
+# Steps to add a new dependency:
+#   1. Add the dependency to this list.
+#   2. Add it to the root pubspec.yaml for future updates.
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+# This package is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The generated platform channel (`lib/src/messages.g.dart`) imports it.
+  meta: ^1.15.0
+  plugin_platform_interface: ^2.1.0
+  # Released in lockstep: this package's version always matches it.
+  stream_chat_flutter_ai: ^0.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  pigeon: 27.3.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: io.getstream.stream_chat_flutter_ai_ondevice
+        pluginClass: StreamChatFlutterAiOndevicePlugin
+      ios:
+        pluginClass: StreamChatFlutterAiOndevicePlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: StreamChatFlutterAiOndevicePlugin
+        sharedDarwinSource: true

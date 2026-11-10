@@ -5,9 +5,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
-
+import 'package:stream_chat_flutter_ai_example/answer_source_switcher.dart';
 import 'package:stream_chat_flutter_ai_example/code_highlighter.dart';
-import 'package:stream_chat_flutter_ai_example/fake_local_model.dart';
+import 'package:stream_chat_flutter_ai_ondevice/stream_chat_flutter_ai_ondevice.dart';
 import 'package:stream_core_flutter/core.dart';
 
 void main() => runApp(const ExampleApp());
@@ -482,7 +482,15 @@ class _AssistantScreenState extends State<AssistantScreen> {
   /// [_localModel] instead, as an app would when offline or out of quota.
   bool _offline = false;
 
-  final AILocalModel _localModel = const FakeLocalModel();
+  /// Gemini Nano on Android, Apple's model on iOS and macOS 26. Simulators,
+  /// emulators and older devices have none, so the offline mode says so.
+  static const _localModel = AIOnDeviceModel();
+
+  /// What the on-device model is told: it answers on the device, with none of
+  /// the agent's tools.
+  static const _localInstructions =
+      "You are a helpful assistant answering on the person's device, without a connection to the server. "
+      'Answer briefly. You have no tools.';
 
   /// Non-null while the local model is answering; cancelling it stops the
   /// model.
@@ -815,28 +823,33 @@ class _AssistantScreenState extends State<AssistantScreen> {
     ];
     setState(() => _messages.add(_Message(text: '', isUser: false, isGenerating: true)));
 
-    bool available;
-    try {
-      available = await _localModel.isAvailable;
-    } on Exception catch (error) {
-      // isAvailable answers false rather than throwing; anything else is a bug
-      // and is left to surface.
-      debugPrint('Checking the on-device model failed: $error');
-      available = false;
-    }
+    // status() answers unavailable rather than throwing.
+    final status = await _localModel.status();
     // Stop was tapped, another message was sent, or the screen went away
     // while the check ran.
     if (!mounted || generation != _replyGeneration) return;
-    if (!available) return _endLocalReply('The on-device model is not available right now.');
+    switch (status) {
+      case AIOnDeviceStatus.available:
+        break;
+      case AIOnDeviceStatus.downloadable:
+        return _endLocalReply("The on-device model isn't on this device yet: download it from the app bar.");
+      case AIOnDeviceStatus.downloading:
+        return _endLocalReply('The on-device model is still downloading. Try again once it is ready.');
+      default:
+        return _endLocalReply('This device has no on-device model.');
+    }
 
+    // A failed reply is ended by its error; its stream closing after that changes nothing.
+    var failed = false;
     _localReply = _localModel
-        .reply(instructions: 'Answer briefly. You have no tools.', turns: turns)
+        .reply(instructions: _localInstructions, turns: turns)
         .listen(
           (answer) {
             if (!mounted) return;
             setState(() => _messages.last = _messages.last.copyWith(text: answer));
           },
           onError: (Object error) {
+            failed = true;
             debugPrint('The on-device model failed: $error');
             _endLocalReply(switch (error) {
               AILocalModelException(reason: AILocalModelErrorReason.unavailable) =>
@@ -849,6 +862,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
             });
           },
           onDone: () {
+            if (failed) return;
             _localReply = null;
             _finishLocalReply();
           },
@@ -917,14 +931,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
     return Scaffold(
       appBar: StreamAppBar(
         title: const Text('AI Assistant'),
-        trailing: StreamButton.icon(
-          style: .secondary,
-          type: .ghost,
-          tooltip: _offline ? 'Offline: answering on device' : 'Online',
-          isSelected: _offline,
-          // Core has no cloud glyph.
-          icon: Icon(_offline ? Icons.cloud_off_outlined : Icons.cloud_outlined),
-          onPressed: () => setState(() => _offline = !_offline),
+        trailing: AnswerSourceSwitcher(
+          model: _localModel,
+          useDevice: _offline,
+          onChanged: (useDevice) => setState(() => _offline = useDevice),
         ),
       ),
       body: SafeArea(

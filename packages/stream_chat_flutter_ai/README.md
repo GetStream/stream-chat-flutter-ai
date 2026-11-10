@@ -62,7 +62,9 @@ into your app to open a screen, show an alert or read a sensor, and get the resu
 call at one of a person's devices.
 
 **`AILocalModel`** — a base class to implement over an on-device model, for answering when the
-agent can't, such as when the user is offline.
+agent can't, such as when the user is offline. The companion package
+[`stream_chat_flutter_ai_ondevice`](https://pub.dev/packages/stream_chat_flutter_ai_ondevice)
+implements it over the model built into the device.
 
 **`AIVoiceGlowView`** / **`AIVoiceWaveView`** — a voice agent on a call, as a glowing globe or a
 waveform that moves with the agent's state and audio level.
@@ -1064,8 +1066,10 @@ they are done.
 ### `AILocalModel`
 
 A fallback for when your agent can't answer — the user is offline, or the agent hit its usage limit
-— from a model on the device. The package ships no model: extend `AILocalModel` over the one you
-choose. `reply` streams the **whole answer so far** with each event, which is what
+— from a model on the device. This package ships no model: add
+[`stream_chat_flutter_ai_ondevice`](https://pub.dev/packages/stream_chat_flutter_ai_ondevice) for
+`AIOnDeviceModel` — Gemini Nano on Android, Apple's Foundation Models on iOS and macOS 26 — or
+extend `AILocalModel` over the one you choose. `reply` streams the **whole answer so far** with each event, which is what
 `StreamingMessageView.text` takes; cancelling the subscription stops the model, and failures arrive
 as an `AILocalModelException`. On-device contexts are small, so your `reply` should fit the turns
 with `AIConversationTurn.fitToBudget`.

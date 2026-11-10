@@ -133,3 +133,77 @@ jobs:
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           files: packages/*/coverage/lcov.info
+
+  # Compiles the on-device plugin's Kotlin through the example app, and runs
+  # its JVM unit tests. ML Kit can't run here: the model needs a device.
+  android:
+    needs: gate
+    runs-on: ubuntu-latest
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 30
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v7
+      - name: "Install Java"
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: flutter pub global activate melos
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap
+      - name: "Build The Example"
+        working-directory: packages/stream_chat_flutter_ai/example
+        run: flutter build apk --debug
+      - name: "Kotlin Unit Tests"
+        working-directory: packages/stream_chat_flutter_ai/example/android
+        run: ./gradlew :stream_chat_flutter_ai_ondevice:testDebugUnitTest
+
+  # Compiles the on-device plugin's Swift for iOS and macOS through the example
+  # app, and runs its Swift tests on the Mac. Foundation Models can't answer
+  # here: it needs Apple Intelligence.
+  #
+  # Pinned to Xcode 26, so the FoundationModels code (not just the fallback for
+  # older SDKs) is what compiles. The plugin's Xcode 27 branch
+  # (`#if compiler(>=6.4)`) isn't built here: Flutter's iOS simulator build
+  # doesn't work with Xcode 27 yet.
+  apple:
+    needs: gate
+    runs-on: macos-26
+    if: needs.gate.outputs.should_run == 'true'
+    timeout-minutes: 30
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v7
+      - name: "Select Xcode 26"
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "^26.0"
+      - name: "Install Flutter"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.flutter_version }}
+          channel: stable
+          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - name: "Install Tools"
+        run: flutter pub global activate melos
+      - name: "Bootstrap Workspace"
+        run: melos bootstrap
+      - name: "Build The Example For iOS"
+        working-directory: packages/stream_chat_flutter_ai/example
+        run: flutter build ios --simulator --debug
+      - name: "Build The Example For macOS"
+        working-directory: packages/stream_chat_flutter_ai/example
+        run: flutter build macos --debug
+      - name: "Swift Unit Tests"
+        working-directory: packages/stream_chat_flutter_ai/example/macos
+        run: >-
+          xcodebuild test -workspace Runner.xcworkspace -scheme Runner -destination 'platform=macOS'
+          -only-testing:RunnerTests CODE_SIGNING_ALLOWED=NO
