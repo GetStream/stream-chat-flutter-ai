@@ -2,15 +2,24 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_definition.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_buttons.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_callout.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_header.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_text.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_choices.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_data_display.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_disclosures.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_images.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_layout.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_lists.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_markdown_renderer.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_metrics.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_modal.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_tables.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_text_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_text_content.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
@@ -53,15 +62,16 @@ final class OpenUILibrary {
   /// OpenUI's chat library, whose programs are a `Card` with the answer in
   /// it.
   ///
-  /// This package draws its `Card`, and the content, data display and card
-  /// block components, such as `TextContent`, `Callout`, `Image`, `Tag` and
-  /// `SnippetCardBlock`; layout, lists, tables, forms, buttons and charts are
-  /// not drawn yet.
+  /// This package draws its `Card` and every other component but the charts:
+  /// content, data display and card blocks, such as `TextContent`, `Callout`
+  /// and `SnippetCardBlock`; layout, such as `Tabs`, `Accordion` and
+  /// `SectionBlock`; lists, tables, forms, their fields, and buttons.
   static final OpenUILibrary chat = OpenUILibrary._(LibraryDefinition.chat, const {}, _chatBuilders, _chatBuilders);
 
   /// OpenUI's standard library, whose programs are a `Stack` of components.
   ///
-  /// This package draws the same components as [chat], other than `Card`.
+  /// This package draws its `Stack`, `Card` and `Modal`, and the same
+  /// components as [chat] otherwise; the charts are not drawn yet.
   static final OpenUILibrary standard = OpenUILibrary._(
     LibraryDefinition.standard,
     const {},
@@ -99,9 +109,36 @@ final class OpenUILibrary {
     'ContextCardBlock': buildOpenUIContextCardBlock,
     'CompositeCardBlock': buildOpenUICompositeCardBlock,
     'VisualCardBlock': buildOpenUIVisualCardBlock,
+    'Tabs': buildOpenUITabs,
+    'Accordion': buildOpenUIAccordion,
+    'Steps': buildOpenUISteps,
+    'Carousel': buildOpenUICarousel,
+    'ListBlock': buildOpenUIListBlock,
+    'Table': buildOpenUITable,
+    'EditableTable': buildOpenUIEditableTable,
+    'Form': buildOpenUIForm,
+    'FormControl': buildOpenUIFormControl,
+    'Input': buildOpenUIInput,
+    'TextArea': buildOpenUITextArea,
+    'Select': buildOpenUISelect,
+    'DatePicker': buildOpenUIDatePicker,
+    'Slider': buildOpenUISlider,
+    'CheckBoxGroup': buildOpenUICheckBoxGroup,
+    'SwitchGroup': buildOpenUISwitchGroup,
+    'RadioGroup': buildOpenUIRadioGroup,
+    'Chips': buildOpenUIChips,
+    'OptionCards': buildOpenUIOptionCards,
+    'Button': buildOpenUIButton,
+    'Buttons': buildOpenUIButtons,
+    'IconButton': buildOpenUIIconButton,
+    'SectionBlock': buildOpenUISectionBlock,
+    'FollowUpBlock': buildOpenUIFollowUpBlock,
   };
 
   static const Map<String, OpenUIComponentBuilder> _standardBuilders = {
+    'Card': buildOpenUIStandardCard,
+    'Stack': buildOpenUIStack,
+    'Modal': buildOpenUIModal,
     'CardHeader': buildOpenUICardHeader,
     'TextContent': buildOpenUITextContent,
     'MarkDownRenderer': buildOpenUIMarkDownRenderer,
@@ -130,6 +167,28 @@ final class OpenUILibrary {
     'ContextCardBlock': buildOpenUIContextCardBlock,
     'CompositeCardBlock': buildOpenUICompositeCardBlock,
     'VisualCardBlock': buildOpenUIVisualCardBlock,
+    'Tabs': buildOpenUITabs,
+    'Accordion': buildOpenUIAccordion,
+    'Steps': buildOpenUISteps,
+    'Carousel': buildOpenUICarousel,
+    'ListBlock': buildOpenUIListBlock,
+    'Table': buildOpenUITable,
+    'EditableTable': buildOpenUIEditableTable,
+    'Form': buildOpenUIForm,
+    'FormControl': buildOpenUIFormControl,
+    'Input': buildOpenUIInput,
+    'TextArea': buildOpenUITextArea,
+    'Select': buildOpenUISelect,
+    'DatePicker': buildOpenUIDatePicker,
+    'Slider': buildOpenUISlider,
+    'CheckBoxGroup': buildOpenUICheckBoxGroup,
+    'SwitchGroup': buildOpenUISwitchGroup,
+    'RadioGroup': buildOpenUIRadioGroup,
+    'Chips': buildOpenUIChips,
+    'OptionCards': buildOpenUIOptionCards,
+    'Button': buildOpenUIButton,
+    'Buttons': buildOpenUIButtons,
+    'IconButton': buildOpenUIIconButton,
   };
 
   // The library this one was made from, chat or standard.
