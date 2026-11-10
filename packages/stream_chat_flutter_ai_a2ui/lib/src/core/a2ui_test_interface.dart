@@ -2,9 +2,9 @@ part of 'a2ui_adapter.dart';
 
 // The test interface: the tests' way into the adapter and the A2UI core. It is
 // test-only, and the only test-only code in `lib/`; every public type and
-// function here is `@internal` and `@visibleForTesting`. The A2UI conformance suites use it, and so do a few
-// unit tests. Nothing here is exported, and no production code calls it; the
-// production classes don't know it exists.
+// function here is `@internal` and `@visibleForTesting`. The A2UI conformance
+// suites use it, and so do a few unit tests. Nothing here is exported, and no
+// production code calls it; the production classes don't know it exists.
 //
 // A conformance case sometimes exercises a part of A2UI that a renderer never
 // reaches on its own: a catalog document, a function called by name, a path
@@ -281,6 +281,10 @@ A2UIProcessor debugProcessor({
 
 /// Makes [processor] apply messages with the core [makeCore] makes, in place
 /// of the one it has. Call it before any message is applied.
+///
+/// The new core sends the agent only what [makeCore] has it send: the
+/// processor's `onAgentFunction`, if it has one, isn't called unless the core
+/// [makeCore] makes routes those calls itself.
 ///
 /// [A2UIProcessor.reset] gives it a production core again. Only tests use it.
 @internal
