@@ -37,7 +37,13 @@ void main() {
 
   // The opener decides whether these open: the host's opens email links and
   // refuses the others.
-  for (final link in ['mailto:ada@example.com', 'tel:+3590000000', 'https:/menu']) {
+  for (final link in [
+    'mailto:ada@example.com',
+    'mailto:',
+    'MAILTO:ada@example.com',
+    'tel:+3590000000',
+    'https:/menu',
+  ]) {
     test("an action's openUrl hands $link to the action's opener", () async {
       final opened = <Uri>[];
       final button = _linkButton(link);

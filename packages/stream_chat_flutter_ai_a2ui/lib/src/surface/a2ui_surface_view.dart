@@ -32,9 +32,10 @@ class A2UISurfaceView extends StatelessWidget {
   ///
   /// A link a person's action opens, such as a button whose action is the
   /// agent's `openUrl`, goes to [onOpenLink], which decides whether it opens.
-  /// Only `http`, `https`, `mailto` and `tel` links reach it. Without
-  /// [onOpenLink], no link opens, and the surface's processor reports each
-  /// one it couldn't open.
+  /// Only `http`, `https`, `mailto` and `tel` links reach it, and a web link
+  /// may have no host, so [onOpenLink] must check the link itself before it
+  /// opens it. Without [onOpenLink], no link opens, and the surface's
+  /// processor reports each one it couldn't open.
   const A2UISurfaceView({
     super.key,
     required this.surface,
