@@ -537,6 +537,18 @@ void main() {
       expect(builds, first + 1);
     });
 
+    testWidgets("renders a reply's LaTeX through the math builder", (tester) async {
+      await _pump(
+        tester,
+        [_user('u1'), _reply('r1', text: r'Area: \(\pi r^2\)')],
+        builders: StreamComponentBuilders(
+          extensions: streamAIComponentBuilders(math: (context, props) => Text('tex:${props.tex}')),
+        ),
+      );
+
+      expect(find.text(r'tex:\pi r^2'), findsOneWidget);
+    });
+
     group('layout', () {
       Rect turnOf(WidgetTester tester, String text) =>
           tester.getRect(find.ancestor(of: find.text(text), matching: find.byType(ConstrainedBox)).first);

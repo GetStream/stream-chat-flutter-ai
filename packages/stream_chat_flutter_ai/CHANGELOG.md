@@ -230,6 +230,9 @@
 - `AITranslations.toolCallAwaitingAuthorization`, `toolCallAwaitingYourAuthorization`,
   `toolAuthorizationConnect`, `toolAuthorizationConnecting`, `toolAuthorizationDecline`,
   `toolAuthorizationNotOpened` and `toolAuthorizationExpired`.
+- The `math` builder of `streamAIComponentBuilders` and `AIMathProps` — render LaTeX in every `AIMarkdownBody` given no
+  `mathBuilder` of its own, such as the replies in an `AIConversationView`, which had no way to
+  render it.
 
 🔄 Changed
 

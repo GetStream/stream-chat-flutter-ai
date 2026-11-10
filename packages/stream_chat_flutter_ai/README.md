@@ -205,6 +205,10 @@ StreamingMessageView(
 );
 ```
 
+To typeset the replies of an `AIConversationView` too, register the same renderer as the `math`
+builder of `streamAIComponentBuilders`, see [Replacing components](#replacing-components-streamaicomponentbuilders). A body's
+own `mathBuilder` wins over it.
+
 Pass `useDollarDelimitersForMath: true` to also accept `$…$` and `$$…$$`. It is off by
 default because `$` collides with currency in ordinary prose.
 
@@ -1294,6 +1298,7 @@ Every builder, the default it replaces and what it gets:
 | --- | --- | --- |
 | `codeBlock` | `CodeBlockView` | `AICodeBlockProps`: `code`, `language`, `highlighter`, `theme` |
 | `chart` | `ChartView` | `AIChartProps`: `spec` |
+| `math` | the TeX source as text | `AIMathProps`: `tex`, `style`, `inline` |
 | `reasoning` | `StreamingReasoningView.part` | `AIReasoningProps`: `reasoning`, `text`, `duration` |
 | `toolCall` | `AIToolCallView` | `AIToolCallProps`: `call` |
 | `toolApproval` | `AIToolApprovalCard` | `AIToolApprovalProps`: `call`, `toolName`, `state`, `onAnswer`, `theme` |
