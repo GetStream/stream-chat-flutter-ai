@@ -164,9 +164,44 @@ A2UITheme(
 )
 ```
 
-Buttons, check boxes, text fields, images and sheets are the design system's own components. The builders your app
-registers with `StreamComponentFactory` (`button`, `checkbox`, `textInput`, `networkImage`) draw them in A2UI replies
-too, and your component themes apply. A secret field is never given to the `textInput` builder, so it stays hidden.
+### Restyle with your design system
+
+Most input components are drawn by
+[`stream_core_flutter`](https://pub.dev/packages/stream_core_flutter)'s components. Register a builder for one with
+`StreamComponentFactory`, and it draws that component in A2UI replies too, as it does everywhere else in your app. Your
+component themes apply as well.
+
+```dart
+final builders = StreamComponentBuilders(
+  button: (context, props) => FilledButton(
+    onPressed: props.onPressed,
+    style: FilledButton.styleFrom(shape: const StadiumBorder()),
+    child: props.child ?? const SizedBox.shrink(),
+  ),
+);
+
+MaterialApp(
+  builder: (context, child) => StreamComponentFactory(builders: builders, child: child!),
+  home: const ChatScreen(),
+);
+```
+
+| A2UI component | Drawn by the builder |
+| --- | --- |
+| `Button`, and a button of only an `Icon` | `button` |
+| `CheckBox` | `checkbox` |
+| `ChoicePicker` with `multipleSelection` as rows | `checkbox` |
+| `TextField`, and a `ChoicePicker`'s `filterable` search field | `textInput` |
+| `Image` | `networkImage` |
+
+A `Modal`'s sheet takes the app's sheet theme, and your builders apply inside it. The other components, and a
+`ChoicePicker` with a single choice or as chips, are drawn by this package from the A2UI theme.
+
+A secret field (`TextField` with the `obscured` variant) never reaches your `textInput` builder, so it can't show the
+secret. It is drawn in the same style.
+
+The full list of builders and their props is in
+[`stream_core_flutter`](https://pub.dev/packages/stream_core_flutter).
 
 ## Customising
 
