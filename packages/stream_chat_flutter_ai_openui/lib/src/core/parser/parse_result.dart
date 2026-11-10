@@ -5,7 +5,7 @@
 library;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
@@ -285,15 +285,15 @@ final class ValidationError {
 @immutable
 final class QueryStatementInfo {
   /// Creates the query [statementId] with its argument expressions.
-  const QueryStatementInfo({
+  QueryStatementInfo({
     required this.statementId,
     this.tool,
     this.args,
     this.defaults,
     this.refresh,
-    this.deps,
+    List<String>? deps,
     this.complete = true,
-  });
+  }) : deps = deps == null ? null : List.unmodifiable(deps);
 
   /// The statement's name.
   final String statementId;

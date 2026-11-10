@@ -45,31 +45,6 @@ final class PromptSpec {
     this.options = const PromptOptions(),
   });
 
-  /// Reads a library spec.
-  ///
-  /// The spec, as `jsonDecode` gives it, holds `root`, `components` (each
-  /// `{signature, description}` by name), `componentGroups`, `functions` and
-  /// `actions`. Parts that are missing or of the wrong type read as empty, a
-  /// `root` that isn't a string as none.
-  factory PromptSpec.fromLibrarySpec(Map<String, Object?> spec, {PromptOptions options = const PromptOptions()}) {
-    return PromptSpec(
-      root: _string(spec['root']),
-      components: _entries(spec['components']),
-      componentGroups: [
-        for (final group in _list(spec['componentGroups']))
-          if (group is Map<String, Object?>)
-            ComponentGroup(
-              _string(group['name']) ?? '',
-              components: _list(group['components']).whereType<String>().toList(),
-              notes: _list(group['notes']).whereType<String>().toList(),
-            ),
-      ],
-      functions: _entries(spec['functions']),
-      actions: _entries(spec['actions']),
-      options: options,
-    );
-  }
-
   /// The component a program's root is, or `null` when there is none.
   final String? root;
 
@@ -92,19 +67,6 @@ final class PromptSpec {
 
   /// The choices the prompt is generated with.
   final PromptOptions options;
-
-  static String? _string(Object? value) => value is String ? value : null;
-
-  static List<Object?> _list(Object? value) => value is List<Object?> ? value : const [];
-
-  static List<PromptEntry> _entries(Object? section) {
-    if (section is! Map<String, Object?>) return const [];
-    return [
-      for (final MapEntry(key: name, value: entry) in section.entries)
-        if (entry is Map<String, Object?>)
-          PromptEntry(name, _string(entry['signature']) ?? '', _string(entry['description']) ?? ''),
-    ];
-  }
 }
 
 /// The generator of system prompts.
