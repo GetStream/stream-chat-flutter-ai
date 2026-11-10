@@ -105,8 +105,8 @@ still come from the Stream theme, read each time the reply is built:
 final renderer = A2UIRenderer(theme: A2UIThemeData(cornerRadius: 8));
 ```
 
-The renderer's `theme` stays as it was given. An override that depends on the context, such as on the app's own
-theme, goes in an `A2UITheme` above the conversation instead, which is read each time the reply is built too.
+An override that depends on the context, such as on the app's own theme, goes in an `A2UITheme` above the
+conversation instead.
 
 Buttons, check boxes, fields, images and sheets are the design system's own components, so the component builders an
 app registers with `StreamComponentFactory` (`button`, `checkbox`, `textInput`, `networkImage`) draw them in A2UI
@@ -115,10 +115,30 @@ corners are the A2UI theme's. A secret field is never given to the `textInput` b
 
 ## The components
 
-`A2UICatalog.basic` draws A2UI's basic `Text`, `Image`, `Icon`, `Video`, `AudioPlayer`, `Row`, `Column`, `List`,
-`Card`, `Divider`, `Tabs` and `Modal`, and the components a person uses: `Button`, `TextField`, `CheckBox`,
-`ChoicePicker`, `Slider` and `DateTimeInput`. To draw one of them another way, replace its builder; the agent still
-writes the component as A2UI describes it, and the renderer takes the catalog:
+`A2UICatalog.basic` draws the components of A2UI 1.0's basic catalog. [The component reference](doc/components.md) lists
+each one's properties, what it writes to the surface's data model, how it is checked and how it is drawn.
+
+| Component | Shows | Writes to the data model | Runs an action |
+| --- | --- | --- | --- |
+| [`Text`](doc/components.md#text) | Markdown text, in a body or caption style | | |
+| [`Image`](doc/components.md#image) | An image, in a box sized by its variant | | |
+| [`Icon`](doc/components.md#icon) | A named icon, or a shape drawn from an SVG path | | |
+| [`Video`](doc/components.md#video) | A poster; plays the video when tapped | | |
+| [`AudioPlayer`](doc/components.md#audioplayer) | A play button and a caption | | |
+| [`Row`](doc/components.md#row), [`Column`](doc/components.md#column) | Children side by side, or one below the other, with weights | | |
+| [`List`](doc/components.md#list) | Children in a column, or in a row that scrolls; may be a template over a list | | |
+| [`Card`](doc/components.md#card) | One child on the surface color | | |
+| [`Divider`](doc/components.md#divider) | A horizontal or vertical line | | |
+| [`Tabs`](doc/components.md#tabs) | Tab titles over the selected tab's child | | |
+| [`Modal`](doc/components.md#modal) | A trigger that opens a sheet with its content | | Its trigger's, if a `Button` |
+| [`Button`](doc/components.md#button) | A button, disabled while one of its checks fails | | Yes |
+| [`TextField`](doc/components.md#textfield) | A text field: short, long, number or secret | The text | |
+| [`CheckBox`](doc/components.md#checkbox) | A check box with a label | `true` or `false` | |
+| [`ChoicePicker`](doc/components.md#choicepicker) | Options to pick one or several of, as rows or chips, filterable | The picked values | |
+| [`Slider`](doc/components.md#slider) | A slider over a range, with optional steps | The number | |
+| [`DateTimeInput`](doc/components.md#datetimeinput) | A date, a time, or both, picked in the device's pickers | An ISO 8601 date or time | |
+
+To draw a component another way, replace its builder. The agent still writes it as A2UI describes it:
 
 ```dart
 final catalog = A2UICatalog.basic.replacing('Card', (context, scope) {
@@ -128,21 +148,12 @@ final catalog = A2UICatalog.basic.replacing('Card', (context, scope) {
 final renderer = A2UIRenderer(catalog: catalog);
 ```
 
-A builder of a component a person uses writes what they enter to the surface's data model, and runs the component's
-action when they use it:
+A builder of a component a person uses writes what they enter with `scope.write` and runs the component's action with
+`scope.performAction`.
 
-```dart
-final catalog = A2UICatalog.basic.replacing('CheckBox', (context, scope) {
-  return Switch(
-    value: scope.boolean('value') ?? false,
-    onChanged: (value) => scope.write('value', value),
-  );
-});
-```
-
-The [example](example) shows a conversation whose replies are A2UI, one of them written part by part as an agent
-would, and a gallery of the examples published with A2UI's basic catalog. Both list each action the agent would get,
-and the gallery also lists each link that would open.
+The [example app](example) shows a conversation whose replies are A2UI, one of them written part by part as an agent
+would; a page of examples for each component, with its variants and edge cases; and a gallery of the examples published
+with A2UI's basic catalog. Each lists the actions the agent would get, and the links that would open.
 
 ## Video and audio
 
@@ -158,10 +169,3 @@ A player is let go, and starts again from the beginning, when another screen is 
 bottom sheet or a dialog, such as a `Modal`.
 Players don't pause each other. When the app goes to the background, a video pauses; audio keeps playing on Android,
 and on iOS follows the app's audio session and background modes.
-
-## Tests
-
-The A2UI conformance suites it is tested against are vendored, unchanged, under
-[`test/conformance/upstream`](test/conformance/upstream), with their license. The examples published with the basic
-catalog are under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples). Why the suites are kept is in
-[`test/conformance/README.md`](test/conformance/README.md).

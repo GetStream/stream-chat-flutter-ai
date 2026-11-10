@@ -1,0 +1,72 @@
+{
+  "name": "Text",
+  "description": "Body and caption text, Markdown, and text bound to the data model.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-text-styles",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-text-styles",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Body and caption", "variant": "caption"},
+          {"id": "c", "component": "Column", "children": ["body", "caption"]},
+          {"id": "body", "component": "Text", "text": "Body text is the default.", "variant": "body"},
+          {"id": "caption", "component": "Text", "text": "Caption text is smaller and quieter.", "variant": "caption"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-text-markdown",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-text-markdown",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "md"]},
+          {"id": "variant_title", "component": "Text", "text": "Markdown", "variant": "caption"},
+          {"id": "md", "component": "Text", "text": "# Heading\n\nSome **bold**, *italic* and `code` text, and a [link](https://a2ui.org) that opens nothing.\n\n- First item\n- Second item\n\n> A quote\n\n```\nA code block\n```"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-text-bound",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-text-bound",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "greeting"]},
+          {"id": "variant_title", "component": "Text", "text": "Bound to the data model", "variant": "caption"},
+          {"id": "greeting", "component": "Text", "text": {"@call": "formatString", "args": {"value": "Hello, ${/name}! You have ${/count} new messages."}}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-text-bound",
+        "value": {
+          "name": "Petar",
+          "count": 3
+        }
+      }
+    }
+  ]
+}

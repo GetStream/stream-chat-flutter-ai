@@ -29,6 +29,9 @@ flutter:
     # The examples published with A2UI's basic catalog, as in the package's
     # `test/fixtures/upstream_examples`.
     - assets/examples/
+    # One page of examples for each component of the basic catalog, with its
+    # variants and edge cases, as the package's `doc/components.md` links them.
+    - assets/components/
     # The Ohrid trip example the Stream agent backend gives its model, as in
     # the package's `test/fixtures`.
     - assets/ohrid_prompt_example.jsonl

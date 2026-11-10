@@ -1,7 +1,8 @@
-// A conversation whose replies are A2UI, and a gallery of the examples
-// published with A2UI's basic catalog, both shown by the package's
-// `A2UIRenderer`. Each action an agent would get is listed below them, and
-// the gallery also lists each link that would open.
+// A conversation whose replies are A2UI, a page of examples for each
+// component of the basic catalog, and a gallery of the examples published with
+// A2UI's basic catalog, all shown by the package's `A2UIRenderer`. Each action
+// an agent would get is listed below them, and the gallery also lists each
+// link that would open.
 //
 // The app has one component of its own, `place_card`, which the agent places
 // as `PlaceCard` in the Ohrid reply. Its other components there, `TripMap` and
@@ -48,11 +49,23 @@ class _GalleryAppState extends State<GalleryApp> {
 
 /// One example: its name, and the A2UI messages an agent would write.
 class Example {
-  Example({required this.name, required this.file, required this.messages}) : missing = _missingOf(messages);
+  Example({
+    required this.name,
+    required this.file,
+    required this.messages,
+    this.description,
+    this.isComponent = false,
+  }) : missing = _missingOf(messages);
 
   final String name;
   final String file;
   final List<String> messages;
+
+  /// What the example shows, for the examples of one component.
+  final String? description;
+
+  /// Whether this is the example of one component of the basic catalog.
+  final bool isComponent;
 
   /// The component types the example uses that neither the catalog nor the
   /// app's own components draw.
@@ -77,6 +90,7 @@ class Example {
 Future<List<Example>> _loadExamples() async {
   final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
   final files = manifest.listAssets().where((path) => path.startsWith('assets/examples/')).toList()..sort();
+  final components = manifest.listAssets().where((path) => path.startsWith('assets/components/')).toList()..sort();
   final ohrid = await rootBundle.loadString('assets/ohrid_prompt_example.jsonl');
   final examples = <Example>[
     Example(
@@ -88,13 +102,15 @@ Future<List<Example>> _loadExamples() async {
       ],
     ),
   ];
-  for (final path in [...files, 'assets/media_example.json', 'assets/link_example.json']) {
+  for (final path in [...files, 'assets/media_example.json', 'assets/link_example.json', ...components]) {
     final json = jsonDecode(await rootBundle.loadString(path)) as Map<String, Object?>;
     examples.add(
       Example(
         name: json['name']! as String,
         file: path.split('/').last,
         messages: [for (final message in json['messages']! as List<Object?>) jsonEncode(message)],
+        description: json['description'] as String?,
+        isComponent: path.startsWith('assets/components/'),
       ),
     );
   }
@@ -131,11 +147,30 @@ class _ExamplesPageState extends State<ExamplesPage> {
         builder: (context, snapshot) {
           final examples = snapshot.data;
           if (examples == null) return const Center(child: CircularProgressIndicator());
+          final components = [
+            for (final example in examples)
+              if (example.isComponent) example,
+          ];
+          final published = [
+            for (final example in examples)
+              if (!example.isComponent) example,
+          ];
+          // The conversation, then each component's examples, then the
+          // published ones.
+          final rows = <Object>[
+            'conversation',
+            const _Header('Components'),
+            ...components,
+            const _Header('Examples'),
+            ...published,
+          ];
           return ListView.separated(
-            itemCount: examples.length + 1,
+            itemCount: rows.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
-              if (index == 0) {
+              final row = rows[index];
+              if (row is _Header) return _SectionHeader(row.title);
+              if (row is! Example) {
                 return ListTile(
                   leading: const Icon(Icons.forum_outlined),
                   title: const Text('Conversation'),
@@ -143,16 +178,40 @@ class _ExamplesPageState extends State<ExamplesPage> {
                   onTap: () => _open(ConversationPage(examples: examples, onToggleMode: widget.onToggleMode)),
                 );
               }
-              final example = examples[index - 1];
-              final missing = example.missing;
+              final missing = row.missing;
               return ListTile(
-                title: Text(example.name),
-                subtitle: Text(missing.isEmpty ? example.file : '${example.file} · unknown: ${missing.join(', ')}'),
-                onTap: () => _open(ExamplePage(example: example, onToggleMode: widget.onToggleMode)),
+                title: Text(row.name),
+                subtitle: Text(
+                  row.description ?? (missing.isEmpty ? row.file : '${row.file} · unknown: ${missing.join(', ')}'),
+                ),
+                onTap: () => _open(ExamplePage(example: row, onToggleMode: widget.onToggleMode)),
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _Header {
+  const _Header(this.title);
+
+  final String title;
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Text(
+        title,
+        style: context.streamTextTheme.headingSm.copyWith(color: context.streamColorScheme.textPrimary),
       ),
     );
   }

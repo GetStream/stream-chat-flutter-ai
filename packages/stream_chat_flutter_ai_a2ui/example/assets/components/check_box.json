@@ -1,0 +1,78 @@
+{
+  "name": "CheckBox",
+  "description": "A bound check box, one without a binding, and one with a failing check.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-checkbox-bound",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-checkbox-bound",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Bound", "variant": "caption"},
+          {"id": "c", "component": "CheckBox", "label": "Email me the itinerary", "value": {"@path": "/email"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-checkbox-bound",
+        "value": {
+          "email": true
+        }
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-checkbox-unbound",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-checkbox-unbound",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Not bound: fainter, and a tap does nothing", "variant": "caption"},
+          {"id": "c", "component": "CheckBox", "label": "Fixed by the agent", "value": true}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-checkbox-checks",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-checkbox-checks",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "A check that fails until it is checked", "variant": "caption"},
+          {"id": "c", "component": "CheckBox", "label": "I accept the terms", "value": {"@path": "/accepted"}, "checks": [{"condition": {"@path": "/accepted"}, "message": "You must accept the terms."}]}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-checkbox-checks",
+        "value": {
+          "accepted": false
+        }
+      }
+    }
+  ]
+}

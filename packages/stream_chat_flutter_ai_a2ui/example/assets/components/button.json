@@ -1,0 +1,80 @@
+{
+  "name": "Button",
+  "description": "Variants, an icon button, and a button blocked by a check.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-button-variants",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-button-variants",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "r"]},
+          {"id": "variant_title", "component": "Text", "text": "default, primary and borderless", "variant": "caption"},
+          {"id": "r", "component": "Row", "children": ["b1", "b2", "b3"], "justify": "spaceBetween"},
+          {"id": "b1", "component": "Button", "child": "t1", "action": {"event": {"name": "default_tapped", "context": {}}}},
+          {"id": "t1", "component": "Text", "text": "Default"},
+          {"id": "b2", "component": "Button", "child": "t2", "action": {"event": {"name": "primary_tapped", "context": {}}}, "variant": "primary"},
+          {"id": "t2", "component": "Text", "text": "Primary"},
+          {"id": "b3", "component": "Button", "child": "t3", "action": {"event": {"name": "borderless_tapped", "context": {}}}, "variant": "borderless"},
+          {"id": "t3", "component": "Text", "text": "Borderless"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-button-icon",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-button-icon",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "b"]},
+          {"id": "variant_title", "component": "Text", "text": "An Icon child: an icon button, labelled by accessibility", "variant": "caption"},
+          {"id": "b", "component": "Button", "child": "i", "action": {"event": {"name": "favorited", "context": {}}}, "variant": "primary", "accessibility": {"label": "Add to favorites"}},
+          {"id": "i", "component": "Icon", "name": "favorite"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-button-checks",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
+        "sendDataModel": true
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-button-checks",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Disabled while its check fails; a userMessage and the data model go with the event", "variant": "caption"},
+          {"id": "c", "component": "Column", "children": ["f", "b"]},
+          {"id": "f", "component": "TextField", "label": "Your name", "value": {"@path": "/name"}},
+          {"id": "b", "component": "Button", "variant": "primary", "child": "bt", "checks": [{"condition": {"@call": "required", "args": {"value": {"@path": "/name"}}}, "message": "Enter your name first."}], "action": {"event": {"name": "greet", "context": {"name": {"@path": "/name"}}, "userMessage": "The person introduced themselves."}}},
+          {"id": "bt", "component": "Text", "text": "Say hello"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-button-checks",
+        "value": {
+          "name": ""
+        }
+      }
+    }
+  ]
+}
