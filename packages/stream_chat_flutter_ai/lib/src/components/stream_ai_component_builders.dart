@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
 import 'package:stream_chat_flutter_ai/src/code_block_view.dart';
@@ -73,6 +74,8 @@ import 'package:stream_core_flutter/core.dart';
 /// * [codeBlock]: a non-chart code fence in markdown. Defaults to
 ///   [CodeBlockView].
 /// * [chart]: a code fence that parsed as chart data. Defaults to [ChartView].
+/// * [math]: a LaTeX expression in markdown, when the [AIMarkdownBody] has no
+///   `mathBuilder` of its own. Defaults to the TeX source as text.
 /// * [reasoning]: a round of reasoning in [AIMessagePartsView]. Defaults to
 ///   [StreamingReasoningView.part].
 /// * [toolCall]: a tool call's row in [AIMessagePartsView]. Defaults to
@@ -132,6 +135,7 @@ import 'package:stream_core_flutter/core.dart';
 Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
   StreamComponentBuilder<AICodeBlockProps>? codeBlock,
   StreamComponentBuilder<AIChartProps>? chart,
+  StreamComponentBuilder<AIMathProps>? math,
   StreamComponentBuilder<AIReasoningProps>? reasoning,
   StreamComponentBuilder<AIToolCallProps>? toolCall,
   StreamComponentBuilder<AIToolApprovalProps>? toolApproval,
@@ -149,6 +153,7 @@ Iterable<StreamComponentBuilderExtension<Object>> streamAIComponentBuilders({
   final builders = [
     if (codeBlock != null) StreamComponentBuilderExtension(builder: codeBlock),
     if (chart != null) StreamComponentBuilderExtension(builder: chart),
+    if (math != null) StreamComponentBuilderExtension(builder: math),
     if (reasoning != null) StreamComponentBuilderExtension(builder: reasoning),
     if (toolCall != null) StreamComponentBuilderExtension(builder: toolCall),
     if (toolApproval != null) StreamComponentBuilderExtension(builder: toolApproval),
@@ -209,6 +214,23 @@ final class AIChartProps {
 
   /// The parsed chart.
   final USpec spec;
+}
+
+/// What the `math` builder of [streamAIComponentBuilders] gets.
+@immutable
+final class AIMathProps {
+  /// Creates an [AIMathProps].
+  const AIMathProps({required this.tex, this.style, required this.inline});
+
+  /// The LaTeX source, without its delimiters.
+  final String tex;
+
+  /// The style of the text around it.
+  final TextStyle? style;
+
+  /// Whether it sits in a line of text, from `\(…\)`, rather than in a block
+  /// of its own, from `\[…\]`.
+  final bool inline;
 }
 
 /// What the `reasoning` builder of [streamAIComponentBuilders] gets.

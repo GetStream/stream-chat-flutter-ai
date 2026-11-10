@@ -213,8 +213,9 @@ class AIMarkdownBody extends StatefulWidget {
   /// )
   /// ```
   ///
-  /// The LaTeX *syntax* is recognised either way, so leaving this null degrades
-  /// to showing the TeX source rather than dropping it.
+  /// The LaTeX *syntax* is recognised either way. When this is null, the
+  /// `math` builder of [streamAIComponentBuilders] renders it, and
+  /// without one either the TeX source shows rather than being dropped.
   final MathBuilder? mathBuilder;
 
   /// Whether `$…$` and `$$…$$` are also treated as LaTeX delimiters, on top of
@@ -445,9 +446,21 @@ class _MathElementBuilder extends MarkdownElementBuilder {
     final inline = element.attributes[kMathDisplayAttribute] != kMathDisplayBlock;
 
     final builder = _builder();
-    // No math engine wired up — show the source instead of swallowing it.
-    if (builder == null) return Text(tex, style: style);
+    if (builder != null) return builder(context, tex, style, inline: inline);
+    return _Math(AIMathProps(tex: tex, style: style, inline: inline));
+  }
+}
 
-    return builder(context, tex, style, inline: inline);
+/// LaTeX left to the component builders: asks for the widget in its own
+/// build, like [_Fence], so swapping the builders rebuilds it without a parse.
+class _Math extends StatelessWidget {
+  const _Math(this.props);
+
+  final AIMathProps props;
+
+  @override
+  Widget build(BuildContext context) {
+    // No math engine wired up — show the source instead of swallowing it.
+    return context.aiComponentBuilder<AIMathProps>()?.call(context, props) ?? Text(props.tex, style: props.style);
   }
 }
