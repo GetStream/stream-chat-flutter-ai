@@ -37,7 +37,7 @@ per [Choosing the version](#choosing-the-version).
 ## Key facts for this repo
 
 - **Every publishable package is released in lockstep:** every `packages/*/pubspec.yaml` that isn't
-  `publish_to: none` — `packages/stream_chat_flutter_ai` (core), and today `packages/stream_chat_flutter_ai_a2ui`.
+  `publish_to: none` — `packages/stream_chat_flutter_ai` (core), and `packages/stream_chat_flutter_ai_a2ui` and `packages/stream_chat_flutter_ai_openui` once they are released.
   They always share one `version:`, and one `v<X.Y.Z>` tag publishes all of them — so every one is bumped even when
   only some have changes. The packages that depend on core use `stream_chat_flutter_ai: ^<version>`; that
   constraint lives in the root `melos.command.bootstrap.dependencies` list, and bootstrap copies it into every
@@ -202,14 +202,14 @@ CHANGELOG doesn't mention the published version. Give it a `## <version>` sectio
 Don't write fresh bullets from `git log`. An unreleased user-facing change that never got an `## Upcoming` bullet
 is a gap to raise with the user, not one for this step to fill in.
 
-**The A2UI package's first release:** while `packages/stream_chat_flutter_ai_a2ui/pubspec.yaml` still has
-`publish_to: none` (and the comment above it), delete both lines in this same PR. Until then the package is private,
-so `lint:pub`, `release:pub` and the release workflows skip it; from this release on it is published with the core
-package. pub.dev can't create a package through automated publishing, so tell the user that this first A2UI
-upload in `release_publish.yml` fails after core is published: a publisher member uploads
-`stream_chat_flutter_ai_a2ui <version>` by hand from the `v<version>` tag, enables automated publishing on its
-pub.dev admin page, and re-runs `release_publish`, which skips the packages already live and creates the GitHub
-Release.
+**The A2UI and OpenUI packages' first release:** while `packages/stream_chat_flutter_ai_a2ui/pubspec.yaml` or
+`packages/stream_chat_flutter_ai_openui/pubspec.yaml` still has `publish_to: none` (and the comment above it), delete
+both lines in this same PR. Until then the package is private, so `lint:pub`, `release:pub` and the release
+workflows skip it; from this release on it is published with the other packages. pub.dev can't create a package
+through automated publishing, so tell the user that this first upload of each in `release_publish.yml` fails after
+core is published: a publisher member uploads `<package> <version>` by hand from the `v<version>` tag, enables
+automated publishing on its pub.dev admin page, and re-runs `release_publish`, which skips the packages already live
+and creates the GitHub Release.
 
 ### 4. Analyze, then commit
 
@@ -247,9 +247,9 @@ melos run lint:pub
 ```
 
 This is the real publish gate, and it now covers every publishable package: `lint:pub` skips versions already on
-pub.dev, and `<version>` isn't. Confirm the output shows each of them (today `stream_chat_flutter_ai` and
-`stream_chat_flutter_ai_a2ui`) being validated — if melos reports none, or fewer, a version bump (or dropping `publish_to: none`)
-didn't take. The A2UI dry run resolves core through the workspace, so it passes although core `<version>` isn't
+pub.dev, and `<version>` isn't. Confirm the output shows each of them (today `stream_chat_flutter_ai`; the A2UI and
+OpenUI packages once public) being validated — if melos reports none, or fewer, a version bump (or dropping `publish_to: none`)
+didn't take. The A2UI and OpenUI dry runs resolve core through the workspace, so it passes although core `<version>` isn't
 on pub.dev yet. Read failures carefully — pub reports two severities and only one blocks:
 
 - **"Package validation found the following error"** — blocks. `release_publish.yml` runs `pub publish -f`, and

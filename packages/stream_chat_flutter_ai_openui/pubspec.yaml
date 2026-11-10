@@ -39,8 +39,8 @@ dependencies:
     sdk: flutter
   # `@internal` and `@immutable` on the package's own types.
   meta: ^1.9.1
-  # Resolved to this workspace's own copy; pinned to its version once this
-  # package is published.
+  # Released in lockstep with this package: the release bumps both versions
+  # and this constraint together.
   stream_chat_flutter_ai: ^0.1.0
   # Stream's design system: the theme tokens and the components OpenUI
   # components are drawn with, so an app's component builders apply to them

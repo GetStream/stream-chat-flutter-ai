@@ -15,7 +15,8 @@ dependencies:
   flutter:
     sdk: flutter
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
-  # workspace: the Stream theme and the generative UI host.
+  # workspace: the Stream theme and the generative UI host. The constraint
+  # comes from the root bootstrap list.
   stream_chat_flutter_ai: ^0.1.0
   # Resolves to the local `packages/stream_chat_flutter_ai_openui` member of
   # this workspace.

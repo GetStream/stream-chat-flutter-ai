@@ -78,7 +78,7 @@ jobs:
       - name: 📝 First Release Notice
         if: failure() && steps.publish.outcome == 'failure'
         run: |
-          echo "::notice title=First release of a package::pub.dev can't create a package through automated publishing. A package's first version (such as stream_chat_flutter_ai_a2ui's) is uploaded by hand by a publisher member from this tag; then enable automated publishing on its pub.dev admin page and re-run this workflow."
+          echo "::notice title=First release of a package::pub.dev can't create a package through automated publishing. A package's first version (such as stream_chat_flutter_ai_a2ui's or stream_chat_flutter_ai_openui's) is uploaded by hand by a publisher member from this tag; then enable automated publishing on its pub.dev admin page and re-run this workflow."
 
       - name: 🏷️ Extract Version Info
         if: github.event_name == 'push'
