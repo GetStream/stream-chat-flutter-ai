@@ -26,7 +26,7 @@ components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadin
 (theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
 uses, so a core minor bump is released in step with chat.
 
-A second package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
+A package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
 plugin for the core package's generative UI. It uses only the core package's public API, and hides
 `a2ui_core` (the A2UI protocol library) inside `lib/src/core/`: no other file imports it, and no
 `a2ui_core` type appears in its API, so the protocol library can be replaced. The same holds for
