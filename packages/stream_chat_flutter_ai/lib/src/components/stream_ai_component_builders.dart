@@ -432,6 +432,9 @@ final class AIMessageAttachmentProps {
   /// Whether the person sent the message that carries it.
   final bool isFromUser;
 
-  /// Opens it.
+  /// Opens it, when the app handles taps itself.
+  ///
+  /// `null` when it doesn't: [AIMessageAttachmentView] then opens a file's URL
+  /// by default, and does nothing for an image.
   final VoidCallback? onTap;
 }

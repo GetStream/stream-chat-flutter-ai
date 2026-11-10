@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
 import 'package:stream_core_flutter/core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// One of a message's attachments: an image as a thumbnail, and any other kind
 /// as a file card with its name, type and size.
@@ -14,7 +18,10 @@ import 'package:stream_core_flutter/core.dart';
 /// [AIMessageAttachment.extraData], and return this view for the kinds you
 /// don't handle.
 ///
-/// Opening it is the app's: pass [onTap], such as to launch its URL.
+/// A file card with a URL opens it when tapped: a web link in the browser, and
+/// any other URL is handed to the platform. When nothing opens it, a notice
+/// says so. An app that shows a local file itself, such as in a preview,
+/// handles the tap with [onTap]. An image has no default action.
 class AIMessageAttachmentView extends StatelessWidget {
   /// Creates an [AIMessageAttachmentView].
   const AIMessageAttachmentView({super.key, required this.attachment, this.imageSize = 180, this.onTap});
@@ -31,8 +38,41 @@ class AIMessageAttachmentView extends StatelessWidget {
   /// The width and height of an image.
   final double imageSize;
 
-  /// Opens the attachment.
+  /// Opens the attachment, in place of what a tap does by default.
+  ///
+  /// Without it, an image does nothing when tapped, and a file card with a URL
+  /// opens that URL as the class documents. A file card without one is not
+  /// tappable.
   final VoidCallback? onTap;
+
+  Future<void> _open(BuildContext context, Uri url) async {
+    final mode = url.scheme == 'http' || url.scheme == 'https'
+        ? LaunchMode.externalApplication
+        : LaunchMode.platformDefault;
+    var opened = false;
+    try {
+      opened = await launchUrl(url, mode: mode);
+      if (!opened) reportPartIssue(() => 'No app could open the attachment at $url.');
+    } on Object catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while opening a file attachment'),
+        ),
+      );
+    }
+    if (opened || !context.mounted) return;
+    final message = Text(AITranslations.of(context).cannotOpenAttachment);
+    final messenger = StreamSnackbarMessenger.maybeOf(context);
+    if (messenger != null) {
+      messenger.show(StreamSnackbar(message: message, variant: .error));
+    } else {
+      // An app has a core snackbar scope only if it installs one: nothing in StreamTheme does.
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: message));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,14 +124,17 @@ class AIMessageAttachmentView extends StatelessWidget {
       (null, null) => null,
     };
 
+    final tap = onTap ?? (url == null ? null : () => unawaited(_open(context, url)));
+
     return Semantics(
-      button: onTap != null,
+      button: tap != null,
+      onTapHint: onTap == null && tap != null ? translations.openAttachment : null,
       child: Material(
         color: background,
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: tap,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 280),
             child: Padding(

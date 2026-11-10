@@ -190,7 +190,9 @@
 - `AIUserMessageView`, `AIAssistantMessageView` and `AIThinkingView` — a conversation's rows and its
   "Thinking… 4s".
 - `AIMessageAttachmentView` — an image as a thumbnail and anything else as a file card;
-  the `messageAttachment` builder shows kinds of your own.
+  the `messageAttachment` builder shows kinds of your own. A file card with a URL opens it when
+  tapped, in the browser for a web link and through the platform for any other URL, with a notice when
+  nothing opens it, unless `AIConversationView.onAttachmentTap` or `onTap` is set.
 - The `userMessage`, `assistantMessage`, `replyActions` (empty by default) and `messageAttachment`
   builders, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
   and `AIMessageAttachmentProps`.
@@ -199,7 +201,8 @@
 - `ConversationThemeData` and `ConversationTheme`, and `AITheme.conversationTheme`, for the bubbles,
   attachments and scroll-to-latest button.
 - `AITranslations.copyMessage`, `editMessage`, `scrollToLatest`, `attachmentImage`,
-  `attachmentFile`, `attachmentDetails` and `fileSize` — the conversation's strings.
+  `attachmentFile`, `attachmentDetails`, `fileSize`, `openAttachment` and `cannotOpenAttachment` —
+  the conversation's strings.
 - `AIVoiceGlowView` and `AIVoiceWaveView` — a globe of drifting color and a waveform line that show
   what a voice agent is doing, drawn with fragment shaders. They ease from one state into the next,
   ripple where they are tapped and barely move with reduced motion on.

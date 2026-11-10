@@ -298,6 +298,12 @@ abstract class AITranslations {
   /// The name of a file attachment that has none.
   String get attachmentFile;
 
+  /// The tap hint of a file attachment that opens when tapped.
+  String get openAttachment;
+
+  /// The notice that no app could open a tapped file attachment.
+  String get cannotOpenAttachment;
+
   /// A file attachment's [type] and [size], such as "PDF · 2.4 MB".
   String attachmentDetails(String type, String size);
 
@@ -539,6 +545,12 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get attachmentFile => 'File';
+
+  @override
+  String get openAttachment => 'Open';
+
+  @override
+  String get cannotOpenAttachment => 'No app can open this file';
 
   @override
   String attachmentDetails(String type, String size) => '$type · $size';

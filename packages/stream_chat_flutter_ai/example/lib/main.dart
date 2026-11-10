@@ -1257,6 +1257,12 @@ class DutchTranslations implements AITranslations {
   String get attachmentFile => 'Bestand';
 
   @override
+  String get openAttachment => 'Openen';
+
+  @override
+  String get cannotOpenAttachment => 'Geen app kan dit bestand openen';
+
+  @override
   String attachmentDetails(String type, String size) => '$type · $size';
 
   @override

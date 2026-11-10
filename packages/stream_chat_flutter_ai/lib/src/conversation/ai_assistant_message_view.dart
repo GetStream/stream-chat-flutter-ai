@@ -53,7 +53,8 @@ class AIAssistantMessageView extends StatefulWidget {
   /// The whole of a reasoning step's thinking, when the app has it.
   final String? Function(AIReasoningPart step)? reasoningText;
 
-  /// Opens one of the attachments.
+  /// Opens one of the attachments, in place of the default: a file with a URL
+  /// opens it, and an image does nothing.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 
   @override

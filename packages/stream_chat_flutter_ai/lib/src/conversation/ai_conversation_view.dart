@@ -110,7 +110,11 @@ class AIConversationView extends StatefulWidget {
   /// left.
   final Future<void> Function()? loadOlderMessages;
 
-  /// Opens one of a message's attachments, such as by launching its URL.
+  /// Opens one of a message's attachments, in place of the default.
+  ///
+  /// Without it, a file attachment with a URL opens when tapped, as the
+  /// attachment view documents, and an image does nothing. When set, it gets
+  /// every attachment's tap.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 
   /// A widget under the latest turn's messages, such as what the agent is
