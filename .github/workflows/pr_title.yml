@@ -24,6 +24,7 @@ jobs:
             ai
             a2ui
             openui
+            ondevice
             repo
             docs
             deps
@@ -35,15 +36,16 @@ jobs:
     needs: conventional_pr_title # Trigger after the [conventional_pr_title] completes
     runs-on: ubuntu-latest
     steps:
-      # Only `ai`, `a2ui` and `openui` are mapped, so `repo`/`docs`/`deps` PRs
-      # aren't required to touch a CHANGELOG.
+      # Only `ai`, `a2ui`, `openui` and `ondevice` are mapped, so `repo`/`docs`/`deps`
+      # PRs aren't required to touch a CHANGELOG.
       - uses: GetStream/verify-semantic-changelog-update@main
         with:
           scopes: |
             {
               "ai": "packages/stream_chat_flutter_ai",
               "a2ui": "packages/stream_chat_flutter_ai_a2ui",
-              "openui": "packages/stream_chat_flutter_ai_openui"
+              "openui": "packages/stream_chat_flutter_ai_openui",
+              "ondevice": "packages/stream_chat_flutter_ai_ondevice"
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
