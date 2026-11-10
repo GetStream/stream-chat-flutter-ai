@@ -5,11 +5,13 @@
 library;
 
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/materialization_cache.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/schema_validation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
@@ -29,7 +31,12 @@ final class MaterializeContext {
     required this.partial,
     required this.currentStatementId,
     required Iterable<String> unreached,
+    this.cache,
   }) : unreached = LinkedHashSet.of(unreached);
+
+  /// What earlier passes resolved each statement to, reused while it still
+  /// holds, or `null` when nothing is kept between passes.
+  final MaterializationCache? cache;
 
   /// The expression each statement's name stands for.
   final Map<String, AstNode> symbols;
@@ -62,6 +69,41 @@ final class MaterializeContext {
   /// How many nodes the statement being resolved has used, each use of a
   /// reference counted again.
   int nodes = 0;
+
+  /// How many nodes this pass resolved itself rather than reused.
+  ///
+  /// Only the tests read it.
+  int debugResolvedNodes = 0;
+
+  /// How many references led back to a statement being resolved.
+  int cycles = 0;
+
+  /// How many nodes were left out for being past the depth or node budget.
+  int truncations = 0;
+
+  /// The deepest level resolving has reached since the statement being
+  /// resolved started.
+  int deepest = 0;
+
+  /// The statements looked up, in order, with the version each had, kept
+  /// only with a [cache].
+  final List<StatementRead> reads = [];
+
+  /// The statements reached, in order, kept only with a [cache].
+  final List<String> reachedLog = [];
+
+  /// The expression of the statement named `name`, or `null` when nothing
+  /// defines it.
+  AstNode? lookUp(String name) {
+    if (cache case final cache?) reads.add((name: name, version: cache.versions[name]));
+    return symbols[name];
+  }
+
+  /// Marks the statement named `name` as reached, so it isn't an orphan.
+  void markReached(String name) {
+    unreached.remove(name);
+    if (cache != null) reachedLog.add(name);
+  }
 
   /// Records `code` in `component` at `path`, attributed to
   /// [currentStatementId].
@@ -157,10 +199,15 @@ abstract final class Materializer {
   // Counts a node against the depth and node budgets, entering it; false,
   // without entering, when it is past either.
   static bool _enter(MaterializeContext context) {
-    if (context.depth >= maxDepth || context.nodes >= maxNodes) return false;
+    if (context.depth >= maxDepth || context.nodes >= maxNodes) {
+      context.truncations += 1;
+      return false;
+    }
     context
       ..depth += 1
-      ..nodes += 1;
+      ..nodes += 1
+      ..debugResolvedNodes += 1
+      ..deepest = math.max(context.deepest, context.depth);
     return true;
   }
 
@@ -289,16 +336,34 @@ abstract final class Materializer {
   // back to a statement being resolved, is unresolved: `null` as a value, a
   // placeholder in an expression.
   static OpenUIValue _resolveRef(String name, MaterializeContext context, {required bool asExpression}) {
-    final target = context.visited.contains(name) ? null : context.symbols[name];
+    final isCycle = context.visited.contains(name);
+    if (isCycle) context.cycles += 1;
+    final target = isCycle ? null : context.lookUp(name);
     if (target == null) {
       context.unresolved.add(name);
       return asExpression ? OpenUIExpression(AstPlaceholder(name)) : OpenUINull.instance;
     }
-    context.unreached.remove(name);
+    context.markReached(name);
     if (target is AstCall && BuiltinCalls.isReservedCall(target.name)) {
       final type = target.name == BuiltinCalls.mutation ? RuntimeRefType.mutation : RuntimeRefType.query;
       return OpenUIExpression(AstRuntimeRef(name, type));
     }
+    if (_reuse(name, context, asExpression: asExpression) case final reused?) return reused;
+
+    final start = _startResolving(context);
+    final result = _resolveStatement(name, target, context, asExpression: asExpression);
+    _finishResolving(start, name, result, context, asExpression: asExpression);
+    return result;
+  }
+
+  // What the statement [name], whose expression is [target], resolves to,
+  // with errors attributed to it and a reference back to it a cycle.
+  static OpenUIValue _resolveStatement(
+    String name,
+    AstNode target,
+    MaterializeContext context, {
+    required bool asExpression,
+  }) {
     context.visited.add(name);
     final previousStatementId = context.currentStatementId;
     context.currentStatementId = name;
@@ -312,6 +377,84 @@ abstract final class Materializer {
       context.currentStatementId = previousStatementId;
       context.visited.remove(name);
     }
+  }
+
+  // What an earlier pass resolved the statement [name] to, reporting again
+  // what it reported, or null when it may have changed since. A result is
+  // reused only where it fits the depth and nodes left, so a reused result
+  // meets the same budgets as a fresh one.
+  static OpenUIValue? _reuse(String name, MaterializeContext context, {required bool asExpression}) {
+    final cache = context.cache;
+    if (cache == null) return null;
+    final entry = cache.entries[(name: name, asExpression: asExpression, partial: context.partial)];
+    if (entry == null) return null;
+    if (entry.version != cache.versions[name]) return null;
+    if (!cache.isCurrent(entry.reads)) return null;
+    if (context.depth + entry.height > maxDepth) return null;
+    if (context.nodes + entry.nodes > maxNodes) return null;
+    context
+      ..reads.addAll(entry.reads)
+      ..errors.addAll(entry.errors)
+      ..unresolved.addAll(entry.unresolved)
+      ..nodes += entry.nodes
+      ..deepest = math.max(context.deepest, context.depth + entry.height);
+    entry.reached.forEach(context.markReached);
+    return entry.result;
+  }
+
+  // Where resolving a statement starts in the logs of its pass, or null when
+  // nothing is kept between passes.
+  static ResolveStart? _startResolving(MaterializeContext context) {
+    if (context.cache == null) return null;
+    final start = (
+      reads: context.reads.length,
+      errors: context.errors.length,
+      unresolved: context.unresolved.length,
+      reached: context.reachedLog.length,
+      nodes: context.nodes,
+      cycles: context.cycles,
+      truncations: context.truncations,
+      depth: context.depth,
+      deepest: context.deepest,
+    );
+    context.deepest = context.depth;
+    return start;
+  }
+
+  // Keeps [result], what the statement [name] resolved to since [start], with
+  // what it read, reported and reached.
+  static void _finishResolving(
+    ResolveStart? start,
+    String name,
+    OpenUIValue result,
+    MaterializeContext context, {
+    required bool asExpression,
+  }) {
+    final cache = context.cache;
+    if (start == null || cache == null) return;
+    final height = context.deepest - start.depth;
+    context.deepest = math.max(start.deepest, context.deepest);
+    // A cycle or a budget cuts a result short depending on where the
+    // statement is used, so such a result can't stand for another use.
+    if (context.cycles != start.cycles || context.truncations != start.truncations) return;
+    final readNames = <String>{};
+    final reachedNames = <String>{};
+    cache.entries[(name: name, asExpression: asExpression, partial: context.partial)] = CacheEntry(
+      result: result,
+      version: cache.versions[name],
+      reads: [
+        for (final read in context.reads.skip(start.reads))
+          if (readNames.add(read.name)) read,
+      ],
+      errors: context.errors.sublist(start.errors),
+      unresolved: context.unresolved.sublist(start.unresolved),
+      reached: [
+        for (final reached in context.reachedLog.skip(start.reached))
+          if (reachedNames.add(reached)) reached,
+      ],
+      nodes: context.nodes - start.nodes,
+      height: height,
+    );
   }
 
   // `@Each(array, varName, template)`: resolves the arguments with the loop
