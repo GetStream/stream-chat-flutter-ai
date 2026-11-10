@@ -37,7 +37,7 @@ per [Choosing the version](#choosing-the-version).
 ## Key facts for this repo
 
 - **Every publishable package is released in lockstep:** every `packages/*/pubspec.yaml` that isn't
-  `publish_to: none` — `packages/stream_chat_flutter_ai` (core), and today `packages/stream_chat_flutter_ai_ondevice`.
+  `publish_to: none` — `packages/stream_chat_flutter_ai` (core), and today `packages/stream_chat_flutter_ai_ondevice` (and `packages/stream_chat_flutter_ai_a2ui` once it is released).
   They always share one `version:`, and one `v<X.Y.Z>` tag publishes all of them — so every one is bumped even when
   only some have changes. The packages that depend on core use `stream_chat_flutter_ai: ^<version>`; that
   constraint lives in the root `melos.command.bootstrap.dependencies` list, and bootstrap copies it into every
@@ -255,9 +255,9 @@ melos run lint:pub
 ```
 
 This is the real publish gate, and it now covers every publishable package: `lint:pub` skips versions already on
-pub.dev, and `<version>` isn't. Confirm the output shows each of them (today `stream_chat_flutter_ai` and
-`stream_chat_flutter_ai_ondevice`) being validated — if melos reports none, or fewer, a version bump (or dropping `publish_to: none`)
-didn't take. The ondevice dry run resolves core through the workspace, so it passes although core `<version>` isn't
+pub.dev, and `<version>` isn't. Confirm the output shows each of them (today `stream_chat_flutter_ai`,
+`stream_chat_flutter_ai_ondevice` and, once released, `stream_chat_flutter_ai_a2ui`) being validated — if melos reports none, or fewer, a version bump (or dropping `publish_to: none`)
+didn't take. The dry runs of the packages that depend on core resolve core through the workspace, so it passes although core `<version>` isn't
 on pub.dev yet. Read failures carefully — pub reports two severities and only one blocks:
 
 - **"Package validation found the following error"** — blocks. `release_publish.yml` runs `pub publish -f`, and
@@ -317,7 +317,7 @@ tag with the bot PAT. `release_publish.yml` fires on that tag push, runs a dry r
 `melos run release:pub` (OIDC), and creates the GitHub Release. `release:pub` publishes core first, because the
 packages that depend on it need core `<version>` on pub.dev. The dry run
 passes on a version that's already live and `release:pub` skips it, so a re-run after a failure (say, core published
-but ondevice didn't) publishes only what's missing.
+but ondevice or A2UI didn't) publishes only what's missing.
 
 ## Don't
 

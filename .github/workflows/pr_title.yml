@@ -36,8 +36,8 @@ jobs:
     needs: conventional_pr_title # Trigger after the [conventional_pr_title] completes
     runs-on: ubuntu-latest
     steps:
-      # Only the package scopes are mapped, so `repo`/`docs`/`deps` PRs aren't
-      # required to touch a CHANGELOG.
+      # Only `ai`, `a2ui`, `openui` and `ondevice` are mapped, so `repo`/`docs`/`deps`
+      # PRs aren't required to touch a CHANGELOG.
       - uses: GetStream/verify-semantic-changelog-update@main
         with:
           scopes: |
