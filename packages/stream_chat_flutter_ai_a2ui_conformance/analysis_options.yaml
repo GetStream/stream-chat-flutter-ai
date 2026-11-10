@@ -4,7 +4,7 @@ include: ../../analysis_options.yaml
 
 analyzer:
   errors:
-    # The suites run the adapter's `@internal` types and the test-only seams of
+    # The suites run the adapter's `@internal` types and the test interface of
     # `stream_chat_flutter_ai_a2ui`, as that package's own tests do.
     invalid_use_of_internal_member: ignore
 

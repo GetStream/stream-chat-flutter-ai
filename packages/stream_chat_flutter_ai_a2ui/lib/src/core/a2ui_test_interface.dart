@@ -1,7 +1,8 @@
 part of 'a2ui_adapter.dart';
 
-// The tests' way into the adapter and the A2UI core: test-only, and the only
-// test-only code in `lib/`. The A2UI conformance suites use it, and so do a few
+// The test interface: the tests' way into the adapter and the A2UI core. It is
+// test-only, and the only test-only code in `lib/`; every public type and
+// function here is `@internal` and `@visibleForTesting`. The A2UI conformance suites use it, and so do a few
 // unit tests. Nothing here is exported, and no production code calls it; the
 // production classes don't know it exists.
 //

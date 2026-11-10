@@ -9,7 +9,7 @@ flutter test --tags conformance   # the same, as the suites are tagged
 ```
 
 The suites go through the adapter in `stream_chat_flutter_ai_a2ui`'s `lib/src/core/`, and, for the cases a renderer
-never reaches on its own, through its test-only seams in `lib/src/core/a2ui_conformance_seams.dart`.
+never reaches on its own, through its test interface in `lib/src/core/a2ui_test_interface.dart`.
 
 ## Why the A2UI package keeps its conformance tests
 

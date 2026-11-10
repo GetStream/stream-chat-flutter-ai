@@ -53,8 +53,8 @@ packages/stream_chat_flutter_ai_a2ui_conformance/ # A2UI conformance suites (tes
 ```
 
 The A2UI conformance suites live in their own private package so they don't ship with
-`stream_chat_flutter_ai_a2ui`. They reach the adapter through its test-only seams in
-`lib/src/core/a2ui_conformance_seams.dart`, the only test-only code in that package's `lib/`. Production
+`stream_chat_flutter_ai_a2ui`. They reach the adapter through its test interface in
+`lib/src/core/a2ui_test_interface.dart`, the only test-only code in that package's `lib/`. Production
 classes never get test-only constructors, parameters or fields.
 
 The two packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling

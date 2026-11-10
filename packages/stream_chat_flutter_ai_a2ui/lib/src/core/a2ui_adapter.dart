@@ -26,7 +26,7 @@ import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_versions.dart';
 part 'a2ui_agent_function.dart';
 part 'a2ui_catalogs.dart';
 part 'a2ui_checks.dart';
-part 'a2ui_conformance_seams.dart';
+part 'a2ui_test_interface.dart';
 part 'a2ui_core_errors.dart';
 part 'a2ui_expansion.dart';
 part 'a2ui_node.dart';
