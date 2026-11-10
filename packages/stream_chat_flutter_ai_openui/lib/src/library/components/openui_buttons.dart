@@ -2,9 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `Button`: its `label` in a button of its `variant` (`primary`,
@@ -45,7 +45,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
-  final spacing = OpenUITheme.of(context).sSpacing!;
+  final spacing = OpenUIViewScope.of(context).theme.sSpacing;
   final buttons = openUIChildWidgets(context, scope, scope.elements('buttons'));
   if (buttons.isEmpty) return const SizedBox.shrink();
   if (scope.string('direction') == 'column') {

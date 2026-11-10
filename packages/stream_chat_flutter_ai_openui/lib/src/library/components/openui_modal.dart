@@ -6,7 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `Modal`: a sheet with its `title` and its `children`, shown while
@@ -147,7 +147,7 @@ class _OpenUIModalSheet extends StatelessWidget {
         return themes.wrap(
           Builder(
             builder: (context) {
-              final theme = OpenUITheme.of(context);
+              final theme = OpenUIViewScope.of(context).theme;
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -156,7 +156,7 @@ class _OpenUIModalSheet extends StatelessWidget {
                   Flexible(
                     child: SingleChildScrollView(
                       controller: scrollController,
-                      padding: EdgeInsets.all(theme.lSpacing!),
+                      padding: EdgeInsets.all(theme.lSpacing),
                       child: scope.buildProp('children'),
                     ),
                   ),

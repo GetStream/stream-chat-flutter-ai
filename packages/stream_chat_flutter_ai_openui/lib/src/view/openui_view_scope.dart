@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 
 /// Signature for the function a reply's media loads through: the URL to load
 /// for [url], or `null` to load nothing.
@@ -36,17 +37,26 @@ Uri? openUIWebMediaUrl(Uri url) => _isWeb(url) ? url : null;
 void openOpenUILink(BuildContext context, String? href) {
   // Read on a tap, outside a build, so without depending on the scope.
   final openLink = context.getInheritedWidgetOfExactType<OpenUIViewScope>()?.openLink;
-  if (openLink == null || href == null) return;
-  final url = Uri.tryParse(href);
-  if (url == null || !(_isWeb(url) || url.isScheme('mailto'))) return;
+  final url = openableOpenUILink(href);
+  if (openLink == null || url == null) return;
   openLink(url);
+}
+
+/// The URL of [href] when it is a web or email link, `http`, `https` or
+/// `mailto`, and `null` when it is `null`, isn't a URL, or is any other kind.
+///
+/// Internal to the package.
+@internal
+Uri? openableOpenUILink(String? href) {
+  final url = href == null ? null : Uri.tryParse(href);
+  return url != null && (_isWeb(url) || url.isScheme('mailto')) ? url : null;
 }
 
 bool _isWeb(Uri url) => (url.isScheme('http') || url.isScheme('https')) && url.host.isNotEmpty;
 
 /// What the components of a reply's OpenUI share: the library they are built
-/// with, how media loads and links open, and whether the reply is still
-/// streaming.
+/// with, the theme they draw with, how media loads and links open, and
+/// whether the reply is still streaming.
 ///
 /// Internal to the package.
 @internal
@@ -56,6 +66,7 @@ class OpenUIViewScope extends InheritedTheme {
     super.key,
     required this.runtime,
     required this.library,
+    required this.theme,
     required this.mediaUrl,
     required this.openLink,
     required this.isStreaming,
@@ -69,6 +80,9 @@ class OpenUIViewScope extends InheritedTheme {
 
   /// The library the components are built with.
   final OpenUILibrary library;
+
+  /// The theme the components draw with.
+  final OpenUIResolvedTheme theme;
 
   /// The function media loads through.
   final OpenUIMediaUrl mediaUrl;
@@ -99,6 +113,7 @@ class OpenUIViewScope extends InheritedTheme {
   @override
   Widget wrap(BuildContext context, Widget child) {
     return OpenUIViewScope(
+      theme: theme,
       runtime: runtime,
       library: library,
       mediaUrl: mediaUrl,
@@ -113,6 +128,7 @@ class OpenUIViewScope extends InheritedTheme {
   bool updateShouldNotify(OpenUIViewScope oldWidget) {
     return runtime != oldWidget.runtime ||
         library != oldWidget.library ||
+        theme != oldWidget.theme ||
         mediaUrl != oldWidget.mediaUrl ||
         openLink != oldWidget.openLink ||
         isStreaming != oldWidget.isStreaming ||

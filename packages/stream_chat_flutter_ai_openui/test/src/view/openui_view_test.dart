@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -93,7 +94,7 @@ void main() {
     );
 
     expect(inside.size, 40);
-    expect(inside.color, OpenUIThemeData.defaults(StreamTheme.light()).text);
+    expect(inside.color, OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light()).text);
   });
 
   group('a component type without a builder', () {
@@ -143,7 +144,7 @@ void main() {
       expect(spinner, findsOneWidget);
       expect(tester.getSize(spinner), const Size(16, 16));
       final view = tester.getRect(find.byType(OpenUIView));
-      final spacing = OpenUIThemeData.defaults(StreamTheme.light()).sSpacing!;
+      final spacing = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light()).sSpacing;
       expect(tester.getTopRight(spinner), view.topRight + Offset(-spacing, spacing));
 
       tools.calls.single.answer.complete(const OpenUINumber(1));
@@ -167,7 +168,7 @@ void main() {
         ),
       );
 
-      final spacing = OpenUIThemeData.defaults(StreamTheme.light()).sSpacing!;
+      final spacing = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light()).sSpacing;
       expect(
         tester.getTopLeft(find.byType(StreamLoadingSpinner)),
         tester.getTopLeft(find.byType(OpenUIView)) + Offset(spacing, spacing),
@@ -207,8 +208,35 @@ void main() {
     expect(stream.spacing.sm, 99);
     expect(stream.radius.max, const Radius.circular(7));
     expect(stream.textTheme.bodyDefault.fontSize, 31);
-    // The color the design system gives body text stays.
-    expect(stream.textTheme.bodyDefault.color, StreamTheme.light().textTheme.bodyDefault.color);
+  });
+
+  testWidgets('a partial text style replaces the design system style as a whole, as it does in OpenUI components', (
+    tester,
+  ) async {
+    final runtime = testRuntime();
+    addTearDown(runtime.dispose);
+    const style = TextStyle(fontSize: 31);
+    final theme = OpenUIThemeData(
+      title: style,
+      heading: style,
+      body: style,
+      bodySmall: style,
+      caption: style,
+    );
+    await pumpOpenUI(tester, runtime, theme: theme, program: '$_card\nq = Query("list", {}, null)');
+
+    final text = _spinnerTheme(tester).textTheme;
+    final light = StreamTheme.light().textTheme;
+    // The design system's own text colors stay.
+    expect(text.headingMd, style.copyWith(color: light.headingMd.color));
+    expect(text.headingSm, style.copyWith(color: light.headingSm.color));
+    expect(text.bodyDefault, style.copyWith(color: light.bodyDefault.color));
+    expect(text.captionDefault, style.copyWith(color: light.captionDefault.color));
+    expect(text.metadataDefault, style.copyWith(color: light.metadataDefault.color));
+    expect(
+      text.bodyEmphasis,
+      style.copyWith(fontWeight: light.bodyEmphasis.fontWeight, color: light.bodyEmphasis.color),
+    );
   });
 
   testWidgets('without a theme, the design system components inside are unchanged', (tester) async {

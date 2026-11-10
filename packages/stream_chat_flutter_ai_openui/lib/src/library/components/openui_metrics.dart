@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `MetricIndicatorInline`: its `value` in the metric style, with its
@@ -27,15 +27,14 @@ Widget buildOpenUIMetricIndicatorWithStrikethrough(BuildContext context, OpenUIC
 }
 
 Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool previous}) {
-  final theme = OpenUITheme.of(context);
-  final colors = theme;
-  final value = Text(scope.text('value') ?? '', style: theme.metric!.copyWith(color: colors.text));
+  final theme = OpenUIViewScope.of(context).theme;
+  final value = Text(scope.text('value') ?? '', style: theme.metric.copyWith(color: theme.text));
   final previousValue = previous ? scope.text('previousValue') ?? '' : '';
   final subtext = scope.text('subtext') ?? '';
   final trend = _TrendBadge.of(scope.value('trend'));
   return Row(
     mainAxisSize: MainAxisSize.min,
-    spacing: theme.sSpacing!,
+    spacing: theme.sSpacing,
     children: [
       Flexible(
         child: Column(
@@ -45,7 +44,7 @@ Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool 
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
-              spacing: theme.sSpacing!,
+              spacing: theme.sSpacing,
               children: [
                 Flexible(
                   child: previous
@@ -55,14 +54,14 @@ Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool 
                 if (previousValue.isNotEmpty)
                   Text(
                     previousValue,
-                    style: theme.bodySmall!.copyWith(
-                      color: colors.tertiaryText,
+                    style: theme.bodySmall.copyWith(
+                      color: theme.tertiaryText,
                       decoration: TextDecoration.lineThrough,
                     ),
                   ),
               ],
             ),
-            if (subtext.isNotEmpty) Text(subtext, style: theme.caption!.copyWith(color: colors.secondaryText)),
+            if (subtext.isNotEmpty) Text(subtext, style: theme.caption.copyWith(color: theme.secondaryText)),
           ],
         ),
       ),
@@ -94,18 +93,18 @@ class _TrendBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
-    final color = up ? theme.success! : theme.error!;
+    final theme = OpenUIViewScope.of(context).theme;
+    final color = up ? theme.success : theme.error;
     final number = value == value.truncateToDouble() ? value.toInt().toString() : value.toStringAsFixed(1);
     final icons = context.streamIcons;
     return Semantics(
       container: true,
-      label: up ? OpenUIStrings.trendUp(number) : OpenUIStrings.trendDown(number),
+      label: up ? OpenUIStrings.trendUp('$number%') : OpenUIStrings.trendDown('$number%'),
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
+          borderRadius: BorderRadius.circular(theme.pillCornerRadius),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -119,7 +118,7 @@ class _TrendBadge extends StatelessWidget {
               ),
               Text(
                 '$number%',
-                style: theme.caption!.copyWith(
+                style: theme.caption.copyWith(
                   fontWeight: FontWeight.w600,
                   color: color,
                   fontFeatures: const [FontFeature.tabularFigures()],

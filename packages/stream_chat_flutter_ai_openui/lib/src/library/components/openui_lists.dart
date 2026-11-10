@@ -2,9 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `ListBlock`: its `items` in rows, each numbered or, when its
@@ -18,7 +18,7 @@ import 'package:stream_core_flutter/core.dart';
 /// Internal to the package.
 @internal
 Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final styles = theme;
   final items = scope.elements('items');
@@ -35,7 +35,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
     if (images && image is Map<String, Object?>) {
       final side = openUIScaled(context, small ? 36 : 48);
       leading = ClipRRect(
-        borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+        borderRadius: BorderRadius.circular(theme.smallCornerRadius),
         child: SizedBox.square(
           dimension: side,
           child: OpenUIRemoteImage(source: image['src'] as String?, alt: image['alt'] as String?),
@@ -47,19 +47,19 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
         width: side,
         height: side,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: colors.accent!.withValues(alpha: 0.12), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: colors.accent.withValues(alpha: 0.12), shape: BoxShape.circle),
         child: Text(
           '${index + 1}',
           textScaler: TextScaler.noScaling,
-          style: styles.caption!.copyWith(fontWeight: FontWeight.w600, color: colors.accent),
+          style: styles.caption.copyWith(fontWeight: FontWeight.w600, color: colors.accent),
         ),
       );
     }
     final content = Padding(
-      padding: EdgeInsets.symmetric(vertical: (small ? theme.xsSpacing! : theme.sSpacing!) + 2),
+      padding: EdgeInsets.symmetric(vertical: (small ? theme.xsSpacing : theme.sSpacing) + 2),
       child: Row(
         crossAxisAlignment: hasSubtitle ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        spacing: theme.mSpacing!,
+        spacing: theme.mSpacing,
         children: [
           leading,
           Expanded(
@@ -69,7 +69,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
               children: [
                 OpenUIMarkdownText(
                   data: title,
-                  style: (small ? styles.caption! : styles.bodySmall!).copyWith(fontWeight: FontWeight.w500),
+                  style: (small ? styles.caption : styles.bodySmall).copyWith(fontWeight: FontWeight.w500),
                 ),
                 if (subtitle != null)
                   OpenUIMarkdownText(data: subtitle, style: styles.caption, color: colors.secondaryText),
@@ -84,7 +84,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
                 if (item.text('actionLabel') case final label?)
                   Text(
                     label,
-                    style: styles.caption!.copyWith(fontWeight: FontWeight.w500, color: colors.secondaryText),
+                    style: styles.caption.copyWith(fontWeight: FontWeight.w500, color: colors.secondaryText),
                   ),
                 ExcludeSemantics(
                   child: Icon(
@@ -118,7 +118,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
         if (index > 0)
           Padding(
             padding: EdgeInsetsDirectional.only(start: images ? (small ? 48 : 60) : 36),
-            child: SizedBox(height: 0.5, child: ColoredBox(color: colors.border!)),
+            child: SizedBox(height: 0.5, child: ColoredBox(color: colors.border)),
           ),
         row(index, scope.scopeOf(node)),
       ],
@@ -133,7 +133,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final items = scope.elements('items');
   return Column(
@@ -143,7 +143,7 @@ Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope
         if (index > 0)
           Padding(
             padding: const EdgeInsetsDirectional.only(start: 26),
-            child: SizedBox(height: 0.5, child: ColoredBox(color: colors.border!)),
+            child: SizedBox(height: 0.5, child: ColoredBox(color: colors.border)),
           ),
         Builder(
           builder: (context) {
@@ -151,9 +151,9 @@ Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope
             return OpenUIPressable(
               onTap: scope.isStreaming ? null : () => triggerOpenUIAction(context, scope, label: text, inForm: false),
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: theme.sSpacing! + 2),
+                padding: EdgeInsets.symmetric(vertical: theme.sSpacing + 2),
                 child: Row(
-                  spacing: theme.sSpacing!,
+                  spacing: theme.sSpacing,
                   children: [
                     ExcludeSemantics(
                       child: Icon(
@@ -165,7 +165,7 @@ Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope
                       ),
                     ),
                     Expanded(
-                      child: Text(text, style: theme.bodySmall!.copyWith(color: colors.text)),
+                      child: Text(text, style: theme.bodySmall.copyWith(color: colors.text)),
                     ),
                   ],
                 ),

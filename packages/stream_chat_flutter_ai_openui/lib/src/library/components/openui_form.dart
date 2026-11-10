@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -51,12 +50,12 @@ class _OpenUIFormState extends State<_OpenUIForm> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     return OpenUIFormScope(
       validation: _validation!,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.lSpacing!,
+        spacing: theme.lSpacing,
         children: [widget.scope.buildProp('fields'), widget.scope.buildProp('buttons')],
       ),
     );
@@ -70,16 +69,16 @@ class _OpenUIFormState extends State<_OpenUIForm> {
 /// Internal to the package.
 @internal
 Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final input = scope.elements('input').firstOrNull;
   final name = input == null ? null : scope.scopeOf(input).text('name');
   final error = name == null ? null : OpenUIFormScope.maybeOf(context)?.validation.errorOf(name);
   final hint = scope.text('hint') ?? '';
-  final label = theme.bodySmall!.copyWith(fontWeight: FontWeight.w500);
+  final label = theme.bodySmall.copyWith(fontWeight: FontWeight.w500);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.sSpacing!,
+    spacing: theme.sSpacing,
     children: [
       Text.rich(
         TextSpan(
@@ -103,7 +102,7 @@ Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) 
           child: StreamHelperText(text: error, state: StreamHelperState.error),
         )
       else if (hint.isNotEmpty)
-        Text(hint, style: theme.caption!.copyWith(color: colors.secondaryText)),
+        Text(hint, style: theme.caption.copyWith(color: colors.secondaryText)),
     ],
   );
 }

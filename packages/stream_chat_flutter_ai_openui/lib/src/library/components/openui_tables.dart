@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
@@ -78,7 +77,7 @@ class _OpenUITableState extends State<_OpenUITable> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     final styles = theme;
     final spacing = theme;
@@ -86,27 +85,27 @@ class _OpenUITableState extends State<_OpenUITable> {
     final page = math.min(_page, pages - 1);
     final first = page * _pageSize;
     final last = math.min(widget.rowCount, first + _pageSize);
-    final cellPadding = EdgeInsets.symmetric(horizontal: spacing.mSpacing!, vertical: spacing.sSpacing! + 2);
+    final cellPadding = EdgeInsets.symmetric(horizontal: spacing.mSpacing, vertical: spacing.sSpacing + 2);
     Widget cell(_Column column, int row) {
       final value = row < column.data.length ? column.data[row] : null;
       final align = column.isNumeric ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart;
       final content = switch (value) {
         OpenUIElement(:final node) => column.scope.buildNode(node),
         OpenUIArray(:final items) => Wrap(
-          spacing: spacing.xsSpacing!,
-          runSpacing: spacing.xsSpacing!,
+          spacing: spacing.xsSpacing,
+          runSpacing: spacing.xsSpacing,
           children: [
             for (final item in items)
               if (item case OpenUIElement(:final node)) column.scope.buildNode(node),
           ],
         ),
-        null || OpenUINull() => Text('—', style: styles.bodySmall!.copyWith(color: colors.tertiaryText)),
+        null || OpenUINull() => Text('—', style: styles.bodySmall.copyWith(color: colors.tertiaryText)),
         _ => ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 260),
           child: Text(
             JS.stringOf(value),
             textAlign: column.isNumeric ? TextAlign.end : TextAlign.start,
-            style: styles.bodySmall!.copyWith(
+            style: styles.bodySmall.copyWith(
               color: colors.text,
               fontFeatures: column.isNumeric ? const [FontFeature.tabularFigures()] : null,
             ),
@@ -128,13 +127,13 @@ class _OpenUITableState extends State<_OpenUITable> {
           children: [
             for (final column in widget.columns)
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: spacing.mSpacing!, vertical: spacing.sSpacing!),
+                padding: EdgeInsets.symmetric(horizontal: spacing.mSpacing, vertical: spacing.sSpacing),
                 child: Semantics(
                   header: true,
                   child: Text(
                     column.label.toUpperCase(),
                     textAlign: column.isNumeric ? TextAlign.end : TextAlign.start,
-                    style: styles.caption!.copyWith(fontWeight: FontWeight.w600, color: colors.secondaryText),
+                    style: styles.caption.copyWith(fontWeight: FontWeight.w600, color: colors.secondaryText),
                   ),
                 ),
               ),
@@ -143,16 +142,16 @@ class _OpenUITableState extends State<_OpenUITable> {
         for (var row = first; row < last; row++)
           TableRow(
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: colors.border!, width: 0.5)),
+              border: Border(top: BorderSide(color: colors.border, width: 0.5)),
             ),
             children: [for (final column in widget.columns) cell(column, row)],
           ),
       ],
     );
-    final radius = BorderRadius.circular(theme.smallCornerRadius!);
+    final radius = BorderRadius.circular(theme.smallCornerRadius);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
-      spacing: spacing.sSpacing!,
+      spacing: spacing.sSpacing,
       children: [
         // As wide as the space it is given, and scrolling when it needs more.
         LayoutBuilder(
@@ -164,7 +163,7 @@ class _OpenUITableState extends State<_OpenUITable> {
                 position: DecorationPosition.foreground,
                 decoration: BoxDecoration(
                   borderRadius: radius,
-                  border: Border.all(color: colors.border!, width: 0.5),
+                  border: Border.all(color: colors.border, width: 0.5),
                 ),
                 child: ClipRRect(borderRadius: radius, child: table),
               ),
@@ -191,7 +190,7 @@ class _Pager extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final rtl = Directionality.of(context) == TextDirection.rtl;
     Widget button(IconData icon, String label, int? target) {
       return MergeSemantics(
@@ -210,7 +209,7 @@ class _Pager extends StatelessWidget {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      spacing: theme.sSpacing!,
+      spacing: theme.sSpacing,
       children: [
         button(
           rtl ? context.streamIcons.chevronRight : context.streamIcons.chevronLeft,
@@ -223,7 +222,7 @@ class _Pager extends StatelessWidget {
           excludeSemantics: true,
           child: Text(
             OpenUIStrings.pagePosition(page + 1, pages),
-            style: theme.caption!.copyWith(
+            style: theme.caption.copyWith(
               color: theme.secondaryText,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
@@ -246,15 +245,15 @@ class _TableSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     return Semantics(
       label: OpenUIStrings.loading,
       child: Column(
-        spacing: theme.sSpacing!,
+        spacing: theme.sSpacing,
         children: [
           for (var row = 0; row < 5; row++)
             Row(
-              spacing: theme.mSpacing!,
+              spacing: theme.mSpacing,
               children: [
                 for (var column = 0; column < columns; column++)
                   Expanded(
@@ -428,17 +427,17 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     final styles = theme;
     final spacing = theme;
     final columns = _EditableColumn.of(widget.scope);
     final enabled = !widget.scope.isStreaming;
     final changes = _changes;
-    final radius = BorderRadius.circular(theme.smallCornerRadius!);
+    final radius = BorderRadius.circular(theme.smallCornerRadius);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: spacing.sSpacing!,
+      spacing: spacing.sSpacing,
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -446,7 +445,7 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
             position: DecorationPosition.foreground,
             decoration: BoxDecoration(
               borderRadius: radius,
-              border: Border.all(color: colors.border!, width: 0.5),
+              border: Border.all(color: colors.border, width: 0.5),
             ),
             child: ClipRRect(
               borderRadius: radius,
@@ -454,18 +453,18 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ColoredBox(
-                    color: colors.subtleFill!,
+                    color: colors.subtleFill,
                     child: Row(
                       children: [
                         for (final column in columns)
                           Container(
                             width: column.width,
-                            padding: EdgeInsets.all(spacing.sSpacing!),
+                            padding: EdgeInsets.all(spacing.sSpacing),
                             child: Semantics(
                               header: true,
                               child: Text(
                                 column.header,
-                                style: styles.caption!.copyWith(
+                                style: styles.caption.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: colors.secondaryText,
                                 ),
@@ -478,7 +477,7 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
                   for (final (index, row) in _rows.indexed)
                     DecoratedBox(
                       decoration: BoxDecoration(
-                        border: Border(top: BorderSide(color: colors.border!, width: 0.5)),
+                        border: Border(top: BorderSide(color: colors.border, width: 0.5)),
                       ),
                       child: Row(
                         children: [
@@ -486,8 +485,8 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
                             Container(
                               width: column.width,
                               padding: EdgeInsets.symmetric(
-                                horizontal: spacing.sSpacing!,
-                                vertical: spacing.xsSpacing!,
+                                horizontal: spacing.sSpacing,
+                                vertical: spacing.xsSpacing,
                               ),
                               child: _CellEditor(
                                 key: ValueKey((index, column.key)),
@@ -507,12 +506,12 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
         ),
         if (changes > 0)
           Row(
-            spacing: spacing.sSpacing!,
+            spacing: spacing.sSpacing,
             children: [
               Expanded(
                 child: Text(
                   OpenUIStrings.changes(changes),
-                  style: styles.caption!.copyWith(color: colors.secondaryText),
+                  style: styles.caption.copyWith(color: colors.secondaryText),
                 ),
               ),
               StreamButton(
@@ -586,16 +585,16 @@ class _CellEditorState extends State<_CellEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
-    final style = theme.bodySmall!.copyWith(color: colors.text);
+    final style = theme.bodySmall.copyWith(color: colors.text);
     final column = widget.column;
     Widget picker(String shown, Future<void> Function() pick) {
       return OpenUIPressable(
         label: column.header,
         onTap: widget.enabled ? pick : null,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: theme.sSpacing!),
+          padding: EdgeInsets.symmetric(vertical: theme.sSpacing),
           child: Text(shown, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       );

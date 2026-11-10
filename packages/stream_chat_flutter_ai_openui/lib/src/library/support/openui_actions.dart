@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 /// Runs [action], the action of the control labelled [label] that [scope]
@@ -126,17 +126,16 @@ class OpenUIFormScope extends InheritedNotifier<OpenUIFormValidation> {
 ///
 /// Internal to the package.
 @internal
-double openUIGap(OpenUIThemeData theme, Object? value) {
-  final spacing = theme;
+double openUIGap(OpenUIResolvedTheme theme, Object? value) {
   return switch (value) {
     num() when value.isFinite => value.toDouble().clamp(0.0, 48.0),
     'none' => 0,
-    'xs' => spacing.xsSpacing!,
-    's' => spacing.sSpacing!,
-    'l' => spacing.lSpacing!,
-    'xl' => spacing.xlSpacing!,
-    '2xl' => spacing.xxlSpacing!,
-    _ => spacing.mSpacing!,
+    'xs' => theme.xsSpacing,
+    's' => theme.sSpacing,
+    'l' => theme.lSpacing,
+    'xl' => theme.xlSpacing,
+    '2xl' => theme.xxlSpacing,
+    _ => theme.mSpacing,
   };
 }
 
