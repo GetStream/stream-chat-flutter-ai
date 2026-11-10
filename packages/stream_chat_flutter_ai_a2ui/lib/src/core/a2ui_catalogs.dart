@@ -359,16 +359,19 @@ final class A2UICatalogs {
     return schemas.every((schema) => schema is Map<String, Object?> && schema.keys.every((key) => key == 'format'));
   }
 
+  static const _openableSchemes = {'http', 'https', 'mailto', 'tel'};
+
   // Opens [link] with what the running action was given to open links with
-  // (see `A2UINode.act`). A link an agent writes is untrusted, so only a web
-  // page opens; anything else, such as a `mailto` or `tel` link the core
-  // lets through, is refused. What this throws is reported as a problem of
-  // the action's surface.
+  // (see `A2UINode.act`), which decides which links open: the host's `open`
+  // opens only web and email links unless the app opens links itself. A link
+  // an agent writes is untrusted, so only an `http`, `https`, `mailto` or
+  // `tel` one reaches it, whatever the core lets through. What this throws is
+  // reported as a problem of the action's surface.
   static void _openUrl(Uri link) {
     final scheme = link.scheme.toLowerCase();
-    if ((scheme != 'http' && scheme != 'https') || link.host.isEmpty) {
+    if (!_openableSchemes.contains(scheme)) {
       throw core.A2uiExpressionError(
-        "Function 'openUrl' may not open a '$scheme' link: only web links with a host open.",
+        "Function 'openUrl' may not open a '$scheme' link.",
         expression: 'openUrl',
       );
     }

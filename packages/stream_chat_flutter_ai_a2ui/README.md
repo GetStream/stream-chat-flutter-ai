@@ -38,7 +38,8 @@ the person's message, is the text of the button's child, or else the event's nam
 `submit_form`), never the agent's own words for the action. Its payload holds `surfaceId`, `sourceComponentId`,
 `context`, the agent's `userMessage` when it wrote one, and the surface's `dataModel` when the agent asked for it.
 
-A web link the person's tap opens goes to the host's `open`. A function the agent's UI calls that no catalog has runs
+A link the person's tap opens goes to the host's `open`, which opens only web and email links unless the app opens
+links itself. A function the agent's UI calls that no catalog has runs
 as one of the host's `tools`: a read-only one whenever the UI calls it, any other only from the person's tap.
 
 Problems with a reply's A2UI, such as a component the catalog doesn't have, go to the renderer's `onError` with the
