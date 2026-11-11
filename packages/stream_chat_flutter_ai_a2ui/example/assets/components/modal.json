@@ -1,0 +1,49 @@
+{
+  "name": "Modal",
+  "description": "A button that opens a sheet, and a trigger that isn't a button.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-modal-button",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-modal-button",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "m"]},
+          {"id": "variant_title", "component": "Text", "text": "A Button trigger: opens the sheet and still sends its event", "variant": "caption"},
+          {"id": "m", "component": "Modal", "trigger": "b", "content": "c"},
+          {"id": "b", "component": "Button", "child": "bt", "action": {"event": {"name": "opened_details", "context": {}}}},
+          {"id": "bt", "component": "Text", "text": "Details"},
+          {"id": "c", "component": "Column", "children": ["h", "p"]},
+          {"id": "h", "component": "Text", "text": "# Details"},
+          {"id": "p", "component": "Text", "text": "The sheet scrolls when its content is taller than it."}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-modal-text",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-modal-text",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "m"]},
+          {"id": "variant_title", "component": "Text", "text": "A Text trigger: a tap opens the sheet", "variant": "caption"},
+          {"id": "m", "component": "Modal", "trigger": "t", "content": "c"},
+          {"id": "t", "component": "Text", "text": "Tap for the terms"},
+          {"id": "c", "component": "Text", "text": "The terms, in full."}
+        ]
+      }
+    }
+  ]
+}

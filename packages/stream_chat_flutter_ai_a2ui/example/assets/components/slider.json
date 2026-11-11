@@ -1,0 +1,78 @@
+{
+  "name": "Slider",
+  "description": "A slider with steps, one with no binding, and a value outside its range.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-slider-bound",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-slider-bound",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "s"]},
+          {"id": "variant_title", "component": "Text", "text": "min 0, max 10, 5 steps", "variant": "caption"},
+          {"id": "s", "component": "Slider", "label": "Guests", "min": 0, "max": 10, "steps": 5, "value": {"@path": "/guests"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-slider-bound",
+        "value": {
+          "guests": 4
+        }
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-slider-unbound",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-slider-unbound",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "s"]},
+          {"id": "variant_title", "component": "Text", "text": "Not bound: fainter, can't be moved, and reported", "variant": "caption"},
+          {"id": "s", "component": "Slider", "label": "Fixed", "max": 100, "value": 40}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-slider-range",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-slider-range",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "s"]},
+          {"id": "variant_title", "component": "Text", "text": "A value above max shows at the end, and is kept until the slider moves", "variant": "caption"},
+          {"id": "s", "component": "Slider", "label": "Volume", "max": 100, "value": {"@path": "/volume"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-slider-range",
+        "value": {
+          "volume": 150
+        }
+      }
+    }
+  ]
+}

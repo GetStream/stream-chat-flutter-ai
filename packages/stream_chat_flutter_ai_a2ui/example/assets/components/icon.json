@@ -1,0 +1,50 @@
+{
+  "name": "Icon",
+  "description": "Named icons, a drawn shape, and a name the catalog doesn't have.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-icon-named",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-icon-named",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Named icons", "variant": "caption"},
+          {"id": "c", "component": "Row", "children": ["n0", "n1", "n2", "n3", "n4", "n5"], "justify": "spaceBetween"},
+          {"id": "n0", "component": "Icon", "name": "home"},
+          {"id": "n1", "component": "Icon", "name": "search"},
+          {"id": "n2", "component": "Icon", "name": "favorite"},
+          {"id": "n3", "component": "Icon", "name": "settings"},
+          {"id": "n4", "component": "Icon", "name": "mail"},
+          {"id": "n5", "component": "Icon", "name": "shoppingCart"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-icon-svg",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-icon-svg",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "An svgPath, and an unknown name that shows the help icon", "variant": "caption"},
+          {"id": "c", "component": "Row", "children": ["svg", "unknown"], "justify": "spaceEvenly"},
+          {"id": "svg", "component": "Icon", "name": {"svgPath": "M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"}},
+          {"id": "unknown", "component": "Icon", "name": "noSuchIcon"}
+        ]
+      }
+    }
+  ]
+}
