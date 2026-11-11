@@ -22,7 +22,7 @@ part 'conformance_rpc.dart';
 // package's adapter: each case's messages go through `A2UIProcessor.apply`, as a
 // reply's would, and what the adapter reports is checked against what the case
 // expects. Cases about parts of A2UI a renderer never reaches on its own go
-// through the seams of `a2ui_conformance_seams.dart`.
+// through the test interface in `a2ui_test_interface.dart`.
 //
 // Errors count as reported, not thrown: a case that expects one passes when any
 // reported error matches it, and a step that expects none fails when one is
@@ -84,7 +84,7 @@ void skipConformanceSuite(String suite, {required String reason}) {
   test('the $suite suite', () {}, skip: reason);
 }
 
-const _root = 'test/conformance/upstream';
+const _root = 'test/upstream';
 
 List<Map<String, Object?>> _cases(String suite) {
   final yaml = loadYaml(File('$_root/conformance/core/$suite.yaml').readAsStringSync());

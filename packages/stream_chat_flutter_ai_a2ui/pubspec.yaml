@@ -71,8 +71,6 @@ dev_dependencies:
   just_audio_platform_interface: ^4.6.0
   # The video tests stand in for the video plugin.
   video_player_platform_interface: ^6.9.0
-  # Reads the A2UI conformance suites, which are YAML.
-  yaml: ^3.1.3
 
 flutter:
   # As the packages it depends on declare it; Flutter warns when they differ.

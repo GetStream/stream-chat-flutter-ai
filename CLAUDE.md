@@ -49,7 +49,13 @@ packages/stream_chat_flutter_ai/             # the core published package
 packages/stream_chat_flutter_ai/example      # showcase app, publish_to: none
 packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin, publish_to: none until released
 packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_to: none
+packages/stream_chat_flutter_ai_a2ui_conformance/ # A2UI conformance suites (tests only), publish_to: none
 ```
+
+The A2UI conformance suites live in their own private package so they don't ship with
+`stream_chat_flutter_ai_a2ui`. They reach the adapter through its test interface in
+`lib/src/core/a2ui_test_interface.dart`, the only test-only code in that package's `lib/`. Production
+classes never get test-only constructors, parameters or fields.
 
 The two packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
 treat every `packages/*/` whose pubspec isn't `publish_to: none` as publishable.
