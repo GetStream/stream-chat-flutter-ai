@@ -35,9 +35,8 @@ melos:
       # List of all the dependencies used in the project.
       dependencies:
         # The A2UI protocol core, hidden inside `stream_chat_flutter_ai_a2ui`'s
-        # `lib/src/core/`. Kept to 0.7.x: earlier releases fail some of the A2UI
-        # conformance suites, and 0.8.0 may be breaking.
-        a2ui_core: ">=0.7.0 <0.8.0"
+        # `lib/src/core/`. Kept below 0.8.0, whose changes may be breaking.
+        a2ui_core: ">=0.5.0 <0.8.0"
         # The controls host of an A2UI reply's videos, as in `stream_chat_flutter`.
         chewie: ^1.13.1
         # A sign-in's expiry reads `clock.now()`, so tests can fake the time.
