@@ -279,6 +279,77 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  testWidgets('a request waits for the stop before it, for a while', (tester) async {
+    final transport = ConversationTransport(
+      messages: [
+        ChatMessage.user('u1'),
+        ChatMessage.reply('a1', text: 'Day one', generating: true),
+      ],
+    )..holdsStops = true;
+    final conversation = conversationOver(transport, replyTimeout: null)..stop();
+    await tester.pump();
+
+    conversation.send('Hi');
+    await tester.pump(const Duration(seconds: 29));
+
+    expect(transport.requests, isEmpty, reason: 'the agent would stop it too');
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(transport.requests.single.text, 'Hi', reason: "a stop that doesn't finish doesn't hold it back");
+  });
+
+  test('stop keeps a reply finished when the next request fails', () async {
+    final transport = ConversationTransport(
+      messages: [
+        ChatMessage.user('u1'),
+        ChatMessage.reply('a1', text: '', generating: true),
+      ],
+    );
+    final conversation = conversationOver(transport)..stop();
+    await settle();
+
+    transport.sendError = const TransportError();
+    conversation.send('Hi');
+    await settle();
+
+    expect(conversation.status, AIConversationStatus.error);
+    expect(conversation.composer.isGenerating, isFalse);
+    expect(conversation.messages.ids, ['u1'], reason: 'it has nothing to show');
+  });
+
+  test('stop keeps a reply it stopped part-way finished through the next request', () async {
+    final transport = ConversationTransport(
+      messages: [
+        ChatMessage.user('u1'),
+        ChatMessage.reply('a1', text: 'Day one', generating: true),
+      ],
+    );
+    final conversation = conversationOver(transport)..stop();
+    await settle();
+
+    transport.sendError = const TransportError();
+    conversation.send('Hi');
+    await settle();
+
+    expect(conversation.status, AIConversationStatus.error);
+    expect(conversation.messages.ids, ['u1', 'a1']);
+  });
+
+  test('stop shows what the agent is doing again when the transport fails', () async {
+    captureErrors();
+    final transport = ConversationTransport(messages: [ChatMessage.user('u1')])..stopError = const TransportError();
+    final conversation = conversationOver(transport);
+    transport.updateActivity(const AIAgentActivity(state: AIAgentActivityState.thinking));
+
+    conversation.stop();
+    await settle();
+
+    expect(conversation.activity, const AIAgentActivity(state: AIAgentActivityState.thinking));
+    expect(conversation.status, AIConversationStatus.submitted);
+    expect(conversation.composer.isGenerating, isTrue, reason: 'the composer offers to stop it again');
+  });
+
   test('stop reports nothing for a stop the transport cancelled', () async {
     final errors = captureErrors();
     final transport = ConversationTransport(

@@ -421,7 +421,7 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get photosNotAddedMessage =>
-      "Some photos couldn't be loaded. If they're in iCloud, check your internet connection and try again.";
+      "Some photos couldn't be loaded. If they're stored online, check your internet connection and try again.";
 
   @override
   String get takePhoto => 'Take a photo';

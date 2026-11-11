@@ -436,7 +436,7 @@ the composer never sits unresponsive for a round trip. A host whose send can fai
 that and re-seeding the composer; a rejected future is at least reported through
 `FlutterError.onError` rather than lost as an unhandled asynchronous error.
 
-When photos picked in the attachment sheet can't be loaded, such as ones still in iCloud, the sheet
+When photos picked in the attachment sheet can't be loaded, such as ones stored online (iCloud, Google Photos) with no connection, the sheet
 says "Photos not added" and why, rather than silently adding fewer.
 
 `ChatComposer.conversation(conversation: ...)` takes an `AIConversation` instead of a controller and
@@ -1315,7 +1315,8 @@ without wiring each callback.
 
 It doesn't know your backend. Implement `AIConversationTransport` for it: `connect` hands you an
 `AIConversationFeed` to push the messages and the agent's activity through, `send` delivers a
-request, and `stop` stops the agent. `loadOlderMessages` and `rate` are optional. A `send` that
+request, and `stop` stops the agent. `disconnect`, called as the conversation is disposed, is
+where you cancel what `connect` started. It, `loadOlderMessages` and `rate` are optional. A `send` that
 throws shows as the conversation's `error`; throw `AIConversationCancelledException` to drop a
 request without one.
 
@@ -1324,15 +1325,26 @@ class AgentTransport with AIConversationTransport<AgentMessage> {
   AgentTransport(this.channel);
 
   final AgentChannel channel;
+  final _subscriptions = <StreamSubscription<Object?>>[];
 
   @override
   void connect(AIConversationFeed<AgentMessage> feed) {
-    channel.messages.listen(feed.updateMessages);
-    channel.agentStates.listen(
-      (state) => feed.updateActivity(
-        state == null ? null : AIAgentActivity(state: AIAgentActivityState(state)),
-      ),
-    );
+    _subscriptions
+      ..add(channel.messages.listen(feed.updateMessages))
+      ..add(
+        channel.agentStates.listen(
+          (state) => feed.updateActivity(
+            state == null ? null : AIAgentActivity(state: AIAgentActivityState(state)),
+          ),
+        ),
+      );
+  }
+
+  @override
+  void disconnect() {
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
   }
 
   @override

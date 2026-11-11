@@ -76,11 +76,15 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 ///   AgentTransport(this.channel);
 ///
 ///   final AgentChannel channel;
+///   StreamSubscription<List<AgentMessage>>? _messages;
 ///
 ///   @override
 ///   void connect(AIConversationFeed<AgentMessage> feed) {
-///     channel.messages.listen(feed.updateMessages);
+///     _messages = channel.messages.listen(feed.updateMessages);
 ///   }
+///
+///   @override
+///   void disconnect() => _messages?.cancel();
 ///
 ///   @override
 ///   Future<void> send(AIConversationRequest<AgentMessage> request) {
@@ -106,15 +110,17 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 class AIConversation<M extends AIMessage> extends ChangeNotifier {
   /// Creates an [AIConversation] that reaches the agent through [transport].
   ///
-  /// The conversation keeps [transport], and connects to it straight away.
+  /// The conversation keeps [transport], connects to it straight away, and
+  /// disconnects from it in [dispose].
   ///
   /// The [composer] holds what the person writes, such as one with the app's
   /// chat options. Without one the conversation creates its own, and disposes
   /// it with itself.
   ///
-  /// The `replyTimeout` is how long the conversation waits, once the agent
-  /// has the request, for the agent to start its reply or say what it is
-  /// doing, before it shows an [AIAgentError]. It is five minutes by default.
+  /// The `replyTimeout` is how long the conversation waits for a request to
+  /// reach the agent, and again once the agent has it, for the agent to start
+  /// its reply or say what it is doing, before it shows an [AIAgentError]. It
+  /// is five minutes by default.
   /// While the agent says it is working, such as thinking, it waits as long as
   /// that takes. With a `null` `replyTimeout`, it always waits as long as it
   /// takes.
@@ -127,6 +133,7 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   }) : _transport = transport,
        composer = composer ?? ChatComposerController(),
        _ownsComposer = composer == null {
+    this.composer.addListener(_composerChanged);
     transport.connect(AIConversationFeed._(this));
   }
 
@@ -173,6 +180,8 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   /// checking sources.
   AIAgentActivity? get activity => _activity;
   AIAgentActivity? _activity;
+  // What the agent last said it is doing, including while it is ignored.
+  AIAgentActivity? _reportedActivity;
 
   /// Whether the conversation has messages before the first one, which
   /// [loadOlderMessages] loads.
@@ -201,8 +210,8 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   // ignored.
   int _generation = 0;
   // Replies stopped while they were written, which are finished whatever they
-  // say.
-  Set<String> _stopped = {};
+  // say, until they leave the conversation or are written anew.
+  final _stopped = <String>{};
   // Whether what the agent says it is doing is ignored, after it was stopped,
   // until it stops saying anything.
   bool _ignoresActivity = false;
@@ -286,13 +295,14 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   /// send replaces it. Does nothing for a reply.
   void edit(M message) {
     if (_isDisposed || message.role != AIMessageRole.user) return;
-    _edited = message;
     final text = message.text;
     composer.textEditingController.value = TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(offset: text.length),
     );
     composer.isEditing = true;
+    // Once the composer is editing, which forgets the message otherwise.
+    _edited = message;
     composer.requestFocus();
   }
 
@@ -366,7 +376,8 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   }
 
   /// Stops the conversation: the feed goes nowhere, and what is under way
-  /// changes nothing. Disposes the [composer] the conversation created.
+  /// changes nothing. Calls [AIConversationTransport.disconnect], and disposes
+  /// the [composer] the conversation created.
   ///
   /// From then on, sending, stopping, regenerating, editing, retrying and
   /// rating do nothing.
@@ -374,12 +385,22 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _replyTimer?.cancel();
+    composer.removeListener(_composerChanged);
+    try {
+      _transport.disconnect();
+    } on Object catch (error, stack) {
+      _report(error, stack, 'while disconnecting from the transport');
+    }
     if (_ownsComposer) composer.dispose();
     super.dispose();
   }
 
   void _receiveMessages(List<M> messages) {
     _received = List.unmodifiable(messages);
+    if (_stopped.isNotEmpty) {
+      final ids = {for (final message in _received) message.id};
+      _stopped.removeWhere((id) => !ids.contains(id));
+    }
     final exchange = _exchange;
     final reply = exchange?.reply(_received);
     if (exchange != null && reply != null) _receiveReply(reply, exchange);
@@ -393,6 +414,7 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   }
 
   void _receiveActivity(AIAgentActivity? activity) {
+    _reportedActivity = activity;
     if (activity == null) {
       _ignoresActivity = false;
       _activity = null;
@@ -418,17 +440,22 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
     final id = _generation;
     _error = null;
     _activity = null;
+    _reportedActivity = null;
     _ignoresActivity = false;
-    _stopped = {};
+    // A reply written anew under its id is no longer the one that was stopped.
+    if (request.kind == AIConversationRequestKind.regenerate) _stopped.remove(request.message?.id);
     _exchange = ConversationExchange(id: id, request: request, conversation: _received, attachmentOf: _attachments.of);
+    // The wait covers reaching the agent too, so a stop or a send that never
+    // finishes still ends in an error.
+    _waitForReply(id);
     _refresh();
     unawaited(_send(id, request, _stopping));
   }
 
   Future<void> _send(int id, AIConversationRequest<M> request, Future<void>? previousStop) async {
     // The agent would stop a request that reaches it before the stop made
-    // before it.
-    await previousStop;
+    // before it, but a stop that doesn't finish doesn't hold it back for long.
+    await previousStop?.timeout(_stopWait, onTimeout: () {});
     try {
       await _transport.send(request);
     } on Object catch (error) {
@@ -481,12 +508,20 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
     if (id != _generation || error is AIConversationCancelledException) return;
     _report(error, stack, 'while stopping the agent');
     if (writing != null) _stopped.remove(writing);
+    _ignoresActivity = false;
+    // What the agent says it is doing, as it said last.
+    final activity = _reportedActivity;
+    _activity = activity != null && activity.state != AIAgentActivityState.error ? activity : null;
     final exchange = _exchange;
     if (exchange != null && exchange.state == ExchangeState.stopped) {
       exchange.state = ExchangeState.waiting;
-      _waitForReply(exchange.id);
+      if (_activity == null) {
+        _waitForReply(exchange.id);
+      } else {
+        // The agent is working on it, however long it thinks.
+        _replyTimer?.cancel();
+      }
     }
-    _ignoresActivity = false;
     _refresh();
   }
 
@@ -571,6 +606,12 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
   int? _indexOf(M message) {
     final index = _received.indexWhere((m) => m.id == message.id);
     return index < 0 ? null : index;
+  }
+
+  // Forgets the message being edited once the composer stops editing it, by
+  // whatever means.
+  void _composerChanged() {
+    if (!composer.isEditing) _edited = null;
   }
 
   void _attachmentLoaded() {
@@ -665,6 +706,9 @@ class AIConversation<M extends AIMessage> extends ChangeNotifier {
     );
   }
 }
+
+// How long a request waits for the stop made before it.
+const _stopWait = Duration(seconds: 30);
 
 // A rating the person gave a reply on this device, shown in place of the
 // reply's own.

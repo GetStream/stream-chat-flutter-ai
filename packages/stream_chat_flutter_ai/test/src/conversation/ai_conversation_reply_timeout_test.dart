@@ -33,6 +33,38 @@ void main() {
     expect(conversation.status, AIConversationStatus.streaming);
   });
 
+  testWidgets("shows the agent's error when the request doesn't reach the agent in time", (tester) async {
+    final transport = ConversationTransport(messages: [ChatMessage.user('u1'), ChatMessage.reply('a1')])
+      ..holdsSends = true;
+    final conversation = _conversation(transport, const Duration(milliseconds: 50))..send('Hi');
+    await tester.pump();
+
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(conversation.status, AIConversationStatus.error);
+    expect(conversation.error, const AIAgentError());
+  });
+
+  testWidgets("shows the agent's error when the stop before the request never finishes", (tester) async {
+    final transport = ConversationTransport(
+      messages: [
+        ChatMessage.user('u1'),
+        ChatMessage.reply('a1', text: 'Day one', generating: true),
+      ],
+    )..holdsStops = true;
+    final conversation = _conversation(transport, const Duration(milliseconds: 50))..stop();
+    await tester.pump();
+
+    conversation.send('Hi');
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(conversation.status, AIConversationStatus.error);
+    expect(conversation.error, const AIAgentError());
+
+    // Lets the wait for the stop run out.
+    await tester.pump(const Duration(seconds: 30));
+  });
+
   testWidgets('waits for the reply while the agent says it is working', (tester) async {
     final transport = ConversationTransport(messages: [ChatMessage.user('u1'), ChatMessage.reply('a1')]);
     final conversation = _conversation(transport, const Duration(milliseconds: 100))..send('Hi');

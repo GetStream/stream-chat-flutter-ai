@@ -19,6 +19,16 @@ void main() {
     expect(conversation.messages, isEmpty);
   });
 
+  test('disconnects from the transport once it is disposed', () {
+    final transport = ConversationTransport();
+    final conversation = AIConversation(transport: transport);
+
+    expect(transport.disconnects, 0);
+    conversation.dispose();
+
+    expect(transport.disconnects, 1);
+  });
+
   test('requests that finish after it is disposed change nothing', () async {
     final transport = ConversationTransport(messages: [ChatMessage.user('u1'), ChatMessage.reply('a1')]);
     final conversation = AIConversation(transport: transport)

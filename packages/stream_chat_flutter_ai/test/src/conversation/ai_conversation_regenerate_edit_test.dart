@@ -154,6 +154,22 @@ void main() {
     expect(conversation.messages.ids, ['u1', 'a1', 'u2', 'a2']);
   });
 
+  test('edit is forgotten once the composer stops editing, however it does', () async {
+    final transport = ConversationTransport(
+      messages: [ChatMessage.user('u1', 'Plan Porto'), ChatMessage.reply('a1')],
+    );
+    final conversation = conversationOver(transport)..edit(ChatMessage.user('u1', 'Plan Porto'));
+
+    conversation.composer
+      ..isEditing = false
+      ..isEditing = true;
+    conversation.send('Plan Lisbon');
+    await settle();
+
+    expect(transport.lastRequest?.kind, AIConversationRequestKind.message);
+    expect(transport.lastRequest?.message, isNull);
+  });
+
   test('edit brings the messages back when the transport fails', () async {
     final transport = ConversationTransport(messages: [ChatMessage.user('u1'), ChatMessage.reply('a1')])
       ..sendError = const TransportError();

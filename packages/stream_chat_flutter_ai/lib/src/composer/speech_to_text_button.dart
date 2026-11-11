@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 // `stream_ai_component_builders` and `chat_composer` are here for the doc links below
@@ -11,6 +12,7 @@ import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.da
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/notice.dart';
 import 'package:stream_core_flutter/core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// A microphone button that feeds speech-to-text results directly into an
 /// [ChatComposerController]'s text field.
@@ -107,6 +109,10 @@ class SpeechToTextButton extends StatefulWidget {
   State<SpeechToTextButton> createState() => _SpeechToTextButtonState();
 }
 
+final _macOSMicrophoneSettings = Uri.parse(
+  'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+);
+
 class _SpeechToTextButtonState extends State<SpeechToTextButton>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   SpeechToTextController get _speech => SpeechToTextController.instance;
@@ -199,17 +205,31 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
     if (!mounted) return;
 
     final translations = AITranslations.of(context);
+    final openSettings = _openSettings;
     showErrorSnackbar(
       context,
       message: translations.microphonePermissionDenied,
-      actionLabel: translations.openSettings,
-      onAction: _openSettings,
+      actionLabel: openSettings == null ? null : translations.openSettings,
+      onAction: openSettings,
     );
   }
 
-  Future<void> _openSettings() async {
+  // Opens where the person grants the microphone, or `null` where there is no
+  // such page to open.
+  VoidCallback? get _openSettings {
+    if (kIsWeb) return null;
+    return switch (defaultTargetPlatform) {
+      // The app's own settings.
+      TargetPlatform.android || TargetPlatform.iOS => () => _openingSettings(PhotoManager.openSetting),
+      // The app has no settings page of its own on macOS.
+      TargetPlatform.macOS => () => _openingSettings(() => launchUrl(_macOSMicrophoneSettings)),
+      _ => null,
+    };
+  }
+
+  static Future<void> _openingSettings(Future<Object?> Function() open) async {
     try {
-      await PhotoManager.openSetting();
+      await open();
     } catch (error, stack) {
       FlutterError.reportError(
         FlutterErrorDetails(

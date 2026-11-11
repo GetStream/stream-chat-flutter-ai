@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text_platform_interface/speech_to_text_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_core_flutter/core.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 const _icons = StreamIcons();
 const _notice = 'Microphone permission is required to record audio';
@@ -99,7 +101,7 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('the notice action opens the system settings', (tester) async {
+  testWidgets('the notice action opens the app settings', variant: _appSettingsPlatforms, (tester) async {
     _installPlatform();
     final controller = ChatComposerController();
     addTearDown(controller.dispose);
@@ -120,6 +122,44 @@ void main() {
     await tester.pump();
 
     expect(opened, ['openSetting']);
+  });
+
+  testWidgets(
+    "the notice action opens the system's microphone settings on macOS",
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    (tester) async {
+      _installPlatform();
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+      final launcher = _FakeUrlLauncher();
+      final previous = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = launcher;
+      addTearDown(() => UrlLauncherPlatform.instance = previous);
+
+      await tester.pumpWidget(_wrap(SpeechToTextButton(controller: controller)));
+      await tester.tap(find.byIcon(_icons.voice));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('Settings'));
+      await tester.pump();
+
+      expect(launcher.launched, ['x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone']);
+    },
+  );
+
+  testWidgets('the notice has no Settings action where there is none to open', variant: _noSettingsPlatforms, (
+    tester,
+  ) async {
+    _installPlatform();
+    final controller = ChatComposerController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(_wrap(SpeechToTextButton(controller: controller)));
+    await tester.tap(find.byIcon(_icons.voice));
+    await tester.pump();
+
+    expect(find.text(_notice), findsOneWidget);
+    expect(find.text('Settings'), findsNothing);
   });
 
   testWidgets('the notice shows in a StreamSnackbarMessenger when there is one', (tester) async {
@@ -355,4 +395,21 @@ void main() {
     expect(denied, 0);
     expect(platform.initCalls, 1);
   });
+}
+
+const _appSettingsPlatforms = TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS});
+const _noSettingsPlatforms = TargetPlatformVariant({
+  TargetPlatform.linux,
+  TargetPlatform.windows,
+  TargetPlatform.fuchsia,
+});
+
+final class _FakeUrlLauncher extends Fake with MockPlatformInterfaceMixin implements UrlLauncherPlatform {
+  final launched = <String>[];
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launched.add(url);
+    return true;
+  }
 }

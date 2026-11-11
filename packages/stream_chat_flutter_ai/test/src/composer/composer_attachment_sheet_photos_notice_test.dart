@@ -10,7 +10,8 @@ const _icons = StreamIcons();
 const _managerChannel = MethodChannel('com.fluttercandies/photo_manager');
 const _pickerChannel = MethodChannel('plugins.flutter.io/image_picker');
 const _title = 'Photos not added';
-const _message = "Some photos couldn't be loaded. If they're in iCloud, check your internet connection and try again.";
+const _message =
+    "Some photos couldn't be loaded. If they're stored online, check your internet connection and try again.";
 
 /// Whether `AssetEntity.file` reaches the platform on this host; elsewhere it
 /// asserts instead of returning.

@@ -84,6 +84,7 @@ class ConversationTransport with AIConversationTransport<ChatMessage> {
   final requests = <AIConversationRequest<ChatMessage>>[];
   int stops = 0;
   int loads = 0;
+  int disconnects = 0;
   final ratings = <(String, AIMessageRating?)>[];
 
   List<ChatMessage> initialMessages;
@@ -109,6 +110,9 @@ class ConversationTransport with AIConversationTransport<ChatMessage> {
     this.feed = feed;
     feed.updateMessages(initialMessages);
   }
+
+  @override
+  void disconnect() => disconnects += 1;
 
   @override
   Future<void> send(AIConversationRequest<ChatMessage> request) async {

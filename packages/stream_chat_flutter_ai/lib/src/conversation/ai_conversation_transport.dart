@@ -18,11 +18,20 @@ import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 ///   AgentTransport(this.channel);
 ///
 ///   final AgentChannel channel;
+///   final _subscriptions = <StreamSubscription<Object?>>[];
 ///
 ///   @override
 ///   void connect(AIConversationFeed<AgentMessage> feed) {
-///     channel.messages.listen((messages) => feed.updateMessages(messages));
-///     channel.agentStates.listen((state) => feed.updateActivity(state));
+///     _subscriptions
+///       ..add(channel.messages.listen(feed.updateMessages))
+///       ..add(channel.agentStates.listen(feed.updateActivity));
+///   }
+///
+///   @override
+///   void disconnect() {
+///     for (final subscription in _subscriptions) {
+///       subscription.cancel();
+///     }
 ///   }
 ///
 ///   @override
@@ -45,6 +54,13 @@ abstract mixin class AIConversationTransport<M extends AIMessage> {
   ///
   /// The conversation calls it once, as it is created.
   void connect(AIConversationFeed<M> feed);
+
+  /// Stops telling the conversation what it holds, such as by cancelling the
+  /// subscriptions [connect] started.
+  ///
+  /// The conversation calls it once, as it is disposed. Does nothing by
+  /// default.
+  void disconnect() {}
 
   /// Sends what the person asks.
   ///

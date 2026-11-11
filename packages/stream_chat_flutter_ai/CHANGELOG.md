@@ -81,8 +81,7 @@
   `ReasoningThemeData` (`AITheme.reasoningTheme`), narrowed to a subtree with `ReasoningTheme`, and
   translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
   `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
-  `DefaultAITranslations.reasoningDuration` spells the durations. In an `AIConversationView`, a first
-  step that arrives done opens for a moment before it folds.
+  `DefaultAITranslations.reasoningDuration` spells the durations.
 - `AIToolCallView` — a one-line row for a tool-call step: a status icon that follows the call's
   status (a shimmering hand while it waits for approval, a cross once declined), the title, a detail
   line (the summary, or the status in words) and the duration once the call has finished, declined
@@ -197,12 +196,13 @@
   the `messageAttachment` builder shows kinds of your own. A file card with a URL opens it when
   tapped, in the browser for a web link and through the platform for any other URL, with a notice when
   nothing opens it, unless `AIConversationView.onAttachmentTap` or `onTap` is set.
-- The `userMessage`, `assistantMessage`, `replyActions` (empty by default) and `messageAttachment`
-  builders, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
-  and `AIMessageAttachmentProps`. In a list that shows an `AIConversation`,
-  `AIUserMessageProps.onEdit` edits the person's latest message, and `AIReplyActionsProps.actions`
-  holds the conversation's rating and regenerate actions, which an `AIReplyActionsView` shows by
-  default. Actions show under a finished reply that has only attachments too.
+- The `userMessage`, `assistantMessage`, `replyActions` (empty by default unless the list shows an
+  `AIConversation`) and `messageAttachment` builders, with `AIUserMessageProps`,
+  `AIAssistantMessageProps`, `AIReplyActionsProps` and `AIMessageAttachmentProps`. In a list that
+  shows an `AIConversation`, `AIUserMessageProps.onEdit` edits the person's latest message, and
+  `AIReplyActionsProps.actions` holds the conversation's rating and regenerate actions, which an
+  `AIReplyActionsView` shows by default. Actions show under a finished reply that has only
+  attachments too.
 - `AIReasoningProps.text` and `duration` — a step's full reasoning, and the duration the
   conversation measured for its first step.
 - `ConversationThemeData` and `ConversationTheme`, and `AITheme.conversationTheme`, for the bubbles,
@@ -215,11 +215,12 @@
   failed, what the agent says it is doing (`AIAgentActivity`, `AIAgentActivityState`) and the
   ratings. It sends, stops, regenerates, edits, retries and rates through an
   `AIConversationTransport`, which tells it what the conversation holds through an
-  `AIConversationFeed` and gets each `AIConversationRequest` (`AIConversationRequestKind`). A reply
-  that doesn't start in time, or an agent that says it couldn't answer, shows as an `AIAgentError`;
-  a transport ends a request without an error with an `AIConversationCancelledException`.
-  `AIConversationActions` chooses what its views offer. `AIConversationView.conversation` and
-  `ChatComposer.conversation` show it and follow it.
+  `AIConversationFeed` until the conversation calls its `disconnect`, and gets each
+  `AIConversationRequest` (`AIConversationRequestKind`). A reply that doesn't start in time, or an
+  agent that says it couldn't answer, shows as an `AIAgentError`; a transport ends a request without
+  an error with an `AIConversationCancelledException`. `AIConversationActions` chooses what its
+  views offer. `AIConversationView.conversation` and `ChatComposer.conversation` show it and follow
+  it.
 - `ChatComposerController.isEditing` and `cancelEditing` — while the person edits a message they
   sent, the composer says so above the text field, with a button that cancels it.
   `requestFocus` focuses the field of the composer that shows the controller, and a composer shown
@@ -265,16 +266,19 @@
   `mathBuilder` of its own, such as the replies in an `AIConversationView`, which had no way to
   render it.
 - A notice when the microphone permission is denied and the person taps the mic: by default a snackbar
-  with a "Settings" action that stays until dismissed and, in a `ChatComposer`, floats above the composer rather than
-  over it, or `SpeechToTextConfig.onPermissionDenied` instead. The mic stays
-  tappable after a denial rather than rendering disabled.
-- A "Photos not added" alert when a photo picked in the attachment sheet can't be loaded, such as an
-  iCloud-only photo with no connection, or the photo library picker fails.
+  that stays until dismissed, with a "Settings" action on Android, iOS and macOS, and that in a
+  `ChatComposer` floats above the composer rather than over it, or `SpeechToTextConfig.onPermissionDenied`
+  instead.
+- `SpeechToTextController.isPermissionDenied` — whether the person denied the microphone.
+- A "Photos not added" alert when a photo picked in the attachment sheet can't be loaded, such as a
+  photo stored only online with no connection, or the photo library picker fails.
 - `AITranslations.microphonePermissionDenied`, `openSettings`, `photosNotAddedTitle` and
   `photosNotAddedMessage`.
 
 🔄 Changed
 
+- `SpeechToTextButton` stays tappable after the person denies the microphone, rather than rendering disabled,
+  so tapping it can show the permission notice.
 - A pie starts its first slice at the top and is solid, filling its plot. It used to start at the right
   and leave a hole in the middle that grew with the chart's height; `USpec.donut` draws a ring now,
   and a Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.

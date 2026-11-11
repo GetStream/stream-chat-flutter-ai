@@ -1085,7 +1085,7 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get photosNotAddedMessage =>
-      "Sommige foto's konden niet worden geladen. Controleer je internetverbinding als ze in iCloud staan en probeer het opnieuw.";
+      "Sommige foto's konden niet worden geladen. Controleer je internetverbinding als ze online zijn opgeslagen en probeer het opnieuw.";
 
   @override
   String get takePhoto => 'Maak een foto';

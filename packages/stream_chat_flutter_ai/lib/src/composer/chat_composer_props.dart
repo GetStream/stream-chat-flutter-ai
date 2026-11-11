@@ -343,11 +343,6 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
 
   /// A copy of these props with the given fields replaced.
   ///
-  /// The way to tweak one value while keeping the rest of what [ChatComposer]
-  /// passed down — hand-listing all twelve fields instead silently reverts any
-  /// you forget to a constructor default, discarding the host's own
-  /// configuration.
-  ///
   /// Passing `null` for [onStop] leaves the existing callback in place; use
   /// `clearOnStop: true` to drop it.
   ChatComposerInputProps copyWith({
