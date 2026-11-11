@@ -11,8 +11,9 @@ void main() {
   });
 
   test("AIAgentActivity is made from an indicator's raw state", () {
+    final raw = 'AI_STATE_EXTERNAL_SOURCES'.toString();
     expect(
-      const AIAgentActivity(state: AIAgentActivityState('AI_STATE_EXTERNAL_SOURCES'), text: 'Searching the web'),
+      AIAgentActivity(state: AIAgentActivityState(raw), text: 'Searching the web'),
       const AIAgentActivity(state: AIAgentActivityState.checkingExternalSources, text: 'Searching the web'),
     );
     expect(const AIAgentActivity(state: AIAgentActivityState.thinking).text, isNull);

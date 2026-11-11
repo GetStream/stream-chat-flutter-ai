@@ -308,7 +308,8 @@ void main() {
     expect(AIConversationRequestKind.message, 'message');
     expect(AIConversationRequestKind.regenerate, 'regenerate');
     expect(AIConversationRequestKind.edit, 'edit');
-    expect(const AIConversationRequestKind('edit'), AIConversationRequestKind.edit);
+    final raw = 'edit'.toString();
+    expect(AIConversationRequestKind(raw), AIConversationRequestKind.edit);
     expect(const AIConversationRequestKind('ui_action').isKnown, isFalse);
   });
 
