@@ -24,7 +24,8 @@ Roughly, each layer builds on the ones below it.
 function calls and holds the basic catalog. `lib/src/core/a2ui_adapter.dart` is the only library that imports it (and
 `json_schema_builder`, the schema library its catalogs are written in); a test, `a2ui_core_import_guard_test.dart`,
 keeps it so. No type of either appears in the package's API, so the protocol library can be replaced without touching
-the other layers. What the adapter adds, and so what this package is responsible for:
+the other layers. The conformance suites, in their own package, reach the adapter through its test interface,
+`a2ui_test_interface.dart`, the only test-only code in `lib/`. What the adapter adds, and so what this package is responsible for:
 
 - version handling: only A2UI 1.0, with the spellings agents write (`v1.0`, `1`, ...) rewritten as `1.0`
   (`a2ui_versions.dart`);

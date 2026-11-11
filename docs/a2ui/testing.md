@@ -1,10 +1,12 @@
 # Testing the A2UI package
 
-All of it runs with `melos run test:all` (or `flutter test` in `packages/stream_chat_flutter_ai_a2ui`).
+All of it runs with `melos run test:all`. The package's own tests run with `flutter test` in
+`packages/stream_chat_flutter_ai_a2ui`, and the conformance suites with `flutter test` in
+`packages/stream_chat_flutter_ai_a2ui_conformance`.
 
 | What | Where | Notes |
 | --- | --- | --- |
-| Conformance | `test/conformance/` | The vendored upstream A2UI suites, run against the adapter and the pinned `a2ui_core`. Why they are kept, and how a skipped case is recorded: [`test/conformance/README.md`](../../packages/stream_chat_flutter_ai_a2ui/test/conformance/README.md). Tagged `conformance`: `flutter test --tags conformance`. |
+| Conformance | `packages/stream_chat_flutter_ai_a2ui_conformance/` | The vendored upstream A2UI suites, in a private package of their own so they don't ship with the renderer. They run against the adapter and the pinned `a2ui_core`, through `lib/src/core/` and its test interface, `lib/src/core/a2ui_test_interface.dart`. Why they are kept, and how a skipped case is recorded: [its README](../../packages/stream_chat_flutter_ai_a2ui_conformance/README.md). Tagged `conformance`: `flutter test --tags conformance`. |
 | Fixtures | `test/fixtures/` | Reference data for the splitting, layout and date logic, and the upstream examples: [`test/fixtures/README.md`](../../packages/stream_chat_flutter_ai_a2ui/test/fixtures/README.md). |
 | Core adapter | `test/src/core/` | Processor, surfaces, nodes, checks, versions, stream splitting. Plain tests of the package's own types. |
 | Engine | `test/src/engine/` | Actions and their labels, app components, errors, streaming, topology, agent functions, instructions. |
