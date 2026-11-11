@@ -36,7 +36,7 @@ dependencies:
   # The A2UI protocol: messages, surfaces, data models and the basic catalog.
   # Only `lib/src/core/` uses it, so it can be replaced without changing the
   # rest of the package. Kept below 0.6.0, whose changes may be breaking.
-  a2ui_core: ">=0.5.0 <0.6.0"
+  a2ui_core: ">=0.5.0 <0.8.0"
   # Hosts the controls of the videos agents place in their replies.
   chewie: ^1.13.1
   # Deep equality for the package's value types that hold JSON.

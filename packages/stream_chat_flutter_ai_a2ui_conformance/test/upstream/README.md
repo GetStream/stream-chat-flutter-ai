@@ -1,7 +1,7 @@
 # A2UI conformance suites (vendored)
 
 Copied unchanged from [a2ui-project/a2ui](https://github.com/a2ui-project/a2ui) at
-`08f41cfbb87ea55685a3e28acd9212acec7819d9`, under the Apache License 2.0 in [`LICENSE`](LICENSE):
+`b3ac4298344c6131bc8a64157357f7609fd826e7`, under the Apache License 2.0 in [`LICENSE`](LICENSE):
 
 - `conformance/core/*.yaml` — every core suite, including the ones this package doesn't run;
 - `conformance/conformance_schema.json` — the schema of the suites;
