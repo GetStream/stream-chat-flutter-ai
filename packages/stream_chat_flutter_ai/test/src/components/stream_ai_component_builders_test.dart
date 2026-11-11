@@ -130,6 +130,7 @@ void main() {
         composerLeading: build,
         composerTrailing: build,
         composerInput: build,
+        composerInputTrailing: build,
         composerAttachmentSheet: build,
       );
       expect(builders.map((b) => b.type).toSet(), {
@@ -148,6 +149,7 @@ void main() {
         ChatComposerLeadingProps,
         ChatComposerTrailingProps,
         ChatComposerInputProps,
+        ChatComposerInputTrailingProps,
         ChatComposerAttachmentSheetProps,
       });
     });

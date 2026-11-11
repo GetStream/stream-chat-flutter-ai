@@ -444,6 +444,14 @@ void main() {
       expect(translations.toolAuthorizationExpired, 'This sign-in expired.');
     });
 
+    test("has the strings of a conversation's editing and its agent's errors", () {
+      const translations = DefaultAITranslations();
+
+      expect(translations.editingMessage, 'Editing message');
+      expect(translations.cancelEditing, 'Cancel editing');
+      expect(translations.agentError, "The agent couldn't answer. Try again.");
+    });
+
     test('labels the button that plays media "Play"', () {
       expect(const DefaultAITranslations().playMedia, 'Play');
     });

@@ -267,6 +267,64 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     }
 
+    testWidgets('composerInputTrailing stays while dictation runs and text is typed', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          StreamComponentFactory(
+            builders: StreamComponentBuilders(
+              extensions: streamAIComponentBuilders(
+                composerInputTrailing: (context, props) => const Text('custom mic'),
+              ),
+            ),
+            child: ChatComposer(controller: controller, enableSpeechToText: true, onSendPressed: (_, __, ___) {}),
+          ),
+        ),
+      );
+      await SpeechToTextController.instance.start(onWords: (_) {});
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await settle(tester);
+
+      expect(find.text('custom mic'), findsOneWidget);
+      expect(find.byIcon(_icons.arrowUp), findsNothing);
+
+      await endSession(tester);
+    });
+
+    testWidgets('composerInputTrailing follows dictation without enableSpeechToText', (tester) async {
+      final controller = ChatComposerController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          StreamComponentFactory(
+            builders: StreamComponentBuilders(
+              extensions: streamAIComponentBuilders(
+                composerInputTrailing: (context, props) => const Text('custom mic'),
+              ),
+            ),
+            child: ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+          ),
+        ),
+      );
+      await SpeechToTextController.instance.start(onWords: (_) {});
+      await tester.enterText(find.byType(TextField), 'Hello');
+      await settle(tester);
+      expect(find.text('custom mic'), findsOneWidget, reason: 'dictation is running');
+
+      // Cancelled, so the text and the controller stay as they are: the end of
+      // the session is the only change the composer can react to.
+      await SpeechToTextController.instance.cancel();
+      // Settled, not a single pump: the trailing control's AnimatedSwitcher
+      // keeps the outgoing slot on screen while it cross-fades.
+      await tester.pumpAndSettle();
+
+      expect(find.text('custom mic'), findsNothing);
+      expect(find.byIcon(_icons.arrowUp), findsOneWidget);
+    });
+
     testWidgets('keeps the stop control once dictation produces text', (tester) async {
       final controller = ChatComposerController();
       addTearDown(controller.dispose);

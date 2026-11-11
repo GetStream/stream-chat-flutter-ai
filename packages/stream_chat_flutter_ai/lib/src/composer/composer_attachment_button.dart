@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 // Here for the [ChatComposer] doc link below only.
@@ -20,28 +22,6 @@ class ComposerAttachmentButton extends StatelessWidget {
   /// The composer's wiring.
   final ChatComposerLeadingProps props;
 
-  Future<void> _openSheet(BuildContext context) {
-    // Read before the push: the sheet is a route of its own, which a factory
-    // below the Navigator doesn't reach.
-    final builder = context.aiComponentBuilder<ChatComposerAttachmentSheetProps>();
-    final components = StreamComponentFactory.of(context);
-    return showStreamSheet<void>(
-      context: context,
-      isDismissible: true,
-      builder: (sheetContext, scrollController) {
-        final sheetProps = ChatComposerAttachmentSheetProps.from(props, scrollController: scrollController);
-        return withStreamComponents(
-          components,
-          Builder(
-            builder: (context) =>
-                builder?.call(context, sheetProps) ??
-                ComposerAttachmentSheet(controller: props.controller, scrollController: scrollController),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
@@ -53,7 +33,7 @@ class ComposerAttachmentButton extends StatelessWidget {
       tooltip: AITranslations.of(context).addPhotos,
       // 40 dp, the input pill's height.
       size: .medium,
-      onPressed: enabled ? () => _openSheet(context) : null,
+      onPressed: enabled ? () => unawaited(ComposerAttachmentSheet.show(context, props)) : null,
       // The same fill and border as the input pill, so the two read as one
       // connected surface.
       themeStyle: StreamButtonThemeStyle(

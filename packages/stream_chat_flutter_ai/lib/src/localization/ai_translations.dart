@@ -7,6 +7,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_semantics.dart';
 // uses it.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/conversation/ai_agent_error.dart';
 // Here for the [AIUnsupportedPartView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 // Here for the [AIToolApprovalCard] doc link below only.
@@ -112,6 +114,20 @@ abstract class AITranslations {
   /// Label of the attachment sheet's button that opens system settings, shown
   /// in place of the recent photos when photo access has been denied.
   String get allowPhotoAccess;
+
+  /// Message of the notice shown when the microphone permission is denied and
+  /// the person taps the voice-input button.
+  String get microphonePermissionDenied;
+
+  /// Label of the notice's action that opens the system settings, where the
+  /// microphone permission can be granted.
+  String get openSettings;
+
+  /// Title of the notice shown when a photo the person picked can't be added.
+  String get photosNotAddedTitle;
+
+  /// Message of the notice shown when a photo the person picked can't be added.
+  String get photosNotAddedMessage;
 
   /// Tooltip on the attachment sheet's camera tile.
   String get takePhoto;
@@ -288,6 +304,16 @@ abstract class AITranslations {
   /// Label of the menu item that edits one of the person's messages.
   String get editMessage;
 
+  /// The composer's note that the person is editing a message they sent.
+  String get editingMessage;
+
+  /// Tooltip on the button in the composer's editing note that stops editing.
+  String get cancelEditing;
+
+  /// What to tell the person when the agent couldn't answer and said nothing
+  /// about why, such as an [AIAgentError] without a message.
+  String get agentError;
+
   /// Tooltip on the button that scrolls a conversation back to its latest
   /// message.
   String get scrollToLatest;
@@ -297,6 +323,12 @@ abstract class AITranslations {
 
   /// The name of a file attachment that has none.
   String get attachmentFile;
+
+  /// The tap hint of a file attachment that opens when tapped.
+  String get openAttachment;
+
+  /// The notice that no app could open a tapped file attachment.
+  String get cannotOpenAttachment;
 
   /// A file attachment's [type] and [size], such as "PDF · 2.4 MB".
   String attachmentDetails(String type, String size);
@@ -377,6 +409,19 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get allowPhotoAccess => 'Allow photo access';
+
+  @override
+  String get microphonePermissionDenied => 'Microphone permission is required to record audio';
+
+  @override
+  String get openSettings => 'Settings';
+
+  @override
+  String get photosNotAddedTitle => 'Photos not added';
+
+  @override
+  String get photosNotAddedMessage =>
+      "Some photos couldn't be loaded. If they're stored online, check your internet connection and try again.";
 
   @override
   String get takePhoto => 'Take a photo';
@@ -532,6 +577,15 @@ class DefaultAITranslations extends AITranslations {
   String get editMessage => 'Edit';
 
   @override
+  String get editingMessage => 'Editing message';
+
+  @override
+  String get cancelEditing => 'Cancel editing';
+
+  @override
+  String get agentError => "The agent couldn't answer. Try again.";
+
+  @override
   String get scrollToLatest => 'Scroll to latest';
 
   @override
@@ -539,6 +593,12 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get attachmentFile => 'File';
+
+  @override
+  String get openAttachment => 'Open';
+
+  @override
+  String get cannotOpenAttachment => 'No app can open this file';
 
   @override
   String attachmentDetails(String type, String size) => '$type · $size';

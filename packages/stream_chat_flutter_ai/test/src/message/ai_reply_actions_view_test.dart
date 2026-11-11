@@ -154,13 +154,19 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('shares nothing for an empty reply', (tester) async {
-      await tester.pumpWidget(_wrap(const AIReplyActionsView(text: '')));
-      await tester.tap(find.byTooltip('Share'));
-      await tester.pump();
+    testWidgets('offers neither copy nor share for a reply without text', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          AIReplyActionsView(
+            text: '',
+            actions: AIReplyActions(onRate: (_) {}),
+          ),
+        ),
+      );
 
-      expect(sharePlatform.shared, isEmpty);
-      expect(tester.takeException(), isNull);
+      expect(find.byTooltip('Copy'), findsNothing);
+      expect(find.byTooltip('Share'), findsNothing);
+      expect(find.byTooltip('Good response'), findsOneWidget);
     });
 
     testWidgets('hands the text to onShare in place of the share sheet', (tester) async {
