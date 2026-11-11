@@ -14,10 +14,11 @@ catalog is A2UI's, not ours) but a replaced or reworked builder follows the same
    dartdoc. The catalogs the agent is told about follow the registered types.
 3. **Dartdoc.** Document the builder as the others are: what it shows, what it writes, what an input does when it has
    no binding, and the edge cases. The component reference is written from this, so it has to be exact.
-4. **Inputs.** Follow `a2ui_input.dart`: `a2uiCanEdit` (a value not bound to the data model is read-only, fainter, and
-   reported once), `a2uiCheckFailuresOf` with `A2UIValidationMessages` for checks, `A2UIPressable` for tap targets,
-   `a2uiAccessibilityOf` for the label and description. Add the type to `_interactiveTypes` in `a2ui_node_view.dart` so
-   the label goes on the part the person uses, and to `a2uiFillsWidth` if it fills its width.
+4. **Inputs.** Follow the other inputs. `a2ui_component_scope.dart` has `a2uiCanEdit` (a value not bound to the data
+   model is read-only, fainter, and reported once) and `a2ui_node_view.dart` has `a2uiCheckFailuresOf` and
+   `a2uiAccessibilityOf` (the label and description). `a2ui_input.dart` has `A2UIValidationMessages` for checks and
+   `A2UIPressable` for tap targets. Add the type to `_interactiveTypes` in `a2ui_node_view.dart` so the label goes on
+   the part the person uses, and to `a2uiFillsWidth` there if it fills its width.
 5. **Tests.** Add `test/src/catalog/basic/a2ui_<name>_test.dart` (see [testing](testing.md)): properties, bound and
    unbound, edge cases, accessibility. Add the component to `a2ui_components_golden_test.dart` or
    `a2ui_inputs_golden_test.dart` for its look. Never generate the CI goldens locally.

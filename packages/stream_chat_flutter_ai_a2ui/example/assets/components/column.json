@@ -1,6 +1,6 @@
 {
   "name": "Column",
-  "description": "Align and justify; weights count only when the column has a height.",
+  "description": "Align: center and end.",
   "messages": [
     {
       "version": "1.0",

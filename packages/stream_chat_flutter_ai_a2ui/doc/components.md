@@ -5,8 +5,9 @@ the component writes back to the surface's data model, what it does when a perso
 Stream design system, and how it behaves when what the agent wrote is incomplete.
 
 The agent writes the components as [A2UI 1.0's basic catalog](https://a2ui.org) describes them. This page covers
-what that catalog leaves to the renderer. Every example below is a copy of a page in the
-[example app's gallery](../example#components) (the file is linked from each component), where each one runs.
+what that catalog leaves to the renderer. Every example below is taken from a page of the
+[example app's gallery](../example#components), adapted to stand alone (the page is linked from each component), where
+each one runs.
 
 - [Common to every component](#common-to-every-component)
 - Content: [Text](#text), [Image](#image), [Icon](#icon), [Video](#video), [AudioPlayer](#audioplayer)
@@ -22,18 +23,31 @@ what that catalog leaves to the renderer. Every example below is a copy of a pag
 **Values.** A property that takes a "dynamic" value is written as the value itself, as a binding to the data model,
 `{"@path": "/name"}`, or as a call of a function, `{"@call": "formatString", "args": {...}}`. The component reads
 it again when the data model changes. A component of the catalog that is missing a required property, or has one of
-the wrong type, is not drawn, and the problem is reported to the renderer's `onError`. Properties that only choose how a
+the wrong type, is rejected together with the message that carries it, so none of that message's components are
+applied, and the problem is reported to the renderer's `onError`. The fallbacks described for each component below
+apply to an empty value, a binding that reads nothing yet, or a child that hasn't arrived, not to a missing required
+property. Properties that only choose how a
 component looks, such as `variant`, `fit`, `justify`, `align`, `direction`, `axis` and `displayStyle`, never drop the
 component: a value the catalog doesn't list is drawn in the property's default style.
 
 **`weight`.** A child of a `Row` or `Column` may carry a `weight`, its share of the free space along the container, as
 CSS's `flex-grow`. See [Row](#row).
 
-**`accessibility`.** Any component may carry `{"label": ..., "description": ..., "hidden": ..., "live": ...}`, each value
-a string, a binding, or (for `hidden`) a boolean. The label and description are what assistive technologies read, in
-place of the text inside the component and after it. A hidden component is skipped by assistive technologies. With
-`"live": "polite"` or `"assertive"`, the component's label, or else its text, is announced when it changes. For the
-components a person uses, the label and description go on the part the person interacts with.
+**`accessibility`.** Any component may carry `{"label": ..., "description": ..., "hidden": ..., "live": ...}`. The label
+and description are strings or bindings, `hidden` a boolean or a binding, and `live` one of `off`, `polite` or
+`assertive`, written as is (a binding is rejected). A hidden component is skipped by assistive technologies. With
+`"live": "polite"` or `"assertive"`, the component's label, or else its text, is announced when it changes.
+
+How the label and description are applied depends on the component:
+
+| Component | Label | Description |
+| --- | --- | --- |
+| `Text`, `Image`, `Icon`, `Divider` | Replaces what the component is read as (an image is still read as an image) | Read after it |
+| `Row`, `Column`, `List`, `Card`, `Tabs`, `Video`, `AudioPlayer` | Groups the component; read before its children | Read after the label |
+| `ChoicePicker`, `Slider`, `DateTimeInput`, `Modal` | On the part the person uses | On the part the person uses |
+| `CheckBox` | On the check box; replaces the visible label | Not used |
+| `Button` of only an `Icon` | The tooltip | Not used |
+| `Button` with any other child, `TextField` | Not used: read as the design system reads them, by the child's text or the field's label | Not used |
 
 **`checks`.** The components a person uses (`Button`, `TextField`, `CheckBox`, `ChoicePicker`, `Slider` and
 `DateTimeInput`) may carry `checks`, a list of `{"condition": ..., "message": ...}`. A check fails when its condition is
@@ -120,7 +134,7 @@ Shows a named icon, or a shape the agent draws.
 - **Data model.** Reads `name`; writes nothing.
 - **Look.** The names are rounded Material icons. The icon is drawn in the color of the surrounding `IconTheme`, so
   inside a `Button` it follows the button's text color. A drawn shape is filled in that color.
-- **Edge cases.** A name the catalog doesn't have, a missing name and a path that can't be drawn show a help icon; in
+- **Edge cases.** A name the catalog doesn't have, an empty name and a path that can't be drawn show a help icon; in
   debug builds a path that can't be drawn is logged. A named icon's name is its accessibility label; a drawn shape has
   none.
 
@@ -151,7 +165,9 @@ Shows a poster with a play button; the video plays when the person taps it.
   `url` changes, and when a screen pushed over the conversation covers it. It plays on under a bottom sheet or dialog,
   such as a `Modal`. Players don't pause each other. See [Video and audio](../README.md#video-and-audio) for the
   platform setup media needs.
-- **Edge cases.** A `url` that is missing, has no scheme, or is refused by `mediaUrl` shows the box with a sign that it
+- **Look.** The poster is drawn with the design system's `StreamNetworkImage`, so the app's `networkImage` builder
+  draws it too.
+- **Edge cases.** A `url` that is empty, has no scheme, or is refused by `mediaUrl` shows the box with a sign that it
   can't play, and no play button. A video that fails to load or play shows the play button again, so a tap tries again;
   the failure goes to `FlutterError.reportError`.
 
@@ -175,7 +191,7 @@ A play and pause button for the audio at `url`, with its `description` as a capt
 - **Data model.** Reads its properties; writes nothing.
 - **Box.** 80 logical pixels tall and as wide as it is given. It never plays on its own; when it ends it goes back to
   the start. The player's lifecycle is [the video's](#video).
-- **Edge cases.** A `url` that is missing, has no scheme, or is refused by `mediaUrl` shows the box with a speaker and
+- **Edge cases.** A `url` that is empty, has no scheme, or is refused by `mediaUrl` shows the box with a speaker and
   no button. Audio that fails to load or play shows the play button again, so a tap tries again.
 
 ```json
@@ -329,7 +345,7 @@ A row of titles over the child of the selected tab.
 - **Titles.** The row of titles scrolls sideways when they don't fit. Each is at least 48 logical pixels tall to tap.
 - **Look.** The selected title is in the theme's `accent`, on a faint accent capsule; the others in `secondaryText`.
 - **Edge cases.** The agent may send fewer tabs than there were: the selection stays in range. A tab whose child shows
-  nothing, such as one that hasn't arrived yet, shows its title over nothing. Without tabs the component shows nothing.
+  nothing, such as one that hasn't arrived yet, shows its title over nothing. A `tabs` list must have at least one tab.
 
 ```json
 [
@@ -359,7 +375,7 @@ A `trigger` in place, which opens its `content` in a sheet from the bottom of th
 - **Data model.** Writes nothing.
 - **Look.** `StreamSheetRoute` and the app's `StreamSheetTheme`; the app's `StreamComponentFactory` builders apply
   inside the sheet too.
-- **Edge cases.** A modal with no trigger shows nothing. Without a `Navigator` above the surface the sheet can't open,
+- **Edge cases.** A modal whose trigger or content hasn't arrived yet shows nothing, or an empty sheet. Without a `Navigator` above the surface the sheet can't open,
   and this is reported once. A modal with its sheet open stays while a list it is in scrolls it out of view.
 
 ```json
@@ -394,7 +410,7 @@ Its `child` in a button that runs its `action` when tapped.
 - **Data model.** Writes nothing; reads `context`, and the checks' conditions.
 - **Look.** The design system's `StreamButton`, so the app's `button` builder draws it. A button of only an `Icon` is
   the design system's icon button, with the `accessibility` label as its tooltip.
-- **Edge cases.** A button with no child is drawn with nothing in it. A button whose checks fail with a warning or info is not
+- **Edge cases.** A button whose child hasn't arrived yet is drawn with nothing in it. A button whose checks fail with a warning or info is not
   blocked.
 
 ```json
@@ -425,11 +441,11 @@ A `label` over a field that writes each change the person makes to its `value`.
 | `checks` | list of checks | |
 
 - **Data model.** Writes the text to the path `value` is bound to, on every change, as typed (the field never changes
-  case, formats or corrects it). A `number` field writes a string too.
+  case or formatting; the keyboard may still autocorrect it, except in a secret field). A `number` field writes a string too.
 - **Typing.** While the person types, the field keeps what they typed; a change from elsewhere, such as from the agent,
   replaces it once the field isn't being typed in.
-- **Checks.** They show only while the field holds text, so an empty form isn't covered in errors: a failing check
-  outlines the field in the error color and its messages show below it.
+- **Checks.** They show only while the field holds text, so an empty form isn't covered in errors: a failing check with an `error`
+  severity outlines the field in the error color; every failing check's message shows below it.
 - **Secret fields.** An `obscured` field hides its text and is never suggested or corrected. It is never given to the
   app's `textInput` builder, so a secret stays hidden, and is drawn in the same style. Its label shows when it has no
   placeholder. Its text is written to the data model like any other, so an action's `context` or a `sendDataModel`
@@ -528,18 +544,17 @@ A `label` and the current `value` over a slider from `min` to `max`.
 | --- | --- | --- |
 | `label` | dynamic string | |
 | `value` | dynamic number, required | Bind it to the data model, or the slider can't be moved. |
-| `min` | dynamic number, default 0 | |
-| `max` | dynamic number, required | |
+| `min` | number, default 0 | A literal number, not a binding. |
+| `max` | number, required | A literal number, not a binding. |
 | `steps` | integer of at least 1 | The number of equal divisions; the slider snaps to them. |
 | `checks` | list of checks | |
 
 - **Data model.** Writes the picked number to the path `value` is bound to, as a whole number without a fraction when
   it is one. With `steps`, a division of whole ends is a whole number.
-- **Range.** A `min` that isn't a number is 0, and a `max` that isn't above the `min` is one more than it. Both are kept
+- **Range.** A missing `min` is 0, and a `max` that isn't above the `min` is one more than it. Both are kept
   within ±10¹⁵.
-- **Value outside the range.** It shows at the nearer end, but is left as the agent wrote it, since the range may
-  still be on its way, such as a bound `max` that a later data update fills; it changes once the person moves the
-  slider.
+- **Value outside the range.** It shows at the nearer end, but is left as the agent wrote it; it changes once the
+  person moves the slider.
 - **Missing value.** Once the slider shows, a value that isn't there yet is written as `min`, as is one that isn't a
   number, which is also reported.
 - **Look.** Drawn with the theme's accent and border colors, as a Material `Slider`; it has no design system hook.
@@ -568,7 +583,7 @@ both.
 | `label` | dynamic string | |
 | `enableDate` | boolean, default `false` | |
 | `enableTime` | boolean, default `false` | |
-| `min`, `max` | dynamic string | ISO 8601 bounds. |
+| `min`, `max` | dynamic string | ISO 8601 bounds, a date, a time or a date and time. |
 | `checks` | list of checks | |
 
 - **What it picks.** A date picker for `enableDate`, a time picker for `enableTime`, the date picker and then the time
@@ -581,8 +596,10 @@ both.
   shows as the agent wrote it.
 - **Bounds.** What the person picks stays from `min` to `max`: the date picker offers only the days between them, and
   a time picked before `min` or after `max` on those days becomes that bound. A time input needs bounds that are times,
-  and the others bounds that are dates or dates and times. A bound that isn't one, or a `min` after the `max`, limits
-  nothing, and is reported.
+  and the others bounds that are dates or dates and times. A bound of the wrong kind, such as a time on a date input,
+  limits nothing and isn't reported. A bound written as text that isn't ISO 8601 is rejected with its message. One
+  read from the data model that isn't ISO 8601, and a `min` after the `max`, limit nothing, and are reported when the
+  person taps the field.
 - **Look.** The frame of the design system's text input, drawn from its theme (no builder hook), with a calendar or
   clock icon.
 - **Edge cases.** A `value` that isn't bound shows fainter and a tap opens nothing.

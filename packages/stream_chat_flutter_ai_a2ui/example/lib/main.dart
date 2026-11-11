@@ -182,7 +182,10 @@ class _ExamplesPageState extends State<ExamplesPage> {
               return ListTile(
                 title: Text(row.name),
                 subtitle: Text(
-                  row.description ?? (missing.isEmpty ? row.file : '${row.file} · unknown: ${missing.join(', ')}'),
+                  [
+                    row.description ?? row.file,
+                    if (missing.isNotEmpty) 'unknown: ${missing.join(', ')}',
+                  ].join(' · '),
                 ),
                 onTap: () => _open(ExamplePage(example: row, onToggleMode: widget.onToggleMode)),
               );

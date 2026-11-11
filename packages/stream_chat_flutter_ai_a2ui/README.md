@@ -175,11 +175,16 @@ component themes apply as well.
 
 ```dart
 final builders = StreamComponentBuilders(
-  button: (context, props) => FilledButton(
-    onPressed: props.onPressed,
-    style: FilledButton.styleFrom(shape: const StadiumBorder()),
-    child: props.child ?? const SizedBox.shrink(),
-  ),
+  button: (context, props) {
+    final button = FilledButton(
+      onPressed: props.onPressed,
+      style: FilledButton.styleFrom(shape: const StadiumBorder()),
+      // A button of only an icon has no `child`: its icon is `iconLeft`.
+      child: props.child ?? props.iconLeft ?? const SizedBox.shrink(),
+    );
+    final tooltip = props.tooltip;
+    return tooltip == null ? button : Tooltip(message: tooltip, child: button);
+  },
 );
 
 MaterialApp(
@@ -194,7 +199,7 @@ MaterialApp(
 | `CheckBox` | `checkbox` |
 | `ChoicePicker` with `multipleSelection` as rows | `checkbox` |
 | `TextField`, and a `ChoicePicker`'s `filterable` search field | `textInput` |
-| `Image` | `networkImage` |
+| `Image`, and a `Video`'s poster | `networkImage` |
 
 A `Modal`'s sheet takes the app's sheet theme, and your builders apply inside it. The other components, and a
 `ChoicePicker` with a single choice or as chips, are drawn by this package from the A2UI theme.
@@ -234,7 +239,8 @@ component, with bindings already resolved. It builds again when the properties o
 | --- | --- |
 | `id`, `type` | The component's id and type. |
 | `value(name)` | A property as JSON, or `null`. |
-| `string(name)`, `number(name)`, `boolean(name)`, `stringList(name)` | A property as that type, or `null` when it isn't one. |
+| `string(name)` | A property as text: numbers, booleans, lists and maps are converted. `null` only when it is missing. |
+| `number(name)`, `boolean(name)`, `stringList(name)` | A property as that type, or `null` when it isn't one. A numeric string counts as a number. |
 | `hint(name)` | A style property such as `variant`, as the agent wrote it, never read from the data model. |
 | `isBound(name)` | Whether the property is bound to the data model, so `write` can change it. |
 | `child([name])`, `children([name])` | One child, or the list of children, as `A2UIChild`s. A child that shows nothing is left out. |
@@ -329,7 +335,7 @@ reply whose components don't form a whole tree, are reported in debug builds onl
 | --- | --- |
 | `validationFailed` | A message, component or value doesn't match what A2UI or the catalog allows. |
 | `unallowedParent`, `unallowedChild` | A component is placed where its catalog doesn't allow it. |
-| `integrityError` | Messages contradict each other or the surfaces they name, such as a missing child. |
+| `integrityError` | Messages contradict each other or the surfaces they name, such as an update for a surface that doesn't exist. |
 | `invalidFunctionCall` | A function call the agent asked for can't run. |
 | `expressionError` | A binding or function call can't be evaluated. |
 | `executionError` | A function, an action or a builder failed while it ran. |

@@ -41,7 +41,7 @@ void main() {
         };
         final components = (jsonDecode(snippet.text) as List<Object?>).cast<Map<String, Object?>>();
 
-        await pumpSurface(
+        final processor = await pumpSurface(
           tester,
           components: components,
           data: jsonDecode(data) as Map<String, Object?>,
@@ -50,6 +50,9 @@ void main() {
         await tester.pump();
 
         expect(errors, isEmpty, reason: snippet.text);
+        // The snippet shows its own component, in a surface that has a root.
+        expect([for (final component in components) component['component']], contains(type), reason: snippet.text);
+        expect(processor.surface('s')!.root, isNotNull, reason: snippet.text);
       }
     });
   }
@@ -57,6 +60,16 @@ void main() {
   test('the examples of the gallery are all linked from doc/components.md', () {
     final linked = RegExp(r'\(\.\./example/assets/components/(\w+)\.json\)').allMatches(components);
     expect({for (final match in linked) match[1]}, {for (final type in A2UICatalog.basic.types) _snake(type)});
+  });
+
+  test('the example app registers the gallery assets', () {
+    expect(File('example/pubspec.yaml').readAsStringSync(), contains('    - assets/components/\n'));
+  });
+
+  test('the link reading finds titled, reference-style and href links', () {
+    const markdown = '[a](x.md "title") [b](<y.md>)\n[c]: z.md "t"\n<a href="w.md">d</a>';
+
+    expect(_links(markdown), ['x.md', 'y.md', 'z.md', 'w.md']);
   });
 
   test('the published documents never mention the internal docs', () {
@@ -74,8 +87,8 @@ void main() {
     test('every link in $path to a file or folder leads to one', () {
       final base = File(path).parent.path;
       final missing = [
-        for (final match in RegExp(r'\]\(([^)\s]+)\)').allMatches(File(path).readAsStringSync()))
-          if (!_isExternal(match[1]!) && !_exists(path, base, match[1]!)) match[1],
+        for (final link in _links(File(path).readAsStringSync()))
+          if (!_isExternal(link) && !_exists(path, base, link)) link,
       ];
 
       expect(missing, isEmpty);
@@ -83,7 +96,18 @@ void main() {
   }
 }
 
-bool _isExternal(String link) => link.startsWith('http');
+// The targets of the links in [markdown]: inline links, with or without a
+// title, reference definitions and `<a href>` links.
+List<String> _links(String markdown) {
+  return [
+    for (final match in RegExp(r'\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)').allMatches(markdown)) match[1]!,
+    for (final match in RegExp(r'^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s+.*)?$', multiLine: true).allMatches(markdown))
+      match[1]!,
+    for (final match in RegExp('href=["\']([^"\']+)["\']').allMatches(markdown)) match[1]!,
+  ];
+}
+
+bool _isExternal(String link) => link.startsWith('http') || link.startsWith('mailto:');
 
 bool _exists(String file, String base, String link) {
   final parts = link.split('#');
