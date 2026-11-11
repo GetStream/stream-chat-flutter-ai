@@ -1261,6 +1261,15 @@ class DutchTranslations implements AITranslations {
   String get editMessage => 'Bewerken';
 
   @override
+  String get editingMessage => 'Bericht bewerken';
+
+  @override
+  String get cancelEditing => 'Bewerken annuleren';
+
+  @override
+  String get agentError => 'De agent kon niet antwoorden. Probeer het opnieuw.';
+
+  @override
   String get scrollToLatest => 'Naar nieuwste bericht';
 
   @override

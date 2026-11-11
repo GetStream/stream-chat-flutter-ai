@@ -44,8 +44,8 @@ class AIReplyActions {
   final ValueChanged<AIMessageRating?>? onRate;
 }
 
-/// The buttons under a finished reply: copy and share, then regenerate and
-/// rate when [actions] handles them.
+/// The buttons under a finished reply: copy and share while it has [text],
+/// then regenerate and rate when [actions] handles them.
 ///
 /// Sharing opens the platform share sheet with [text], or an email draft on
 /// Linux and in browsers without the Web Share API, unless
@@ -65,6 +65,10 @@ class AIReplyActionsView extends StatefulWidget {
   const AIReplyActionsView({super.key, required this.text, this.actions = const AIReplyActions()});
 
   /// The reply's text, which copying and sharing hand on.
+  ///
+  /// Without any, such as for a reply that answers with generated UI or
+  /// attachments, there is nothing to copy or share and those buttons don't
+  /// show.
   final String text;
 
   /// What else the person can do with the reply.
@@ -153,22 +157,24 @@ class _AIReplyActionsViewState extends State<AIReplyActionsView> {
       // already are.
       spacing: padded ? 0 : 8,
       children: [
-        button(
-          _copied ? icons.checkmark : icons.copy,
-          _copied ? translations.replyCopied : translations.copyReply,
-          _copy,
-        ),
-        Builder(
-          builder: (context) => button(icons.share, translations.shareReply, () {
-            final box = context.findRenderObject() as RenderBox?;
-            final origin = box != null && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
-            if (onShare != null) {
-              onShare(widget.text, origin);
-            } else {
-              unawaited(_share(origin));
-            }
-          }),
-        ),
+        if (widget.text.isNotEmpty) ...[
+          button(
+            _copied ? icons.checkmark : icons.copy,
+            _copied ? translations.replyCopied : translations.copyReply,
+            _copy,
+          ),
+          Builder(
+            builder: (context) => button(icons.share, translations.shareReply, () {
+              final box = context.findRenderObject() as RenderBox?;
+              final origin = box != null && box.hasSize ? box.localToGlobal(Offset.zero) & box.size : null;
+              if (onShare != null) {
+                onShare(widget.text, origin);
+              } else {
+                unawaited(_share(origin));
+              }
+            }),
+          ),
+        ],
         if (onRegenerate != null) button(icons.refresh, translations.regenerateReply, onRegenerate),
         if (onRate != null) ...[
           button(

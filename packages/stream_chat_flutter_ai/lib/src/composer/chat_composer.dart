@@ -13,6 +13,7 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.da
 // nothing in this file's code uses it.
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation.dart';
 // Doc links only.
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -96,11 +97,40 @@ class ChatComposer extends StatefulWidget {
   }) : assert(minLines >= 1, 'minLines must be at least 1'),
        assert(maxLines >= minLines, "maxLines can't be less than minLines");
 
+  /// Creates a [ChatComposer] for [conversation].
+  ///
+  /// It shows the conversation's [AIConversation.composer], sends what the
+  /// person writes to the conversation, and offers to stop the agent while it
+  /// answers. Given another conversation, it shows that one's draft.
+  ChatComposer.conversation({
+    super.key,
+    required AIConversation conversation,
+    this.focusNode,
+    this.hintText,
+    this.minLines = 1,
+    this.maxLines = 8,
+    this.textInputAction = TextInputAction.newline,
+    this.enableSpeechToText = false,
+    this.speechToTextConfig = const SpeechToTextConfig(),
+    this.allowSendWhileGenerating = false,
+  }) : assert(minLines >= 1, 'minLines must be at least 1'),
+       assert(maxLines >= minLines, "maxLines can't be less than minLines"),
+       controller = conversation.composer,
+       onSendPressed = ((text, option, attachments) {
+         conversation.send(text, attachments: attachments, chatOption: option);
+       }),
+       onStopPressed = conversation.stop;
+
   /// The controller that manages input text, chat options, attachments, and
   /// generating state.
   ///
   /// If not provided, an internal controller is created and disposed
   /// automatically.
+  ///
+  /// The text field takes focus when [ChatComposerController.requestFocus] is
+  /// called, and as the composer appears while
+  /// [ChatComposerController.isEditing], so the person can edit the message at
+  /// once.
   final ChatComposerController? controller;
 
   /// What the `composerLeading` or `composerTrailing` builder of
@@ -207,6 +237,7 @@ class _ChatComposerState extends State<ChatComposer> {
     } else {
       _focusNode = widget.focusNode!;
     }
+    _followFocusRequests();
     _rebuildListenable();
   }
 
@@ -219,10 +250,22 @@ class _ChatComposerState extends State<ChatComposer> {
         : _controller;
   }
 
+  // The field takes focus when the controller asks, and as the composer
+  // appears while the person is editing, once its field is in the tree.
+  void _followFocusRequests() {
+    _controller.focusRequests.addListener(_focusField);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.isEditing) _focusField();
+    });
+  }
+
+  void _focusField() => _focusNode.requestFocus();
+
   @override
   void didUpdateWidget(covariant ChatComposer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.controller != oldWidget.controller) {
+      _controller.focusRequests.removeListener(_focusField);
       if (_ownsController) {
         _controller.dispose();
         _ownsController = false;
@@ -233,6 +276,7 @@ class _ChatComposerState extends State<ChatComposer> {
       } else {
         _controller = widget.controller!;
       }
+      _followFocusRequests();
     }
     if (widget.focusNode != oldWidget.focusNode) {
       if (_ownsFocusNode) {
@@ -261,6 +305,7 @@ class _ChatComposerState extends State<ChatComposer> {
     // [SpeechToTextButton]'s documentation recommends, and its session must
     // stop here too.
     unawaited(SpeechToTextController.instance.cancel());
+    _controller.focusRequests.removeListener(_focusField);
     if (_ownsController) _controller.dispose();
     if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();

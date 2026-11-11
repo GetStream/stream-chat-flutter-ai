@@ -14,12 +14,13 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.da
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
 // Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation.dart';
+// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_user_message_view.dart';
-// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
@@ -102,11 +103,15 @@ import 'package:stream_core_flutter/core.dart';
 ///   is shown (see [AIConversationView.ui]), [assistantMessage] gets empty
 ///   text, and the conversation shows the UI below the builder's widget.
 /// * [replyActions]: the actions, such as copy or regenerate, shown under a
-///   finished reply in [AIConversationView], once its text or generated UI
-///   (see [AIConversationView.ui]) has finished appearing. Nothing by default;
-///   an [AIReplyActionsView] is what to return. Like the rows, it is built again
-///   only when the reply changes, so read the rating, which changes without
-///   the reply changing, through a [Listenable]:
+///   finished reply in [AIConversationView], once its text, attachments or
+///   generated UI (see [AIConversationView.ui]) has finished appearing.
+///   Nothing by default, and an [AIReplyActionsView] with
+///   [AIReplyActionsProps.actions] in a list made with
+///   [AIConversationView.conversation], which builds the row again when the
+///   rating or the actions offered change. Otherwise an [AIReplyActionsView]
+///   is what to return. Like the rows, it is built again only when the reply
+///   changes, so read the rating, which changes without the reply changing,
+///   through a [Listenable]:
 ///
 ///   ```dart
 ///   // In your State, next to a `ValueNotifier<Map<String, AIMessageRating>> ratings`.
@@ -350,7 +355,13 @@ final class AIToolAuthorizationProps {
 @immutable
 final class AIUserMessageProps {
   /// Creates an [AIUserMessageProps].
-  const AIUserMessageProps({this.message, required this.text, this.attachments = const [], this.onAttachmentTap});
+  const AIUserMessageProps({
+    this.message,
+    required this.text,
+    this.attachments = const [],
+    this.onAttachmentTap,
+    this.onEdit,
+  });
 
   /// The message, which is one of the app's own: cast it to read what else it
   /// holds. `null` while the message is on its way.
@@ -364,6 +375,14 @@ final class AIUserMessageProps {
 
   /// Opens one of the attachments.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+
+  /// Puts the message back in the composer to edit, or `null` when it can't
+  /// be edited.
+  ///
+  /// It is set when the list shows an [AIConversation] that offers editing
+  /// and the person can edit the message: it is their latest, and the agent
+  /// isn't answering.
+  final VoidCallback? onEdit;
 }
 
 /// What the `assistantMessage` builder of [streamAIComponentBuilders] gets.
@@ -406,18 +425,25 @@ final class AIAssistantMessageProps {
 @immutable
 final class AIReplyActionsProps {
   /// Creates an [AIReplyActionsProps].
-  const AIReplyActionsProps({required this.message, required this.isLatestReply});
+  const AIReplyActionsProps({required this.message, required this.isLatestReply, this.actions});
 
   /// The reply, which is one of the app's own messages: cast it to act on it.
   final AIMessage message;
 
   /// The reply's text, in markdown. It can be empty for a reply that shows
-  /// only generated UI (see [AIConversationView.ui]).
+  /// only generated UI (see [AIConversationView.ui]) or attachments.
   String get text => message.text;
 
   /// Whether it is the latest reply in the conversation, such as the only one
   /// an app offers to regenerate.
   final bool isLatestReply;
+
+  /// What the list's [AIConversation] offers to do with the reply, as its
+  /// [AIConversation.actions] allow: rate it, and regenerate it while it is
+  /// the latest and the agent isn't answering.
+  ///
+  /// `null` when the list doesn't show an [AIConversation].
+  final AIReplyActions? actions;
 }
 
 /// What the `messageAttachment` builder of [streamAIComponentBuilders] gets.

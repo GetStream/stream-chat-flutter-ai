@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_offers.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_status.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_thinking_view.dart';
@@ -14,6 +17,7 @@ import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart'
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/theme/components/conversation_theme.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -41,6 +45,10 @@ import 'package:stream_core_flutter/core.dart';
 ///   emptyContent: const Text('How can I help?'),
 /// )
 /// ```
+///
+/// Or give it an [AIConversation], which holds the conversation and acts on
+/// what the person does, with [AIConversationView.conversation]: it follows
+/// the conversation as it changes.
 ///
 /// The rows can be replaced through the `userMessage` and `assistantMessage`
 /// builders of [streamAIComponentBuilders], and under each finished reply its
@@ -72,7 +80,69 @@ class AIConversationView extends StatefulWidget {
     this.footer,
     this.emptyContent,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
-  });
+  }) : _conversation = null;
+
+  /// Creates an [AIConversationView] that shows `conversation`, and follows it
+  /// as it changes.
+  ///
+  /// The list shows the conversation's messages, the message on its way and
+  /// the agent thinking while its status is
+  /// [AIConversationStatus.submitted], asks the conversation's approver tool
+  /// calls' questions, and loads older messages while the conversation has
+  /// any. The person's latest message offers to edit it, and each finished
+  /// reply to rate it, the latest also to regenerate it, as the
+  /// conversation's [AIConversation.actions] allow. Under each finished reply
+  /// an [AIReplyActionsView] offers them, unless the `replyActions` builder
+  /// of [streamAIComponentBuilders] is set, which finds them in
+  /// [AIReplyActionsProps.actions].
+  ///
+  /// The package shows no error of its own: put the conversation's
+  /// [AIConversation.error] and a way to retry in the [footer], which shows
+  /// under the empty content too, such as when a first message failed. Read
+  /// the conversation through a [ListenableBuilder] there, so the footer
+  /// follows it:
+  ///
+  /// ```dart
+  /// AIConversationView.conversation(
+  ///   conversation: conversation,
+  ///   footer: ListenableBuilder(
+  ///     listenable: conversation,
+  ///     builder: (context, _) {
+  ///       if (conversation.status != AIConversationStatus.error) {
+  ///         return const SizedBox.shrink();
+  ///       }
+  ///       return TextButton(
+  ///         onPressed: conversation.retry,
+  ///         child: const Text('Try again'),
+  ///       );
+  ///     },
+  ///   ),
+  /// )
+  /// ```
+  const AIConversationView.conversation({
+    super.key,
+    required AIConversation this._conversation,
+    this.ui,
+    this.onAttachmentTap,
+    this.footer,
+    this.emptyContent,
+    this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
+  }) : messages = const [],
+       pendingMessage = null,
+       isThinking = false,
+       approver = null,
+       loadOlderMessages = null;
+
+  // The conversation the list follows, which makes it read that rather than
+  // its own parameters.
+  final AIConversation? _conversation;
+
+  // What the list reads, which the constructor decides.
+  _ConversationSource get _source {
+    final conversation = _conversation;
+    if (conversation == null) return _PlainSource(this);
+    return _DrivenSource(conversation);
+  }
 
   /// The conversation, oldest message first. A reply that shows nothing yet is
   /// left out; meanwhile the list shows the agent thinking.
@@ -117,8 +187,9 @@ class AIConversationView extends StatefulWidget {
   /// every attachment's tap.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 
-  /// A widget under the latest turn's messages, such as what the agent is
-  /// doing, or an error with a way to retry.
+  /// A widget under the latest turn's messages, or under the [emptyContent]
+  /// while there are none, such as what the agent is doing, or an error with a
+  /// way to retry.
   ///
   /// When a reply fails, end the thinking too: stop passing [isThinking], and
   /// don't leave a reply that shows nothing marked as still generating.
@@ -175,6 +246,7 @@ class _AIConversationViewState extends State<AIConversationView> {
   String? _lastTurn;
   bool _endInView = true;
 
+  late _ConversationSource _source;
   List<ConversationEntry> _entries = const [];
   bool _thinking = false;
 
@@ -182,17 +254,30 @@ class _AIConversationViewState extends State<AIConversationView> {
   void initState() {
     super.initState();
     _controller.addListener(_updateEndInView);
+    _source = widget._source;
+    _source.listenable?.addListener(_onSourceChanged);
   }
 
   @override
   void dispose() {
+    _source.listenable?.removeListener(_onSourceChanged);
     _controller.dispose();
     super.dispose();
   }
 
+  void _onSourceChanged() => setState(() {
+    // What the list follows changed; `build` reads it.
+  });
+
   @override
   void didUpdateWidget(AIConversationView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final followed = _source.listenable;
+    _source = widget._source;
+    if (_source.listenable != followed) {
+      followed?.removeListener(_onSourceChanged);
+      _source.listenable?.addListener(_onSourceChanged);
+    }
     final old = oldWidget.padding;
     final padding = widget.padding;
     if (old.top == padding.top && old.bottom == padding.bottom) return;
@@ -289,17 +374,17 @@ class _AIConversationViewState extends State<AIConversationView> {
   // remembers what it has seen.
   List<ConversationTurn> _turns() {
     final ui = widget.ui;
+    final messages = _source.messages;
     // The rows build only the replies on screen, so the engines take every
     // reply's UI first.
-    ui?.receive(widget.messages);
+    ui?.receive(messages);
     // The same answer as the rows': whether the engine built a widget.
     final canShowUI = ui == null
         ? showsNoUI
         : (AIUIDocument document, String messageId) =>
               AIUIView(host: ui, document: document, messageId: messageId).canShow;
-    _entries = _tracker.entries(widget.messages, widget.pendingMessage, canShowUI: canShowUI);
-    _thinking =
-        widget.isThinking || _tracker.isAwaitingReply(widget.messages, widget.pendingMessage, canShowUI: canShowUI);
+    _entries = _tracker.entries(messages, _source.pendingMessage, canShowUI: canShowUI);
+    _thinking = _source.isThinking(tracker: _tracker, entries: _entries, ui: ui, canShowUI: canShowUI);
     final turns = ConversationTurn.of(_entries);
     _clock.update(
       latest: turns.lastOrNull?.id,
@@ -331,16 +416,30 @@ class _AIConversationViewState extends State<AIConversationView> {
   Widget build(BuildContext context) {
     final turns = _turns();
     final theme = ConversationTheme.of(context);
-    final loadOlder = widget.loadOlderMessages;
+    final loadOlder = _source.loadOlderMessages;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
         if (turns.isEmpty) {
+          final footer = widget.footer;
+          final empty = widget.emptyContent ?? const SizedBox.shrink();
           return SizedBox(
             width: double.infinity,
             height: height,
-            child: Center(child: widget.emptyContent ?? const SizedBox.shrink()),
+            child: footer == null
+                ? Center(child: empty)
+                // The footer can say why a first message isn't there, such as an
+                // error to retry. The empty content keeps the space above it.
+                : Column(
+                    children: [
+                      Expanded(child: Center(child: empty)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: context.streamSpacing.md),
+                        child: footer,
+                      ),
+                    ],
+                  ),
           );
         }
 
@@ -360,7 +459,8 @@ class _AIConversationViewState extends State<AIConversationView> {
           // shorter than its bottom padding has nothing to leave.
           minHeight: max(0, height - padding.bottom),
           footer: widget.footer,
-          approver: widget.approver,
+          approver: _source.approver,
+          conversation: _source.conversation,
           ui: widget.ui,
           onAttachmentTap: widget.onAttachmentTap,
           padding: EdgeInsets.only(left: padding.left, right: padding.right),
@@ -431,6 +531,116 @@ class _AIConversationViewState extends State<AIConversationView> {
   }
 }
 
+// What the list reads and follows, which its constructor decides once: the
+// parameters of `AIConversationView.new`, or an `AIConversation`.
+sealed class _ConversationSource {
+  const _ConversationSource();
+
+  // The messages shown, and the one on its way.
+  List<AIMessage> get messages;
+  AIPendingMessage? get pendingMessage;
+
+  // Who answers tool calls' questions.
+  AIToolApprover? get approver;
+
+  // Loads older messages, or `null` while there are none.
+  Future<void> Function()? get loadOlderMessages;
+
+  // Notifies when what the list reads changes, or `null` when it never does on
+  // its own.
+  Listenable? get listenable;
+
+  // The conversation the rows act on, if there is one.
+  AIConversation? get conversation;
+
+  // Whether the agent is answering and its reply shows nothing yet, given the
+  // `entries` the list shows after `tracker` followed `messages`.
+  bool isThinking({
+    required PendingMessageTracker tracker,
+    required List<ConversationEntry> entries,
+    required AIUIHost? ui,
+    required CanShowUI canShowUI,
+  });
+}
+
+// What the list is given, which it can only show.
+final class _PlainSource extends _ConversationSource {
+  const _PlainSource(this._view);
+
+  final AIConversationView _view;
+
+  @override
+  List<AIMessage> get messages => _view.messages;
+
+  @override
+  AIPendingMessage? get pendingMessage => _view.pendingMessage;
+
+  @override
+  AIToolApprover? get approver => _view.approver;
+
+  @override
+  Future<void> Function()? get loadOlderMessages => _view.loadOlderMessages;
+
+  @override
+  Listenable? get listenable => null;
+
+  @override
+  AIConversation? get conversation => null;
+
+  @override
+  bool isThinking({
+    required PendingMessageTracker tracker,
+    required List<ConversationEntry> entries,
+    required AIUIHost? ui,
+    required CanShowUI canShowUI,
+  }) {
+    if (_view.isThinking) return true;
+    return tracker.isAwaitingReply(messages, pendingMessage, canShowUI: canShowUI);
+  }
+}
+
+// What an `AIConversation` holds, which the list follows and acts on.
+final class _DrivenSource extends _ConversationSource {
+  const _DrivenSource(this.conversation);
+
+  @override
+  final AIConversation conversation;
+
+  @override
+  List<AIMessage> get messages => conversation.messages;
+
+  @override
+  AIPendingMessage? get pendingMessage => conversation.pendingMessage;
+
+  @override
+  AIToolApprover? get approver => conversation.approver;
+
+  @override
+  Future<void> Function()? get loadOlderMessages {
+    if (!conversation.hasOlderMessages) return null;
+    return conversation.loadOlderMessages;
+  }
+
+  @override
+  Listenable get listenable => conversation;
+
+  // The conversation knows when its agent is thinking, including after a stop
+  // or a failure that leaves the person's message on its way. A reply that
+  // shows only its UI has started, which the conversation can't tell without
+  // the host that reads it.
+  @override
+  bool isThinking({
+    required PendingMessageTracker tracker,
+    required List<ConversationEntry> entries,
+    required AIUIHost? ui,
+    required CanShowUI canShowUI,
+  }) {
+    if (conversation.status != AIConversationStatus.submitted) return false;
+    if (ui == null) return true;
+    return entries.lastOrNull?.isFromUser ?? true;
+  }
+}
+
 class _TurnView extends StatelessWidget {
   const _TurnView({
     super.key,
@@ -441,6 +651,7 @@ class _TurnView extends StatelessWidget {
     required this.minHeight,
     required this.footer,
     required this.approver,
+    required this.conversation,
     required this.ui,
     required this.onAttachmentTap,
     required this.padding,
@@ -453,6 +664,7 @@ class _TurnView extends StatelessWidget {
   final double minHeight;
   final Widget? footer;
   final AIToolApprover? approver;
+  final AIConversation? conversation;
   final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
   final EdgeInsets padding;
@@ -481,6 +693,7 @@ class _TurnView extends StatelessWidget {
                     key: ValueKey(entry.id),
                     entry: entry,
                     approver: approver,
+                    conversation: conversation,
                     ui: ui,
                     onAttachmentTap: onAttachmentTap,
                   ),
@@ -495,10 +708,11 @@ class _TurnView extends StatelessWidget {
   }
 }
 
-/// What a row shows, which decides whether it is built again.
+// What a row shows, which decides whether it is built again: including what
+// its conversation offers to do with its message.
 @immutable
 class _Shown {
-  _Shown(ConversationEntry entry, this.approver, this.ui, this.onAttachmentTap)
+  _Shown(ConversationEntry entry, this.approver, this.conversation, this.ui, this.onAttachmentTap)
     : isPending = entry.message == null,
       role = entry.message?.role ?? AIMessageRole.user,
       text = entry.message?.text ?? entry.pending?.text ?? '',
@@ -510,7 +724,28 @@ class _Shown {
       ],
       attachments = entry.attachments,
       isLatestReply = entry.isLatestReply,
-      uiDocument = entry.message?.uiDocument;
+      uiDocument = entry.message?.uiDocument,
+      rating = _rating(entry, conversation),
+      offersRegenerate = _offersRegenerate(entry, conversation),
+      offersEdit = _offersEdit(entry, conversation);
+
+  static AIMessageRating? _rating(ConversationEntry entry, AIConversation? conversation) {
+    final message = entry.message;
+    if (conversation == null || message == null || message.role == AIMessageRole.user) return null;
+    return conversation.ratings[message.id];
+  }
+
+  static bool _offersRegenerate(ConversationEntry entry, AIConversation? conversation) {
+    final message = entry.message;
+    if (conversation == null || message == null || message.role == AIMessageRole.user) return false;
+    return conversation.offersRegenerate(isLatestReply: entry.isLatestReply);
+  }
+
+  static bool _offersEdit(ConversationEntry entry, AIConversation? conversation) {
+    final message = entry.message;
+    if (conversation == null || message == null) return false;
+    return conversation.offersEdit(message);
+  }
 
   final bool isPending;
   final AIMessageRole role;
@@ -520,10 +755,14 @@ class _Shown {
   final List<String?> reasoning;
   final List<AIMessageAttachment> attachments;
   final AIToolApprover? approver;
+  final AIConversation? conversation;
   final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
   final bool isLatestReply;
   final AIUIDocument? uiDocument;
+  final AIMessageRating? rating;
+  final bool offersRegenerate;
+  final bool offersEdit;
 
   @override
   bool operator ==(Object other) =>
@@ -536,10 +775,14 @@ class _Shown {
       listEquals(other.reasoning, reasoning) &&
       listEquals(other.attachments, attachments) &&
       identical(other.approver, approver) &&
+      identical(other.conversation, conversation) &&
       identical(other.ui, ui) &&
       other.onAttachmentTap == onAttachmentTap &&
       other.isLatestReply == isLatestReply &&
-      other.uiDocument == uiDocument;
+      other.uiDocument == uiDocument &&
+      other.rating == rating &&
+      other.offersRegenerate == offersRegenerate &&
+      other.offersEdit == offersEdit;
 
   @override
   int get hashCode => Object.hash(isPending, role, text, isGenerating, parts.length, attachments.length, isLatestReply);
@@ -550,12 +793,14 @@ class _EntryView extends StatefulWidget {
     super.key,
     required this.entry,
     required this.approver,
+    required this.conversation,
     required this.ui,
     required this.onAttachmentTap,
   });
 
   final ConversationEntry entry;
   final AIToolApprover? approver;
+  final AIConversation? conversation;
   final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 
@@ -567,9 +812,10 @@ class _EntryViewState extends State<_EntryView> {
   // Whether the reply's answer is still typing out, which its actions wait for
   // so they do not move down with it. `null` when its view does not say.
   final _writing = ValueNotifier<bool?>(null);
-  // Whether a frame has built the row. Until one has, the row's view has not
-  // had the chance to say whether its answer is writing, so no actions show.
+  // Whether a frame has built the row. Until one has, the view of a reply whose
+  // answer can be held has not had the chance to say so, so no actions show.
   bool _framed = false;
+  bool _framing = false;
   _Shown? _shown;
   Widget? _built;
   AIUIView? _generated;
@@ -579,6 +825,13 @@ class _EntryViewState extends State<_EntryView> {
   void initState() {
     super.initState();
     _writing.addListener(_onWritingChanged);
+  }
+
+  // Builds the row again once a frame has passed, for a reply whose answer can
+  // be held. Other rows have nothing to wait for, so they build once.
+  void _waitForFrame() {
+    if (_framed || _framing) return;
+    _framing = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {
@@ -604,7 +857,7 @@ class _EntryViewState extends State<_EntryView> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _Shown(widget.entry, widget.approver, widget.ui, widget.onAttachmentTap);
+    final shown = _Shown(widget.entry, widget.approver, widget.conversation, widget.ui, widget.onAttachmentTap);
     if (shown != _shown) {
       _shown = shown;
       _built = null;
@@ -630,18 +883,37 @@ class _EntryViewState extends State<_EntryView> {
     return _generated = view.canShow ? view : null;
   }
 
+  // The actions under a finished reply: the builder's, or else, with a
+  // conversation, its actions in an [AIReplyActionsView].
+  Widget? _replyActions(BuildContext context, AIMessage reply, {required bool isLatestReply}) {
+    final offered = widget.conversation?.replyActions(reply, isLatestReply: isLatestReply);
+    final builder = context.aiComponentBuilder<AIReplyActionsProps>();
+    if (builder != null) {
+      return builder(context, AIReplyActionsProps(message: reply, isLatestReply: isLatestReply, actions: offered));
+    }
+    if (offered == null) return null;
+    return AIReplyActionsView(text: reply.text, actions: offered);
+  }
+
   Widget _content(BuildContext context) {
     final entry = widget.entry;
     final message = entry.message;
+    final conversation = widget.conversation;
     if (entry.isFromUser) {
       final props = AIUserMessageProps(
         message: message,
         text: message?.text ?? entry.pending?.text ?? '',
         attachments: entry.attachments,
         onAttachmentTap: widget.onAttachmentTap,
+        onEdit: message == null ? null : conversation?.editAction(message),
       );
       return context.aiComponentBuilder<AIUserMessageProps>()?.call(context, props) ??
-          AIUserMessageView(text: props.text, attachments: props.attachments, onAttachmentTap: props.onAttachmentTap);
+          AIUserMessageView(
+            text: props.text,
+            attachments: props.attachments,
+            onEdit: props.onEdit,
+            onAttachmentTap: props.onAttachmentTap,
+          );
     }
 
     final reply = message!;
@@ -653,14 +925,14 @@ class _EntryViewState extends State<_EntryView> {
       onAttachmentTap: widget.onAttachmentTap,
     );
     final isWriting = _writing.value == true || (generated?.document.isStreaming ?? false);
-    final hasAnswer = reply.text.isNotEmpty || generated != null;
-    final showsActions = _framed && !reply.isGenerating && hasAnswer && !isWriting;
-    final actions = showsActions
-        ? context.aiComponentBuilder<AIReplyActionsProps>()?.call(
-            context,
-            AIReplyActionsProps(message: reply, isLatestReply: entry.isLatestReply),
-          )
-        : null;
+    final hasAnswer = reply.text.isNotEmpty || reply.attachments.isNotEmpty || generated != null;
+    // Only a turn the conversation saw thinking can hold its answer. A reply
+    // from history shows its actions with it, so the list opens at its true end.
+    final turn = ThinkingTurnScope.maybeOf(context);
+    final canBeHeld = turn != null && turn.clock.start(turn.turn) != null;
+    if (canBeHeld) _waitForFrame();
+    final showsActions = (_framed || !canBeHeld) && !reply.isGenerating && hasAnswer && !isWriting;
+    final actions = showsActions ? _replyActions(context, reply, isLatestReply: entry.isLatestReply) : null;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

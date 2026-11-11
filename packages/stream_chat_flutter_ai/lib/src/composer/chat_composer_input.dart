@@ -21,13 +21,13 @@ import 'package:stream_core_flutter/chat.dart';
 
 /// The composer's input pill — [ChatComposer]'s default input slot.
 ///
-/// A rounded, outlined surface containing, top to bottom: the inline selected
-/// [ChatOption] chip, a row of attachment thumbnails, and the text field with
-/// the morphing mic/send/stop control at its right edge. Its content and
-/// wiring come out of [props]; its colors come from [ComposerTheme] over the
-/// Stream theme, and
-/// the mic's listening state from the process-wide
-/// [SpeechToTextController.instance].
+/// A rounded, outlined surface containing, top to bottom: a chip saying the
+/// person is editing a message while [ChatComposerController.isEditing], with
+/// a button that cancels it, the inline selected [ChatOption] chip, a row of
+/// attachment thumbnails, and the text field with the morphing mic/send/stop
+/// control at its right edge. Its content and wiring come out of [props]; its
+/// colors come from [ComposerTheme] over the Stream theme, and the mic's
+/// listening state from the process-wide [SpeechToTextController.instance].
 ///
 /// Rebuilds itself on [ChatComposerSlotProps.controller] — and, when
 /// [ChatComposerInputProps.enableSpeechToText] is set, on
@@ -125,6 +125,7 @@ class _ChatComposerInputState extends State<ChatComposerInput> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (controller.isEditing) _EditingChip(onCancel: controller.cancelEditing),
           if (controller.selectedChatOption != null)
             _SelectedOptionChip(
               option: controller.selectedChatOption!,
@@ -393,7 +394,52 @@ class _SelectedOptionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _InputChip(
+      icon: option.icon,
+      label: option.text,
+      dismissTooltip: AITranslations.of(context).clearOption(option.text),
+      onDismiss: onDismiss,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Editing chip (inline in input box)
+// ---------------------------------------------------------------------------
+
+// Says the person is editing a message they sent, with a button that cancels
+// it.
+class _EditingChip extends StatelessWidget {
+  const _EditingChip({required this.onCancel});
+
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final translations = AITranslations.of(context);
+    return _InputChip(
+      icon: context.streamIcons.edit,
+      label: translations.editingMessage,
+      dismissTooltip: translations.cancelEditing,
+      onDismiss: onCancel,
+    );
+  }
+}
+
+// A chip at the top of the input box: an icon, a label and a button that
+// dismisses it.
+class _InputChip extends StatelessWidget {
+  const _InputChip({required this.icon, required this.label, required this.dismissTooltip, required this.onDismiss});
+
+  final IconData? icon;
+  final String label;
+  final String dismissTooltip;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = ResolvedComposerTheme.resolve(context);
+    final icon = this.icon;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
       child: Align(
@@ -408,12 +454,12 @@ class _SelectedOptionChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (option.icon != null) ...[
-                  Icon(option.icon, size: 18, color: theme.selectedOptionForegroundColor),
+                if (icon != null) ...[
+                  Icon(icon, size: 18, color: theme.selectedOptionForegroundColor),
                   const SizedBox(width: 6),
                 ],
                 Text(
-                  option.text,
+                  label,
                   style: context.streamTextTheme.captionEmphasis.copyWith(color: theme.selectedOptionForegroundColor),
                 ),
                 const SizedBox(width: 6),
@@ -424,7 +470,7 @@ class _SelectedOptionChip extends StatelessWidget {
                   child: InkWell(
                     onTap: onDismiss,
                     child: Tooltip(
-                      message: AITranslations.of(context).clearOption(option.text),
+                      message: dismissTooltip,
                       child: Icon(context.streamIcons.xmarkSmall, size: 18, color: theme.selectedOptionForegroundColor),
                     ),
                   ),

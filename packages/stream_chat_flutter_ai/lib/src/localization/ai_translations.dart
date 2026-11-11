@@ -7,6 +7,8 @@ import 'package:stream_chat_flutter_ai/src/chart/chart_semantics.dart';
 // uses it.
 import 'package:stream_chat_flutter_ai/src/chart/chart_view.dart';
 import 'package:stream_chat_flutter_ai/src/chart/uspec.dart';
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/conversation/ai_agent_error.dart';
 // Here for the [AIUnsupportedPartView] doc link below only.
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_parts_view.dart';
 // Here for the [AIToolApprovalCard] doc link below only.
@@ -302,6 +304,16 @@ abstract class AITranslations {
   /// Label of the menu item that edits one of the person's messages.
   String get editMessage;
 
+  /// The composer's note that the person is editing a message they sent.
+  String get editingMessage;
+
+  /// Tooltip on the button in the composer's editing note that stops editing.
+  String get cancelEditing;
+
+  /// What to tell the person when the agent couldn't answer and said nothing
+  /// about why, such as an [AIAgentError] without a message.
+  String get agentError;
+
   /// Tooltip on the button that scrolls a conversation back to its latest
   /// message.
   String get scrollToLatest;
@@ -563,6 +575,15 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String get editMessage => 'Edit';
+
+  @override
+  String get editingMessage => 'Editing message';
+
+  @override
+  String get cancelEditing => 'Cancel editing';
+
+  @override
+  String get agentError => "The agent couldn't answer. Try again.";
 
   @override
   String get scrollToLatest => 'Scroll to latest';

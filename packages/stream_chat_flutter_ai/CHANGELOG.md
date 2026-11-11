@@ -157,10 +157,10 @@
   conversation's messages, reply actions and the composer's slots) with `stream_core_flutter`'s
   `StreamComponentFactory`, next to Stream Chat's. `context.aiComponentBuilder<Props>()` reads one.
 - `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each builder gets.
-- `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
-  "Copied!" for a moment, and share, which opens the platform share sheet (or an email draft on
-  Linux and in browsers without the Web Share API), then regenerate and 👍 / 👎 when the app
-  handles them. Tapping the
+- `AIReplyActionsView` — the buttons under a finished reply: while it has text, copy, which confirms
+  with a check and "Copied!" for a moment, and share, which opens the platform share sheet (or an
+  email draft on Linux and in browsers without the Web Share API), then regenerate and 👍 / 👎 when
+  the app handles them. Tapping the
   current rating takes it back, and the selected rating is reported to screen readers.
 - `AIReplyActions` — what `AIReplyActionsView` offers besides copying and sharing: the `rating`, and
   the `onRegenerate` and `onRate` callbacks, each of whose buttons shows only when it is set. Set
@@ -179,11 +179,13 @@
   button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
   thinking, and the reply's first reasoning step carries on its count; one that arrives done opens
   for a moment, then folds before the answer types out. `footer` sits under the latest
-  turn, such as for an error with a way to retry. A bottom `padding` the size of a composer floated
+  turn, or under the empty content while there are no messages, such as for an error with a way to
+  retry. A bottom `padding` the size of a composer floated
   over the list keeps the latest message and the scroll-to-latest button above it, and a list
   showing its end keeps showing it when that padding changes.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
-  `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
+  `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments`, `rating` (how the
+  backend has the reply rated) and `reasoningText`.
   `AIMessageRole` is a `String` extension type and an open set, with `values` and `isKnown`.
 - `AIPendingMessage` — a message the person sent, shown at once until its copy arrives.
 - `AIMessageAttachment` — an image or file a message carries, or a kind of your own with its raw
@@ -197,14 +199,31 @@
   nothing opens it, unless `AIConversationView.onAttachmentTap` or `onTap` is set.
 - The `userMessage`, `assistantMessage`, `replyActions` (empty by default) and `messageAttachment`
   builders, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
-  and `AIMessageAttachmentProps`.
+  and `AIMessageAttachmentProps`. In a list that shows an `AIConversation`,
+  `AIUserMessageProps.onEdit` edits the person's latest message, and `AIReplyActionsProps.actions`
+  holds the conversation's rating and regenerate actions, which an `AIReplyActionsView` shows by
+  default. Actions show under a finished reply that has only attachments too.
 - `AIReasoningProps.text` and `duration` — a step's full reasoning, and the duration the
   conversation measured for its first step.
 - `ConversationThemeData` and `ConversationTheme`, and `AITheme.conversationTheme`, for the bubbles,
   attachments and scroll-to-latest button.
-- `AITranslations.copyMessage`, `editMessage`, `scrollToLatest`, `attachmentImage`,
-  `attachmentFile`, `attachmentDetails`, `fileSize`, `openAttachment` and `cannotOpenAttachment` —
-  the conversation's strings.
+- `AITranslations.copyMessage`, `editMessage`, `editingMessage`, `cancelEditing`, `agentError`,
+  `scrollToLatest`, `attachmentImage`, `attachmentFile`, `attachmentDetails`, `fileSize`,
+  `openAttachment` and `cannotOpenAttachment` — the conversation's strings.
+- `AIConversation` — the state behind an AI conversation, and what the person does in it: its
+  messages, the message on its way, where the latest exchange is (`AIConversationStatus`), why it
+  failed, what the agent says it is doing (`AIAgentActivity`, `AIAgentActivityState`) and the
+  ratings. It sends, stops, regenerates, edits, retries and rates through an
+  `AIConversationTransport`, which tells it what the conversation holds through an
+  `AIConversationFeed` and gets each `AIConversationRequest` (`AIConversationRequestKind`). A reply
+  that doesn't start in time, or an agent that says it couldn't answer, shows as an `AIAgentError`;
+  a transport ends a request without an error with an `AIConversationCancelledException`.
+  `AIConversationActions` chooses what its views offer. `AIConversationView.conversation` and
+  `ChatComposer.conversation` show it and follow it.
+- `ChatComposerController.isEditing` and `cancelEditing` — while the person edits a message they
+  sent, the composer says so above the text field, with a button that cancels it.
+  `requestFocus` focuses the field of the composer that shows the controller, and a composer shown
+  while the person is editing focuses it as it appears.
 - `AIVoiceGlowView` and `AIVoiceWaveView` — a globe of drifting color and a waveform line that show
   what a voice agent is doing, drawn with fragment shaders. They ease from one state into the next,
   ripple where they are tapped and barely move with reduced motion on.
