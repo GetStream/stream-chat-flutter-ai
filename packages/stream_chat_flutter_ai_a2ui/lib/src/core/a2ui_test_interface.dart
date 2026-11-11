@@ -73,17 +73,24 @@ final class A2UIDebugScope {
 final class A2UIDebugCatalog {
   /// The A2UI 1.0 basic catalog under [id], with [functions] added; its
   /// `openUrl` opens nothing.
-  const A2UIDebugCatalog.basic(this.id, {this.functions = const []}) : document = null;
+  ///
+  /// With [only], the catalog holds just the basic functions it names, so a
+  /// call to any other one is a call to a function the catalog lacks.
+  const A2UIDebugCatalog.basic(this.id, {this.functions = const [], this.only}) : document = null;
 
   /// The catalog a catalog [document] describes, under [id] or else the
   /// document's own `catalogId`, with [functions] added.
   ///
   /// The document's own functions can be checked against but not run.
   A2UIDebugCatalog.document(Map<String, Object?> this.document, {String? id, this.functions = const []})
-    : id = id ?? document['catalogId']! as String;
+    : id = id ?? document['catalogId']! as String,
+      only = null;
 
   /// The id surfaces name the catalog by.
   final String id;
+
+  /// The basic functions the catalog keeps, or `null` for all of them.
+  final List<String>? only;
 
   /// The catalog document, or `null` for the basic catalog.
   final Map<String, Object?>? document;
@@ -102,7 +109,9 @@ final class A2UIDebugCatalog {
         components: basic.components.values.toList(),
         functions: [
           for (final function in basic.functions.values)
-            if (!functions.any((added) => added.name == function.name)) function,
+            if (!functions.any((added) => added.name == function.name) &&
+                (only == null || only!.contains(function.name)))
+              function,
           for (final (index, function) in functions.indexed) _DebugFunction(added[index], function.body),
         ],
         themeSchema: basic.themeSchema,

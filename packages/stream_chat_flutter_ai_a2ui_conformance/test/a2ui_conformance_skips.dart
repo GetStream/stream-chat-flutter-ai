@@ -70,13 +70,13 @@ const _actionMetadata =
     'Action metadata (`dispatchAction(metadata:)` in the core) is not passed through by this package, whose '
     'action events carry no metadata.';
 
-// What a2ui_core 0.5.0, the core this package is built on, doesn't do yet;
+// What a2ui_core, the core this package is built on, doesn't do yet;
 // these pass once the core does.
 
 const _validationResult =
-    'a2ui_core 0.5.0 gives a check no single `validationResult`, only `validationResults`, and its basic '
+    'a2ui_core gives a check no single `validationResult`, only `validationResults`, and its basic '
     'validators return no `code`.';
-const _checkCode = "a2ui_core 0.5.0's basic validators return no `code`, such as `INVALID_EMAIL`.";
+const _checkCode = "a2ui_core's basic validators return no `code`, such as `INVALID_EMAIL`.";
 
 const _coreGaps = <String, String>{
   'test_validation_result_dynamic_object_return': _validationResult,
