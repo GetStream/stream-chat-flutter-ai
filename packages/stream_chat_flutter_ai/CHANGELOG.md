@@ -15,7 +15,10 @@
 - `ComposerThemeData.sendButtonColor` no longer colors the idle microphone, which is a ghost button in `iconColor`, or the disabled send button, which takes the Stream theme's disabled colors.
 - `ComposerThemeData.fillColor` no longer fills a sheet photo while it loads; `attachmentPlaceholderColor` does.
 - `ComposerThemeData.borderColor`, `attachmentPlaceholderColor` and `attachmentPlaceholderForegroundColor` no longer style an attachment thumbnail's remove badge, which is core's `StreamRemoveControl`.
-- `StreamingMessageView` types only while `expectMoreText` is `true`; given only `text`, it shows each new text in full. Pass `expectMoreText: isGenerating` while a reply streams.
+- `StreamingMessageView` types only while `expectMoreText` is `true`, and in the update that turns it
+  `false`; given only `text`, it shows each new text in full. A view created while it is `true` types
+  its first `text` from the first character instead of showing it at once. Pass
+  `expectMoreText: isGenerating` while a reply streams.
 - `USpecKind` has four new values; an exhaustive `switch` on it, such as one in an `AITranslations.chartSemanticsLabel` implementation, needs a case for each.
 
 ✅ Added
@@ -46,7 +49,7 @@
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
-  `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
+  `onTypewriterStateChanged` can't tell apart from a pause in the stream.
 - `TypingIndicatorThemeData`, `TypingIndicatorTheme` and `AITheme.typingIndicatorTheme` — theme the
   typing indicator's caption style and the dots' color, size and spacing.
 - `AITypingIndicatorView.dotSpacing`.
@@ -172,7 +175,8 @@
   its spinner comes into view and again each time the first turn changes while it stays there, and a
   button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
   thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest
-  turn, such as for an error with a way to retry.
+  turn, such as for an error with a way to retry. The view caches its rows, so a builder reads state
+  that changes, such as a reply's rating, through a `Listenable`, and is created once.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
   `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
   `AIMessageRole` is a `String` extension type and an open set, with `values` and `isKnown`.
@@ -213,8 +217,8 @@
 - `AIToolAuthorizer` — set as `AIToolApprover.authorizer`, it is how the person signs in: `connect`
   (an `AIToolAuthorizationConnector`) gets the call and the sign-in page, which your app opens in a
   browser, and completes with whether the person connected; `decline` (an
-  `AIToolAuthorizationDecliner`) sends their "not now". The package opens no browser itself and adds
-  no browser plugin. The approver keeps where each sign-in is (`AIToolAuthorizationState`): one
+  `AIToolAuthorizationDecliner`) sends their "not now". The package doesn't open the sign-in page
+  itself. The approver keeps where each sign-in is (`AIToolAuthorizationState`): one
   page at a time; back connected, it reads connecting for a while as the step changes;
   a sign-in issued again on the same step starts over; past `expiresAt` it reads `isExpired` and
   `canConnect` turns false.
@@ -223,48 +227,34 @@
   stops offering Connect. `AIMessagePartsView` shows the view under each
   call waiting for this person's sign-in when its approver has an authorizer.
 - The `toolAuthorization` builder and `AIToolAuthorizationProps` — replace the sign-in card.
-- `AIToolCallView` shows a call waiting for a sign-in with a key and "Waiting for sign-in", where it
-  used to read as running until the backend gave up on it. Given the viewer's `userId`, which
-  `AIMessagePartsView` passes when its approver offers the sign-in, it tells the person the call
+- `AIToolCallView` shows a call waiting for a sign-in with a key and "Waiting for sign-in". Given the
+  viewer's `userId`, which `AIMessagePartsView` passes when its approver offers the sign-in, it tells the person the call
   waits for "Waiting for you to sign in".
 - `AITranslations.toolCallAwaitingAuthorization`, `toolCallAwaitingYourAuthorization`,
   `toolAuthorizationConnect`, `toolAuthorizationConnecting`, `toolAuthorizationDecline`,
   `toolAuthorizationNotOpened` and `toolAuthorizationExpired`.
 - The `math` builder of `streamAIComponentBuilders` and `AIMathProps` — render LaTeX in every `AIMarkdownBody` given no
-  `mathBuilder` of its own, such as the replies in an `AIConversationView`, which had no way to
-  render it.
+  `mathBuilder` of its own, such as the replies in an `AIConversationView`.
 
 🔄 Changed
 
 - A pie starts its first slice at the top and is solid, filling its plot. It used to start at the right
-  and leave a hole in the middle that grew with the chart's height; `USpec.donut` draws a ring now,
-  and a Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.
+  and leave a hole in the middle that grew with the chart's height; set `USpec.donut` for a ring.
+  A Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.
 - The recommended way to provide translations is now to implement `AITranslations` rather than
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
-- Charts show a legend by default (`ChartThemeData.showLegend` defaults to `true`). Set
-  `showLegend: false` to keep the previous look.
+- A pie, and a line, area, bar, scatter or bubble chart with two or more series, shows a legend by
+  default. Set `ChartThemeData.showLegend` to `false` to hide it.
+- A line breaks at a category its series has no value for (a Chart.js `null`), instead of joining
+  the points on either side.
 - `AITypingIndicatorView`'s caption defaults to the Stream theme's `bodyDefault` in `textSecondary`
   instead of inheriting `DefaultTextStyle`.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - A chart's screen-reader summary names at most eight series or slices, then says "and N more".
-- The README documents the new components — agent steps, reasoning, tool calls, approvals, the
-  client tool runner, `AILocalModel`, chart legends, `streamAIComponentBuilders`, `AIReplyActionsView`,
-  `AIConversationView` and the voice views — and its `SpeechToTextButton` snippet now uses
-  `SpeechToTextConfig`.
-- The `AIConversationView` docs, those of the `userMessage`, `assistantMessage` and `replyActions`
-  builders, and the README say that the conversation caches its rows, so a builder must read state that
-  changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
-  The README's `replyActions` example now does that; before, its 👍 never filled.
-- The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
-  fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
-  and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
-- `StreamingMessageView.expectMoreText` now means the reply is still being generated: text is typed
-  out only while it is `true` and in the update that turns it `false`; after that, and for a view
-  created while it is `false`, a new `text` shows in full at once.
 - When `text` is replaced by something other than a continuation, `StreamingMessageView` and
   `TypewriterController.updateText` keep the part it shares with what is on screen and type only the
   rest, instead of starting over from the first character.
@@ -276,32 +266,15 @@
 - On Android 13, `ComposerAttachmentSheet` showed "Allow photo access" even after photos were
   allowed, unless the app also declared `READ_MEDIA_VIDEO`. It now asks for photos only, so an app
   no longer needs `READ_MEDIA_VIDEO`, which Google Play asks you to justify.
-- `AIConversationView` showed the latest message too high when it scrolled to the end: for the
-  first message of a new conversation, a conversation that loads, and the scroll-to-latest button.
-  It was off by `padding.bottom`, so with a large bottom padding the message went out of view, and
-  the scroll-to-latest button showed right after a message was sent.
 - `AITypingIndicatorView`'s dots were black by default, which made them invisible
   in dark mode. They now default to the themed caption color.
-- A generating reply's first chunk is typed out from its first character in `StreamingMessageView`
-  and `AIAssistantMessageView`, instead of appearing at once.
-- `AIAssistantMessageView` keeps an answer writing for 0.1 s after `isGenerating` turns `false`, so
-  an answer that arrives whole in its last update — after a reasoning step, say — still types out
-  instead of appearing at once.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
 - A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
   slices out.
-- A pie with mixed-sign values no longer shows percentages such as "250%"; only positive slices are
-  drawn and counted.
-- A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
-  line breaks at the gap and a bar chart leaves the bar out.
-- A tool call whose row `AIMessagePartsView.toolCallBuilder` or `partBuilder` hides with
-  `AIMessagePartsView.hidden` now still asks its approval question, as a row hidden by the
-  component factory already did. Before, the question never showed and the call waited until the
-  backend timed it out.
-- An `AIToolApprover` now forgets an answer given for a call that `AIMessagePartsView`'s builders
-  draw their own way once the call stops waiting, instead of keeping it and failing it at its
-  `sentTimeout`.
+- A pie with negative values draws and counts only its positive slices.
+- The README's `SpeechToTextButton` snippet passes its options through `SpeechToTextConfig`; the
+  0.1.0 snippet passed them to the button, which doesn't compile.
 
 ## 0.1.0
 
