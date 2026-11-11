@@ -12,9 +12,10 @@ void main() {
     final events = <A2UIActionEvent>[];
     // A core that still sends actions after it is disposed, as one still
     // running an action would.
-    final processor = A2UIProcessor(catalogs: A2UICatalogs(), onAction: events.add, debugCoreFactory: FaultyCore.new)
-      // The core fails the first message.
-      ..apply([createPlanSurface(), createPlanSurface()]);
+    final processor = A2UIProcessor(catalogs: A2UICatalogs(), onAction: events.add);
+    debugReplaceCore(processor, FaultyCore.new);
+    // The core fails the first message.
+    processor.apply([createPlanSurface(), createPlanSurface()]);
     final surface = processor.surface('plan')!;
 
     processor.dispose();

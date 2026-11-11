@@ -145,7 +145,7 @@ A2UIProcessor _processor({List<A2UIError>? errors, A2UIErrorCallback? onError}) 
 // A processor that checks the topology of each message, as a conformance case
 // asks.
 A2UIProcessor _checkedProcessor(List<A2UIError> errors) {
-  final processor = A2UIProcessor.debug(catalogs: A2UICatalogs(), checks: const A2UIDebugChecks(), onError: errors.add);
+  final processor = debugProcessor(catalogs: A2UICatalogs(), checks: const A2UIDebugChecks(), onError: errors.add);
   addTearDown(processor.dispose);
   return processor;
 }

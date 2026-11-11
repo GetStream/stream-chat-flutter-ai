@@ -46,26 +46,24 @@ final class A2UICatalogs {
   ///
   /// Of the basic catalog's components, only those of [basicTypes] are in the
   /// catalogs, or all of them when it is `null`.
-  A2UICatalogs({
-    this.catalogId = defaultCatalogId,
+  factory A2UICatalogs({
+    String catalogId = defaultCatalogId,
     String locale = defaultLocale,
     Map<String, Map<String, Object?>> appComponents = const {},
     Iterable<String>? basicTypes,
-  }) : assert(
-         appComponents.entries.every((entry) => appComponentProblem(entry.key, entry.value) == null),
-         "A2UICatalogs was given app components that can't join the catalogs: ${[
-           for (final MapEntry(:key, :value) in appComponents.entries)
-             if (appComponentProblem(key, value) case final problem?) '$key ($problem)',
-         ].join(', ')}.",
-       ),
-       _catalogs = _assemble(catalogId, locale, appComponents, basicTypes?.toSet());
+  }) {
+    assert(
+      appComponents.entries.every((entry) => appComponentProblem(entry.key, entry.value) == null),
+      "A2UICatalogs was given app components that can't join the catalogs: ${[
+        for (final MapEntry(:key, :value) in appComponents.entries)
+          if (appComponentProblem(key, value) case final problem?) '$key ($problem)',
+      ].join(', ')}.",
+    );
+    return A2UICatalogs._(catalogId, _assemble(catalogId, locale, appComponents, basicTypes?.toSet()));
+  }
 
-  /// The catalogs a conformance case needs, the first of which is the app's.
-  ///
-  /// Only the conformance tests use it.
-  A2UICatalogs.debug(List<A2UIDebugCatalog> catalogs)
-    : catalogId = catalogs.first.id,
-      _catalogs = [for (final catalog in catalogs) catalog._build()];
+  // The catalogs of [_catalogs], the app's of which is named [catalogId].
+  A2UICatalogs._(this.catalogId, this._catalogs);
 
   /// The id of the app's catalog.
   final String catalogId;

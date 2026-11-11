@@ -162,7 +162,7 @@ and on iOS follows the app's audio session and background modes.
 
 ## Tests
 
-The A2UI conformance suites it is tested against are vendored, unchanged, under
-[`test/conformance/upstream`](test/conformance/upstream), with their license. The examples published with the basic
-catalog are under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples). Why the suites are kept is in
-[`test/conformance/README.md`](test/conformance/README.md).
+The A2UI conformance suites it is tested against are vendored, unchanged, with their license, in the repository's
+[`stream_chat_flutter_ai_a2ui_conformance`](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/packages/stream_chat_flutter_ai_a2ui_conformance)
+package, which isn't published; its README says why they are kept. The examples published with the basic catalog are
+under [`test/fixtures/upstream_examples`](test/fixtures/upstream_examples).
