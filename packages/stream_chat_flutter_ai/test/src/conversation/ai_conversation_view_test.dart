@@ -156,15 +156,97 @@ void main() {
       expect(find.byType(AIAssistantMessageView), findsOneWidget);
     });
 
+    testWidgets('shows the agent thinking while told it is', (tester) async {
+      await _pump(tester, [_user('u1'), _reply('r1')], isThinking: true);
+
+      expect(find.byType(AIThinkingView), findsOneWidget);
+    });
+
     testWidgets('shows a message on its way at once', (tester) async {
       await _pump(tester, const [], pending: AIPendingMessage(text: 'Hello?'));
       expect(find.text('Hello?'), findsOneWidget);
       expect(find.byType(AIThinkingView), findsOneWidget);
     });
 
+    testWidgets('builds a row from history once when it appears', (tester) async {
+      final built = <String>[];
+      final builders = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          userMessage: (context, props) {
+            built.add(props.text);
+            return Text(props.text);
+          },
+        ),
+      );
+      await _pump(tester, _history(2), builders: builders);
+
+      expect(built.where((t) => t == 'Question 0'), hasLength(1));
+      expect(built.where((t) => t == 'Question 1'), hasLength(1));
+    });
+
     testWidgets('shows a footer under the latest turn', (tester) async {
       await _pump(tester, [_user('u1'), _reply('r1')], footer: const Text('Working on it'));
       expect(find.text('Working on it'), findsOneWidget);
+    });
+
+    testWidgets('shows its footer under the empty content while there are no messages', (tester) async {
+      await _pump(tester, const [], empty: const Text('How can I help?'), footer: const Text('Working on it'));
+
+      expect(find.text('How can I help?'), findsOneWidget);
+      expect(find.text('Working on it'), findsOneWidget);
+      expect(_below(tester, 'Working on it'), greaterThan(_below(tester, 'How can I help?')));
+    });
+
+    testWidgets('lets its empty content fill the space above a footer', (tester) async {
+      await _pump(
+        tester,
+        const [],
+        empty: const SizedBox.expand(child: ColoredBox(color: Color(0xFF000000))),
+        footer: const Text('footer'),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('footer'), findsOneWidget);
+      expect(tester.getSize(find.byType(ColoredBox).last).width, 400);
+    });
+
+    testWidgets('shows reply actions under a finished reply that has only attachments', (tester) async {
+      final reply = _Message(
+        'r1',
+        AIMessageRole.assistant,
+        attachments: [AIMessageAttachment.file(Uri.parse('https://x.io/plan.pdf'), name: 'plan.pdf')],
+      );
+
+      await _pump(tester, [_user('u1'), reply]);
+
+      expect(find.text('actions for r1 (latest)'), findsOneWidget);
+    });
+
+    testWidgets('offers copy and share only for a reply that has text', (tester) async {
+      final attachmentsOnly = _Message(
+        'r1',
+        AIMessageRole.assistant,
+        attachments: [AIMessageAttachment.file(Uri.parse('https://x.io/plan.pdf'), name: 'plan.pdf')],
+      );
+      final builders = StreamComponentBuilders(
+        extensions: streamAIComponentBuilders(
+          replyActions: (context, props) => AIReplyActionsView(
+            text: props.message.text,
+            actions: AIReplyActions(onRegenerate: () {}),
+          ),
+        ),
+      );
+
+      await _pump(tester, [_user('u1'), attachmentsOnly], builders: builders);
+
+      expect(find.byType(AIReplyActionsView), findsOneWidget);
+      expect(find.byTooltip('Copy'), findsNothing, reason: 'there is no text to copy');
+      expect(find.byTooltip('Share'), findsNothing);
+
+      await _pump(tester, [_user('u1'), _reply('r1')], builders: builders);
+
+      expect(find.byTooltip('Copy'), findsOneWidget);
+      expect(find.byTooltip('Share'), findsOneWidget);
     });
 
     testWidgets('shows reply actions only once a reply is finished', (tester) async {
@@ -487,7 +569,7 @@ void main() {
       expect(builds - first, 1, reason: 'only the streaming reply');
     });
 
-    testWidgets("a reply's first step with only a summary opens to that summary", (tester) async {
+    testWidgets("a reply's first step with only a summary opens to that summary as it arrives", (tester) async {
       final reply = _Message(
         'r1',
         AIMessageRole.assistant,
@@ -501,8 +583,6 @@ void main() {
       await _frames(tester, const Duration(milliseconds: 100), 5);
       await _pump(tester, [_user('u1'), reply]);
 
-      await tester.tap(_text('Thought for'));
-      await tester.pumpAndSettle();
       expect(_text('Compared plans'), findsOneWidget, reason: 'as StreamingReasoningView.part shows it');
     });
 
@@ -611,6 +691,44 @@ void main() {
         await tester.drag(find.byType(Scrollable), const Offset(0, 1500));
         await _frames(tester, const Duration(milliseconds: 16), 5);
         expect(tester.getSize(find.byType(StreamLoadingSpinner)), const Size.square(20));
+      });
+
+      const buttonGap = 8.0;
+
+      // With the end out of view, so the button is shown at full size.
+      Future<double> buttonBottomGap(WidgetTester tester) async {
+        await tester.drag(find.byType(Scrollable), const Offset(0, 500));
+        await tester.pumpAndSettle();
+        final button = find.ancestor(of: find.byTooltip('Scroll to latest'), matching: find.byType(StreamButton));
+        return tester.getRect(find.byType(AIConversationView)).bottom - tester.getRect(button).bottom;
+      }
+
+      testWidgets('puts the scroll-to-latest button 8 above a custom bottom padding', (tester) async {
+        const bottomPadding = 200.0;
+        await _pump(tester, _history(6), padding: const EdgeInsets.only(bottom: bottomPadding));
+        expect(await buttonBottomGap(tester), bottomPadding + buttonGap);
+      });
+
+      testWidgets('keeps the end in view when the bottom padding grows while the list shows its end', (tester) async {
+        const small = EdgeInsets.only(bottom: 16);
+        await _pump(tester, _history(6), padding: small);
+        final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+        expect(position.pixels, position.maxScrollExtent);
+
+        await _pump(tester, _history(6), padding: const EdgeInsets.only(bottom: 200));
+        expect(position.maxScrollExtent - position.pixels, lessThanOrEqualTo(1));
+      });
+
+      testWidgets('keeps a scrolled-up list where it is when the bottom padding grows', (tester) async {
+        await _pump(tester, _history(6));
+        await tester.drag(find.byType(Scrollable), const Offset(0, 500));
+        await tester.pumpAndSettle();
+        final position = tester.state<ScrollableState>(find.byType(Scrollable)).position;
+        final before = position.pixels;
+        expect(position.maxScrollExtent - before, greaterThan(100));
+
+        await _pump(tester, _history(6), padding: const EdgeInsets.only(bottom: 200));
+        expect(position.pixels, before);
       });
 
       testWidgets('gives the scroll-to-latest button a 40 dp circle in a 48 dp tap target', (tester) async {

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:photo_manager/photo_manager.dart';
 // `stream_ai_component_builders` and `chat_composer` are here for the doc links below
 // only; nothing in this file's code uses either.
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
@@ -8,7 +10,9 @@ import 'package:stream_chat_flutter_ai/src/composer/composer_action_button.dart'
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
+import 'package:stream_chat_flutter_ai/src/notice.dart';
 import 'package:stream_core_flutter/core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// A microphone button that feeds speech-to-text results directly into an
 /// [ChatComposerController]'s text field.
@@ -27,7 +31,9 @@ import 'package:stream_core_flutter/core.dart';
 /// The recognizer is initialized on the first tap, not at mount, so simply
 /// showing the button does not prompt the user for microphone access. If the
 /// platform has no recognizer available, the button renders disabled rather
-/// than disappearing.
+/// than disappearing. If the microphone permission is denied, tapping it shows
+/// a notice with an action that opens the system settings, or calls
+/// [SpeechToTextConfig.onPermissionDenied] instead when that is set.
 ///
 /// Platform permissions must be configured before the button can work:
 ///
@@ -102,6 +108,10 @@ class SpeechToTextButton extends StatefulWidget {
   @override
   State<SpeechToTextButton> createState() => _SpeechToTextButtonState();
 }
+
+final _macOSMicrophoneSettings = Uri.parse(
+  'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+);
 
 class _SpeechToTextButtonState extends State<SpeechToTextButton>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
@@ -179,7 +189,57 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
     // for the microphone the moment a composer with `enableSpeechToText: true`
     // first rendered — before the user had shown any interest in dictating.
     _baseText = widget.controller.text.trimRight();
-    await _speech.start(onWords: _onWords, config: widget.config);
+    final started = await _speech.start(onWords: _onWords, config: widget.config);
+    if (started || !_speech.isPermissionDenied) return;
+    _reportPermissionDenied();
+  }
+
+  void _reportPermissionDenied() {
+    // Called even once the button is gone: the person's callback is theirs to
+    // act on, and only the default notice needs somewhere to show.
+    final onPermissionDenied = widget.config.onPermissionDenied;
+    if (onPermissionDenied != null) {
+      onPermissionDenied();
+      return;
+    }
+    if (!mounted) return;
+
+    final translations = AITranslations.of(context);
+    final openSettings = _openSettings;
+    showErrorSnackbar(
+      context,
+      message: translations.microphonePermissionDenied,
+      actionLabel: openSettings == null ? null : translations.openSettings,
+      onAction: openSettings,
+    );
+  }
+
+  // Opens where the person grants the microphone, or `null` where there is no
+  // such page to open.
+  VoidCallback? get _openSettings {
+    if (kIsWeb) return null;
+    return switch (defaultTargetPlatform) {
+      // The app's own settings.
+      TargetPlatform.android || TargetPlatform.iOS => () => _openingSettings(PhotoManager.openSetting),
+      // The app has no settings page of its own on macOS.
+      TargetPlatform.macOS => () => _openingSettings(() => launchUrl(_macOSMicrophoneSettings)),
+      _ => null,
+    };
+  }
+
+  static Future<void> _openingSettings(Future<Object?> Function() open) async {
+    try {
+      await open();
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while opening the system settings'),
+        ),
+      );
+    }
   }
 
   void _onWords(String words) {
@@ -202,13 +262,13 @@ class _SpeechToTextButtonState extends State<SpeechToTextButton>
     // listening, it is the filled stop button.
     final color = listening ? theme.recordingButtonColor : theme.iconColor;
 
-    // Rendered even before the recognizer has been initialized, and even when it
-    // turns out to be unavailable (disabled, in that case). Hiding it outright
-    // left the composer's trailing slot completely empty — no mic, and no send
-    // button either, since this widget occupies that slot.
+    // Always rendered, since this widget is the trailing slot's only content:
+    // hiding it left the composer with neither mic nor send button. It is
+    // disabled when the recognizer is unavailable, except after a denied
+    // permission, where a tap tells the person why and lets them grant it.
     final button = _MicButton(
       color: color,
-      onTap: _speech.isAvailable == false ? null : _toggle,
+      onTap: _speech.isAvailable == false && !_speech.isPermissionDenied ? null : _toggle,
       recording: listening,
     );
 

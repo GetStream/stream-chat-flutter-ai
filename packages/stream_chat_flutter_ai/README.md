@@ -416,6 +416,8 @@ A message composer designed for AI-powered conversations. Features:
   the AI is generating.
 - Replaceable slots — leading, trailing, the input field, and the attachment sheet — through
   `streamAIComponentBuilders` (see [Composer slots](#composer-slots)).
+- An **"Editing message"** chip above the input while `controller.isEditing` is set, with a button
+  that cancels the edit (see [`ChatComposerController`](#chatcomposercontroller)).
 
 ```dart
 ChatComposer(
@@ -433,6 +435,13 @@ wait for it: the field is cleared **as soon as the callback is invoked**, not wh
 the composer never sits unresponsive for a round trip. A host whose send can fail owns surfacing
 that and re-seeding the composer; a rejected future is at least reported through
 `FlutterError.onError` rather than lost as an unhandled asynchronous error.
+
+When photos picked in the attachment sheet can't be loaded, such as ones stored online (iCloud, Google Photos) with no connection, the sheet
+says "Photos not added" and why, rather than silently adding fewer.
+
+`ChatComposer.conversation(conversation: ...)` takes an `AIConversation` instead of a controller and
+callbacks: it shows the conversation's draft, sends to it and stops it (see
+[Conversation state](#conversation-state-aiconversation)). The rest of the parameters are the same.
 
 ### `ChatComposerController`
 
@@ -453,9 +462,23 @@ controller.isGenerating = true;
 controller.isGenerating = false;
 ```
 
+To let the person edit a message they sent, put its text in the field and set `isEditing`. The
+composer shows an "Editing message" chip with a cancel button, and the next send is yours to treat
+as the edit. `cancelEditing()` ends it and empties the field, and `requestFocus()` focuses the field
+of the composer showing the controller (`AIConversation.edit` does both for you).
+
+```dart
+controller.textEditingController.text = message.text;
+controller.isEditing = true;
+controller.requestFocus();
+
+// Later: the person cancels.
+controller.cancelEditing();
+```
+
 ### Composer slots
 
-The composer's four slots are replaced through `streamAIComponentBuilders` (see
+The composer's five slots are replaced through `streamAIComponentBuilders` (see
 [Replacing components](#replacing-components-streamaicomponentbuilders)). Each slot receives a props
 object, a `ChatComposerSlotProps` subclass, rather than a bare controller, which is what lets a slot
 be handed values `ChatComposer` itself owns:
@@ -465,6 +488,7 @@ be handed values `ChatComposer` itself owns:
 | `composerLeading` | `ChatComposerLeadingProps` | `ComposerAttachmentButton`, the "+" button |
 | `composerTrailing` | `ChatComposerTrailingProps` | nothing |
 | `composerInput` | `ChatComposerInputProps` | `ChatComposerInput` |
+| `composerInputTrailing` | `ChatComposerInputTrailingProps` | `SpeechToTextButton`, when `enableSpeechToText` is set |
 | `composerAttachmentSheet` | `ChatComposerAttachmentSheetProps` | `ComposerAttachmentSheet` |
 
 Return `ChatComposer.hidden` from `composerLeading` or `composerTrailing` to leave that slot out,
@@ -474,7 +498,13 @@ Every one of those props carries the composer's wiring — `controller`, `focusN
 `onStop` — so any slot can drive the composer, not just the input. `ChatComposerInputProps` adds
 the text-field configuration (`hintText`, `minLines`, `maxLines`, `textInputAction`,
 `enableSpeechToText`, `speechToTextConfig`) on top, and `ChatComposerAttachmentSheetProps` the
-sheet's `scrollController`.
+sheet's `scrollController`. `ChatComposerInputTrailingProps` is the control at the input's right
+edge, shown while the field is empty or dictation runs, and adds the input's voice-input settings
+and the `speech` controller.
+
+The base also carries `openAttachmentSheet`, which opens the attachment sheet the "+" button opens,
+so a custom `composerLeading` or `composerInputTrailing` can offer the same sheet from its own
+button. It is `null` for props a `ChatComposer` didn't build.
 
 The samples below use core's `StreamButton` and `showStreamSheet`, which come from
 `package:stream_core_flutter/core.dart`.
@@ -589,6 +619,16 @@ SpeechToTextButton(
 ```
 
 `ChatComposer(enableSpeechToText: true, speechToTextConfig: ...)` takes the same config.
+
+When the microphone or speech recognition permission is denied, a tap on the microphone shows
+"Microphone permission is required to record audio" with a "Settings" button that opens the system
+settings. The notice floats above the composer until it is dismissed. To handle the denial yourself,
+such as with your own dialog, set `SpeechToTextConfig.onPermissionDenied`: it replaces the notice and
+is called on every such tap.
+
+```dart
+SpeechToTextConfig(onPermissionDenied: () => showMicrophoneHelp(context))
+```
 
 #### Required platform permissions
 
@@ -1107,7 +1147,9 @@ and the reply types out below it without the list moving. A conversation that lo
 end, older messages load at its start without moving what is on screen, and a button scrolls back
 to the latest message.
 
-Give it your messages as `AIMessage`s — mix `AIMessage` into your own type or wrap one:
+Give it your messages as `AIMessage`s — mix `AIMessage` into your own type or wrap one — or hand it
+an `AIConversation` through `AIConversationView.conversation`, which follows the conversation and
+acts on what the person does (see [Conversation state](#conversation-state-aiconversation)):
 
 ```dart
 class ChatMessageAdapter with AIMessage {
@@ -1155,7 +1197,12 @@ its `since`.
 The rows are `AIUserMessageView` and `AIAssistantMessageView`, with attachments as
 `AIMessageAttachmentView`. Under each finished reply there is room for actions, empty until you
 set the `replyActions` builder of `streamAIComponentBuilders`, typically to an `AIReplyActionsView`
-(copy, share, regenerate, rate).
+(copy, share, regenerate, rate). They show under a reply that has only attachments too; copy and
+share need text. With `AIConversationView.conversation`, they are there by default.
+
+A reply that arrives already finished with reasoning, such as when a conversation opens, shows its
+reasoning open for a moment and folds it before the answer types out. Tapping the header before it
+folds keeps it as the reader chose.
 
 The conversation caches its rows: a row is built again only when what its message says changes, or
 the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
@@ -1196,7 +1243,10 @@ email draft on Linux and in browsers without the Web Share API. To share some ot
 record that the reply was shared, set `AIReplyActions.onShare`.
 
 Attachments are `AIMessageAttachment`s. `AIMessageAttachmentView` shows images as thumbnails and
-any other kind as a file card. A kind of your own, such as an artifact or a file in an agent's
+any other kind as a file card. A file card with a URL opens it when tapped, in the browser for a web
+link and through the platform for any other URL, and a notice says so when nothing opens it. Set
+`onAttachmentTap` on the view, such as to preview a local file, and it gets every attachment's tap
+instead; an image does nothing by default. A kind of your own, such as an artifact or a file in an agent's
 sandbox, keeps its raw fields in `extraData`; render it yourself with the `messageAttachment`
 builder, and return the default for every other kind. For example, for a Vision-Agents artifact
 `{type: "athena_image", artifact_id, revision, title, alt}`:
@@ -1220,7 +1270,8 @@ messageAttachment: (context, props) => switch (props.attachment.kind) {
 ```
 
 When a reply fails, stop passing `isThinking` (the "Thinking…" count would otherwise run on) and
-show what went wrong in the `footer`, which sits under the latest turn, as iOS and Android do:
+show what went wrong in the `footer`, which sits under the latest turn, or under the `emptyContent`
+while there are no messages, such as when a first message failed:
 
 ```dart
 AIConversationView(
@@ -1229,6 +1280,155 @@ AIConversationView(
   footer: error == null ? null : RetryButton(error: error, onPressed: retry),
 )
 ```
+
+To float the composer over the list, give the list a bottom `padding` the size of the composer, which
+keeps the latest message and the scroll-to-latest button above it. With `Scaffold(extendBody: true)`
+the body goes under the `bottomNavigationBar`, and the bar's height reaches it as
+`MediaQuery.paddingOf(context).bottom`:
+
+```dart
+Scaffold(
+  extendBody: true,
+  bottomNavigationBar: Padding(
+    // The bar doesn't move with the keyboard on its own.
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: SafeArea(top: false, child: ChatComposer(onSendPressed: send)),
+  ),
+  body: Builder(
+    builder: (context) => AIConversationView(
+      messages: messages,
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.paddingOf(context).bottom),
+    ),
+  ),
+)
+```
+
+### Conversation state: `AIConversation`
+
+`AIConversation` holds an AI conversation for the views to show and act on: its `messages`, the
+`pendingMessage` on its way, its `status` (`ready`, `submitted`, `streaming` or `error`), the `error`
+behind a failed one, what the agent says it is `activity`, whether there are older messages, the
+`ratings`, and the `composer` controller with the draft. It sends what the person asks through an
+`AIConversationTransport` and notifies its listeners as any of that changes. You get sending,
+stopping, regenerating, rating, editing the latest message, retrying and loading older messages,
+without wiring each callback.
+
+It doesn't know your backend. Implement `AIConversationTransport` for it: `connect` hands you an
+`AIConversationFeed` to push the messages and the agent's activity through, `send` delivers a
+request, and `stop` stops the agent. `disconnect`, called as the conversation is disposed, is
+where you cancel what `connect` started. It, `loadOlderMessages` and `rate` are optional. A `send` that
+throws shows as the conversation's `error`; throw `AIConversationCancelledException` to drop a
+request without one.
+
+```dart
+class AgentTransport with AIConversationTransport<AgentMessage> {
+  AgentTransport(this.channel);
+
+  final AgentChannel channel;
+  final _subscriptions = <StreamSubscription<Object?>>[];
+
+  @override
+  void connect(AIConversationFeed<AgentMessage> feed) {
+    _subscriptions
+      ..add(channel.messages.listen(feed.updateMessages))
+      ..add(
+        channel.agentStates.listen(
+          (state) => feed.updateActivity(
+            state == null ? null : AIAgentActivity(state: AIAgentActivityState(state)),
+          ),
+        ),
+      );
+  }
+
+  @override
+  void disconnect() {
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
+  }
+
+  @override
+  Future<void> send(AIConversationRequest<AgentMessage> request) {
+    return channel.sendMessage(
+      request.text,
+      id: request.messageId, // the same on a retry, so the message isn't added twice
+      files: request.attachments,
+    );
+  }
+
+  @override
+  Future<void> stop() => channel.stopGenerating();
+}
+```
+
+`AgentMessage` is your `AIMessage` implementation. A request's `kind` is `message`, `regenerate`
+(a new reply in place of `request.message` and those after it) or `edit` (the person changed
+`request.message` to say `request.text`). For the last two, update the messages through the feed
+before the new reply arrives: remove the replaced ones, or write the new reply under the same id.
+
+Create the conversation once, give it to the list and the composer, and dispose it with the screen:
+
+```dart
+late final conversation = AIConversation(
+  transport: AgentTransport(channel),
+  actions: AIConversationActions.edit | AIConversationActions.rate,
+);
+
+@override
+Widget build(BuildContext context) {
+  return Column(
+    children: [
+      Expanded(
+        child: AIConversationView.conversation(
+          conversation: conversation,
+          emptyContent: const Text('How can I help?'),
+          footer: ListenableBuilder(
+            listenable: conversation,
+            builder: (context, _) {
+              if (conversation.status != AIConversationStatus.error) {
+                return const SizedBox.shrink();
+              }
+              return Row(
+                children: [
+                  Expanded(child: Text('${conversation.error}')),
+                  TextButton(onPressed: conversation.retry, child: const Text('Try again')),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      ChatComposer.conversation(conversation: conversation),
+    ],
+  );
+}
+
+@override
+void dispose() {
+  conversation.dispose();
+  super.dispose();
+}
+```
+
+The package shows no error of its own, so the `footer` above is yours: it reads `status` and `error`
+(an `AIAgentError` when the agent said it couldn't answer, or didn't in time), and `retry()` sends
+the failed request again with the same message id, or asks again for the reply that failed.
+`clearError()` forgets it.
+
+- **`actions`** picks what the views offer besides copy and share: `edit` (the person's latest
+  message, from its long-press menu), `regenerate` (the latest reply) and `rate`. It is
+  `AIConversationActions.all` by default; combine others with `|`. Editing puts the message in the
+  composer, which shows the "Editing message" chip, and the next send replaces it.
+- **Rating** is kept on the device unless the transport implements `rate`. A rating the backend has
+  shows through `AIMessage.rating` until the person rates the reply here.
+- **`replyTimeout`** is how long the conversation waits, once the agent has the request, for its
+  reply to start or for it to say what it is doing, before showing an `AIAgentError`. It is five
+  minutes by default, and `null` waits as long as it takes.
+- **Stopping** keeps what the reply had written so far; stopping before it starts keeps the person's
+  message.
+
+Replacement `replyActions` and `userMessage` builders get the same: `AIReplyActionsProps.actions`
+carries the rating and regenerate, and `AIUserMessageProps.onEdit` the edit.
 
 ### Voice: `AIVoiceGlowView` and `AIVoiceWaveView`
 
@@ -1306,10 +1506,11 @@ Every builder, the default it replaces and what it gets:
 | `unsupportedPart` | `AIUnsupportedPartView` | `AIUnsupportedPartProps`: `part` |
 | `userMessage` | `AIUserMessageView` | `AIUserMessageProps` |
 | `assistantMessage` | `AIAssistantMessageView` | `AIAssistantMessageProps` |
-| `replyActions` | nothing | `AIReplyActionsProps` |
+| `replyActions` | nothing; `AIReplyActionsView` with an `AIConversation` | `AIReplyActionsProps` |
 | `messageAttachment` | `AIMessageAttachmentView` | `AIMessageAttachmentProps` |
 | `composerLeading` | `ComposerAttachmentButton` (the "+") | `ChatComposerLeadingProps` |
 | `composerInput` | `ChatComposerInput` | `ChatComposerInputProps` |
+| `composerInputTrailing` | `SpeechToTextButton` (with `enableSpeechToText`) | `ChatComposerInputTrailingProps` |
 | `composerTrailing` | nothing | `ChatComposerTrailingProps` |
 | `composerAttachmentSheet` | `ComposerAttachmentSheet` | `ChatComposerAttachmentSheetProps` |
 
@@ -1327,15 +1528,20 @@ them.
 Four slots belong to `AIConversationView`:
 
 - `userMessage` replaces the person's bubble, `AIUserMessageView`. `AIUserMessageProps` has the
-  `message` (`null` while it is still an `AIPendingMessage`), its `text`, `attachments` and
-  `onAttachmentTap`.
+  `message` (`null` while it is still an `AIPendingMessage`), its `text`, `attachments`,
+  `onAttachmentTap` and `onEdit`, which puts the message back in the composer and is set only where
+  an `AIConversation` offers editing it.
 - `assistantMessage` replaces a reply, `AIAssistantMessageView`. `AIAssistantMessageProps` has the
   `message` (with its `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`), the
   `approver` and `onAttachmentTap`.
 - `replyActions` adds what the person can do under a finished reply. It's empty by default; return
   an `AIReplyActionsView` to get copy, share, regenerate and rate (see the example under
   [Conversations](#conversations-aiconversationview)). `AIReplyActionsProps` has the reply's
-  `message`, its `text` and `isLatestReply`.
+  `message`, its `text` and `isLatestReply`. In a list made with `AIConversationView.conversation`
+  the default is an `AIReplyActionsView`, and the props also carry `actions`, an `AIReplyActions`
+  with the rating, `onRate` and `onRegenerate` as the conversation allows: pass it on as
+  `AIReplyActionsView(text: props.text, actions: props.actions!)` to keep them. Copy and share show
+  only for a reply with text.
 - `messageAttachment` replaces one attachment's `AIMessageAttachmentView`, in either kind of message.
   `AIMessageAttachmentProps` has the `attachment`, `isFromUser` and `onTap`.
 

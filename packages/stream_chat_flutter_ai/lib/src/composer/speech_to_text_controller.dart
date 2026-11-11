@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -20,6 +21,7 @@ class SpeechToTextConfig {
     this.pauseFor,
     this.onError,
     this.onStatus,
+    this.onPermissionDenied,
   });
 
   /// BCP-47 locale identifier (e.g. `'en-US'`).
@@ -54,6 +56,15 @@ class SpeechToTextConfig {
   ///
   /// Common status strings: `'listening'`, `'notListening'`, `'done'`.
   final void Function(String status)? onStatus;
+
+  /// Called when the person taps the microphone and the microphone or
+  /// speech-recognition permission is denied.
+  ///
+  /// Replaces the default notice, which says the permission is required and
+  /// offers to open the system settings. Called on every such tap, including
+  /// taps after an earlier denial. A platform with no speech recognizer is not
+  /// a denial.
+  final VoidCallback? onPermissionDenied;
 
   /// [pauseFor] if set, otherwise the per-platform default described on it.
   Duration? get effectivePauseFor {
@@ -91,6 +102,7 @@ class SpeechToTextController extends ChangeNotifier {
   final SpeechToText _speech = SpeechToText();
 
   bool? _isAvailable;
+  bool _isPermissionDenied = false;
   bool _isListening = false;
 
   /// The `initialize()` call currently in flight, so concurrent callers await
@@ -150,6 +162,14 @@ class SpeechToTextController extends ChangeNotifier {
   /// [invalidateAvailability].
   bool? get isAvailable => _isAvailable;
 
+  /// Whether the last initialization failed because the microphone or
+  /// speech-recognition permission is denied, as opposed to the platform having
+  /// no recognizer.
+  ///
+  /// Like a `false` [isAvailable], a report on the last attempt:
+  /// [invalidateAvailability] clears it.
+  bool get isPermissionDenied => _isPermissionDenied;
+
   /// Initializes the recognizer if it hasn't been already, and reports whether
   /// it is usable.
   ///
@@ -168,6 +188,7 @@ class SpeechToTextController extends ChangeNotifier {
   }
 
   Future<bool> _initialize() async {
+    _isPermissionDenied = false;
     try {
       final available = await _speech.initialize(
         onError: (error) {
@@ -179,11 +200,38 @@ class SpeechToTextController extends ChangeNotifier {
           _setListening(status == SpeechToText.listeningStatus);
         },
       );
+      // `initialize()` reports a denied permission and a missing recognizer alike
+      // as `false`; the permission check is the part that tells them apart.
+      if (!available) _isPermissionDenied = !await _hasPermission();
       _isAvailable = available;
       notifyListeners();
       return available;
+    } on PlatformException catch (error, stack) {
+      // Android 12 and later throw this, rather than return `false`, on a
+      // device with no speech recognizer. Left to escape, it surfaced as an
+      // unhandled error from `start`.
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai',
+          context: ErrorDescription('while initializing speech recognition'),
+        ),
+      );
+      _isAvailable = false;
+      notifyListeners();
+      return false;
     } finally {
       _initializing = null;
+    }
+  }
+
+  Future<bool> _hasPermission() async {
+    try {
+      return await _speech.hasPermission;
+    } catch (_) {
+      // Not knowing is not a denial: no notice is better than a wrong one.
+      return true;
     }
   }
 
@@ -191,7 +239,8 @@ class SpeechToTextController extends ChangeNotifier {
   /// [onWords] as it arrives.
   ///
   /// Does nothing if a session is already running, or if the platform has no
-  /// usable recognizer. Returns whether a session started.
+  /// usable recognizer. Returns whether a session started; when it did not
+  /// because the permission is denied, [isPermissionDenied] is `true`.
   Future<bool> start({
     required void Function(String words) onWords,
     SpeechToTextConfig config = const SpeechToTextConfig(),
@@ -294,6 +343,7 @@ class SpeechToTextController extends ChangeNotifier {
   void invalidateAvailability() {
     if (_isListening || _isAvailable == null) return;
     _isAvailable = null;
+    _isPermissionDenied = false;
     notifyListeners();
   }
 
@@ -331,6 +381,7 @@ class SpeechToTextController extends ChangeNotifier {
   @visibleForTesting
   void debugReset() {
     _isAvailable = null;
+    _isPermissionDenied = false;
     _initializing = null;
     _starting = false;
     _isListening = false;
