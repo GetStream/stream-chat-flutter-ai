@@ -81,7 +81,8 @@
   `ReasoningThemeData` (`AITheme.reasoningTheme`), narrowed to a subtree with `ReasoningTheme`, and
   translated through the new `AITranslations` members `reasoningThinking`, `reasoningThinkingFor`,
   `reasoningTitle`, `reasoningThoughtFor`, `reasoningShowHint` and `reasoningHideHint`.
-  `DefaultAITranslations.reasoningDuration` spells the durations.
+  `DefaultAITranslations.reasoningDuration` spells the durations. In an `AIConversationView`, a first
+  step that arrives done opens for a moment before it folds.
 - `AIToolCallView` — a one-line row for a tool-call step: a status icon that follows the call's
   status (a shimmering hand while it waits for approval, a cross once declined), the title, a detail
   line (the summary, or the status in words) and the duration once the call has finished, declined
@@ -176,7 +177,8 @@
   end, `loadOlderMessages` loads older messages at its start, without moving what is on screen, when
   its spinner comes into view and again each time the first turn changes while it stays there, and a
   button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
-  thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest
+  thinking, and the reply's first reasoning step carries on its count; one that arrives done opens
+  for a moment, then folds before the answer types out. `footer` sits under the latest
   turn, such as for an error with a way to retry. A bottom `padding` the size of a composer floated
   over the list keeps the latest message and the scroll-to-latest button above it, and a list
   showing its end keeps showing it when that padding changes.

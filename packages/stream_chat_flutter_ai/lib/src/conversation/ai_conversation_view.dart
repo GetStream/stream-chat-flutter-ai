@@ -567,6 +567,9 @@ class _EntryViewState extends State<_EntryView> {
   // Whether the reply's answer is still typing out, which its actions wait for
   // so they do not move down with it. `null` when its view does not say.
   final _writing = ValueNotifier<bool?>(null);
+  // Whether a frame has built the row. Until one has, the row's view has not
+  // had the chance to say whether its answer is writing, so no actions show.
+  bool _framed = false;
   _Shown? _shown;
   Widget? _built;
   AIUIView? _generated;
@@ -576,6 +579,13 @@ class _EntryViewState extends State<_EntryView> {
   void initState() {
     super.initState();
     _writing.addListener(_onWritingChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _framed = true;
+        _built = null;
+      });
+    });
   }
 
   @override
@@ -644,7 +654,7 @@ class _EntryViewState extends State<_EntryView> {
     );
     final isWriting = _writing.value == true || (generated?.document.isStreaming ?? false);
     final hasAnswer = reply.text.isNotEmpty || generated != null;
-    final showsActions = !reply.isGenerating && hasAnswer && !isWriting;
+    final showsActions = _framed && !reply.isGenerating && hasAnswer && !isWriting;
     final actions = showsActions
         ? context.aiComponentBuilder<AIReplyActionsProps>()?.call(
             context,

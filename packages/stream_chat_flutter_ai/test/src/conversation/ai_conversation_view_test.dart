@@ -487,7 +487,7 @@ void main() {
       expect(builds - first, 1, reason: 'only the streaming reply');
     });
 
-    testWidgets("a reply's first step with only a summary opens to that summary", (tester) async {
+    testWidgets("a reply's first step with only a summary opens to that summary as it arrives", (tester) async {
       final reply = _Message(
         'r1',
         AIMessageRole.assistant,
@@ -501,8 +501,6 @@ void main() {
       await _frames(tester, const Duration(milliseconds: 100), 5);
       await _pump(tester, [_user('u1'), reply]);
 
-      await tester.tap(_text('Thought for'));
-      await tester.pumpAndSettle();
       expect(_text('Compared plans'), findsOneWidget, reason: 'as StreamingReasoningView.part shows it');
     });
 
