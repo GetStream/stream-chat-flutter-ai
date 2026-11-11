@@ -367,16 +367,17 @@ A `trigger` in place, which opens its `content` in a sheet from the bottom of th
 | `content` | id, required | Shown in the sheet. |
 
 - **Opening.** A `Button` trigger opens the sheet when tapped, and still runs its own `action`; a disabled button opens
-  nothing. A trigger that isn't a button opens the sheet when the person taps it, read by assistive technologies as a button.
-  What a button in the trigger holds doesn't open the sheet again.
+  nothing. A trigger that isn't a button opens the sheet when the person taps it, read by assistive technologies as a
+  button. What a button in the trigger holds doesn't open the sheet again.
 - **The sheet.** The design system's sheet, with its close button at the top. It scrolls when its content is taller, and
   closes with the close button, a swipe down, or a tap outside it. It also closes when the modal leaves the surface. The
   modal's `content` keeps updating while the sheet is open.
 - **Data model.** Writes nothing.
 - **Look.** `StreamSheetRoute` and the app's `StreamSheetTheme`; the app's `StreamComponentFactory` builders apply
   inside the sheet too.
-- **Edge cases.** A modal whose trigger or content hasn't arrived yet shows nothing, or an empty sheet. Without a `Navigator` above the surface the sheet can't open,
-  and this is reported once. A modal with its sheet open stays while a list it is in scrolls it out of view.
+- **Edge cases.** A modal whose trigger or content hasn't arrived yet shows nothing, or an empty sheet. Without a
+  `Navigator` above the surface the sheet can't open, and this is reported once. A modal with its sheet open stays while
+  a list it is in scrolls it out of view.
 
 ```json
 [
@@ -410,8 +411,8 @@ Its `child` in a button that runs its `action` when tapped.
 - **Data model.** Writes nothing; reads `context`, and the checks' conditions.
 - **Look.** The design system's `StreamButton`, so the app's `button` builder draws it. A button of only an `Icon` is
   the design system's icon button, with the `accessibility` label as its tooltip.
-- **Edge cases.** A button whose child hasn't arrived yet is drawn with nothing in it. A button whose checks fail with a warning or info is not
-  blocked.
+- **Edge cases.** A button whose child hasn't arrived yet is drawn with nothing in it. A button whose checks fail with a
+  warning or info is not blocked.
 
 ```json
 [
@@ -441,11 +442,12 @@ A `label` over a field that writes each change the person makes to its `value`.
 | `checks` | list of checks | |
 
 - **Data model.** Writes the text to the path `value` is bound to, on every change, as typed (the field never changes
-  case or formatting; the keyboard may still autocorrect it, except in a secret field). A `number` field writes a string too.
+  case or formatting; the keyboard may still autocorrect it, except in a secret field). A `number` field writes a string
+  too.
 - **Typing.** While the person types, the field keeps what they typed; a change from elsewhere, such as from the agent,
   replaces it once the field isn't being typed in.
-- **Checks.** They show only while the field holds text, so an empty form isn't covered in errors: a failing check with an `error`
-  severity outlines the field in the error color; every failing check's message shows below it.
+- **Checks.** They show only while the field holds text, so an empty form isn't covered in errors: a failing check with
+  an `error` severity outlines the field in the error color; every failing check's message shows below it.
 - **Secret fields.** An `obscured` field hides its text and is never suggested or corrected. It is never given to the
   app's `textInput` builder, so a secret stays hidden, and is drawn in the same style. Its label shows when it has no
   placeholder. Its text is written to the data model like any other, so an action's `context` or a `sendDataModel`
@@ -465,8 +467,8 @@ A `label` over a field that writes each change the person makes to its `value`.
 {"name": "", "guests": "2"}
 ```
 
-More: [`text_field.json`](../example/assets/components/text_field.json): a long field, a secret with a failing check, and
-one with no binding.
+More: [`text_field.json`](../example/assets/components/text_field.json): a long field, a secret with a failing check,
+and one with no binding.
 
 ## CheckBox
 
