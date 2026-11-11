@@ -93,7 +93,7 @@ it 😎.
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
 ```
 
 It requires Dart 3.11 or later and Flutter 3.41 or later.

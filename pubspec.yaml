@@ -70,7 +70,7 @@ melos:
         speech_to_text: ^7.0.0
         # Every package that depends on the core package is released in
         # lockstep with it, so this is always `^<the release's version>`.
-        stream_chat_flutter_ai: ^0.1.0
+        stream_chat_flutter_ai: ^0.2.0
         # Stream's design system: theme tokens, the component factory and the
         # base components (buttons, sheets, list tiles, icons) the AI packages build on.
         stream_core_flutter: ^0.5.3
