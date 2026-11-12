@@ -15,7 +15,7 @@ workspace:
   - packages/stream_chat_flutter_ai_a2ui_conformance
 
 dev_dependencies:
-  melos: ^8.2.2
+  melos: ^8.10.1
 
 melos:
   categories:
