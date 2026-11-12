@@ -33,7 +33,7 @@ void main() {
 
   test('a function an action sends to the agent carries what a person typed into an obscured field', () async {
     final sent = <Map<String, Object?>>[];
-    final processor = A2UIProcessor.debug(catalogs: A2UICatalogs(), onOutbound: sent.add);
+    final processor = debugProcessor(catalogs: A2UICatalogs(), onOutbound: sent.add);
     addTearDown(processor.dispose);
     final surface = _loginSurface(
       processor: processor,

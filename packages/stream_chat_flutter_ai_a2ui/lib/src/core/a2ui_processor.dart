@@ -20,22 +20,6 @@ final _openLinkKey = Object();
 // argument of.
 final _userActKey = Object();
 
-/// Signature for the callback that receives what a processor sends the agent,
-/// as A2UI writes it.
-///
-/// Only the conformance tests use it.
-typedef A2UIDebugOutboundCallback = void Function(Map<String, Object?> message);
-
-/// Signature for a function that makes the A2UI core a processor applies
-/// messages with, holding `catalogs` and sending its actions to `onAction`.
-///
-/// Only tests use it, to stand in a core that fails.
-typedef A2UIDebugCoreFactory =
-    core.MessageProcessor<core.ComponentApi> Function(
-      List<core.Catalog<core.ComponentApi, core.FunctionImplementation>> catalogs,
-      void Function(core.A2uiRendererAction action) onAction,
-    );
-
 /// One reply's A2UI surfaces, built from the messages applied to it.
 ///
 /// A reply's agent writes A2UI as a series of messages: one creates a surface,
@@ -68,7 +52,10 @@ final class A2UIProcessor extends ChangeNotifier {
   /// Creates a processor with no surfaces, which draws them from `catalogs`.
   ///
   /// A surface that names no catalog, or names it with something other than a
-  /// string, is drawn from the app's catalog, [A2UICatalogs.catalogId].
+  /// string, is drawn from the catalog named `defaultCatalogId`, such as the
+  /// app's catalog, [A2UICatalogs.catalogId]. Without `defaultCatalogId`, such
+  /// a surface has no catalog, and what it draws from one is reported through
+  /// `onError`.
   ///
   /// When a person acts in one of its surfaces in a way the agent should hear
   /// about, such as tapping a button whose action names an event, the event
@@ -103,55 +90,25 @@ final class A2UIProcessor extends ChangeNotifier {
   /// None of these may throw: one that does stops [apply] partway, and
   /// leaves the problem it was given marked as reported. Its creator runs app
   /// code behind its own guard, as the engine does.
-  ///
-  /// A test can pass a `debugCoreFactory` to make the core it applies messages
-  /// with.
   A2UIProcessor({
     required this._catalogs,
+    this._defaultCatalogId,
     this._onAction,
     this._onError,
     this._onUnreadable,
     this._onAgentFunction,
     this._onLateAnswer,
-    @visibleForTesting this._debugCoreFactory,
-  }) : _defaultsCatalog = true,
-       _debugChecks = null,
-       _debugOnOutbound = null {
-    _core = _makeCore();
-  }
-
-  /// Creates a processor as a conformance case needs one: one that gives a
-  /// surface naming no catalog none, makes `checks` of each message, and
-  /// passes what it sends the agent to `onOutbound`, such as the answer to a
-  /// function the agent calls.
-  ///
-  /// Only the conformance tests use it.
-  A2UIProcessor.debug({
-    required this._catalogs,
-    this._onAction,
-    this._onError,
-    A2UIDebugChecks? checks,
-    A2UIDebugOutboundCallback? onOutbound,
-  }) : _onUnreadable = null,
-       _onAgentFunction = null,
-       _onLateAnswer = null,
-       _debugCoreFactory = null,
-       _defaultsCatalog = false,
-       _debugChecks = checks,
-       _debugOnOutbound = onOutbound {
-    _core = _makeCore();
+  }) {
+    _attachCore(_makeCore());
   }
 
   final A2UICatalogs _catalogs;
+  final String? _defaultCatalogId;
   final A2UIActionCallback? _onAction;
   final A2UIErrorCallback? _onError;
   final VoidCallback? _onUnreadable;
   final A2UIAgentFunctionCallback? _onAgentFunction;
   final void Function(String functionName)? _onLateAnswer;
-  final A2UIDebugCoreFactory? _debugCoreFactory;
-  final bool _defaultsCatalog;
-  final A2UIDebugChecks? _debugChecks;
-  final A2UIDebugOutboundCallback? _debugOnOutbound;
 
   // The timers of the functions the core is waiting on, which end with it.
   final Set<Timer> _callTimeouts = {};
@@ -427,10 +384,11 @@ final class A2UIProcessor extends ChangeNotifier {
 
   Map<String, Object?> _forCore(Map<String, Object?> message) {
     final createSurface = message['createSurface'];
-    if (_defaultsCatalog && createSurface is Map<String, Object?> && createSurface['catalogId'] is! String) {
+    final defaultCatalogId = _defaultCatalogId;
+    if (defaultCatalogId != null && createSurface is Map<String, Object?> && createSurface['catalogId'] is! String) {
       return {
         ...message,
-        'createSurface': {...createSurface, 'catalogId': _catalogs.catalogId},
+        'createSurface': {...createSurface, 'catalogId': defaultCatalogId},
       };
     }
     return message;
@@ -462,31 +420,31 @@ final class A2UIProcessor extends ChangeNotifier {
     final hadSurfaces = _surfaces.isNotEmpty;
     final surfaces = _releaseCore();
     _reported.clear();
-    _core = _makeCore();
+    _attachCore(_makeCore());
     _disposeSurfaces(surfaces, notify: true);
     if (hadSurfaces) notifyListeners();
   }
 
   core.MessageProcessor<core.ComponentApi> _makeCore() {
-    final onOutbound = _debugOnOutbound;
     late final core.MessageProcessor<core.ComponentApi> processor;
-    processor =
-        _debugCoreFactory?.call(_catalogs._catalogs, _handleAction) ??
-        core.MessageProcessor<core.ComponentApi>(
-          catalogs: _catalogs._catalogs,
-          validationConfig: _debugChecks?._config,
-          onAction: _handleAction,
-          defaultTimeout: agentFunctionTimeout,
-          outboundListener: switch ((onOutbound, _onAgentFunction)) {
-            (final onOutbound?, _) => (message) => onOutbound(_plainMap(message.toJson())),
-            (null, final onAgentFunction?) => (message) => _handleOutbound(message, processor, onAgentFunction),
-            (null, null) => null,
-          },
-        );
+    final onAgentFunction = _onAgentFunction;
+    return processor = core.MessageProcessor<core.ComponentApi>(
+      catalogs: _catalogs._catalogs,
+      onAction: _handleAction,
+      defaultTimeout: agentFunctionTimeout,
+      outboundListener: onAgentFunction == null
+          ? null
+          : (message) => _handleOutbound(message, processor, onAgentFunction),
+    );
+  }
+
+  // Makes [processor] the core this processor applies messages with, and
+  // follows the surfaces it creates and deletes.
+  void _attachCore(core.MessageProcessor<core.ComponentApi> processor) {
+    _core = processor;
     _coreSubscriptions
       ..add(processor.model.onSurfaceCreated.subscribe(_handleSurfaceCreated))
       ..add(processor.model.onSurfaceDeleted.subscribe(_handleSurfaceDeleted));
-    return processor;
   }
 
   void _handleSurfaceCreated(core.SurfaceModel<core.ComponentApi> model) {

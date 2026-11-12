@@ -1,0 +1,10 @@
+# The A2UI conformance suites are tagged, so they can be run on their own:
+# `flutter test --tags conformance`. They also run with every other test, as in
+# `melos run test:all`.
+#
+# `A2UI_CONFORMANCE_CORE_GAPS=true flutter test --tags conformance` runs the
+# cases skipped for a gap of a2ui_core, each expected to fail; one that passes
+# is a gap the core has closed, whose skip can go.
+
+tags:
+  conformance:

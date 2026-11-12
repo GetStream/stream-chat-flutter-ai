@@ -17,7 +17,7 @@ dependencies:
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace: the Stream theme and the generative UI host the gallery shows
   # surfaces in. The constraint comes from the root bootstrap list.
-  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
   # Resolves to the local `packages/stream_chat_flutter_ai_a2ui` member of this
   # workspace.
   stream_chat_flutter_ai_a2ui: any
@@ -29,6 +29,9 @@ flutter:
     # The examples published with A2UI's basic catalog, as in the package's
     # `test/fixtures/upstream_examples`.
     - assets/examples/
+    # One page of examples for each component of the basic catalog, with its
+    # variants and edge cases, as the package's `doc/components.md` links them.
+    - assets/components/
     # The Ohrid trip example the Stream agent backend gives its model, as in
     # the package's `test/fixtures`.
     - assets/ohrid_prompt_example.jsonl

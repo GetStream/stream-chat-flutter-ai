@@ -8,6 +8,8 @@ import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+// Imported for the [ComposerAttachmentSheet] doc link only.
+import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_button.dart';
 import 'package:stream_chat_flutter_ai/src/composer/speech_to_text_controller.dart';
 // Doc links only.
@@ -39,6 +41,7 @@ abstract class ChatComposerSlotProps {
     required this.onSend,
     this.onStop,
     this.allowSendWhileGenerating = false,
+    this.openAttachmentSheet,
   });
 
   /// The composer's controller — input text, chat options, attachments, and
@@ -96,6 +99,18 @@ abstract class ChatComposerSlotProps {
   /// controller by hand.
   final bool allowSendWhileGenerating;
 
+  /// Opens the attachment sheet, as the default "+" button does.
+  ///
+  /// The sheet is the one the `composerAttachmentSheet` builder of
+  /// [streamAIComponentBuilders] returns, or a [ComposerAttachmentSheet]. A
+  /// custom leading slot calls this from its own button to offer the same
+  /// sheet. Does nothing while [ChatComposerController.isGenerating] is `true`,
+  /// as the "+" button is disabled then.
+  ///
+  /// `null` for props not built by a [ChatComposer]. Carries the same mounted
+  /// caveat as [onSend].
+  final VoidCallback? openAttachmentSheet;
+
   /// Whether calling [onSend] right now would actually send.
   ///
   /// The condition a slot's send control should be enabled on, with core's
@@ -125,6 +140,7 @@ class ChatComposerLeadingProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
+    super.openAttachmentSheet,
   });
 
   /// Creates a [ChatComposerLeadingProps] carrying another slot's wiring.
@@ -139,6 +155,7 @@ class ChatComposerLeadingProps extends ChatComposerSlotProps {
         onSend: props.onSend,
         onStop: props.onStop,
         allowSendWhileGenerating: props.allowSendWhileGenerating,
+        openAttachmentSheet: props.openAttachmentSheet,
       );
 }
 
@@ -151,6 +168,7 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
+    super.openAttachmentSheet,
   });
 
   /// Creates a [ChatComposerTrailingProps] carrying another slot's wiring.
@@ -163,6 +181,7 @@ class ChatComposerTrailingProps extends ChatComposerSlotProps {
         onSend: props.onSend,
         onStop: props.onStop,
         allowSendWhileGenerating: props.allowSendWhileGenerating,
+        openAttachmentSheet: props.openAttachmentSheet,
       );
 }
 
@@ -179,6 +198,7 @@ class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
+    super.openAttachmentSheet,
     this.scrollController,
   });
 
@@ -193,12 +213,72 @@ class ChatComposerAttachmentSheetProps extends ChatComposerSlotProps {
         onSend: props.onSend,
         onStop: props.onStop,
         allowSendWhileGenerating: props.allowSendWhileGenerating,
+        openAttachmentSheet: props.openAttachmentSheet,
         scrollController: scrollController,
       );
 
   /// The sheet's scroll controller, to attach to the sheet's scrollable so a
   /// drag scrolls its content before it moves the sheet.
   final ScrollController? scrollController;
+}
+
+/// Props for the `composerInputTrailing` builder of [streamAIComponentBuilders].
+///
+/// The slot is the mic's place at the input's right edge. With a builder
+/// registered, [ChatComposerInput] shows its widget there while no response is
+/// generating and either the field is empty or dictation is running, whether
+/// or not [enableSpeechToText] is set, so the slot can hold any control, not
+/// just a mic. Stop and send keep their place the rest of the time. Without a
+/// builder the place holds a [SpeechToTextButton], and only when
+/// [enableSpeechToText] is `true`.
+class ChatComposerInputTrailingProps extends ChatComposerSlotProps {
+  /// Creates a [ChatComposerInputTrailingProps].
+  const ChatComposerInputTrailingProps({
+    required super.controller,
+    required super.focusNode,
+    required super.onSend,
+    super.onStop,
+    super.allowSendWhileGenerating,
+    super.openAttachmentSheet,
+    required this.speech,
+    this.enableSpeechToText = false,
+    this.speechToTextConfig = const SpeechToTextConfig(),
+  });
+
+  /// Creates a [ChatComposerInputTrailingProps] carrying the input's wiring and
+  /// voice-input configuration.
+  ChatComposerInputTrailingProps.from(ChatComposerInputProps props, {required SpeechToTextController speech})
+    : this(
+        controller: props.controller,
+        focusNode: props.focusNode,
+        onSend: props.onSend,
+        onStop: props.onStop,
+        allowSendWhileGenerating: props.allowSendWhileGenerating,
+        openAttachmentSheet: props.openAttachmentSheet,
+        speech: speech,
+        enableSpeechToText: props.enableSpeechToText,
+        speechToTextConfig: props.speechToTextConfig,
+      );
+
+  /// The controller dictation runs on.
+  ///
+  /// The process-wide [SpeechToTextController.instance], whose listening flag a
+  /// custom mic reads. [ChatComposerInput] rebuilds the slot when it changes,
+  /// so a slot needs no listener of its own for that. A custom `composerInput`
+  /// builder that doesn't render [ChatComposerInput] has to rebuild on
+  /// [SpeechToTextController] changes itself for the slot to follow.
+  final SpeechToTextController speech;
+
+  /// Whether the host enabled voice input, as set on
+  /// [ChatComposer.enableSpeechToText].
+  ///
+  /// The slot is built either way; a slot that draws a mic checks this, and a
+  /// slot that holds some other control ignores it.
+  final bool enableSpeechToText;
+
+  /// Locale, timeouts and callbacks for voice input, as passed to
+  /// [ChatComposer.speechToTextConfig].
+  final SpeechToTextConfig speechToTextConfig;
 }
 
 /// Props for the `composerInput` builder of [streamAIComponentBuilders].
@@ -214,6 +294,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     required super.onSend,
     super.onStop,
     super.allowSendWhileGenerating,
+    super.openAttachmentSheet,
     this.hintText,
     this.minLines = 1,
     this.maxLines = 8,
@@ -262,11 +343,6 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
 
   /// A copy of these props with the given fields replaced.
   ///
-  /// The way to tweak one value while keeping the rest of what [ChatComposer]
-  /// passed down — hand-listing all eleven fields instead silently reverts any
-  /// you forget to a constructor default, discarding the host's own
-  /// configuration.
-  ///
   /// Passing `null` for [onStop] leaves the existing callback in place; use
   /// `clearOnStop: true` to drop it.
   ChatComposerInputProps copyWith({
@@ -276,6 +352,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
     VoidCallback? onStop,
     bool clearOnStop = false,
     bool? allowSendWhileGenerating,
+    VoidCallback? openAttachmentSheet,
     String? hintText,
     int? minLines,
     int? maxLines,
@@ -289,6 +366,7 @@ class ChatComposerInputProps extends ChatComposerSlotProps {
       onSend: onSend ?? this.onSend,
       onStop: clearOnStop ? null : (onStop ?? this.onStop),
       allowSendWhileGenerating: allowSendWhileGenerating ?? this.allowSendWhileGenerating,
+      openAttachmentSheet: openAttachmentSheet ?? this.openAttachmentSheet,
       hintText: hintText ?? this.hintText,
       minLines: minLines ?? this.minLines,
       maxLines: maxLines ?? this.maxLines,

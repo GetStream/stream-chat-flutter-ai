@@ -286,7 +286,7 @@ void main() {
     // A surface whose field's check calls `strength`, which no catalog has,
     // on a processor whose calls to the agent go to [sent].
     (A2UIProcessor, A2UINode) agentChecked(List<Map<String, Object?>> sent) {
-      final processor = A2UIProcessor.debug(catalogs: A2UICatalogs(), onOutbound: sent.add);
+      final processor = debugProcessor(catalogs: A2UICatalogs(), onOutbound: sent.add);
       addTearDown(processor.dispose);
       final surface = planSurface(
         processor: processor,
