@@ -1,0 +1,87 @@
+{
+  "name": "DateTimeInput",
+  "description": "A date, a date and time with bounds, and a time.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-datetime-date",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-datetime-date",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "d"]},
+          {"id": "variant_title", "component": "Text", "text": "enableDate", "variant": "caption"},
+          {"id": "d", "component": "DateTimeInput", "label": "Arrival", "enableDate": true, "value": {"@path": "/arrival"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-datetime-date",
+        "value": {
+          "arrival": "2026-10-02"
+        }
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-datetime-bounded",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-datetime-bounded",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "d"]},
+          {"id": "variant_title", "component": "Text", "text": "enableDate and enableTime, between a min and a max", "variant": "caption"},
+          {"id": "d", "component": "DateTimeInput", "label": "Check-in", "enableDate": true, "enableTime": true, "min": "2026-10-01T00:00:00Z", "max": "2026-10-31T23:59:00Z", "value": {"@path": "/checkin"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-datetime-bounded",
+        "value": {
+          "checkin": "2026-10-02T17:30:00Z"
+        }
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-datetime-time",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-datetime-time",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "d"]},
+          {"id": "variant_title", "component": "Text", "text": "enableTime only, with a check that needs a value", "variant": "caption"},
+          {"id": "d", "component": "DateTimeInput", "label": "Boat departs", "enableTime": true, "value": {"@path": "/time"}, "checks": [{"condition": {"@call": "required", "args": {"value": {"@path": "/time"}}}, "message": "Pick a time."}]}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-datetime-time",
+        "value": {
+          "time": ""
+        }
+      }
+    }
+  ]
+}

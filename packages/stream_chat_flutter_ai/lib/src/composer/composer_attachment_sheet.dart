@@ -8,7 +8,9 @@ import 'package:photo_manager/photo_manager.dart';
 // Imported for the [streamAIComponentBuilders] doc links only.
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer_controller.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_props.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
+import 'package:stream_chat_flutter_ai/src/composer/composer_notice.dart';
 import 'package:stream_chat_flutter_ai/src/composer/resolved_composer_theme.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/util/lru_cache.dart';
@@ -78,6 +80,40 @@ void debugClearAssetPathCache() => _assetPathCache.clear();
 class ComposerAttachmentSheet extends StatefulWidget {
   /// Creates a [ComposerAttachmentSheet].
   const ComposerAttachmentSheet({super.key, required this.controller, this.scrollController});
+
+  /// Opens the attachment sheet from [context] and completes once it is closed.
+  ///
+  /// The sheet is the `composerAttachmentSheet` builder of
+  /// [streamAIComponentBuilders] registered above [context], or a
+  /// [ComposerAttachmentSheet] without one. [props] supplies the wiring the
+  /// sheet's builder receives, and the controller the default sheet edits; the
+  /// props of any slot work.
+  ///
+  /// A [context] below the composer's [Navigator] reaches that builder; the
+  /// sheet keeps it across the push, so it also reaches the route.
+  /// [ChatComposerSlotProps.openAttachmentSheet] calls this with the composer's
+  /// own props and is what a custom slot calls.
+  static Future<void> show(BuildContext context, ChatComposerSlotProps props) {
+    // Read before the push: the sheet is a route of its own, which a factory
+    // below the Navigator doesn't reach.
+    final builder = context.aiComponentBuilder<ChatComposerAttachmentSheetProps>();
+    final components = StreamComponentFactory.of(context);
+    return showStreamSheet<void>(
+      context: context,
+      isDismissible: true,
+      builder: (sheetContext, scrollController) {
+        final sheetProps = ChatComposerAttachmentSheetProps.from(props, scrollController: scrollController);
+        return withStreamComponents(
+          components,
+          Builder(
+            builder: (context) =>
+                builder?.call(context, sheetProps) ??
+                ComposerAttachmentSheet(controller: props.controller, scrollController: scrollController),
+          ),
+        );
+      },
+    );
+  }
 
   /// The controller whose [ChatComposerController.attachments] and
   /// [ChatComposerController.chatOptions] this sheet reads and mutates.
@@ -182,8 +218,19 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
     // path points at a temporary copy the system is free to purge, so a cached
     // one is only trustworthy for as long as the attachment referencing it
     // lives.
-    final path = (await asset.file)?.path;
-    if (path == null || !mounted) return;
+    final String? path;
+    try {
+      path = (await asset.file)?.path;
+    } catch (error, stack) {
+      _reportFailure(error, stack, 'while loading a recent photo for the composer');
+      if (mounted) unawaited(_showPhotosNotAdded());
+      return;
+    }
+    if (!mounted) return;
+    if (path == null) {
+      unawaited(_showPhotosNotAdded());
+      return;
+    }
     _assetPathCache.set(asset.id, path);
     widget.controller.addAttachments([XFile(path)]);
   }
@@ -192,7 +239,10 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
     // The platform picker is a separate activity on Android, so the host can be
     // recreated behind it — hence the `mounted` check on the way back, before
     // touching a controller whose owner may be gone.
-    final photo = await _guardPicker(() => ImagePicker().pickImage(source: ImageSource.camera));
+    // No photos notice on failure: that one is about photos that can't be
+    // loaded, and the camera's failures (a denied camera, none available) are
+    // not that.
+    final photo = await _guardPicker(() => ImagePicker().pickImage(source: ImageSource.camera), notify: false);
     if (photo == null || !mounted) return;
     widget.controller.addAttachments([photo]);
   }
@@ -216,23 +266,38 @@ class _ComposerAttachmentSheetState extends State<ComposerAttachmentSheet> {
 
   /// Runs a picker call, reporting rather than rethrowing a platform failure.
   ///
-  /// Both callers are tap handlers, so an escaping `PlatformException` — a
+  /// The callers are tap handlers, so an escaping `PlatformException` — a
   /// camera that isn't available, a permission revoked while the picker was up
   /// — became an unhandled async error: nothing happens, and nothing says why.
-  Future<T?> _guardPicker<T>(Future<T?> Function() pick) async {
+  /// [notify] says whether the person also gets the photos-not-added notice.
+  Future<T?> _guardPicker<T>(Future<T?> Function() pick, {bool notify = true}) async {
     try {
       return await pick();
     } catch (error, stack) {
-      FlutterError.reportError(
-        FlutterErrorDetails(
-          exception: error,
-          stack: stack,
-          library: 'stream_chat_flutter_ai',
-          context: ErrorDescription('while picking an image for the composer'),
-        ),
-      );
+      _reportFailure(error, stack, 'while picking an image for the composer');
+      if (notify && mounted) unawaited(_showPhotosNotAdded());
       return null;
     }
+  }
+
+  void _reportFailure(Object error, StackTrace stack, String doing) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'stream_chat_flutter_ai',
+        context: ErrorDescription(doing),
+      ),
+    );
+  }
+
+  Future<void> _showPhotosNotAdded() {
+    final translations = AITranslations.of(context);
+    return showComposerAlert(
+      context,
+      title: translations.photosNotAddedTitle,
+      message: translations.photosNotAddedMessage,
+    );
   }
 
   void _selectChatOption(ChatOption option) {

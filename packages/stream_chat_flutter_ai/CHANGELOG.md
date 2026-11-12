@@ -1,4 +1,4 @@
-## Upcoming
+## 0.2.0
 
 💥 Breaking
 
@@ -10,12 +10,15 @@
 - `StreamingMessageView.codeBackgroundColor`/`codeForegroundColor` are replaced by `codeBlockTheme`.
 - `AITypingIndicatorView.dotSize` is now nullable; unset, it comes from the theme.
 - `AITypingIndicatorView.dotCount` and `AnimatedDots` are removed; the dots are core's `StreamTypingIndicatorDots`.
-- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`. A `StreamComponentFactory` replaces its parent's builders rather than adding to them, so a per-composer override means a nested factory with all the builders that subtree needs.
+- `ChatComposerFactory` and `ChatComposer.factory` are removed: register the composer's slots with `streamAIComponentBuilders` (`composerLeading`, `composerTrailing`, `composerInput`, `composerInputTrailing`, `composerAttachmentSheet`), and leave a slot out with `ChatComposer.hidden`. A `StreamComponentFactory` replaces its parent's builders rather than adding to them, so a per-composer override means a nested factory with all the builders that subtree needs.
 - `ComposerThemeData.fillColor` and `SuggestionsThemeData.backgroundColor` default to transparent, so the composer's pill, "+" button and camera tile, and the suggestion chips, are outlined rather than filled.
 - `ComposerThemeData.sendButtonColor` no longer colors the idle microphone, which is a ghost button in `iconColor`, or the disabled send button, which takes the Stream theme's disabled colors.
 - `ComposerThemeData.fillColor` no longer fills a sheet photo while it loads; `attachmentPlaceholderColor` does.
 - `ComposerThemeData.borderColor`, `attachmentPlaceholderColor` and `attachmentPlaceholderForegroundColor` no longer style an attachment thumbnail's remove badge, which is core's `StreamRemoveControl`.
-- `StreamingMessageView` types only while `expectMoreText` is `true`; given only `text`, it shows each new text in full. Pass `expectMoreText: isGenerating` while a reply streams.
+- `StreamingMessageView` types only while `expectMoreText` is `true`, and in the update that turns it
+  `false`; given only `text`, it shows each new text in full. A view created while it is `true` types
+  its first `text` from the first character instead of showing it at once. Pass
+  `expectMoreText: isGenerating` while a reply streams.
 - `USpecKind` has four new values; an exhaustive `switch` on it, such as one in an `AITranslations.chartSemanticsLabel` implementation, needs a case for each.
 
 ✅ Added
@@ -28,6 +31,11 @@
 - `ChatComposer.hidden` — returned from the `composerLeading` or `composerTrailing` builder, leaves
   that slot out, gap and all.
 - `ComposerAttachmentButton` — the "+" button a `ChatComposer` leads with by default.
+- `composerInputTrailing` in `streamAIComponentBuilders`, with `ChatComposerInputTrailingProps` —
+  replaces the control at the input's right edge, shown while the field is empty or dictation runs.
+- `ChatComposerSlotProps.openAttachmentSheet` — a custom composer slot, such as `composerLeading`,
+  calls it to open the attachment sheet the "+" button opens.
+- `ComposerAttachmentSheet.show` — opens the attachment sheet from any slot's props.
 - `ComposerAttachmentSheet.scrollController` and `ChatComposerAttachmentSheetProps.scrollController`
   — the sheet's scroll controller. A custom sheet passes it to its scrollable so the sheet scrolls
   with its drag.
@@ -46,7 +54,7 @@
 - `StreamingMessageView.onFinished` — called once a reply is completely on screen: the new
   `expectMoreText` flag is `false` and the typewriter has revealed every character. The typewriter
   usually falls behind the backend, so this fires later than the end of generation, which
-  `onTypewriterStateChanged` couldn't tell apart from a pause in the stream.
+  `onTypewriterStateChanged` can't tell apart from a pause in the stream.
 - `TypingIndicatorThemeData`, `TypingIndicatorTheme` and `AITheme.typingIndicatorTheme` — theme the
   typing indicator's caption style and the dots' color, size and spacing.
 - `AITypingIndicatorView.dotSpacing`.
@@ -151,10 +159,10 @@
   conversation's messages, reply actions and the composer's slots) with `stream_core_flutter`'s
   `StreamComponentFactory`, next to Stream Chat's. `context.aiComponentBuilder<Props>()` reads one.
 - `AICodeBlockProps`, `AIChartProps`, `AIReasoningProps`, `AIToolCallProps`, `AIToolApprovalProps` and `AIUnsupportedPartProps` — the props each builder gets.
-- `AIReplyActionsView` — the buttons under a finished reply: copy, which confirms with a check and
-  "Copied!" for a moment, and share, which opens the platform share sheet (or an email draft on
-  Linux and in browsers without the Web Share API), then regenerate and 👍 / 👎 when the app
-  handles them. Tapping the
+- `AIReplyActionsView` — the buttons under a finished reply: while it has text, copy, which confirms
+  with a check and "Copied!" for a moment, and share, which opens the platform share sheet (or an
+  email draft on Linux and in browsers without the Web Share API), then regenerate and 👍 / 👎 when
+  the app handles them. Tapping the
   current rating takes it back, and the selected rating is reported to screen readers.
 - `AIReplyActions` — what `AIReplyActionsView` offers besides copying and sharing: the `rating`, and
   the `onRegenerate` and `onRate` callbacks, each of whose buttons shows only when it is set. Set
@@ -171,10 +179,16 @@
   end, `loadOlderMessages` loads older messages at its start, without moving what is on screen, when
   its spinner comes into view and again each time the first turn changes while it stays there, and a
   button, shown once the latest is out of view, scrolls back to it. `isThinking` shows the agent
-  thinking, and the reply's first reasoning step carries on its count. `footer` sits under the latest
-  turn, such as for an error with a way to retry.
+  thinking, and the reply's first reasoning step carries on its count; one that arrives done opens
+  for a moment, then folds before the answer types out. `footer` sits under the latest
+  turn, or under the empty content while there are no messages, such as for an error with a way to
+  retry. A bottom `padding` the size of a composer floated
+  over the list keeps the latest message and the scroll-to-latest button above it, and a list
+  showing its end keeps showing it when that padding changes. The view caches its rows, so a builder reads state
+  that changes, such as a reply's rating, through a `Listenable`, and is created once.
 - `AIMessage` — the message type `AIConversationView` shows: mix it into your own, with `id`,
-  `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments` and `reasoningText`.
+  `role` (an `AIMessageRole`), `text`, `isGenerating`, `parts`, `attachments`, `rating` (how the
+  backend has the reply rated) and `reasoningText`.
   `AIMessageRole` is a `String` extension type and an open set, with `values` and `isKnown`.
 - `AIPendingMessage` — a message the person sent, shown at once until its copy arrives.
 - `AIMessageAttachment` — an image or file a message carries, or a kind of your own with its raw
@@ -183,16 +197,38 @@
 - `AIUserMessageView`, `AIAssistantMessageView` and `AIThinkingView` — a conversation's rows and its
   "Thinking… 4s".
 - `AIMessageAttachmentView` — an image as a thumbnail and anything else as a file card;
-  the `messageAttachment` builder shows kinds of your own.
-- The `userMessage`, `assistantMessage`, `replyActions` (empty by default) and `messageAttachment`
-  builders, with `AIUserMessageProps`, `AIAssistantMessageProps`, `AIReplyActionsProps`
-  and `AIMessageAttachmentProps`.
+  the `messageAttachment` builder shows kinds of your own. A file card with a URL opens it when
+  tapped, in the browser for a web link and through the platform for any other URL, with a notice when
+  nothing opens it, unless `AIConversationView.onAttachmentTap` or `onTap` is set.
+- The `userMessage`, `assistantMessage`, `replyActions` (empty by default unless the list shows an
+  `AIConversation`) and `messageAttachment` builders, with `AIUserMessageProps`,
+  `AIAssistantMessageProps`, `AIReplyActionsProps` and `AIMessageAttachmentProps`. In a list that
+  shows an `AIConversation`, `AIUserMessageProps.onEdit` edits the person's latest message, and
+  `AIReplyActionsProps.actions` holds the conversation's rating and regenerate actions, which an
+  `AIReplyActionsView` shows by default. Actions show under a finished reply that has only
+  attachments too.
 - `AIReasoningProps.text` and `duration` — a step's full reasoning, and the duration the
   conversation measured for its first step.
 - `ConversationThemeData` and `ConversationTheme`, and `AITheme.conversationTheme`, for the bubbles,
   attachments and scroll-to-latest button.
-- `AITranslations.copyMessage`, `editMessage`, `scrollToLatest`, `attachmentImage`,
-  `attachmentFile`, `attachmentDetails` and `fileSize` — the conversation's strings.
+- `AITranslations.copyMessage`, `editMessage`, `editingMessage`, `cancelEditing`, `agentError`,
+  `scrollToLatest`, `attachmentImage`, `attachmentFile`, `attachmentDetails`, `fileSize`,
+  `openAttachment` and `cannotOpenAttachment` — the conversation's strings.
+- `AIConversation` — the state behind an AI conversation, and what the person does in it: its
+  messages, the message on its way, where the latest exchange is (`AIConversationStatus`), why it
+  failed, what the agent says it is doing (`AIAgentActivity`, `AIAgentActivityState`) and the
+  ratings. It sends, stops, regenerates, edits, retries and rates through an
+  `AIConversationTransport`, which tells it what the conversation holds through an
+  `AIConversationFeed` until the conversation calls its `disconnect`, and gets each
+  `AIConversationRequest` (`AIConversationRequestKind`). A reply that doesn't start in time, or an
+  agent that says it couldn't answer, shows as an `AIAgentError`; a transport ends a request without
+  an error with an `AIConversationCancelledException`. `AIConversationActions` chooses what its
+  views offer. `AIConversationView.conversation` and `ChatComposer.conversation` show it and follow
+  it.
+- `ChatComposerController.isEditing` and `cancelEditing` — while the person edits a message they
+  sent, the composer says so above the text field, with a button that cancels it.
+  `requestFocus` focuses the field of the composer that shows the controller, and a composer shown
+  while the person is editing focuses it as it appears.
 - `AIVoiceGlowView` and `AIVoiceWaveView` — a globe of drifting color and a waveform line that show
   what a voice agent is doing, drawn with fragment shaders. They ease from one state into the next,
   ripple where they are tapped and barely move with reduced motion on.
@@ -213,8 +249,8 @@
 - `AIToolAuthorizer` — set as `AIToolApprover.authorizer`, it is how the person signs in: `connect`
   (an `AIToolAuthorizationConnector`) gets the call and the sign-in page, which your app opens in a
   browser, and completes with whether the person connected; `decline` (an
-  `AIToolAuthorizationDecliner`) sends their "not now". The package opens no browser itself and adds
-  no browser plugin. The approver keeps where each sign-in is (`AIToolAuthorizationState`): one
+  `AIToolAuthorizationDecliner`) sends their "not now". The package doesn't open the sign-in page
+  itself. The approver keeps where each sign-in is (`AIToolAuthorizationState`): one
   page at a time; back connected, it reads connecting for a while as the step changes;
   a sign-in issued again on the same step starts over; past `expiresAt` it reads `isExpired` and
   `canConnect` turns false.
@@ -223,45 +259,45 @@
   stops offering Connect. `AIMessagePartsView` shows the view under each
   call waiting for this person's sign-in when its approver has an authorizer.
 - The `toolAuthorization` builder and `AIToolAuthorizationProps` — replace the sign-in card.
-- `AIToolCallView` shows a call waiting for a sign-in with a key and "Waiting for sign-in", where it
-  used to read as running until the backend gave up on it. Given the viewer's `userId`, which
-  `AIMessagePartsView` passes when its approver offers the sign-in, it tells the person the call
+- `AIToolCallView` shows a call waiting for a sign-in with a key and "Waiting for sign-in". Given the
+  viewer's `userId`, which `AIMessagePartsView` passes when its approver offers the sign-in, it tells the person the call
   waits for "Waiting for you to sign in".
 - `AITranslations.toolCallAwaitingAuthorization`, `toolCallAwaitingYourAuthorization`,
   `toolAuthorizationConnect`, `toolAuthorizationConnecting`, `toolAuthorizationDecline`,
   `toolAuthorizationNotOpened` and `toolAuthorizationExpired`.
+- The `math` builder of `streamAIComponentBuilders` and `AIMathProps` — render LaTeX in every `AIMarkdownBody` given no
+  `mathBuilder` of its own, such as the replies in an `AIConversationView`.
+- A notice when the microphone permission is denied and the person taps the mic: by default a snackbar
+  that stays until dismissed, with a "Settings" action on Android, iOS and macOS, and that in a
+  `ChatComposer` floats above the composer rather than over it, or `SpeechToTextConfig.onPermissionDenied`
+  instead.
+- `SpeechToTextController.isPermissionDenied` — whether the person denied the microphone.
+- A "Photos not added" alert when a photo picked in the attachment sheet can't be loaded, such as a
+  photo stored only online with no connection, or the photo library picker fails.
+- `AITranslations.microphonePermissionDenied`, `openSettings`, `photosNotAddedTitle` and
+  `photosNotAddedMessage`.
 
 🔄 Changed
 
+- `SpeechToTextButton` stays tappable after the person denies the microphone, rather than rendering disabled,
+  so tapping it can show the permission notice.
 - A pie starts its first slice at the top and is solid, filling its plot. It used to start at the right
-  and leave a hole in the middle that grew with the chart's height; `USpec.donut` draws a ring now,
-  and a Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.
+  and leave a hole in the middle that grew with the chart's height; set `USpec.donut` for a ring.
+  A Chart.js `doughnut` keeps its hole. A `radar` chart draws as a radar rather than as bars.
 - The recommended way to provide translations is now to implement `AITranslations` rather than
   extend `DefaultAITranslations`, so a string added in a later version is a compile error instead
   of English silently showing up in your app. Existing subclasses of `DefaultAITranslations` keep
   working.
-- Charts show a legend by default (`ChartThemeData.showLegend` defaults to `true`). Set
-  `showLegend: false` to keep the previous look.
+- A pie, and a line, area, bar, scatter or bubble chart with two or more series, shows a legend by
+  default. Set `ChartThemeData.showLegend` to `false` to hide it.
+- A line breaks at a category its series has no value for (a Chart.js `null`), instead of joining
+  the points on either side.
 - `AITypingIndicatorView`'s caption defaults to the Stream theme's `bodyDefault` in `textSecondary`
   instead of inheriting `DefaultTextStyle`.
 - Pie slices are labelled with their percentage; when the chart has a legend the name moves there.
 - A pie's screen-reader summary lists its slice names.
 - `ChartSemantics.isEmpty` is `true` for a pie with no positive slice.
 - A chart's screen-reader summary names at most eight series or slices, then says "and N more".
-- The README documents the new components — agent steps, reasoning, tool calls, approvals, the
-  client tool runner, `AILocalModel`, chart legends, `streamAIComponentBuilders`, `AIReplyActionsView`,
-  `AIConversationView` and the voice views — and its `SpeechToTextButton` snippet now uses
-  `SpeechToTextConfig`.
-- The `AIConversationView` docs, those of the `userMessage`, `assistantMessage` and `replyActions`
-  builders, and the README say that the conversation caches its rows, so a builder must read state that
-  changes, such as a reply's rating, through a `Listenable`, and the builders should be created once.
-  The README's `replyActions` example now does that; before, its 👍 never filled.
-- The README's theming section lists `ConversationThemeData` and `ReplyActionsThemeData` with their
-  fields, and it documents `AIConversationView`'s `userMessage`, `assistantMessage`, `replyActions`
-  and `messageAttachment` slots, `AIPendingMessage`, `AIMessageRole` and `AIThinkingView`.
-- `StreamingMessageView.expectMoreText` now means the reply is still being generated: text is typed
-  out only while it is `true` and in the update that turns it `false`; after that, and for a view
-  created while it is `false`, a new `text` shows in full at once.
 - When `text` is replaced by something other than a continuation, `StreamingMessageView` and
   `TypewriterController.updateText` keep the part it shares with what is on screen and type only the
   rest, instead of starting over from the first character.
@@ -270,35 +306,21 @@
 
 🐞 Fixed
 
+- `SpeechToTextController.start` threw an unhandled error on an Android 12 or later device with no
+  speech recognizer. It reports the error to `FlutterError` and returns `false`, and the mic is
+  disabled.
 - On Android 13, `ComposerAttachmentSheet` showed "Allow photo access" even after photos were
   allowed, unless the app also declared `READ_MEDIA_VIDEO`. It now asks for photos only, so an app
   no longer needs `READ_MEDIA_VIDEO`, which Google Play asks you to justify.
-- `AIConversationView` showed the latest message too high when it scrolled to the end: for the
-  first message of a new conversation, a conversation that loads, and the scroll-to-latest button.
-  It was off by `padding.bottom`, so with a large bottom padding the message went out of view, and
-  the scroll-to-latest button showed right after a message was sent.
 - `AITypingIndicatorView`'s dots were black by default, which made them invisible
   in dark mode. They now default to the themed caption color.
-- A generating reply's first chunk is typed out from its first character in `StreamingMessageView`
-  and `AIAssistantMessageView`, instead of appearing at once.
-- `AIAssistantMessageView` keeps an answer writing for 0.1 s after `isGenerating` turns `false`, so
-  an answer that arrives whole in its last update — after a reasoning step, say — still types out
-  instead of appearing at once.
 - `StreamingMessageView.onTypewriterStateChanged` is no longer called during a build, so the host can
   call `setState` from it. A state that changes mid-frame is reported after the frame.
 - A `NaN` or infinite value no longer breaks a chart: the parsers drop it, and a pie leaves such
   slices out.
-- A pie with mixed-sign values no longer shows percentages such as "250%"; only positive slices are
-  drawn and counted.
-- A gap in a series (a Chart.js `null`) no longer shifts the points after it one category over: a
-  line breaks at the gap and a bar chart leaves the bar out.
-- A tool call whose row `AIMessagePartsView.toolCallBuilder` or `partBuilder` hides with
-  `AIMessagePartsView.hidden` now still asks its approval question, as a row hidden by the
-  component factory already did. Before, the question never showed and the call waited until the
-  backend timed it out.
-- An `AIToolApprover` now forgets an answer given for a call that `AIMessagePartsView`'s builders
-  draw their own way once the call stops waiting, instead of keeping it and failing it at its
-  `sentTimeout`.
+- A pie with negative values draws and counts only its positive slices.
+- The README's `SpeechToTextButton` snippet passes its options through `SpeechToTextConfig`; the
+  0.1.0 snippet passed them to the button, which doesn't compile.
 
 ## 0.1.0
 

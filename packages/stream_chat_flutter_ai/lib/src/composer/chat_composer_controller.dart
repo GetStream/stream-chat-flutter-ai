@@ -1,12 +1,15 @@
-// `material` (rather than just `widgets`), `chat_composer` and
-// `composer_attachment_sheet` are here for the [TextField], [ChatComposer] and
-// [ComposerAttachmentSheet] doc links below — nothing in this file's code needs
-// any of them. Dart is fine with the resulting import cycle, and
+// `material` (rather than just `widgets`), `chat_composer`,
+// `chat_composer_input` and `composer_attachment_sheet` are here for the
+// [TextField], [ChatComposer], [ChatComposerInput] and
+// [ComposerAttachmentSheet] doc links below — nothing in this file's code
+// needs any of them. Dart is fine with the resulting import cycle, and
 // `comment_references` fails the build if the links ever stop resolving, so an
 // over-eager import cleanup can't silently rot them back into plain text.
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_composer.dart';
+import 'package:stream_chat_flutter_ai/src/composer/chat_composer_input.dart';
 import 'package:stream_chat_flutter_ai/src/composer/chat_option.dart';
 import 'package:stream_chat_flutter_ai/src/composer/composer_attachment_sheet.dart';
 
@@ -52,6 +55,8 @@ class ChatComposerController extends ChangeNotifier {
   List<ChatOption> _chatOptions;
   ChatOption? _selectedChatOption;
   bool _isGenerating = false;
+  bool _isEditing = false;
+  final _focusRequests = ValueNotifier<int>(0);
   final List<XFile> _attachments = [];
 
   /// The underlying [TextEditingController] — pass this to a [TextField].
@@ -125,6 +130,39 @@ class ChatComposerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether the person is editing a message they sent.
+  ///
+  /// While they are, [ChatComposerInput] says so above the text field, with a
+  /// button that calls [cancelEditing].
+  bool get isEditing => _isEditing;
+  set isEditing(bool value) {
+    if (_isEditing == value) return;
+    _isEditing = value;
+    notifyListeners();
+  }
+
+  /// Asks the [ChatComposer] showing this controller to focus its text field.
+  ///
+  /// Does nothing while no composer shows it. A composer shown while
+  /// [isEditing] focuses its text field as it appears.
+  void requestFocus() => _focusRequests.value += 1;
+
+  /// Notifies each time [requestFocus] is called.
+  ///
+  /// [ChatComposer] listens to it. An app that builds its own composer can do
+  /// the same, and focus its text field in turn.
+  ValueListenable<int> get focusRequests => _focusRequests;
+
+  /// Stops editing a message, and empties the text field.
+  ///
+  /// Does nothing while the person isn't editing one.
+  void cancelEditing() {
+    if (!_isEditing) return;
+    _isEditing = false;
+    _textController.clear();
+    notifyListeners();
+  }
+
   /// The selectable options listed inside the composer's attachment sheet.
   ///
   /// Not a chip row above the input — that was removed; the chosen option
@@ -169,6 +207,7 @@ class ChatComposerController extends ChangeNotifier {
     _textController
       ..removeListener(_onTextChanged)
       ..dispose();
+    _focusRequests.dispose();
     super.dispose();
   }
 }
