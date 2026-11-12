@@ -167,9 +167,12 @@ Color? _iconColor(WidgetTester tester) {
   return (element.widget as Icon).color ?? IconTheme.of(element).color;
 }
 
-// The icon names the vendored basic catalog lists.
+// The icon names the basic catalog lists, as vendored with the conformance
+// suites in the workspace's `stream_chat_flutter_ai_a2ui_conformance` package.
 Set<String> _catalogIconNames() {
-  final catalog = jsonDecode(File('test/conformance/upstream/catalogs/basic/v1/catalog.json').readAsStringSync());
+  final catalog = jsonDecode(
+    File('../stream_chat_flutter_ai_a2ui_conformance/test/upstream/catalogs/basic/v1/catalog.json').readAsStringSync(),
+  );
   final name = (catalog as Map<String, Object?>)['components']! as Map<String, Object?>;
   final icon = (name['Icon']! as Map<String, Object?>)['properties']! as Map<String, Object?>;
   final oneOf = (icon['name']! as Map<String, Object?>)['oneOf']! as List<Object?>;

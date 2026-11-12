@@ -41,6 +41,29 @@ void main() {
     expect((await scopeOf(tester, '"a"')).isStreaming, isFalse);
   });
 
+  testWidgets('the scope follows the same runtime from streaming to done', (tester) async {
+    final isStreaming = <bool>[];
+    final library = columns((context, scope) {
+      isStreaming.add(scope.isStreaming);
+      return const SizedBox();
+    });
+    final runtime = testRuntime(library: library);
+    addTearDown(runtime.dispose);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      library: library,
+      program: 'root = Card([Table([Col("L", "a")])])',
+      isStreaming: true,
+    );
+    expect(isStreaming.last, isTrue);
+
+    runtime.update('root = Card([Table([Col("L", "a")])])', isStreaming: false);
+    await tester.pump();
+
+    expect(isStreaming.last, isFalse);
+  });
+
   testWidgets('string gives a string only', (tester) async {
     expect((await scopeOf(tester, '"a"')).string('data'), 'a');
     expect((await scopeOf(tester, '"a"')).string('label'), 'L');

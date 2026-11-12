@@ -13,6 +13,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/library/component_schema.
 import 'package:stream_chat_flutter_ai_openui/src/core/library/library_definition.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/portable_component.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/library/skipped_component_log.dart';
 
 export 'package:stream_chat_flutter_ai_openui/src/core/library/component_schema.dart' show ComponentSchema;
 export 'package:stream_chat_flutter_ai_openui/src/core/library/library_definition.dart' show LibraryDefinition;
@@ -28,20 +29,20 @@ export 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.da
 /// already a component, function or action of `library` or an earlier
 /// definition's.
 List<(int, ComponentSchema)> placeableComponents(LibraryDefinition library, List<Map<String, Object?>> definitions) {
-  final taken = {
-    ...library.componentNames,
-    for (final function in library.functions) function.name,
-    for (final action in library.actions) action.name,
-  };
+  final claim = library.componentNameClaim();
   final placeable = <(int, ComponentSchema)>[];
   for (final (index, definition) in definitions.indexed) {
     final ComponentSchema schema;
     try {
       schema = portableComponentSchema(definition);
-    } on FormatException {
+    } on FormatException catch (error) {
+      final name = definition['name'];
+      logSkippedComponent(
+        'OpenUI: skipped the component ${name is String ? '"$name"' : 'at index $index'}: ${error.message}.',
+      );
       continue;
     }
-    if (LibraryDefinition.isCallableName(schema.name) && taken.add(schema.name)) placeable.add((index, schema));
+    if (claim(schema.name)) placeable.add((index, schema));
   }
   return placeable;
 }

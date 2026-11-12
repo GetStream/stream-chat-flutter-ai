@@ -2,9 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_grid.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 /// Builds a `Stack`: its `children` in a column, or a row when its
 /// `direction` is `row`, `gap` apart, aligned by its `align` and `justify`; a
@@ -37,9 +37,9 @@ Widget buildOpenUIStack(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIStandardCard(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
-  final spacing = theme.lSpacing!;
+  final spacing = theme.lSpacing;
   final content = _OpenUIFlex(
     scope: scope,
     nodes: scope.elements('children'),
@@ -50,12 +50,12 @@ Widget buildOpenUIStandardCard(BuildContext context, OpenUIComponentScope scope)
     'clear' => null,
     'sunk' => BoxDecoration(
       color: colors.sunkenSurface,
-      borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
+      borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
     ),
     _ => BoxDecoration(
       color: colors.surface,
-      borderRadius: BorderRadius.circular(theme.cornerRadius!),
-      border: Border.all(color: colors.border!.withValues(alpha: colors.border!.a * 0.6), width: 0.5),
+      borderRadius: BorderRadius.circular(theme.cornerRadius),
+      border: Border.all(color: colors.border.withValues(alpha: colors.border.a * 0.6), width: 0.5),
     ),
   };
   if (decoration == null) return content;
@@ -78,7 +78,7 @@ class _OpenUIFlex extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final gap = openUIGap(theme, scope.value('gap'));
     final align = scope.string('align');
     final children = openUIChildWidgets(context, scope, nodes);

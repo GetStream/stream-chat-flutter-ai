@@ -68,6 +68,9 @@ final class OpenUIRuntime {
        _parser = OpenUIStreamParser(schema),
        _queries = QueryManager(tools: tools, timer: timer),
        _initialState = _toValues(initialState) {
+    // Saved state is applied once, here, and again only by [restore]: later
+    // declarations only change defaults, so they never revert what was typed.
+    if (_initialState != null) _initializeStore(applyPersisted: true);
     _store.onChange = _storeChanged;
     _queries.onChange = _queriesChanged;
   }
@@ -86,11 +89,12 @@ final class OpenUIRuntime {
 
   Map<String, OpenUIValue>? _initialState;
   String? _text;
-  bool _isStreaming = false;
+  final _streaming = ValueNotifier<bool>(false);
   ParseResult? _result;
   String? _storeKey;
   bool _recomputing = false;
   bool _recomputeAgain = false;
+  bool _initializing = false;
   List<OpenUIError> _runtimeErrors = const [];
   bool _disposed = false;
 
@@ -116,7 +120,11 @@ final class OpenUIRuntime {
   Stream<OpenUIActionEvent> get actions => _actions.stream;
 
   /// Whether the reply is still streaming.
-  bool get isStreaming => _isStreaming;
+  bool get isStreaming => _streaming.value;
+
+  /// [isStreaming], notifying when it changes, which a reply that ends with
+  /// the text it already had does without changing [root].
+  ValueListenable<bool> get streaming => _streaming;
 
   /// Reads the reply's whole text so far, `text`.
   ///
@@ -126,9 +134,9 @@ final class OpenUIRuntime {
   /// most [maxPasses] times, and collects the errors.
   void update(String? text, {required bool isStreaming}) {
     if (_disposed) return;
-    if (text == _text && isStreaming == _isStreaming && _result != null) return;
+    if (text == _text && isStreaming == _streaming.value && _result != null) return;
     _text = text;
-    _isStreaming = isStreaming;
+    _streaming.value = isStreaming;
     _result = text == null || text.isEmpty ? null : _parser.set(text, complete: !isStreaming);
     _initializeStore();
     _runQueries();
@@ -140,8 +148,8 @@ final class OpenUIRuntime {
   void restore(Map<String, Object?> state) {
     if (_disposed) return;
     _initialState = _toValues(state);
-    _storeKey = null;
-    _initializeStore();
+    _initializeStore(applyPersisted: true);
+    _runQueries();
     _recompute();
   }
 
@@ -160,6 +168,7 @@ final class OpenUIRuntime {
     _queries.dispose();
     unawaited(_actions.close());
     _root.dispose();
+    _streaming.dispose();
     _isQueryLoading.dispose();
     _errors.dispose();
     _state.dispose();
@@ -190,27 +199,48 @@ final class OpenUIRuntime {
     );
   }
 
-  void _initializeStore() {
+  // Writes the saved state and the declared defaults as one change: the
+  // store's callbacks wait until it is done, and the caller runs the queries
+  // and evaluates the tree once for all of it.
+  void _initializeStore({bool applyPersisted = false}) {
     final declarations = _result?.stateDeclarations ?? const {};
-    final initial = _initialState;
-    if (_result == null && initial == null) return;
-    final key =
-        '${JS.jsonStringify(OpenUIObject(declarations))}::${JS.jsonStringify(initial == null ? null : OpenUIObject(initial))}';
-    if (key == _storeKey) return;
+    final key = JS.jsonStringify(OpenUIObject(declarations));
+    if (key == _storeKey && !applyPersisted) return;
     _storeKey = key;
+    _initializing = true;
+    try {
+      _store.initialize(defaults: declarations, persisted: applyPersisted ? _persistedBindings() : const {});
+    } finally {
+      _initializing = false;
+    }
+    _publishState();
+  }
+
+  // The saved `$variables`, handed to the store; the saved form fields are
+  // set in it directly.
+  Map<String, OpenUIValue> _persistedBindings() {
     final bindings = <String, OpenUIValue>{};
-    for (final MapEntry(:key, :value) in (initial ?? const <String, OpenUIValue>{}).entries) {
+    for (final MapEntry(:key, :value) in (_initialState ?? const <String, OpenUIValue>{}).entries) {
       if (key.startsWith(r'$')) {
         bindings[key] = value;
       } else {
         _store.set(key, value);
       }
     }
-    _store.initialize(defaults: declarations, persisted: bindings);
+    return bindings;
+  }
+
+  void _publishState() {
+    final next = {
+      for (final MapEntry(:key, :value) in _store.snapshot.entries)
+        if (!OpenUIStore.isSecret(value)) key: OpenUIStore.withoutSecrets(value),
+    };
+    // Only a change notifies: the host saves the state each time it does.
+    if (!mapEquals(next, _state.value)) _state.value = next;
   }
 
   void _runQueries() {
-    if (_isStreaming) return;
+    if (_streaming.value) return;
     final result = _result;
     final context = _context();
     OpenUIValue? evaluate(AstNode? node) => node == null ? null : Evaluator.evaluate(node, context);
@@ -264,7 +294,7 @@ final class OpenUIRuntime {
 
   void _collectErrors() {
     if (_disposed) return;
-    if (_isStreaming) {
+    if (_streaming.value) {
       if (_errors.value.isNotEmpty) _errors.value = const [];
       return;
     }
@@ -286,15 +316,12 @@ final class OpenUIRuntime {
   }
 
   void _storeChanged(String key) {
-    if (_disposed) return;
+    if (_disposed || _initializing) return;
     if (key.startsWith(r'$')) {
       _runQueries();
       _recompute();
     }
-    _state.value = {
-      for (final MapEntry(:key, :value) in _store.snapshot.entries)
-        if (!OpenUIStore.isSecret(value)) key: OpenUIStore.withoutSecrets(value),
-    };
+    _publishState();
   }
 
   void _queriesChanged() {

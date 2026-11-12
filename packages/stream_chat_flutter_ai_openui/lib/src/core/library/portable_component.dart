@@ -60,7 +60,7 @@ ComponentSchema portableComponentSchema(Map<String, Object?> definition) {
     if (definition['description'] case final String description when description.isNotEmpty) _sentence(description),
     for (final (field, property) in _orderedProperties(parameters))
       if (property is Map<String, Object?>)
-        if (property['description'] case final String description when description.isNotEmpty)
+        if (property['description'] case final String description when description.trim().isNotEmpty)
           _sentence('$field: $description'),
     if (events is List<Object?>)
       for (final event in events)

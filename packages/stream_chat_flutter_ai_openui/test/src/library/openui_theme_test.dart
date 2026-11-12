@@ -1,18 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_core_flutter/core.dart';
 
 import '../openui_test_app.dart';
 
-// What OpenUITheme.of gives under [stream], with [data] in an OpenUITheme
-// around when given.
-Future<OpenUIThemeData> _resolve(WidgetTester tester, {StreamTheme? stream, OpenUIThemeData? data}) async {
-  late OpenUIThemeData resolved;
+// The theme the components draw with under [stream], with [data] in an
+// OpenUITheme around when given.
+Future<OpenUIResolvedTheme> _resolve(WidgetTester tester, {StreamTheme? stream, OpenUIThemeData? data}) async {
+  late OpenUIResolvedTheme resolved;
   Widget child = Builder(
     builder: (context) {
-      resolved = OpenUITheme.of(context);
+      resolved = OpenUIResolvedTheme.resolve(context);
       return const SizedBox();
     },
   );
@@ -144,6 +145,44 @@ Object? _read(OpenUIThemeData d, String name) => switch (name) {
   _ => throw ArgumentError(name),
 };
 
+// The value of the field [name] of the resolved theme [d].
+Object? _readResolved(OpenUIResolvedTheme d, String name) => switch (name) {
+  'accent' => d.accent,
+  'onAccent' => d.onAccent,
+  'text' => d.text,
+  'secondaryText' => d.secondaryText,
+  'tertiaryText' => d.tertiaryText,
+  'surface' => d.surface,
+  'sunkenSurface' => d.sunkenSurface,
+  'subtleFill' => d.subtleFill,
+  'border' => d.border,
+  'success' => d.success,
+  'warning' => d.warning,
+  'error' => d.error,
+  'info' => d.info,
+  'neutral' => d.neutral,
+  'chartPalette' => d.chartPalette,
+  'xsSpacing' => d.xsSpacing,
+  'sSpacing' => d.sSpacing,
+  'mSpacing' => d.mSpacing,
+  'lSpacing' => d.lSpacing,
+  'xlSpacing' => d.xlSpacing,
+  'xxlSpacing' => d.xxlSpacing,
+  'smallCornerRadius' => d.smallCornerRadius,
+  'mediumCornerRadius' => d.mediumCornerRadius,
+  'cornerRadius' => d.cornerRadius,
+  'pillCornerRadius' => d.pillCornerRadius,
+  'title' => d.title,
+  'heading' => d.heading,
+  'body' => d.body,
+  'bodyLarge' => d.bodyLarge,
+  'bodySmall' => d.bodySmall,
+  'caption' => d.caption,
+  'code' => d.code,
+  'metric' => d.metric,
+  _ => throw ArgumentError(name),
+};
+
 const _colorNames = [
   'accent', 'onAccent', 'text', 'secondaryText', 'tertiaryText', 'surface', 'sunkenSurface', 'subtleFill', 'border',
   'success', 'warning', 'error', 'info', 'neutral', //
@@ -191,8 +230,8 @@ void main() {
 
       testWidgets('the text styles come from the text theme, without colors', (tester) async {
         final s = await _resolve(tester, stream: stream);
-        void same(TextStyle? actual, TextStyle token, {FontWeight? weight}) {
-          expect(actual!.fontSize, token.fontSize);
+        void same(TextStyle actual, TextStyle token, {FontWeight? weight}) {
+          expect(actual.fontSize, token.fontSize);
           expect(actual.fontWeight, weight ?? token.fontWeight);
           expect(actual.height, token.height);
           expect(actual.fontFamily, token.fontFamily);
@@ -208,9 +247,9 @@ void main() {
         same(s.bodyLarge, text.headingMd, weight: text.bodyDefault.fontWeight);
         same(s.bodySmall, text.captionDefault);
         same(s.caption, text.metadataDefault);
-        expect(s.code!.fontFamily, 'monospace');
-        expect(s.code!.fontSize, 13);
-        expect((s.metric!.fontSize, s.metric!.fontWeight), (22, FontWeight.w600));
+        expect(s.code.fontFamily, 'monospace');
+        expect(s.code.fontSize, 13);
+        expect((s.metric.fontSize, s.metric.fontWeight), (22, FontWeight.w600));
       });
     });
   }
@@ -219,15 +258,8 @@ void main() {
     final theme = await _resolve(tester);
 
     for (final name in _allNames) {
-      expect(_read(theme, name), isNotNull, reason: name);
+      expect(_readResolved(theme, name), isNotNull, reason: name);
     }
-  });
-
-  testWidgets('the defaults the docs give hold for the default Stream theme', (tester) async {
-    final t = await _resolve(tester);
-
-    expect([t.xsSpacing, t.sSpacing, t.mSpacing, t.lSpacing, t.xlSpacing, t.xxlSpacing], [4, 8, 12, 16, 24, 32]);
-    expect([t.smallCornerRadius, t.mediumCornerRadius, t.cornerRadius], [8, 12, 16]);
   });
 
   testWidgets('spacing and radii come from the Stream tokens', (tester) async {
@@ -257,7 +289,7 @@ void main() {
     expect(dark.chartPalette, light.chartPalette);
   });
 
-  testWidgets('of fills only what the nearest OpenUITheme leaves null', (tester) async {
+  testWidgets('resolving fills only what the nearest OpenUITheme leaves null', (tester) async {
     final defaults = await _resolve(tester);
     final theme = await _resolve(
       tester,
@@ -271,6 +303,34 @@ void main() {
     expect(theme.cornerRadius, defaults.cornerRadius);
     expect(theme.body, const TextStyle(fontSize: 31));
     expect(theme.title, defaults.title);
+  });
+
+  testWidgets('of gives the nearest OpenUITheme data as it is, and empty data without one', (tester) async {
+    late OpenUIThemeData inside;
+    late OpenUIThemeData outside;
+    final data = OpenUIThemeData(accent: _red);
+    await tester.pumpWidget(
+      testApp(
+        Builder(
+          builder: (context) {
+            outside = OpenUITheme.of(context);
+            return OpenUITheme(
+              data: data,
+              child: Builder(
+                builder: (context) {
+                  inside = OpenUITheme.of(context);
+                  return const SizedBox();
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(outside, const OpenUIThemeData.empty());
+    expect(inside, same(data));
+    expect(inside.surface, isNull);
   });
 
   testWidgets('a change of the OpenUITheme rebuilds what reads it', (tester) async {

@@ -24,11 +24,13 @@ part 'openui_node_view.dart';
 ///
 /// ```dart
 /// Widget buildBadge(BuildContext context, OpenUIComponentScope scope) {
-///   // Every value of the theme `of` gives is set.
+///   // `of` gives the values the app set; the rest come from the Stream theme.
 ///   final theme = OpenUITheme.of(context);
 ///   return Text(
 ///     scope.text('label') ?? '',
-///     style: theme.caption!.copyWith(color: theme.accent),
+///     style: context.streamTextTheme.metadataDefault.copyWith(
+///       color: theme.accent ?? context.streamColorScheme.accentPrimary,
+///     ),
 ///   );
 /// }
 /// ```
@@ -120,6 +122,12 @@ abstract base class OpenUIComponentScope {
   /// Internal to the package.
   @internal
   StateField stateField(String name);
+
+  /// The component this scope is of.
+  ///
+  /// Internal to the package.
+  @internal
+  ElementNode get node;
 
   /// The widget [builder] builds, built again each time a `$variable` or form
   /// field of the reply changes.

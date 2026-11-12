@@ -2,9 +2,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
@@ -51,16 +52,72 @@ class _OpenUIFormState extends State<_OpenUIForm> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
+    final scope = widget.scope;
+    // The fields the form checks and keeps the defaults of, on screen or not:
+    // a tab that isn't chosen, or an item that is closed, doesn't build its
+    // fields. They are read again each time the reply changes, so what the
+    // reply no longer holds is dropped, and none while it streams.
+    final fields = scope.isStreaming ? const <OpenUIFormField>[] : collectOpenUIFormFields(scope.prop('fields'));
+    _validation!.setFields(fields);
     return OpenUIFormScope(
       validation: _validation!,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.lSpacing!,
-        children: [widget.scope.buildProp('fields'), widget.scope.buildProp('buttons')],
+      child: _FormFieldDefaults(
+        scope: scope,
+        fields: fields,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: theme.lSpacing,
+          children: [scope.buildProp('fields'), scope.buildProp('buttons')],
+        ),
       ),
     );
   }
+}
+
+// Keeps the defaults of the form's fields once the reply ends, after the
+// frame, for the fields that are not on screen: those that are keep their own.
+class _FormFieldDefaults extends StatefulWidget {
+  const _FormFieldDefaults({required this.scope, required this.fields, required this.child});
+
+  final OpenUIComponentScope scope;
+  final List<OpenUIFormField> fields;
+  final Widget child;
+
+  @override
+  State<_FormFieldDefaults> createState() => _FormFieldDefaultsState();
+}
+
+class _FormFieldDefaultsState extends State<_FormFieldDefaults> {
+  bool _scheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule();
+  }
+
+  @override
+  void didUpdateWidget(_FormFieldDefaults oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _schedule();
+  }
+
+  void _schedule() {
+    if (_scheduled || widget.fields.isEmpty) return;
+    _scheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (!mounted || widget.scope.isStreaming) return;
+      for (final field in widget.fields) {
+        final scope = widget.scope.scopeOf(field.node);
+        saveOpenUIFieldDefault(context, scope, field.node.typeName, openUIFieldDefault(scope));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Builds a `FormControl`: its `label`, marked `*` when its `input` is
@@ -70,16 +127,16 @@ class _OpenUIFormState extends State<_OpenUIForm> {
 /// Internal to the package.
 @internal
 Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final input = scope.elements('input').firstOrNull;
   final name = input == null ? null : scope.scopeOf(input).text('name');
   final error = name == null ? null : OpenUIFormScope.maybeOf(context)?.validation.errorOf(name);
   final hint = scope.text('hint') ?? '';
-  final label = theme.bodySmall!.copyWith(fontWeight: FontWeight.w500);
+  final label = theme.bodySmall.copyWith(fontWeight: FontWeight.w500);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.sSpacing!,
+    spacing: theme.sSpacing,
     children: [
       Text.rich(
         TextSpan(
@@ -103,7 +160,7 @@ Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) 
           child: StreamHelperText(text: error, state: StreamHelperState.error),
         )
       else if (hint.isNotEmpty)
-        Text(hint, style: theme.caption!.copyWith(color: colors.secondaryText)),
+        Text(hint, style: theme.caption.copyWith(color: colors.secondaryText)),
     ],
   );
 }

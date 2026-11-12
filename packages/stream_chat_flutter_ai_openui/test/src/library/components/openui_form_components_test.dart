@@ -5,7 +5,6 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -13,7 +12,6 @@ import 'package:stream_core_flutter/core.dart';
 import '../../openui_test_app.dart';
 
 final _library = OpenUILibrary.standard;
-final _theme = OpenUIThemeData.defaults(StreamTheme.light());
 
 Future<(OpenUIRuntime, List<OpenUIActionEvent>)> _pump(
   WidgetTester tester,
@@ -154,6 +152,63 @@ root = Stack([Input("q", "", "text", null, $q), Button("Set", @Set($q, "there"))
       await tester.enterText(find.byType(TextField), 'typed');
       await tester.pump();
       expect(runtime.state.value[r'$q'], const OpenUIString('typed'));
+    });
+  });
+
+  group('bound defaults', () {
+    const radio =
+        r'RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro", null, $plan)';
+    const checks = r'CheckBoxGroup("o", [CheckBoxItem("A", "", "a", true), CheckBoxItem("B", "", "b")], null, $o)';
+    const slider = r'Slider("v", "continuous", 0, 100, null, [25], null, null, $v)';
+
+    testWidgets('a RadioGroup writes its default into an unset variable once the reply ends', (tester) async {
+      const program = 'root = Stack([$radio])';
+      final (runtime, _) = await _pump(tester, '\$plan = null\n$program', isStreaming: true);
+      expect(runtime.state.value[r'$plan'], OpenUINull.instance);
+
+      runtime.update('\$plan = null\n$program', isStreaming: false);
+      await pumpOpenUI(tester, runtime, library: _library);
+      await tester.pump();
+
+      expect(runtime.state.value[r'$plan'], const OpenUIString('pro'));
+    });
+
+    testWidgets('a CheckBoxGroup writes its defaults into an unset variable', (tester) async {
+      final (runtime, _) = await _pump(tester, '\$o = null\nroot = Stack([$checks])');
+
+      expect(runtime.state.value[r'$o'], OpenUIValue.fromJson(const {'a': true, 'b': false}));
+    });
+
+    testWidgets('a Slider writes its default into an unset variable', (tester) async {
+      final (runtime, _) = await _pump(tester, '\$v = null\nroot = Stack([$slider])');
+
+      expect(runtime.state.value[r'$v'], OpenUIValue.fromJson(const [25]));
+    });
+
+    testWidgets('a variable that has a value keeps it', (tester) async {
+      final (runtime, _) = await _pump(tester, '''
+\$plan = "free"
+\$o = {a: false, b: true}
+\$v = [60]
+root = Stack([$radio, $checks, $slider])
+''');
+
+      expect(runtime.state.value[r'$plan'], const OpenUIString('free'));
+      expect(runtime.state.value[r'$o'], OpenUIValue.fromJson(const {'a': false, 'b': true}));
+      expect(runtime.state.value[r'$v'], OpenUIValue.fromJson(const [60]));
+    });
+
+    testWidgets('a required bound RadioGroup submits with its default', (tester) async {
+      final (_, events) = await _pump(tester, r'''
+$plan = null
+root = Stack([Form("f", Buttons([Button("Go", @ToAssistant("Go"))]), [FormControl("P", RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro", {required: true}, $plan))])])
+''');
+
+      await tester.tap(find.text('Go'));
+      await tester.pump();
+
+      expect(events, hasLength(1));
+      expect(find.text('This field is required'), findsNothing);
     });
   });
 
@@ -347,6 +402,18 @@ root = Stack([DatePicker("r", "range", null, {from: "2026-01-02", to: "2026-01-0
       expect(runtime.fieldValue(null, 'e'), OpenUIObject({'to': today, 'from': today}));
     });
 
+    testWidgets('a range starting after the last pickable day opens its end picker', (tester) async {
+      await _pump(tester, '''
+root = Stack([DatePicker("r", "range", null, {from: "2300-01-01"})])
+''');
+
+      await tester.tap(find.text('Choose').last);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('OK'), findsOneWidget);
+    });
+
     test('reads the day a string starts with, and no impossible day', () {
       expect(openUIParseDate('2026-02-03T10:00:00Z'), DateTime(2026, 2, 3));
       expect(openUIParseDate('2026-02-30'), isNull);
@@ -429,7 +496,7 @@ root = Stack([Form("f", Buttons([IconButton("Go", Icon("send"))]), [FormControl(
     expect(runtime.fieldValue(null, 't'), OpenUIValue.fromJson(const ['b']));
   });
 
-  group('review fixes', () {
+  group('fields in their forms', () {
     testWidgets('a required password bound to a variable submits once typed', (tester) async {
       final (_, events) = await _pump(tester, r'''
 $pw = ""
@@ -455,6 +522,19 @@ root = Stack([Form("f", Buttons([Button("Go")]), [Tabs([TabItem("a", "A", [FormC
 
       expect(events, isEmpty);
       expect(find.text('This field is required'), findsOneWidget);
+    });
+
+    testWidgets('a field on screen is checked with its own rules, not those of a hidden one of its name', (
+      tester,
+    ) async {
+      final (_, events) = await _pump(tester, '''
+root = Stack([Form("f", Buttons([Button("Go")]), [Tabs([TabItem("a", "A", [FormControl("X", Input("x", "", "text", {required: true}))]), TabItem("b", "B", [FormControl("Y", Input("x", "", "text", {minLength: 5}))])])])])
+''');
+
+      await tester.tap(find.text('Go'));
+      await tester.pump();
+
+      expect(events, isEmpty);
     });
 
     testWidgets('a field shows, checks and sends its own value', (tester) async {
@@ -486,23 +566,69 @@ root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("N", Input("n", ""
     });
   });
 
+  group('host themes', () {
+    const program = '''
+root = Stack([CheckBoxGroup("o", [CheckBoxItem("A", "", "a", true), CheckBoxItem("B", "", "b")]), SwitchGroup("s", [SwitchItem("Wifi", "", "wifi", true)]), Input("t", "Type")])
+''';
+
+    Future<void> pumpIn(WidgetTester tester, Widget Function(Widget view) host) async {
+      final runtime = testRuntime(library: _library);
+      addTearDown(runtime.dispose);
+      runtime.update(program, isStreaming: false);
+      await tester.pumpWidget(host(OpenUIView(runtime: runtime, library: _library)));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('a Material 2 app draws its checkboxes as Material 3 does', (tester) async {
+      await pumpIn(
+        tester,
+        (view) => MaterialApp(
+          theme: ThemeData(useMaterial3: false, extensions: [StreamTheme.light()]),
+          home: Material(child: view),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(Theme.of(tester.element(find.byType(StreamCheckbox).first)).useMaterial3, isTrue);
+      expect(tester.widgetList<StreamCheckbox>(find.byType(StreamCheckbox)).map((box) => box.props.value), [
+        true,
+        false,
+      ]);
+    });
+
+    testWidgets('a host without a Material draws fields, switches and checkboxes', (tester) async {
+      await pumpIn(
+        tester,
+        (view) => MaterialApp(
+          theme: ThemeData(useMaterial3: false, extensions: [StreamTheme.light()]),
+          home: view,
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byType(StreamSwitch), findsOneWidget);
+      expect(find.byType(StreamCheckbox), findsNWidgets(2));
+    });
+  });
+
   group('sizes', () {
     testWidgets('a select box grows with the text size', (tester) async {
       final runtime = testRuntime(library: _library);
       addTearDown(runtime.dispose);
       runtime.update('root = Stack([Select("s", [SelectItem("a", "A")])])', isStreaming: false);
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-          child: testApp(OpenUIView(runtime: runtime, library: _library)),
-        ),
-      );
+      Future<double> heightAt(double scale) async {
+        await tester.pumpWidget(
+          MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: testApp(OpenUIView(runtime: runtime, library: _library)),
+          ),
+        );
+        return tester.getSize(find.byType(StreamTextInput)).height;
+      }
 
-      final box = tester.widget<Container>(
-        find.ancestor(of: find.text('Select...'), matching: find.byType(Container)).first,
-      );
-      expect(box.constraints!.minHeight, 80);
-      expect(_theme.mSpacing, isNotNull);
+      expect(await heightAt(2), greaterThan(await heightAt(1)));
     });
   });
 }

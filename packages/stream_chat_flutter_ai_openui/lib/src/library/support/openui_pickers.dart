@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// [date] as `yyyy-MM-dd`.
@@ -39,26 +37,27 @@ DateTime? openUIParseDate(String? text) {
 /// Internal to the package.
 @internal
 Future<DateTime?> pickOpenUIDate(BuildContext context, {DateTime? initial, DateTime? first}) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final firstDate = first ?? DateTime(1900);
   var start = initial ?? DateTime.now();
   if (start.isBefore(firstDate)) start = firstDate;
-  final lastDate = DateTime(2200);
+  // Never before [firstDate]: a model may send a `from` after the fixed end.
+  final lastDate = firstDate.isAfter(DateTime(2200)) ? firstDate : DateTime(2200);
   if (start.isAfter(lastDate)) start = lastDate;
   final base = Theme.of(context);
-  final brightness = ThemeData.estimateBrightnessForColor(colors.surface!);
+  final brightness = ThemeData.estimateBrightnessForColor(colors.surface);
   final picker = base.copyWith(
     colorScheme: ColorScheme(
       brightness: brightness,
-      primary: colors.accent!,
-      onPrimary: colors.onAccent!,
-      secondary: colors.accent!,
-      onSecondary: colors.onAccent!,
-      error: colors.error!,
-      onError: colors.onAccent!,
-      surface: colors.surface!,
-      onSurface: colors.text!,
+      primary: colors.accent,
+      onPrimary: colors.onAccent,
+      secondary: colors.accent,
+      onSecondary: colors.onAccent,
+      error: colors.error,
+      onError: colors.onAccent,
+      surface: colors.surface,
+      onSurface: colors.text,
       onSurfaceVariant: colors.secondaryText,
       outline: colors.border,
       outlineVariant: colors.border,
@@ -69,7 +68,7 @@ Future<DateTime?> pickOpenUIDate(BuildContext context, {DateTime? initial, DateT
       headerBackgroundColor: colors.surface,
       headerForegroundColor: colors.text,
       surfaceTintColor: const Color(0x00000000),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(theme.cornerRadius!)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(theme.cornerRadius)),
     ),
   );
   return showDatePicker(
@@ -95,36 +94,18 @@ Future<String?> pickOpenUIOption(
     context: context,
     isDismissible: true,
     builder: (context, scrollController) {
-      final theme = OpenUITheme.of(context);
-      final colors = theme;
+      final theme = OpenUIViewScope.of(context).theme;
       return ListView(
         controller: scrollController,
         shrinkWrap: true,
-        padding: EdgeInsets.symmetric(vertical: theme.mSpacing!),
+        padding: EdgeInsets.symmetric(vertical: theme.mSpacing),
         children: [
           for (final (value, label) in options)
-            OpenUIPressable(
+            StreamListTile(
               selected: value == selected,
               onTap: () => Navigator.of(context).pop(value),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: theme.lSpacing!, vertical: theme.mSpacing!),
-                child: Row(
-                  spacing: theme.sSpacing!,
-                  children: [
-                    Expanded(
-                      child: Text(label, style: theme.body!.copyWith(color: colors.text)),
-                    ),
-                    if (value == selected)
-                      ExcludeSemantics(
-                        child: Icon(
-                          context.streamIcons.checkmark,
-                          size: openUIScaled(context, 20),
-                          color: colors.accent,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              title: Text(label),
+              trailing: value == selected ? Icon(context.streamIcons.checkmark) : null,
             ),
         ],
       );

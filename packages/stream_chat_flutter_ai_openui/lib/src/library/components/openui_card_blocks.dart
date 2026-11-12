@@ -4,12 +4,13 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_item_context.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_node_props.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `SnippetCardBlock`: its `items` as cards, each with a `lhs` and,
 /// beside it or below when there is no room, a smaller `rhs`.
@@ -38,8 +39,8 @@ Widget buildOpenUISnippetCardBlock(BuildContext context, OpenUIComponentScope sc
         child: Wrap(
           alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: OpenUITheme.of(context).sSpacing!,
-          runSpacing: OpenUITheme.of(context).sSpacing!,
+          spacing: OpenUIViewScope.of(context).theme.sSpacing,
+          runSpacing: OpenUIViewScope.of(context).theme.sSpacing,
           children: [
             if (lhs != null) item.scope.buildNode(lhs),
             if (rhs != null) item.scope.buildNode(withOpenUIProps(rhs, {'size': const OpenUIString('xs')})),
@@ -75,7 +76,7 @@ Widget buildOpenUIOverviewCardBlock(BuildContext context, OpenUIComponentScope s
       return _Surface(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: OpenUITheme.of(context).mSpacing!,
+          spacing: OpenUIViewScope.of(context).theme.mSpacing,
           children: [
             if (top != null) item.scope.buildNode(top),
             const Spacer(),
@@ -117,12 +118,13 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
     carouselItem: 210,
     equalHeight: true,
     (context, item) {
-      final theme = OpenUITheme.of(context);
+      final theme = OpenUIViewScope.of(context).theme;
       final source = item.scope.string('bgImageSrc');
       final image = source != null && source.isNotEmpty;
       final titleNode = item.element('title');
       final body = item.scope.text('body') ?? '';
-      final onImage = image ? const Color(0xFFFFFFFF) : null;
+      final scheme = context.streamColorScheme;
+      final onImage = image ? scheme.textOnAccent : null;
       final titleText = openUIJsonText(item.scope.value('title'));
       final title = titleNode != null && titleNode.typeName == 'Tag'
           ? item.scope.buildNode(titleNode)
@@ -130,13 +132,13 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
           ? null
           : Text(
               titleText,
-              style: theme.caption!.copyWith(
+              style: theme.caption.copyWith(
                 fontWeight: FontWeight.w600,
                 color: image ? onImage!.withValues(alpha: 0.9) : theme.secondaryText,
               ),
             );
       return ClipRRect(
-        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
         child: Stack(
           fit: StackFit.passthrough,
           children: [
@@ -146,27 +148,27 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
                       fit: StackFit.expand,
                       children: [
                         OpenUIRemoteImage(source: source, alt: item.scope.text('bgImageAlt')),
-                        const DecoratedBox(
+                        DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Color(0x26000000), Color(0xB3000000)],
+                              colors: [scheme.backgroundOverlayDark, scheme.backgroundOverlayDarkStrong],
                             ),
                           ),
                         ),
                       ],
                     )
-                  : ColoredBox(color: theme.sunkenSurface!),
+                  : ColoredBox(color: theme.sunkenSurface),
             ),
             ConstrainedBox(
               constraints: BoxConstraints(minHeight: image ? 150 : 100),
               child: Padding(
-                padding: EdgeInsets.all(theme.mSpacing!),
+                padding: EdgeInsets.all(theme.mSpacing),
                 child: IntrinsicHeight(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: theme.sSpacing!,
+                    spacing: theme.sSpacing,
                     children: [
                       ?title,
                       Expanded(
@@ -175,7 +177,7 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
                       if (body.isNotEmpty)
                         OpenUIMarkdownText(
                           data: body,
-                          style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+                          style: theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
                           color: onImage ?? theme.text,
                         ),
                     ],
@@ -211,7 +213,7 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
     carouselItem: 270,
     equalHeight: true,
     (context, item) {
-      final spacing = OpenUITheme.of(context).mSpacing!;
+      final spacing = OpenUIViewScope.of(context).theme.mSpacing;
       final header = item.element('header');
       final footerPrice = item.scope.elementField('footer', 'price');
       final footerButton = item.scope.elementField('footer', 'button');
@@ -261,13 +263,14 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
     carouselItem: 200,
     equalHeight: true,
     (context, item) {
-      final theme = OpenUITheme.of(context);
+      final theme = OpenUIViewScope.of(context).theme;
       final bodyNode = item.element('body');
       final bodyScope = bodyNode == null ? null : item.scope.scopeOf(bodyNode);
       final tag = item.element('tag');
-      const white = Color(0xFFFFFFFF);
+      final scheme = context.streamColorScheme;
+      final white = scheme.textOnAccent;
       return ClipRRect(
-        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
         child: Stack(
           fit: StackFit.passthrough,
           children: [
@@ -276,12 +279,12 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
                 fit: StackFit.expand,
                 children: [
                   OpenUIRemoteImage(source: item.scope.string('bgImageSrc'), alt: item.scope.text('bgImageAlt')),
-                  const DecoratedBox(
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.center,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0x00000000), Color(0xBF000000)],
+                        colors: [scheme.backgroundOverlayDark.withValues(alpha: 0), scheme.backgroundOverlayDarkStrong],
                       ),
                     ),
                   ),
@@ -291,7 +294,7 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 190),
               child: Padding(
-                padding: EdgeInsets.all(theme.mSpacing!),
+                padding: EdgeInsets.all(theme.mSpacing),
                 child: IntrinsicHeight(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,8 +302,8 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
                       if (tag != null)
                         DecoratedBox(
                           decoration: BoxDecoration(
-                            color: theme.surface!.withValues(alpha: 0.92),
-                            borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
+                            color: theme.surface.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(theme.pillCornerRadius),
                           ),
                           child: item.scope.buildNode(tag),
                         ),
@@ -308,12 +311,12 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
                       if (bodyScope != null) ...[
                         Text(
                           bodyScope.text('value') ?? '',
-                          style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w600, color: white),
+                          style: theme.bodySmall.copyWith(fontWeight: FontWeight.w600, color: white),
                         ),
                         if ((bodyScope.text('subtext') ?? '').isNotEmpty)
                           Text(
                             bodyScope.text('subtext')!,
-                            style: theme.caption!.copyWith(color: white.withValues(alpha: 0.85)),
+                            style: theme.caption.copyWith(color: white.withValues(alpha: 0.85)),
                           ),
                       ],
                     ],
@@ -510,7 +513,7 @@ Widget _block(
   bool forceGrid = false,
   bool equalHeight = false,
 }) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final gap = openUIGap(theme, scope.value('gap'));
   final wantsCarousel = !forceGrid && scope.string('layout') == 'carousel';
   final action = scope.prop('action');
@@ -591,13 +594,13 @@ class _Surface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.sunkenSurface,
-        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
       ),
-      child: Padding(padding: EdgeInsets.all(theme.mSpacing!), child: child),
+      child: Padding(padding: EdgeInsets.all(theme.mSpacing), child: child),
     );
   }
 }

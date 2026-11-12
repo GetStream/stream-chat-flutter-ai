@@ -4,7 +4,7 @@
 @internal
 library;
 
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
@@ -14,7 +14,6 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/materialization_ca
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/materializer.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/preprocessor.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/parser/schema_validation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/statements.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/token.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
@@ -125,7 +124,9 @@ final class OpenUILangParser {
   /// the end of a name still arriving.
   ///
   /// With a `cache`, statements whose text and reads are unchanged since an
-  /// earlier pass resolve to what they did then.
+  /// earlier pass resolve to what they did then. `versions` gives each
+  /// statement's version for that cache, and is set on it before anything is
+  /// resolved.
   static ParseResult buildResult(
     Map<String, Statement> statements,
     OpenUILibrarySchema schema, {
@@ -133,7 +134,9 @@ final class OpenUILangParser {
     required int statementCount,
     PartialReference? partialReference,
     MaterializationCache? cache,
+    Map<String, int>? versions,
   }) {
+    if (cache != null && versions != null) cache.versions = versions;
     final entry = _pickEntry(statements, schema.root);
     final symbols = {for (final MapEntry(:key, value: statement) in statements.entries) key: statement.symbol};
     final context = MaterializeContext(
@@ -171,6 +174,9 @@ final class OpenUILangParser {
     final queries = <QueryStatementInfo>[];
     final mutations = <MutationStatementInfo>[];
     for (final statement in statements.values) {
+      // Each statement has its own node budget, so a root that used up its
+      // own doesn't leave the state values and queries read as `null`.
+      context.nodes = 0;
       switch (statement) {
         case StateStatement(:final id, :final initial):
           stateDeclarations[id] = Materializer.materializeValue(initial, context);

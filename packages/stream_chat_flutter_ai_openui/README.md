@@ -7,7 +7,7 @@ replies, through the generative UI of [`stream_chat_flutter_ai`](../stream_chat_
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
   stream_chat_flutter_ai_openui: ^0.1.0
 ```
 

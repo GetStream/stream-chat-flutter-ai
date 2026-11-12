@@ -4,8 +4,8 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_grid.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
@@ -37,7 +37,7 @@ Widget buildOpenUISwitchGroup(BuildContext context, OpenUIComponentScope scope) 
 Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required bool isSwitch}) {
   final items = scope.elements('items');
   if (items.isEmpty) return const SizedBox.shrink();
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final type = isSwitch ? 'SwitchGroup' : 'CheckBoxGroup';
   final name = scope.text('name') ?? '';
@@ -65,13 +65,13 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
               openUIFieldState(context, scope, type).set(next);
               if (rules != null) validateOpenUIField(context, scope);
             };
-      if (index > 0 && isSwitch) rows.add(SizedBox(height: 0.5, child: ColoredBox(color: colors.border!)));
+      if (index > 0 && isSwitch) rows.add(SizedBox(height: 0.5, child: ColoredBox(color: colors.border)));
       rows.add(
         MergeSemantics(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: theme.sSpacing!),
+            padding: EdgeInsets.symmetric(vertical: theme.sSpacing),
             child: Row(
-              spacing: theme.mSpacing!,
+              spacing: theme.mSpacing,
               children: [
                 if (!isSwitch) StreamCheckbox(value: isOn, onChanged: onChanged),
                 Expanded(
@@ -94,9 +94,7 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
       rules: rules,
       binding: scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: field.isBound || checked.isEmpty
-          ? null
-          : () => saveOpenUIDefault(context, name, type, OpenUIObject(checked)),
+      saveDefault: () => saveOpenUIFieldDefault(context, scope, type, openUIFieldDefault(scope)),
       child: OpenUISurface(
         variant: isSwitch ? scope.string('variant') ?? 'clear' : 'clear',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows),
@@ -117,7 +115,7 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
 Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
   final items = scope.elements('items');
   if (items.isEmpty) return const SizedBox.shrink();
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final name = scope.text('name') ?? '';
   return scope.watchState((context) {
@@ -132,12 +130,12 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
       rules: scope.prop('rules'),
       binding: scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: field.isBound || shown == null
+      saveDefault: shown == null
           ? null
-          : () => saveOpenUIDefault(context, name, 'RadioGroup', OpenUIString(shown)),
+          : () => saveOpenUIFieldDefault(context, scope, 'RadioGroup', OpenUIString(shown)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.sSpacing!,
+        spacing: theme.sSpacing,
         children: [
           for (final (index, node) in items.indexed)
             if (scope.scopeOf(node) case final item)
@@ -154,7 +152,7 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
                         },
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: theme.mSpacing!,
+                    spacing: theme.mSpacing,
                     children: [
                       Container(
                         width: dot,
@@ -163,7 +161,7 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: values[index] == current ? colors.accent! : colors.tertiaryText!,
+                            color: values[index] == current ? colors.accent : colors.tertiaryText,
                             width: 2,
                           ),
                         ),
@@ -215,6 +213,34 @@ Widget buildOpenUIChips(BuildContext context, OpenUIComponentScope scope) =>
 Widget buildOpenUIOptionCards(BuildContext context, OpenUIComponentScope scope) =>
     _OpenUISelection(scope: scope, cards: true);
 
+/// Whether the `Chips` or `OptionCards` [scope] draws choose one value.
+///
+/// Internal to the package.
+@internal
+bool openUISelectionIsSingle(OpenUIComponentScope scope) =>
+    (scope.string('type') ?? (scope.type == 'OptionCards' ? 'single' : 'multiple')) == 'single';
+
+/// The values [value] holds as the choice of a `Chips` or `OptionCards`: the
+/// first for a [single] choice, every string otherwise; `null` when it holds
+/// none.
+///
+/// Internal to the package.
+@internal
+List<String>? openUISelectionValues(OpenUIValue? value, {required bool single}) {
+  return switch (value) {
+    OpenUIString(:final value) => value.isEmpty ? const [] : [value],
+    OpenUIArray(:final items) when single => switch (items.firstOrNull) {
+      OpenUIString(:final value) => value.isEmpty ? const [] : [value],
+      _ => null,
+    },
+    OpenUIArray(:final items) => [
+      for (final item in items)
+        if (item case OpenUIString(:final value)) value,
+    ],
+    _ => null,
+  };
+}
+
 class _OpenUISelection extends StatelessWidget {
   const _OpenUISelection({required this.scope, required this.cards});
 
@@ -223,33 +249,9 @@ class _OpenUISelection extends StatelessWidget {
 
   String get _type => cards ? 'OptionCards' : 'Chips';
 
-  bool get _single => (scope.string('type') ?? (cards ? 'single' : 'multiple')) == 'single';
+  bool get _single => openUISelectionIsSingle(scope);
 
-  // The values [value] holds: the first for a single choice, every string
-  // otherwise.
-  List<String>? _valuesOf(OpenUIValue? value) {
-    return switch (value) {
-      OpenUIString(:final value) => value.isEmpty ? const [] : [value],
-      OpenUIArray(:final items) when _single => switch (items.firstOrNull) {
-        OpenUIString(:final value) => value.isEmpty ? const [] : [value],
-        _ => null,
-      },
-      OpenUIArray(:final items) => [
-        for (final item in items)
-          if (item case OpenUIString(:final value)) value,
-      ],
-      _ => null,
-    };
-  }
-
-  // The default value as it is kept: a string for a single choice, a list
-  // otherwise.
-  OpenUIValue? _storedDefault() {
-    final values = _valuesOf(scope.prop('defaultValue'));
-    if (values == null) return null;
-    if (_single) return values.isEmpty ? null : OpenUIString(values.first);
-    return OpenUIArray([for (final value in values) OpenUIString(value)]);
-  }
+  List<String>? _valuesOf(OpenUIValue? value) => openUISelectionValues(value, single: _single);
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +267,7 @@ class _OpenUISelection extends StatelessWidget {
       // A choice cleared to `null` shows nothing, not the default.
       final selection =
           (stored != null ? _valuesOf(stored) : _valuesOf(scope.prop('defaultValue'))) ?? const <String>[];
-      final theme = OpenUITheme.of(context);
+      final theme = OpenUIViewScope.of(context).theme;
       final widgets = [
         for (final item in items)
           Builder(
@@ -305,12 +307,12 @@ class _OpenUISelection extends StatelessWidget {
         rules: scope.prop('rules'),
         binding: null,
         isStreaming: scope.isStreaming,
-        saveDefault: () => saveOpenUIDefault(context, name, _type, _storedDefault()),
+        saveDefault: () => saveOpenUIFieldDefault(context, scope, _type, openUIFieldDefault(scope)),
         child: cards
-            ? OpenUIResponsiveGrid(minItemWidth: 140, maxColumns: 3, spacing: theme.sSpacing!, children: widgets)
+            ? OpenUIResponsiveGrid(minItemWidth: 140, maxColumns: 3, spacing: theme.sSpacing, children: widgets)
             : SizedBox(
                 width: double.infinity,
-                child: Wrap(spacing: theme.sSpacing!, runSpacing: theme.sSpacing!, children: widgets),
+                child: Wrap(spacing: theme.sSpacing, runSpacing: theme.sSpacing, children: widgets),
               ),
       );
     });
@@ -325,9 +327,9 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
-    final color = selected ? colors.accent! : colors.text!;
+    final color = selected ? colors.accent : colors.text;
     final icon = item.elements('icon').firstOrNull;
     final iconData = icon == null
         ? null
@@ -337,15 +339,15 @@ class _Chip extends StatelessWidget {
           });
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: selected ? colors.accent!.withValues(alpha: 0.14) : colors.sunkenSurface,
-        borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
-        border: Border.all(color: selected ? colors.accent! : const Color(0x00000000)),
+        color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.sunkenSurface,
+        borderRadius: BorderRadius.circular(theme.pillCornerRadius),
+        border: Border.all(color: selected ? colors.accent : const Color(0x00000000)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.sSpacing),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          spacing: 6,
+          spacing: theme.xsSpacing,
           children: [
             if (iconData != null)
               ExcludeSemantics(
@@ -354,7 +356,7 @@ class _Chip extends StatelessWidget {
             Flexible(
               child: Text(
                 item.text('label') ?? JS.stringOf(item.prop('value')),
-                style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w500, color: color),
+                style: theme.bodySmall.copyWith(fontWeight: FontWeight.w500, color: color),
               ),
             ),
             if (selected)
@@ -376,16 +378,16 @@ class _OptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     final top = item.elements('topContent').firstOrNull;
-    final radius = BorderRadius.circular(theme.mediumCornerRadius!);
+    final radius = BorderRadius.circular(theme.mediumCornerRadius);
     Widget? topContent;
     if (top != null) {
       final source = top.props['src'];
       if (source is OpenUIString) {
         topContent = ClipRRect(
-          borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+          borderRadius: BorderRadius.circular(theme.smallCornerRadius),
           child: SizedBox(
             height: 80,
             width: double.infinity,
@@ -399,8 +401,8 @@ class _OptionCard extends StatelessWidget {
           height: side,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? colors.accent!.withValues(alpha: 0.14) : colors.subtleFill,
-            borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+            color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.subtleFill,
+            borderRadius: BorderRadius.circular(theme.smallCornerRadius),
           ),
           child: ExcludeSemantics(
             child: Icon(icon, size: openUIScaled(context, 16), color: selected ? colors.accent : colors.secondaryText),
@@ -413,17 +415,17 @@ class _OptionCard extends StatelessWidget {
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: selected ? colors.accent!.withValues(alpha: 0.08) : colors.sunkenSurface,
+              color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.sunkenSurface,
               borderRadius: radius,
-              border: Border.all(color: selected ? colors.accent! : const Color(0x00000000), width: 1.5),
+              border: Border.all(color: selected ? colors.accent : const Color(0x00000000), width: 1.5),
             ),
           ),
         ),
         Padding(
-          padding: EdgeInsets.all(theme.mSpacing!),
+          padding: EdgeInsets.all(theme.mSpacing),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: theme.sSpacing!,
+            spacing: theme.sSpacing,
             children: [
               ?topContent,
               _TitleSubtitle(
@@ -456,7 +458,7 @@ class _TitleSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -464,13 +466,13 @@ class _TitleSubtitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.bodySmall!.copyWith(
+          style: theme.bodySmall.copyWith(
             fontWeight: bold ? FontWeight.w600 : FontWeight.w500,
             color: colors.text,
           ),
         ),
         if (subtitle case final subtitle? when subtitle.isNotEmpty)
-          Text(subtitle, style: theme.caption!.copyWith(color: colors.secondaryText)),
+          Text(subtitle, style: theme.caption.copyWith(color: colors.secondaryText)),
       ],
     );
   }

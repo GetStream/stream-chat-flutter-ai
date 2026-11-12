@@ -152,6 +152,9 @@ final class QueryManager {
           _cleanUp(dropped);
         }
         query.key = key;
+        // A failure only settles the key a query is on: once it moves away,
+        // coming back fetches again, as for any key that has no data.
+        if (_queriesOn(abandoned).isEmpty) _cache[abandoned]?.failed = false;
         _cleanUp(abandoned);
         argsChanged = true;
       }
@@ -160,7 +163,7 @@ final class QueryManager {
         ..args = node.args
         ..defaults = node.defaults;
       final entry = _cache[key];
-      final settled = entry?.data != null && !entry!.inFlight;
+      final settled = _isSettled(entry);
       if (settled) {
         query.pending?.cancel();
         query.pending = null;
@@ -222,7 +225,7 @@ final class QueryManager {
         query.pending = null;
         if (_disposed || !identical(_queries[statementId], query) || query.key != key) return;
         final entry = _cache[key];
-        if ((entry?.data != null && !entry!.inFlight) || (entry?.inFlight ?? false)) {
+        if (_isSettled(entry) || (entry?.inFlight ?? false)) {
           query.loading = entry?.inFlight ?? false;
           _publish();
           return;
@@ -230,6 +233,18 @@ final class QueryManager {
         _startFetch(key);
       });
   }
+
+  // A query is settled on a cache key once a fetch for it has ended, with data
+  // or with an error, and it is not fetching again.
+  //
+  // Deliberately unlike OpenUI's `queryManager.ts`, which fetches a failed
+  // query again on every evaluation: that would call a tool that keeps failing
+  // on every keystroke in an unrelated field. A failure counts as settled until
+  // `invalidate` (what `@Run(query)` calls), a refresh timer, or a change of the
+  // cache key (its args or dependencies) asks for another fetch; the fetch that
+  // follows sets the flag again or clears it.
+  static bool _isSettled(_CacheEntry? entry) =>
+      entry != null && !entry.inFlight && (entry.data != null || entry.failed);
 
   // Marks `key` as fetching, then runs the tool of the queries on it.
   void _startFetch(String key) {
@@ -271,7 +286,13 @@ final class QueryManager {
       _publish();
       return;
     }
-    if (error == null) entry.data = data;
+    if (error == null) {
+      entry
+        ..data = data
+        ..failed = false;
+    } else {
+      entry.failed = true;
+    }
     var refetch = false;
     for (final query in waiting) {
       query.loading = false;
@@ -587,4 +608,7 @@ final class _CacheEntry {
   // `null` until a result arrives, which may itself be JSON `null`.
   OpenUIValue? data;
   bool inFlight = false;
+
+  // Whether the last fetch failed; a success clears it.
+  bool failed = false;
 }

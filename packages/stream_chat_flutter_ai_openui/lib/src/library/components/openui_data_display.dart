@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds an `Icon`: the icon its `name` (a Lucide icon name) and `category`
@@ -23,7 +23,7 @@ Widget buildOpenUIIcon(BuildContext context, OpenUIComponentScope scope) {
   final widget = Align(
     alignment: AlignmentDirectional.centerStart,
     widthFactor: 1,
-    child: Icon(icon, size: openUIScaled(context, 20), color: OpenUITheme.of(context).secondaryText),
+    child: Icon(icon, size: openUIScaled(context, 20), color: OpenUIViewScope.of(context).theme.secondaryText),
   );
   return label == null
       ? ExcludeSemantics(child: widget)
@@ -59,7 +59,7 @@ Widget buildOpenUITag(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUITagBlock(BuildContext context, OpenUIComponentScope scope) {
-  final gap = OpenUITheme.of(context).xsSpacing! + 2;
+  final gap = OpenUIViewScope.of(context).theme.xsSpacing + 2;
   final size = scope.string('size');
   return SizedBox(
     width: double.infinity,
@@ -82,7 +82,7 @@ Widget buildOpenUITagBlock(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIEntityList(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final small = scope.string('size') == 'small';
   final rows = [
     for (final row in openUIJsonList(scope.value('rows')))
@@ -90,7 +90,7 @@ Widget buildOpenUIEntityList(BuildContext context, OpenUIComponentScope scope) {
   ];
   final header = scope.value('header');
   final footer = scope.value('footer');
-  final border = theme.border!;
+  final border = theme.border;
   Widget line(double alpha) => SizedBox(
     height: 1,
     child: ColoredBox(color: border.withValues(alpha: alpha)),
@@ -127,27 +127,26 @@ class _EntityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
-    final colors = theme;
-    final base = small ? theme.caption! : theme.bodySmall!;
+    final theme = OpenUIViewScope.of(context).theme;
+    final base = small ? theme.caption : theme.bodySmall;
     final left = base.copyWith(
       fontWeight: emphasized ? FontWeight.w600 : base.fontWeight,
-      color: emphasized ? colors.text : colors.secondaryText,
+      color: emphasized ? theme.text : theme.secondaryText,
     );
     final right = base.copyWith(
       fontWeight: emphasized || !small ? FontWeight.w600 : FontWeight.w500,
-      color: colors.text,
+      color: theme.text,
       fontFeatures: row['rightVariant'] == 'number' ? const [FontFeature.tabularFigures()] : null,
     );
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: small ? 5 : 8),
+      padding: EdgeInsets.symmetric(vertical: small ? theme.xsSpacing : theme.sSpacing),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
           Flexible(child: Text(openUIJsonText(row['left']), style: left)),
-          SizedBox(width: theme.mSpacing! + theme.sSpacing!),
+          SizedBox(width: theme.mSpacing + theme.sSpacing),
           Flexible(
             child: Text(openUIJsonText(row['right']), textAlign: TextAlign.end, style: right),
           ),

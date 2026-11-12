@@ -4,7 +4,7 @@
 @internal
 library;
 
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 
 /// The kind of a [Token].

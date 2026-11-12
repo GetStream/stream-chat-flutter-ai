@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/portable_component.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prop_type.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/library/skipped_component_log.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_definition.dart';
 
 import 'library/spec_library.dart';
@@ -22,6 +23,50 @@ void main() {
     final definition = _definition('place_card');
 
     expect(placeableComponents(specLibrary(), [definition]).single.$2, portableComponentSchema(definition));
+  });
+
+  group('a definition that is left out is logged', () {
+    late List<String> logs;
+    late void Function(String) original;
+
+    setUp(() {
+      logs = [];
+      original = skippedComponentLog;
+      skippedComponentLog = logs.add;
+    });
+
+    tearDown(() => skippedComponentLog = original);
+
+    test('when it can not be read, with its name', () {
+      placeableComponents(specLibrary(), [
+        {'name': ''},
+        {'description': 'no name'},
+      ]);
+
+      expect(logs, hasLength(2));
+      expect(logs[0], contains('""'));
+      expect(logs[1], contains('index 1'));
+    });
+
+    test('when its name can not be called, with the name', () {
+      placeableComponents(specLibrary(), [_definition('open_url')]);
+
+      expect(logs.single, allOf(contains('"OpenUrl"'), contains("can't be called")));
+    });
+
+    test('when its name is taken, with the name', () {
+      placeableComponents(specLibrary(), [_definition('stack'), _definition('place_card'), _definition('place_card')]);
+
+      expect(logs, hasLength(2));
+      expect(logs[0], allOf(contains('"Stack"'), contains('already')));
+      expect(logs[1], allOf(contains('"PlaceCard"'), contains('already')));
+    });
+
+    test('not when it is placed', () {
+      placeableComponents(specLibrary(), [_definition('place_card')]);
+
+      expect(logs, isEmpty);
+    });
   });
 
   test('no definitions give no components', () {

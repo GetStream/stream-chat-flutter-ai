@@ -11,8 +11,26 @@ void main() {
     });
 
     test('drops the numeric parts of a name, and then its last parts one at a time', () {
-      expect(openUIIconOf(icons, 'trash-2-x'), icons.delete);
+      expect(openUIIconOf(icons, 'trash-2-big'), icons.delete);
       expect(openUIIconOf(icons, 'arrow-up-right-big-thing'), icons.arrowUpRight);
+    });
+
+    test('finds the icons of names that mean the opposite of a shorter one', () {
+      expect(openUIIconOf(icons, 'lock-open'), icons.unlock);
+      expect(openUIIconOf(icons, 'mic-off'), icons.voiceOffFill);
+      expect(openUIIconOf(icons, 'video-off'), icons.videoOffFill);
+      expect(openUIIconOf(icons, 'phone-off'), icons.phoneDownFill);
+      expect(openUIIconOf(icons, 'bell-off'), icons.bellOff);
+      expect(openUIIconOf(icons, 'folder-open'), icons.folder);
+    });
+
+    test('draws no shorter icon for a name with an off, open, x or minus part', () {
+      expect(openUIIconOf(icons, 'eye-off'), isNull);
+      expect(openUIIconOf(icons, 'lock-keyhole-off'), isNull);
+      expect(openUIIconOf(icons, 'user-open'), isNull);
+      expect(openUIIconOf(icons, 'trash-x'), isNull);
+      expect(openUIIconOf(icons, 'user-circle-minus'), isNull);
+      expect(openUIIconOf(icons, 'eye-off', 'security'), icons.shield);
     });
 
     test('finds the icon of a category when the name finds none, and none for an unknown category', () {

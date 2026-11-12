@@ -5,8 +5,8 @@ import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart' show StateField;
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds a `Callout`: its `title` and `description` on a tinted surface of
@@ -121,7 +121,7 @@ class _CalloutState extends State<_Callout> {
   }
 
   Widget _content(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final color = openUIVariantColor(theme, widget.variant);
     final icons = context.streamIcons;
     final icon = switch (widget.variant) {
@@ -135,24 +135,24 @@ class _CalloutState extends State<_Callout> {
       key: const ValueKey('callout'),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(theme.mediumCornerRadius!),
+        borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
       ),
       child: Padding(
-        padding: EdgeInsets.all(theme.mSpacing!),
+        padding: EdgeInsets.all(theme.mSpacing),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: theme.mSpacing!,
+          spacing: theme.mSpacing,
           children: [
             Icon(icon, color: color, size: openUIScaled(context, 20)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: theme.xsSpacing!,
+                spacing: theme.xsSpacing,
                 children: [
                   if (widget.title.isNotEmpty)
                     Text(
                       widget.title,
-                      style: theme.bodySmall!.copyWith(
+                      style: theme.bodySmall.copyWith(
                         fontWeight: FontWeight.w600,
                         color: theme.text,
                       ),
