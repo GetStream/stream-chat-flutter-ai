@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 // Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation.dart';
+// Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
+import 'package:stream_chat_flutter_ai/src/message/ai_reply_actions_view.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_message_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 
@@ -74,6 +77,13 @@ abstract mixin class AIMessage {
   /// [text]. Usually read from the message's custom data with
   /// `AIUIDocument.fromCustomData(message.extraData)`.
   AIUIDocument? get uiDocument => null;
+
+  /// How the person rated a reply, as the backend has it, or `null` when they
+  /// didn't.
+  ///
+  /// [AIConversation] shows it until the person rates the reply on this
+  /// device.
+  AIMessageRating? get rating => null;
 
   /// The whole of a reasoning step's thinking when the app has it, such as from
   /// live updates. Without it the step shows its own preview.

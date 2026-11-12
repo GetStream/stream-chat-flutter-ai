@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownTapLinkCallback;
+// Imported for the doc links below only.
+import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation_view.dart';
+import 'package:stream_chat_flutter_ai/src/conversation/conversation_state.dart';
 import 'package:stream_chat_flutter_ai/src/localization/ai_translations.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/reasoning_text.dart';
@@ -43,6 +46,11 @@ const _kRevealFromStartLimit = 2000;
 ///
 /// For an `ai_reasoning` step, [StreamingReasoningView.part] reads the status,
 /// duration and summary from the [AIReasoningPart].
+///
+/// In an [AIConversationView], a turn's first step that arrives already done,
+/// with the reply that ends the thinking, opens for a moment and then folds,
+/// and the reply's answer types out only once it has. Tapping the header
+/// before it folds keeps it as the reader chose.
 ///
 /// The header keeps counting for as long as [isThinking] is `true`, so a host
 /// whose stream stalls or fails has to end the thinking (pass `false`) itself.
@@ -188,6 +196,9 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// Rebuilds the header once a second while the model thinks.
   Timer? _clock;
 
+  // Folds reasoning that arrived done, after it has been shown.
+  Timer? _foldTimer;
+
   /// How long the model had thought at [_countedSince]: the host's duration,
   /// or zero.
   var _countedFrom = Duration.zero;
@@ -243,6 +254,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
     if (!_didInitDependencies) {
       _didInitDependencies = true;
+      if (FinishedReasoningScope.isIn(context)) _showFinished();
       _unfoldWhenTextArrives();
     } else if (changed && _reduceMotion) {
       // Reduced motion switched on mid-fold: jump to where it was going.
@@ -279,6 +291,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
   @override
   void dispose() {
+    _foldTimer?.cancel();
     _stopClock();
     _foldCurve.dispose();
     _fold.dispose();
@@ -348,6 +361,15 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       _animateFold(open: false);
     }
     _reportExpanded(open);
+  }
+
+  // Opens reasoning that arrived done, then folds it after a moment, unless the
+  // reader chose by then or the model thinks again.
+  void _showFinished() {
+    _setOpen(true);
+    _foldTimer = Timer(ThinkingClock.finishedReasoningShown, () {
+      if (_choice == null && !widget.isThinking) _setOpen(false);
+    });
   }
 
   void _toggle() {

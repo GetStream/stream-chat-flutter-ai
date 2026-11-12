@@ -1075,6 +1075,19 @@ class DutchTranslations implements AITranslations {
   String get allowPhotoAccess => "Geef toegang tot je foto's";
 
   @override
+  String get microphonePermissionDenied => 'Toegang tot de microfoon is nodig om audio op te nemen';
+
+  @override
+  String get openSettings => 'Instellingen';
+
+  @override
+  String get photosNotAddedTitle => "Foto's niet toegevoegd";
+
+  @override
+  String get photosNotAddedMessage =>
+      "Sommige foto's konden niet worden geladen. Controleer je internetverbinding als ze online zijn opgeslagen en probeer het opnieuw.";
+
+  @override
   String get takePhoto => 'Maak een foto';
 
   @override
@@ -1248,6 +1261,15 @@ class DutchTranslations implements AITranslations {
   String get editMessage => 'Bewerken';
 
   @override
+  String get editingMessage => 'Bericht bewerken';
+
+  @override
+  String get cancelEditing => 'Bewerken annuleren';
+
+  @override
+  String get agentError => 'De agent kon niet antwoorden. Probeer het opnieuw.';
+
+  @override
   String get scrollToLatest => 'Naar nieuwste bericht';
 
   @override
@@ -1255,6 +1277,12 @@ class DutchTranslations implements AITranslations {
 
   @override
   String get attachmentFile => 'Bestand';
+
+  @override
+  String get openAttachment => 'Openen';
+
+  @override
+  String get cannotOpenAttachment => 'Geen app kan dit bestand openen';
 
   @override
   String attachmentDetails(String type, String size) => '$type · $size';

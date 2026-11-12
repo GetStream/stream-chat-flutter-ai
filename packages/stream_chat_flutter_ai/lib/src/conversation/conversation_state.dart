@@ -4,11 +4,13 @@
 /// Internal. None of it is exported.
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_message_attachment.dart';
 import 'package:stream_chat_flutter_ai/src/genui/ai_ui_document.dart';
+import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 
 /// A row of the conversation: a message, or one the person sent that is on its
 /// way.
@@ -203,7 +205,19 @@ class PendingMessageTracker {
 @internal
 class ThinkingClock {
   /// Creates a [ThinkingClock] reading the time from [now].
-  ThinkingClock({DateTime Function()? now}) : _now = now ?? DateTime.now;
+  ///
+  /// By default the time is `package:clock`'s `clock.now`, which `fakeAsync`
+  /// and the widget tester control.
+  ThinkingClock({DateTime Function()? now}) : _now = now ?? clock.now;
+
+  /// How soon after a turn stops thinking its first step has to arrive, done,
+  /// to open and show its reasoning: it came with the reply that ended the
+  /// thinking.
+  static const arrivalWindow = Duration(seconds: 1);
+
+  /// How long a first step that arrived done stays open, showing its
+  /// reasoning, before it folds and the answer starts.
+  static const finishedReasoningShown = Duration(milliseconds: 1600);
 
   final DateTime Function() _now;
   final _turns = <String, _TimedTurn>{};
@@ -226,6 +240,9 @@ class ThinkingClock {
       timed.end ??= _now();
     }
   }
+
+  /// The current time.
+  DateTime now() => _now();
 
   /// When [turn] started thinking, or `null` when it was never seen thinking.
   DateTime? start(String turn) => _turns[turn]?.start;
@@ -259,6 +276,29 @@ class ThinkingClock {
     final measured = done.difference(timed.start);
     return timed.firstStepDuration = own != null && own > measured ? own : measured;
   }
+
+  /// Whether [turn]'s first step opens to show its reasoning as it arrives.
+  ///
+  /// It is a step that arrived done with the reply that ended the thinking,
+  /// and it opens before it folds and the answer starts. A step that thought
+  /// in view showed its reasoning as it came, and one made again later stays
+  /// folded.
+  bool showsFirstStep(String turn) {
+    final timed = _turns[turn];
+    if (timed == null || timed.firstStepStreamed) return false;
+    final now = _now();
+    if (timed.firstStepShown case final shown?) return now.difference(shown) < arrivalWindow;
+    final end = timed.end;
+    if (end == null || now.difference(end) >= arrivalWindow) return false;
+    timed.firstStepShown = now;
+    return true;
+  }
+
+  /// When [turn]'s answer starts, or `null` when there is nothing to wait for.
+  ///
+  /// That is once a first step that showed its reasoning has folded.
+  DateTime? answerStartsAt(String turn) =>
+      _turns[turn]?.firstStepShown?.add(finishedReasoningShown + StreamingReasoningView.foldDuration);
 }
 
 class _TimedTurn {
@@ -269,6 +309,8 @@ class _TimedTurn {
   String? firstStep;
   bool firstStepStreamed = false;
   Duration? firstStepDuration;
+  // When a first step that arrived done opened to show its reasoning.
+  DateTime? firstStepShown;
   bool hadReplies = false;
 }
 
@@ -290,6 +332,22 @@ class ThinkingTurnScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(ThinkingTurnScope oldWidget) => oldWidget.clock != clock || oldWidget.turn != turn;
+}
+
+/// Marks the reasoning step below as one that arrived done with the reply that
+/// ended its turn's thinking, so it opens to show its reasoning and folds again
+/// after [ThinkingClock.finishedReasoningShown].
+@internal
+class FinishedReasoningScope extends InheritedWidget {
+  /// Creates a [FinishedReasoningScope].
+  const FinishedReasoningScope({super.key, required super.child});
+
+  /// Whether a [FinishedReasoningScope] is above [context], without depending
+  /// on it.
+  static bool isIn(BuildContext context) => context.getInheritedWidgetOfExactType<FinishedReasoningScope>() != null;
+
+  @override
+  bool updateShouldNotify(FinishedReasoningScope oldWidget) => false;
 }
 
 /// Where a reply's view says whether its answer is still typing out, which its

@@ -337,6 +337,7 @@ final class _A2UIReply {
   _A2UIReply(this._engine, this.messageId) {
     processor = A2UIProcessor(
       catalogs: _engine._catalogs,
+      defaultCatalogId: _engine._catalogs.catalogId,
       onAction: (event) => _engine._send(event, this),
       onError: (error) => _engine._handleError(error, this),
       onUnreadable: () => A2UIEngine._debugReport(_unreadable, messageId),

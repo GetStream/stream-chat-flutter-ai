@@ -26,7 +26,10 @@ runs:
         for pubspec in packages/*/pubspec.yaml; do
           package=$(dirname "$pubspec")
           echo "::group::$package"
-          (cd "$package" && dart analyze --fatal-infos lib)
+          # A package of tests only, such as the A2UI conformance suites, has no lib/.
+          if [[ -d "$package/lib" ]]; then
+            (cd "$package" && dart analyze --fatal-infos lib)
+          fi
           if [[ -d "$package/test" ]]; then
             (cd "$package" && flutter test --exclude-tags golden)
           fi
