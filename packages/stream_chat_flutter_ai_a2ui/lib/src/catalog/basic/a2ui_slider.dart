@@ -9,11 +9,10 @@ import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart'
 /// `min` to `max` that writes the value the person picks, in `steps` equal
 /// divisions when it has them.
 ///
-/// A `min` that isn't a number is 0, and a `max` that isn't above it is one
-/// more than it. A value outside the range shows at the nearer end but is
-/// left as the agent wrote it, since the range may still be on its way, such
-/// as a bound `max` that a later data update fills; it changes once the
-/// person moves the slider. Once the slider shows, a value that isn't there
+/// A missing `min` is 0, and a `max` that isn't above the `min` is one more
+/// than it. The `min` and `max` are numbers the agent writes as they are, not
+/// bindings. A value outside the range shows at the nearer end but is left as
+/// the agent wrote it; it changes once the person moves the slider. Once the slider shows, a value that isn't there
 /// yet is written as `min`, as is one that isn't a number, which is reported
 /// through the processor's `onError`. A slider whose `value` isn't bound to the data model shows its
 /// value fainter, and can't be moved.

@@ -1,0 +1,67 @@
+{
+  "name": "Image",
+  "description": "Image variants and fits, and an image that can't load.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-image-variants",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-image-variants",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Variants: icon, avatar, smallFeature, mediumFeature", "variant": "caption"},
+          {"id": "c", "component": "List", "direction": "horizontal", "align": "center", "children": ["i1", "i2", "i3", "i4"]},
+          {"id": "i1", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "icon", "fit": "cover"},
+          {"id": "i2", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "avatar", "fit": "cover"},
+          {"id": "i3", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "smallFeature", "fit": "cover"},
+          {"id": "i4", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "mediumFeature", "fit": "cover"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-image-fit",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-image-fit",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Fit: cover, contain, fill on a largeFeature", "variant": "caption"},
+          {"id": "c", "component": "List", "direction": "horizontal", "children": ["f1", "f2", "f3"]},
+          {"id": "f1", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "largeFeature", "fit": "cover"},
+          {"id": "f2", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "largeFeature", "fit": "contain"},
+          {"id": "f3", "component": "Image", "url": "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop", "description": "A film poster", "variant": "largeFeature", "fit": "fill"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-image-header",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-image-header",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "h"]},
+          {"id": "variant_title", "component": "Text", "text": "Header, with a URL that is not one: an empty box, and no description, so skipped by screen readers", "variant": "caption"},
+          {"id": "h", "component": "Image", "url": "not a url", "variant": "header"}
+        ]
+      }
+    }
+  ]
+}

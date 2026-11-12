@@ -174,6 +174,71 @@ void main() {
       clock.update(latest: 't1', isThinking: true);
       expect(clock.start('t1'), now);
     });
+
+    // The turn thought for 8 seconds, until the reply arrived.
+    DateTime thoughtUntilReply() {
+      clock.update(latest: 't1', isThinking: true);
+      now = now.add(const Duration(seconds: 8));
+      clock.update(latest: 't1', isThinking: false, hasReplies: true);
+      return now;
+    }
+
+    test('showsFirstStep opens a step that arrives done as the thinking ends, and holds the answer', () {
+      thoughtUntilReply();
+      now = now.add(const Duration(milliseconds: 100));
+
+      expect(clock.showsFirstStep('t1'), isTrue);
+      expect(
+        clock.answerStartsAt('t1'),
+        now.add(const Duration(milliseconds: 1600) + StreamingReasoningView.foldDuration),
+      );
+    });
+
+    test('showsFirstStep keeps a step that arrives later folded', () {
+      thoughtUntilReply();
+      now = now.add(const Duration(seconds: 4));
+
+      expect(clock.showsFirstStep('t1'), isFalse);
+      expect(clock.answerStartsAt('t1'), isNull);
+    });
+
+    test('showsFirstStep keeps a step that thought in view as it is', () {
+      clock
+        ..update(latest: 't1', isThinking: true)
+        ..elapsed('t1')
+        ..update(latest: 't1', isThinking: false, hasReplies: true);
+
+      expect(clock.showsFirstStep('t1'), isFalse);
+    });
+
+    test('showsFirstStep opens a step that arrives just inside the window', () {
+      final stopped = thoughtUntilReply();
+      now = stopped.add(const Duration(milliseconds: 999));
+
+      expect(clock.showsFirstStep('t1'), isTrue);
+    });
+
+    test('showsFirstStep keeps a step that arrives a whole window after the thinking ended folded', () {
+      final stopped = thoughtUntilReply();
+      now = stopped.add(const Duration(seconds: 1));
+
+      expect(clock.showsFirstStep('t1'), isFalse);
+    });
+
+    test('showsFirstStep keeps a step that is made again a whole window after it opened folded', () {
+      thoughtUntilReply();
+      expect(clock.showsFirstStep('t1'), isTrue);
+
+      now = now.add(const Duration(milliseconds: 999));
+      expect(clock.showsFirstStep('t1'), isTrue);
+      now = now.add(const Duration(milliseconds: 1));
+      expect(clock.showsFirstStep('t1'), isFalse);
+    });
+
+    test('showsFirstStep shows nothing for a turn that was not seen thinking', () {
+      expect(clock.showsFirstStep('t1'), isFalse);
+      expect(clock.answerStartsAt('t1'), isNull);
+    });
   });
 
   group('formatFileSize', () {

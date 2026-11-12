@@ -33,7 +33,8 @@ class AIUserMessageView extends StatelessWidget {
   /// Edits the message, such as by putting its text back in the composer.
   final VoidCallback? onEdit;
 
-  /// Opens one of the attachments.
+  /// Opens one of the attachments, in place of the default: a file with a URL
+  /// opens it, and an image does nothing.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
 
   Future<void> _showMenu(BuildContext context, Offset position) async {
