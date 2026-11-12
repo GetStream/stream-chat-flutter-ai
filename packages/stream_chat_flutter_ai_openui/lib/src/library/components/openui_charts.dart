@@ -3,7 +3,7 @@ import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 /// Builds a `BarChart`: vertical bars, grouped or, with `variant: "stacked"`,
 /// stacked.
@@ -151,7 +151,7 @@ Widget _chart(BuildContext context, USpec spec, {double? height}) {
   return ChartView(
     spec: spec,
     theme: ChartThemeData(
-      seriesColors: OpenUITheme.of(context).chartPalette,
+      seriesColors: OpenUIViewScope.of(context).theme.chartPalette,
       height: height != null && height.isFinite && height > 0 ? height.clamp(_minHeight, _maxHeight) : null,
     ),
   );
