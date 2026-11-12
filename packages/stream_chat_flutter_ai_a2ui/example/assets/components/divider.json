@@ -1,0 +1,48 @@
+{
+  "name": "Divider",
+  "description": "Horizontal and vertical dividers.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-divider-horizontal",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-divider-horizontal",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "c"]},
+          {"id": "variant_title", "component": "Text", "text": "Horizontal", "variant": "caption"},
+          {"id": "c", "component": "Column", "children": ["a", "d", "b"]},
+          {"id": "a", "component": "Text", "text": "Above"},
+          {"id": "d", "component": "Divider"},
+          {"id": "b", "component": "Text", "text": "Below"}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-divider-vertical",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-divider-vertical",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "r"]},
+          {"id": "variant_title", "component": "Text", "text": "Vertical, as tall as its row", "variant": "caption"},
+          {"id": "r", "component": "Row", "children": ["a", "d", "b"], "justify": "center"},
+          {"id": "a", "component": "Text", "text": "Left"},
+          {"id": "d", "component": "Divider", "axis": "vertical"},
+          {"id": "b", "component": "Text", "text": "Right"}
+        ]
+      }
+    }
+  ]
+}
