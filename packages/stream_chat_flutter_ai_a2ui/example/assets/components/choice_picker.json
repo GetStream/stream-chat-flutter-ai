@@ -1,0 +1,92 @@
+{
+  "name": "ChoicePicker",
+  "description": "Single and multiple choice, as chips, and filtered.",
+  "messages": [
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-picker-single",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-picker-single",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "p"]},
+          {"id": "variant_title", "component": "Text", "text": "mutuallyExclusive: radio rows", "variant": "caption"},
+          {"id": "p", "component": "ChoicePicker", "label": "Pick one", "options": [{"label": "Boat trip", "value": "boat"}, {"label": "Old town", "value": "town"}, {"label": "Monastery", "value": "monastery"}, {"label": "Beach", "value": "beach"}], "value": {"@path": "/one"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-picker-single",
+        "value": {
+          "one": [
+            "town"
+          ]
+        }
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-picker-chips",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-picker-chips",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "p"]},
+          {"id": "variant_title", "component": "Text", "text": "multipleSelection as chips", "variant": "caption"},
+          {"id": "p", "component": "ChoicePicker", "label": "Pick several", "variant": "multipleSelection", "displayStyle": "chips", "options": [{"label": "Boat trip", "value": "boat"}, {"label": "Old town", "value": "town"}, {"label": "Monastery", "value": "monastery"}, {"label": "Beach", "value": "beach"}], "value": {"@path": "/many"}}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-picker-chips",
+        "value": {
+          "many": [
+            "boat",
+            "beach"
+          ]
+        }
+      }
+    },
+    {
+      "version": "1.0",
+      "createSurface": {
+        "surfaceId": "components-picker-filter",
+        "catalogId": "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+      }
+    },
+    {
+      "version": "1.0",
+      "updateComponents": {
+        "surfaceId": "components-picker-filter",
+        "components": [
+          {"id": "root", "component": "Column", "children": ["variant_title", "p"]},
+          {"id": "variant_title", "component": "Text", "text": "filterable, with checks that need a pick", "variant": "caption"},
+          {"id": "p", "component": "ChoicePicker", "label": "Search the options", "variant": "multipleSelection", "filterable": true, "options": [{"label": "Boat trip", "value": "boat"}, {"label": "Old town", "value": "town"}, {"label": "Monastery", "value": "monastery"}, {"label": "Beach", "value": "beach"}], "value": {"@path": "/many"}, "checks": [{"condition": {"@call": "required", "args": {"value": {"@path": "/many"}}}, "message": "Pick at least one."}]}
+        ]
+      }
+    },
+    {
+      "version": "1.0",
+      "updateDataModel": {
+        "surfaceId": "components-picker-filter",
+        "value": {
+          "many": []
+        }
+      }
+    }
+  ]
+}

@@ -267,6 +267,29 @@ void main() {
     expect(harness.links, [Uri.parse('https://ohrid.example/boat')]);
   });
 
+  testWidgets("an email link a person's tap opens goes to the host", (tester) async {
+    final harness = await _pumpButton(tester, [
+      {
+        'id': 'root',
+        'component': 'Button',
+        'child': 'label',
+        'action': {
+          'functionCall': {
+            '@call': 'openUrl',
+            'args': {'url': 'mailto:boats@ohrid.example'},
+          },
+        },
+      },
+      {'id': 'label', 'component': 'Text', 'text': 'Email the harbour'},
+    ]);
+
+    await tester.tap(find.text('Email the harbour'));
+    await tester.pump();
+
+    expect(harness.links, [Uri.parse('mailto:boats@ohrid.example')]);
+    expect(harness.errors, isEmpty);
+  });
+
   testWidgets('a link opens only from a tap, not as a surface shows', (tester) async {
     final harness = await _pumpButton(tester, [
       {
