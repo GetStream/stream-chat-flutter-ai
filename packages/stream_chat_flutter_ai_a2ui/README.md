@@ -23,8 +23,8 @@ When the person taps a button, the host gets an `AIUIAction`; forward it to your
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.1.0
-  stream_chat_flutter_ai_a2ui: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
+  stream_chat_flutter_ai_a2ui: ^0.2.0
 ```
 
 Both packages are released together, with the same version.
