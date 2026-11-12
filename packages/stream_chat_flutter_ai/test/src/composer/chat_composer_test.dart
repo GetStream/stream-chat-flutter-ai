@@ -1003,6 +1003,177 @@ void main() {
       controller.dispose();
     });
 
+    group('composerInputTrailing', () {
+      Future<_InputTrailingSlot> pumpWith(
+        WidgetTester tester,
+        ChatComposerController controller, {
+        bool enableSpeechToText = true,
+        StreamComponentBuilder<ChatComposerInputTrailingProps>? builder,
+        SpeechToTextConfig config = const SpeechToTextConfig(),
+      }) async {
+        final slot = _InputTrailingSlot();
+        await tester.pumpWidget(
+          _wrap(
+            StreamComponentFactory(
+              builders: StreamComponentBuilders(
+                extensions: streamAIComponentBuilders(composerInputTrailing: builder ?? slot.build),
+              ),
+              child: ChatComposer(
+                controller: controller,
+                enableSpeechToText: enableSpeechToText,
+                speechToTextConfig: config,
+                onSendPressed: (_, __, ___) {},
+              ),
+            ),
+          ),
+        );
+        return slot;
+      }
+
+      testWidgets('receives the composer wiring, the speech controller and the speech config', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+        const config = SpeechToTextConfig(localeId: 'nl_NL');
+
+        final slot = await pumpWith(tester, controller, config: config);
+
+        final props = slot.captured!;
+        expect(props.controller, same(controller));
+        expect(props.speech, same(SpeechToTextController.instance));
+        expect(props.speechToTextConfig, same(config));
+        expect(props.enableSpeechToText, isTrue);
+        expect(props.focusNode, same(tester.widget<TextField>(find.byType(TextField)).focusNode));
+        expect(props.openAttachmentSheet, isNotNull);
+      });
+
+      testWidgets('replaces the mic while the field is empty', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+
+        await pumpWith(tester, controller);
+
+        expect(find.text('custom mic'), findsOneWidget);
+        expect(find.byType(SpeechToTextButton), findsNothing);
+        expect(find.byIcon(_icons.voice), findsNothing);
+      });
+
+      testWidgets('shows without speech to text while the field is empty', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+
+        final slot = await pumpWith(tester, controller, enableSpeechToText: false);
+
+        expect(find.text('custom mic'), findsOneWidget);
+        expect(slot.captured!.enableSpeechToText, isFalse);
+      });
+
+      testWidgets('hides without speech to text once text is typed', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+        await pumpWith(tester, controller, enableSpeechToText: false);
+
+        await tester.enterText(find.byType(TextField), 'Hello');
+        await tester.pumpAndSettle();
+
+        expect(find.text('custom mic'), findsNothing);
+        expect(find.byIcon(_icons.arrowUp), findsOneWidget);
+      });
+
+      testWidgets('hides without speech to text while a response is generating', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+        await pumpWith(tester, controller, enableSpeechToText: false);
+
+        controller.isGenerating = true;
+        await tester.pumpAndSettle();
+
+        expect(find.text('custom mic'), findsNothing);
+        expect(find.byIcon(_icons.stopFill), findsOneWidget);
+      });
+    });
+
+    group('openAttachmentSheet', () {
+      testWidgets('from a custom leading slot opens the sheet the composerAttachmentSheet builder returns', (
+        tester,
+      ) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+        final slots = _OpenSheetLeadingSlots();
+
+        await tester.pumpWidget(
+          _wrap(_slotted(slots, ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}))),
+        );
+        await tester.tap(find.text('open sheet'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('custom sheet'), findsOneWidget);
+        expect(find.byType(ComposerAttachmentSheet), findsNothing);
+      });
+
+      testWidgets('from a custom leading slot opens the default sheet without a builder', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+
+        await tester.pumpWidget(
+          _wrap(
+            StreamComponentFactory(
+              builders: StreamComponentBuilders(
+                extensions: streamAIComponentBuilders(
+                  composerLeading: (context, props) =>
+                      TextButton(onPressed: props.openAttachmentSheet, child: const Text('open sheet')),
+                ),
+              ),
+              child: ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open sheet'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(ComposerAttachmentSheet), findsOneWidget);
+      });
+
+      testWidgets('does nothing while a response is generating', (tester) async {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+        final slots = _OpenSheetLeadingSlots();
+
+        await tester.pumpWidget(
+          _wrap(_slotted(slots, ChatComposer(controller: controller, onSendPressed: (_, __, ___) {}))),
+        );
+        controller.isGenerating = true;
+        await tester.pump();
+        await tester.tap(find.text('open sheet'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('custom sheet'), findsNothing);
+      });
+
+      test('every slot props constructor carries openAttachmentSheet', () {
+        final controller = ChatComposerController();
+        addTearDown(controller.dispose);
+        final focusNode = FocusNode();
+        addTearDown(focusNode.dispose);
+        void open() {}
+        final input = ChatComposerInputProps(
+          controller: controller,
+          focusNode: focusNode,
+          onSend: () {},
+          openAttachmentSheet: open,
+        );
+
+        expect(ChatComposerLeadingProps.from(input).openAttachmentSheet, same(open));
+        expect(ChatComposerTrailingProps.from(input).openAttachmentSheet, same(open));
+        expect(ChatComposerAttachmentSheetProps.from(input).openAttachmentSheet, same(open));
+        expect(
+          ChatComposerInputTrailingProps.from(input, speech: SpeechToTextController.instance).openAttachmentSheet,
+          same(open),
+        );
+        expect(input.copyWith(hintText: 'x').openAttachmentSheet, same(open));
+      });
+    });
+
     testWidgets('composerTrailing can send, using the wiring every slot now carries', (tester) async {
       // The payoff of hanging focusNode/onSend/onStop off ChatComposerSlotProps
       // rather than ChatComposerInputProps alone: a control outside the input
@@ -1618,6 +1789,27 @@ class _CustomSheetFactory extends _Slots {
     captured = props;
     return const Text('custom sheet');
   }
+}
+
+/// Replaces the input's mic and keeps the last props it was handed.
+class _InputTrailingSlot {
+  ChatComposerInputTrailingProps? captured;
+
+  Widget build(BuildContext context, ChatComposerInputTrailingProps props) {
+    captured = props;
+    return const Text('custom mic');
+  }
+}
+
+/// A leading slot whose button opens the attachment sheet, over a sheet slot
+/// that returns a marker.
+class _OpenSheetLeadingSlots extends _Slots {
+  @override
+  Widget? leading(BuildContext context, ChatComposerLeadingProps props) =>
+      TextButton(onPressed: props.openAttachmentSheet, child: const Text('open sheet'));
+
+  @override
+  Widget? attachmentSheet(BuildContext context, ChatComposerAttachmentSheetProps props) => const Text('custom sheet');
 }
 
 Widget _wrapTranslated(Widget child) => _wrap(
