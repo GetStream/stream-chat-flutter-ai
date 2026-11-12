@@ -25,6 +25,31 @@ void main() {
     expect(differing, isEmpty);
   });
 
+  // The growth gates deliberately return a kept result for a long statement
+  // or a program of many statements, so this uses short programs, where every
+  // step reads the text afresh.
+  test('each step of a stream reads as a fresh parser reads the text so far', () {
+    final random = Random(_seed);
+    final schema = _spec();
+    final differing = <String>[];
+    for (var run = 0; run < _stepRuns; run += 1) {
+      final program = _randomProgram(random, long: false);
+      final streaming = OpenUIStreamParser(schema);
+      var text = '';
+      for (final piece in _sized(program, random)) {
+        text += piece;
+        final incremental = parseResultJson(streaming.push(piece));
+        final fresh = parseResultJson(OpenUIStreamParser(schema).set(text));
+        if (jsonEncode(incremental) != jsonEncode(fresh)) {
+          differing.add(text);
+          break;
+        }
+      }
+    }
+
+    expect(differing, isEmpty);
+  });
+
   test('every parser fixture read one code unit at a time never throws', () {
     final cases = (jsonDecode(File(_parserFixtures).readAsStringSync()) as List<Object?>).cast<Map<String, Object?>>();
     final schema = _spec();
@@ -53,6 +78,7 @@ void main() {
 
 const _seed = 0x5eed;
 const _runs = 500;
+const _stepRuns = 60;
 const _maxPiece = 12;
 const _maxParts = 40;
 const _parserFixtures = 'test/conformance/generated/parser-conformance.json';
@@ -97,9 +123,10 @@ final _parts = [
   '\r\n',
 ];
 
-String _randomProgram(Random random) {
+String _randomProgram(Random random, {bool long = true}) {
   final parts = 1 + random.nextInt(_maxParts);
-  return [for (var part = 0; part < parts; part += 1) _parts[random.nextInt(_parts.length)]].join();
+  final choices = long ? _parts : _parts.where((part) => part.length < OpenUIStreamParser.longStatement ~/ 2).toList();
+  return [for (var part = 0; part < parts; part += 1) choices[random.nextInt(choices.length)]].join();
 }
 
 List<String> _sized(String text, Random random) {

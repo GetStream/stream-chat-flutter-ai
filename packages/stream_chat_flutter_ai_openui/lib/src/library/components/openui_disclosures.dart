@@ -2,10 +2,10 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
 /// Builds `Tabs`: a bar with the `trigger` of each of its `items`, and the
@@ -20,7 +20,7 @@ import 'package:stream_core_flutter/core.dart';
 Widget buildOpenUITabs(BuildContext context, OpenUIComponentScope scope) {
   final items = _ContainerItem.all(scope, 'items', requireValue: true);
   if (items.isEmpty) return const SizedBox.shrink();
-  return _OpenUITabs(items: items, isStreaming: scope.isStreaming);
+  return _OpenUITabs(node: scope.node, items: items, isStreaming: scope.isStreaming);
 }
 
 /// Builds an `Accordion`: the `trigger` of each of its `items` as a header
@@ -34,7 +34,7 @@ Widget buildOpenUITabs(BuildContext context, OpenUIComponentScope scope) {
 Widget buildOpenUIAccordion(BuildContext context, OpenUIComponentScope scope) {
   final items = _ContainerItem.all(scope, 'items', requireValue: true);
   if (items.isEmpty) return const SizedBox.shrink();
-  return _OpenUIAccordion(items: items, isStreaming: scope.isStreaming);
+  return _OpenUIAccordion(node: scope.node, items: items, isStreaming: scope.isStreaming);
 }
 
 /// Builds a `SectionBlock`: its `sections`, each a heading (`trigger`) with
@@ -51,17 +51,17 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
   final sections = _ContainerItem.all(scope, 'sections', requireValue: false);
   if (sections.isEmpty) return const SizedBox.shrink();
   if (scope.boolean('isFoldable') ?? true) {
-    return _OpenUISections(sections: sections, isStreaming: scope.isStreaming);
+    return _OpenUISections(node: scope.node, sections: sections, isStreaming: scope.isStreaming);
   }
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    spacing: theme.lSpacing!,
+    spacing: theme.lSpacing,
     children: [
       for (final section in sections)
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: theme.sSpacing!,
+          spacing: theme.sSpacing,
           children: [
             Semantics(
               header: true,
@@ -80,7 +80,7 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
 /// Internal to the package.
 @internal
 Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final items = scope.elements('items');
   final marker = openUIScaled(context, 24);
@@ -101,11 +101,11 @@ Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
                     top: marker + 4,
                     bottom: 4,
                     width: 2,
-                    child: ColoredBox(color: colors.border!),
+                    child: ColoredBox(color: colors.border),
                   ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: theme.mSpacing!,
+                  spacing: theme.mSpacing,
                   children: [
                     Container(
                       width: marker,
@@ -114,20 +114,20 @@ Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
                       decoration: BoxDecoration(color: colors.accent, shape: BoxShape.circle),
                       child: Text(
                         '${index + 1}',
-                        style: theme.caption!.copyWith(fontWeight: FontWeight.w700, color: colors.onAccent),
+                        style: theme.caption.copyWith(fontWeight: FontWeight.w700, color: colors.onAccent),
                         textScaler: TextScaler.noScaling,
                       ),
                     ),
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(bottom: last ? 0 : theme.lSpacing!),
+                        padding: EdgeInsets.only(bottom: last ? 0 : theme.lSpacing),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          spacing: theme.xsSpacing!,
+                          spacing: theme.xsSpacing,
                           children: [
                             OpenUIMarkdownText(
                               data: item.text('title') ?? '',
-                              style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+                              style: theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
                             ),
                             if (details case OpenUIString(:final value))
                               OpenUIMarkdownText(
@@ -175,6 +175,11 @@ Widget buildOpenUICarousel(BuildContext context, OpenUIComponentScope scope) {
   return _OpenUICarousel(scope: scope, slides: slides, variant: scope.string('variant') == 'sunk' ? 'sunk' : 'card');
 }
 
+// The item of [node], tabs, an accordion or a section block, that the form
+// around [context] asks to show because a field in it failed its check.
+String? _revealed(BuildContext context, ElementNode node) =>
+    OpenUIFormScope.maybeOf(context)?.validation.takeReveal(node);
+
 // An item of tabs, an accordion or a section block.
 class _ContainerItem {
   const _ContainerItem(this.value, this.trigger, this.scope);
@@ -210,8 +215,9 @@ class _ContainerItem {
 }
 
 class _OpenUITabs extends StatefulWidget {
-  const _OpenUITabs({required this.items, required this.isStreaming});
+  const _OpenUITabs({required this.node, required this.items, required this.isStreaming});
 
+  final ElementNode node;
   final List<_ContainerItem> items;
   final bool isStreaming;
 
@@ -228,6 +234,16 @@ class _OpenUITabsState extends State<_OpenUITabs> {
   void initState() {
     super.initState();
     _follow();
+  }
+
+  // A form that failed on a field in an item that isn't shown asks for it.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revealed(context, widget.node) case final item?) {
+      _touched = true;
+      _selected = item;
+    }
   }
 
   @override
@@ -253,13 +269,13 @@ class _OpenUITabsState extends State<_OpenUITabs> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     final items = widget.items;
     final active = items.firstWhere((item) => item.value == _selected, orElse: () => items.first);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: theme.mSpacing!,
+      spacing: theme.mSpacing,
       children: [
         Align(
           alignment: AlignmentDirectional.centerStart,
@@ -268,14 +284,14 @@ class _OpenUITabsState extends State<_OpenUITabs> {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colors.subtleFill,
-                border: Border.all(color: colors.border!),
-                borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
+                border: Border.all(color: colors.border),
+                borderRadius: BorderRadius.circular(theme.pillCornerRadius),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(3),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  spacing: theme.xsSpacing!,
+                  spacing: theme.xsSpacing,
                   children: [
                     for (final item in items)
                       OpenUIPressable(
@@ -287,14 +303,14 @@ class _OpenUITabsState extends State<_OpenUITabs> {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: item == active ? colors.surface : null,
-                            border: item == active ? Border.all(color: colors.border!) : null,
-                            borderRadius: BorderRadius.circular(theme.pillCornerRadius!),
+                            border: item == active ? Border.all(color: colors.border) : null,
+                            borderRadius: BorderRadius.circular(theme.pillCornerRadius),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                             child: Text(
                               item.trigger,
-                              style: theme.bodySmall!.copyWith(
+                              style: theme.bodySmall.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: item == active ? colors.text : colors.secondaryText,
                               ),
@@ -315,8 +331,9 @@ class _OpenUITabsState extends State<_OpenUITabs> {
 }
 
 class _OpenUIAccordion extends StatefulWidget {
-  const _OpenUIAccordion({required this.items, required this.isStreaming});
+  const _OpenUIAccordion({required this.node, required this.items, required this.isStreaming});
 
+  final ElementNode node;
   final List<_ContainerItem> items;
   final bool isStreaming;
 
@@ -333,6 +350,15 @@ class _OpenUIAccordionState extends State<_OpenUIAccordion> {
   void initState() {
     super.initState();
     _openNewest();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revealed(context, widget.node) case final item?) {
+      _touched = true;
+      _open = item;
+    }
   }
 
   @override
@@ -363,8 +389,9 @@ class _OpenUIAccordionState extends State<_OpenUIAccordion> {
 }
 
 class _OpenUISections extends StatefulWidget {
-  const _OpenUISections({required this.sections, required this.isStreaming});
+  const _OpenUISections({required this.node, required this.sections, required this.isStreaming});
 
+  final ElementNode node;
   final List<_ContainerItem> sections;
   final bool isStreaming;
 
@@ -381,6 +408,15 @@ class _OpenUISectionsState extends State<_OpenUISections> {
   void initState() {
     super.initState();
     _update(wasStreaming: widget.isStreaming);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_revealed(context, widget.node) case final item?) {
+      _touched = true;
+      _open.add(item);
+    }
   }
 
   @override
@@ -429,14 +465,14 @@ class _Disclosures extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
-    final spacing = theme.mSpacing!;
+    final spacing = theme.mSpacing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, item) in items.indexed) ...[
-          if (index > 0) SizedBox(height: 0.5, child: ColoredBox(color: colors.border!)),
+          if (index > 0) SizedBox(height: 0.5, child: ColoredBox(color: colors.border)),
           KeyedSubtree(
             key: ValueKey(item.value),
             child: Column(
@@ -447,16 +483,15 @@ class _Disclosures extends StatelessWidget {
                   expanded: isOpen(item),
                   child: OpenUIPressable(
                     onTap: () => onToggle(item),
-                    hint: isOpen(item) ? OpenUIStrings.expanded : OpenUIStrings.collapsed,
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: spacing),
                       child: Row(
-                        spacing: theme.sSpacing!,
+                        spacing: theme.sSpacing,
                         children: [
                           Expanded(
                             child: OpenUIMarkdownText(
                               data: item.trigger,
-                              style: heading ? theme.heading : theme.bodySmall!.copyWith(fontWeight: FontWeight.w600),
+                              style: heading ? theme.heading : theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ),
                           ExcludeSemantics(
@@ -510,7 +545,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = OpenUITheme.of(context);
+    final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     final count = widget.slides.length;
     final current = _index.clamp(0, count - 1);
@@ -520,7 +555,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
       variant: widget.variant,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: theme.sSpacing!,
+        spacing: theme.sSpacing,
         children: openUIChildWidgets(context, widget.scope, widget.slides[current]),
       ),
     );
@@ -541,7 +576,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: theme.sSpacing!,
+      spacing: theme.sSpacing,
       children: [
         GestureDetector(
           onHorizontalDragEnd: (details) {
@@ -555,7 +590,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
         if (count > 1)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            spacing: theme.mSpacing!,
+            spacing: theme.mSpacing,
             children: [
               pager(
                 rtl ? context.streamIcons.chevronRight : context.streamIcons.chevronLeft,

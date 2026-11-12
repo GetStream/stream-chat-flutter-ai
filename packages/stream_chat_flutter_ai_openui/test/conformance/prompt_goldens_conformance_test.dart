@@ -38,7 +38,7 @@ void main() {
 
     test('$name: the prompt generated from the spec is the golden', () {
       final spec = _spec(golden['library']! as String);
-      final prompt = PromptGenerator.generate(PromptSpec.fromLibrarySpec(spec, options: _options(golden['options'])));
+      final prompt = PromptGenerator.generate(promptSpecFromLibrarySpec(spec, options: _options(golden['options'])));
 
       expect(_firstDifference(prompt, golden['prompt']! as String), isNull);
     });

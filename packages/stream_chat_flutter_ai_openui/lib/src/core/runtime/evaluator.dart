@@ -8,6 +8,7 @@ import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/parser/materializer.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/schema_validation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/upstream_shape.dart';

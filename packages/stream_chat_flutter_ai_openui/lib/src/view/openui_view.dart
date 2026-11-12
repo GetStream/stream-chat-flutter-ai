@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_stream_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -77,34 +79,42 @@ class OpenUIView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     onUntitledLabel?.call(AITranslations.of(context).uiActionUntitled);
-    final theme = OpenUITheme.of(context).merge(this.theme);
+    final data = OpenUITheme.of(context).merge(theme);
+    final resolved = OpenUIResolvedTheme.fromData(data, StreamTheme.of(context));
     return OpenUITheme(
-      data: theme,
+      data: data,
       child: OpenUIStreamTheme(
-        theme: theme,
-        child: DefaultTextStyle.merge(
-          style: theme.body!.copyWith(color: theme.text),
-          child: IconTheme.merge(
-            data: IconThemeData(color: theme.text),
-            child: ValueListenableBuilder(
-              valueListenable: runtime.root,
-              builder: (context, root, _) {
-                if (root == null) return const SizedBox.shrink();
-                return OpenUIViewScope(
-                  runtime: runtime,
-                  library: library,
-                  mediaUrl: mediaUrl,
-                  openLink: onOpenLink,
-                  isStreaming: runtime.isStreaming,
-                  unknownTypes: _unknownTypes[runtime] ??= {},
-                  onBuildError: onBuildError,
-                  child: _QueryLoading(
-                    isLoading: runtime.isQueryLoading,
-                    spacing: theme.sSpacing!,
-                    child: OpenUINodeView(node: root),
-                  ),
-                );
-              },
+        theme: resolved,
+        // The text fields and switches of the components need a Material
+        // above them, which an app without one doesn't give.
+        child: Material(
+          type: MaterialType.transparency,
+          child: DefaultTextStyle.merge(
+            style: resolved.body.copyWith(color: resolved.text),
+            child: IconTheme.merge(
+              data: IconThemeData(color: resolved.text),
+              child: ListenableBuilder(
+                listenable: Listenable.merge([runtime.root, runtime.streaming]),
+                builder: (context, _) {
+                  final root = runtime.root.value;
+                  if (root == null) return const SizedBox.shrink();
+                  return OpenUIViewScope(
+                    runtime: runtime,
+                    library: library,
+                    theme: resolved,
+                    mediaUrl: mediaUrl,
+                    openLink: onOpenLink,
+                    isStreaming: runtime.isStreaming,
+                    unknownTypes: _unknownTypes[runtime] ??= {},
+                    onBuildError: onBuildError,
+                    child: _QueryLoading(
+                      isLoading: runtime.isQueryLoading,
+                      spacing: resolved.sSpacing,
+                      child: OpenUINodeView(node: root),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),

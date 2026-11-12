@@ -13,8 +13,9 @@ void main() {
     final previous = FlutterError.onError;
     FlutterError.onError = reported.add;
     addTearDown(() => FlutterError.onError = previous);
-    final processor = A2UIProcessor(catalogs: A2UICatalogs(), debugCoreFactory: FaultyCore.new);
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
     addTearDown(processor.dispose);
+    debugReplaceCore(processor, FaultyCore.new);
 
     processor.apply([_createSurface('broken'), _createSurface('plan')]);
 
@@ -179,8 +180,8 @@ void main() {
     expect(processor.surfaceIds, ['plan']);
   });
 
-  test('a surface that names no catalog is drawn from the app catalog', () {
-    final processor = _processor()
+  test('a surface that names no catalog is drawn from the default catalog', () {
+    final processor = _processor(defaultCatalogId: A2UICatalogs.defaultCatalogId)
       ..apply([
         jsonEncode({
           'version': '1.0',
@@ -196,8 +197,8 @@ void main() {
     expect(processor.surface('plan')!.root!.isResolved, isTrue);
   });
 
-  test('a surface whose catalog is null is drawn from the app catalog', () {
-    final processor = _processor()
+  test('a surface whose catalog is null is drawn from the default catalog', () {
+    final processor = _processor(defaultCatalogId: A2UICatalogs.defaultCatalogId)
       ..apply([
         jsonEncode({
           'version': '1.0',
@@ -212,6 +213,26 @@ void main() {
       ]);
 
     expect(processor.surface('plan')!.root!.isResolved, isTrue);
+  });
+
+  test('a surface that names no catalog has none without a default catalog', () {
+    final errors = <A2UIError>[];
+    final processor = _processor(errors: errors)
+      ..apply([
+        jsonEncode({
+          'version': '1.0',
+          'createSurface': {
+            'surfaceId': 'plan',
+            'components': [
+              {'id': 'root', 'component': 'Text', 'text': 'Ohrid'},
+            ],
+          },
+        }),
+      ]);
+
+    expect(processor.surfaceIds, isEmpty);
+    expect(errors.single.code, A2UIErrorCode.catalogNotFound);
+    expect(errors.single.surfaceId, 'plan');
   });
 
   test('apply reports a batch item that is not an object for the whole message', () {
@@ -274,8 +295,13 @@ String _updateDataModel(String surfaceId) => jsonEncode({
   'updateDataModel': {'surfaceId': surfaceId, 'path': '/title', 'value': 'Ohrid'},
 });
 
-A2UIProcessor _processor({List<A2UIError>? errors, void Function()? onUnreadable}) {
-  final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: errors?.add, onUnreadable: onUnreadable);
+A2UIProcessor _processor({List<A2UIError>? errors, void Function()? onUnreadable, String? defaultCatalogId}) {
+  final processor = A2UIProcessor(
+    catalogs: A2UICatalogs(),
+    defaultCatalogId: defaultCatalogId,
+    onError: errors?.add,
+    onUnreadable: onUnreadable,
+  );
   addTearDown(processor.dispose);
   return processor;
 }

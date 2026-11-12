@@ -5,7 +5,7 @@
 library;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';

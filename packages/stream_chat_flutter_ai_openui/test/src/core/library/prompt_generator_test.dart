@@ -835,36 +835,36 @@ void main() {
   test('a spec keeps the options it is given', () {
     final options = PromptOptions(preamble: 'x');
 
-    expect(PromptSpec.fromLibrarySpec(const {}, options: options).options, options);
+    expect(promptSpecFromLibrarySpec(const {}, options: options).options, options);
   });
 
   test('an empty library spec has no root', () {
-    expect(PromptSpec.fromLibrarySpec(const {}).root, isNull);
+    expect(promptSpecFromLibrarySpec(const {}).root, isNull);
   });
 
   test('an empty library spec has no components', () {
-    expect(PromptSpec.fromLibrarySpec(const {}).components, isEmpty);
+    expect(promptSpecFromLibrarySpec(const {}).components, isEmpty);
   });
 
   test('an empty library spec has no component groups', () {
-    expect(PromptSpec.fromLibrarySpec(const {}).componentGroups, isEmpty);
+    expect(promptSpecFromLibrarySpec(const {}).componentGroups, isEmpty);
   });
 
   test('an empty library spec has no functions', () {
-    expect(PromptSpec.fromLibrarySpec(const {}).functions, isEmpty);
+    expect(promptSpecFromLibrarySpec(const {}).functions, isEmpty);
   });
 
   test('an empty library spec has no actions', () {
-    expect(PromptSpec.fromLibrarySpec(const {}).actions, isEmpty);
+    expect(promptSpecFromLibrarySpec(const {}).actions, isEmpty);
   });
 
   test('a root that is a number reads as none', () {
-    expect(PromptSpec.fromLibrarySpec({'root': 5}).root, isNull);
+    expect(promptSpecFromLibrarySpec({'root': 5}).root, isNull);
   });
 
   test('a root that is a list reads as none', () {
     expect(
-      PromptSpec.fromLibrarySpec({
+      promptSpecFromLibrarySpec({
         'root': ['Card'],
       }).root,
       isNull,
@@ -872,12 +872,12 @@ void main() {
   });
 
   test('a root that is a string is the root', () {
-    expect(PromptSpec.fromLibrarySpec({'root': 'Card'}).root, 'Card');
+    expect(promptSpecFromLibrarySpec({'root': 'Card'}).root, 'Card');
   });
 
   test('components that are a list read as empty', () {
     expect(
-      PromptSpec.fromLibrarySpec({
+      promptSpecFromLibrarySpec({
         'components': ['Card'],
       }).components,
       isEmpty,
@@ -886,7 +886,7 @@ void main() {
 
   test('component groups that are an object read as empty', () {
     expect(
-      PromptSpec.fromLibrarySpec({
+      promptSpecFromLibrarySpec({
         'componentGroups': {'name': 'x'},
       }).componentGroups,
       isEmpty,
@@ -894,15 +894,15 @@ void main() {
   });
 
   test('functions that are a string read as empty', () {
-    expect(PromptSpec.fromLibrarySpec({'functions': 'Upper'}).functions, isEmpty);
+    expect(promptSpecFromLibrarySpec({'functions': 'Upper'}).functions, isEmpty);
   });
 
   test('actions that are a number read as empty', () {
-    expect(PromptSpec.fromLibrarySpec({'actions': 5}).actions, isEmpty);
+    expect(promptSpecFromLibrarySpec({'actions': 5}).actions, isEmpty);
   });
 
   test('a component entry that is not an object is left out', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'components': {
         'Bad': 'Bad()',
         'Good': {'signature': 'Good()'},
@@ -913,7 +913,7 @@ void main() {
   });
 
   test('a signature that is not a string reads as empty', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'components': {
         'A': {'signature': 1, 'description': 2},
       },
@@ -923,7 +923,7 @@ void main() {
   });
 
   test('a description that is not a string reads as empty', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'components': {
         'A': {'signature': 1, 'description': 2},
       },
@@ -933,7 +933,7 @@ void main() {
   });
 
   test('a group that is not an object is left out', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'componentGroups': [
         'x',
         5,
@@ -945,7 +945,7 @@ void main() {
   });
 
   test('a group name that is not a string reads as empty', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'componentGroups': [
         {'name': 5},
       ],
@@ -955,7 +955,7 @@ void main() {
   });
 
   test('the components of a group that are not strings are left out', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'componentGroups': [
         {
           'name': 'G',
@@ -969,7 +969,7 @@ void main() {
   });
 
   test('the notes of a group that are not strings are left out', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'componentGroups': [
         {
           'name': 'G',
@@ -983,7 +983,7 @@ void main() {
   });
 
   test('the components of a group that are not a list read as empty', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'componentGroups': [
         {'name': 'G', 'components': 'A', 'notes': 'n'},
       ],
@@ -993,7 +993,7 @@ void main() {
   });
 
   test('the notes of a group that are not a list read as empty', () {
-    final spec = PromptSpec.fromLibrarySpec({
+    final spec = promptSpecFromLibrarySpec({
       'componentGroups': [
         {'name': 'G', 'components': 'A', 'notes': 'n'},
       ],
@@ -1006,14 +1006,14 @@ void main() {
     final library = specLibrary();
     final options = PromptOptions(examples: ['root = Stack([])'], additionalRules: ['A rule'], editMode: true);
 
-    final generated = PromptGenerator.generate(PromptSpec.fromLibrarySpec(library.toSpec(), options: options));
+    final generated = PromptGenerator.generate(promptSpecFromLibrarySpec(library.toSpec(), options: options));
 
     expect(generated, library.systemPrompt(options));
   });
 }
 
 PromptSpec _librarySpec() {
-  return PromptSpec.fromLibrarySpec({
+  return promptSpecFromLibrarySpec({
     'root': 'Card',
     'components': {
       'Card': {'signature': 'Card(title: string)', 'description': 'A card'},

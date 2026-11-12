@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 /// A problem found while reading or running an OpenUI Lang program.
 ///

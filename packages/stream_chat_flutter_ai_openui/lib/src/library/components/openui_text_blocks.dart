@@ -2,18 +2,18 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart' show CodeBlockView;
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 /// Builds a `Label`: its `text` as plain, medium-weight small text.
 ///
 /// Internal to the package.
 @internal
 Widget buildOpenUILabel(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   return Text(
     scope.text('text') ?? '',
-    style: theme.bodySmall!.copyWith(fontWeight: FontWeight.w500, color: theme.text),
+    style: theme.bodySmall.copyWith(fontWeight: FontWeight.w500, color: theme.text),
   );
 }
 
@@ -23,19 +23,19 @@ Widget buildOpenUILabel(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUIInlineHeader(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final description = scope.text('description') ?? '';
   return MergeSemantics(
     child: Semantics(
       header: true,
       child: Padding(
-        padding: EdgeInsets.only(top: theme.xsSpacing!),
+        padding: EdgeInsets.only(top: theme.xsSpacing),
         child: SizedBox(
           width: double.infinity,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: theme.xsSpacing! / 2,
+            spacing: theme.xsSpacing / 2,
             children: [
               OpenUIMarkdownText(data: scope.text('heading') ?? '', style: theme.heading),
               if (description.isNotEmpty)
@@ -58,7 +58,7 @@ Widget buildOpenUIInlineHeader(BuildContext context, OpenUIComponentScope scope)
 /// Internal to the package.
 @internal
 Widget buildOpenUISeparator(BuildContext context, OpenUIComponentScope scope) {
-  final color = OpenUITheme.of(context).border!;
+  final color = OpenUIViewScope.of(context).theme.border;
   if (scope.string('orientation') == 'vertical') {
     // Aligned, so a parent that stretches its children doesn't stretch the line.
     return Align(
@@ -98,17 +98,17 @@ Widget buildOpenUICodeBlock(BuildContext context, OpenUIComponentScope scope) {
 /// Internal to the package.
 @internal
 Widget buildOpenUITextCallout(BuildContext context, OpenUIComponentScope scope) {
-  final theme = OpenUITheme.of(context);
+  final theme = OpenUIViewScope.of(context).theme;
   final color = openUIVariantColor(theme, scope.string('variant') ?? 'neutral');
   final title = scope.text('title') ?? '';
   final description = scope.text('description') ?? '';
   return DecoratedBox(
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+      borderRadius: BorderRadius.circular(theme.smallCornerRadius),
     ),
     child: ClipRRect(
-      borderRadius: BorderRadius.circular(theme.smallCornerRadius!),
+      borderRadius: BorderRadius.circular(theme.smallCornerRadius),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,15 +119,15 @@ Widget buildOpenUITextCallout(BuildContext context, OpenUIComponentScope scope) 
             ),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.all(theme.mSpacing!),
+                padding: EdgeInsets.all(theme.mSpacing),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: theme.xsSpacing!,
+                  spacing: theme.xsSpacing,
                   children: [
                     if (title.isNotEmpty)
                       Text(
                         title,
-                        style: theme.bodySmall!.copyWith(
+                        style: theme.bodySmall.copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.text,
                         ),

@@ -7,7 +7,9 @@ import 'package:stream_core_flutter/core.dart';
 /// [name] is a Lucide icon name, in any case and with spaces around it. A
 /// name that isn't one is tried without its numeric parts and then with
 /// trailing parts dropped one at a time (`arrow-up-right-2` finds
-/// `arrow-up-right`, then `arrow-up`), and then [category] is tried.
+/// `arrow-up-right`, then `arrow-up`), and then [category] is tried. A name
+/// with an `off`, `open`, `x` or `minus` part has no trailing part dropped, as
+/// the shorter name would mean the opposite.
 ///
 /// Internal to the package.
 @internal
@@ -39,10 +41,15 @@ Iterable<String> _loose(String key) sync* {
   final parts = key.split('-');
   final withoutNumbers = parts.where((part) => int.tryParse(part) == null).join('-');
   if (withoutNumbers.isNotEmpty && withoutNumbers != key) yield withoutNumbers;
+  // A part that negates or inverts the icon (`eye-off`, `lock-open`) means the
+  // shorter name is not the icon asked for.
+  if (parts.any(_inverting.contains)) return;
   for (var count = parts.length - 1; count >= 1; count--) {
     yield parts.take(count).join('-');
   }
 }
+
+const _inverting = {'off', 'open', 'x', 'minus'};
 
 // The map of each design system icon set, made once.
 final _maps = Expando<Map<String, IconData>>();
@@ -134,8 +141,11 @@ Map<String, IconData> _map(StreamIcons i) => {
   'mail': i.send,
   'send': i.send,
   'phone': i.phoneFill,
+  'phone-off': i.phoneDownFill,
   'video': i.video,
+  'video-off': i.videoOffFill,
   'mic': i.voice,
+  'mic-off': i.voiceOffFill,
   'megaphone': i.megaphone,
   'share': i.share,
   'share-2': i.share,
@@ -179,6 +189,8 @@ Map<String, IconData> _map(StreamIcons i) => {
   'cog': i.settings,
   'lock': i.lock,
   'unlock': i.unlock,
+  'lock-open': i.unlock,
+  'lock-keyhole-open': i.unlock,
   'shield': i.shield,
   'shield-check': i.shield,
   'globe': i.language,

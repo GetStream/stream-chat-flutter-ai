@@ -7,7 +7,7 @@
 - `OpenUITheme` gives OpenUI components the look in an `OpenUIThemeData`: flat, nullable colors (`accent`, `text`,
   `surface`, `error`, `chartPalette`, …), spacing (`mSpacing`, …), corner radii (`cornerRadius`, …) and text styles
   (`title`, `body`, …), with `copyWith`, `merge`, `lerp` and `OpenUITheme.merge`, like `A2UIThemeData`. Values left
-  `null` come from the app's Stream theme; `OpenUITheme.of` gives them all filled in. The Stream design system
+  `null` come from the app's Stream theme. The Stream design system
   components inside OpenUI take its colors, spacing, radii and text styles, and still use the app's
   `StreamComponentFactory` builders.
 - `OpenUILibrary.chat` and `OpenUILibrary.standard` hold OpenUI's chat and standard component libraries, with `types`,
@@ -34,8 +34,8 @@
   rows at a time) and `EditableTable`, whose edits can be reset or saved.
 - Forms are drawn: `Form`, `FormControl` (with its required mark, hint and validation error), `Input`, `TextArea`,
   `Select`, `DatePicker`, `Slider`, `CheckBoxGroup`, `SwitchGroup`, `RadioGroup`, `Chips` and `OptionCards`. Fields
-  show and write the reply's state and their `$variable` bindings, check their `rules` (all but `pattern`, which isn't checked yet), keep their defaults once the
-  reply ends and can't be changed while it streams; a password never leaves the reply's state.
+  show and write the reply's state and their `$variable` bindings, check their `rules` (all but `pattern`, which isn't checked yet), keep their defaults
+  once the reply ends and can't be changed while it streams; a password never leaves the reply's state.
 - Buttons are drawn: `Button`, `Buttons` and `IconButton`. They run their actions once the reply has ended, and a
   primary button checks its form first.
 - `OpenUIRenderer` shows OpenUI replies in a conversation: added to an `AIUIHost`, it draws a reply's program as it

@@ -596,6 +596,19 @@ void main() {
     expect(schema.description, 'A card. title: The title.');
   });
 
+  test('a property description of whitespace only adds nothing', () {
+    final schema = portableComponentSchema({
+      'name': 'a',
+      'parameters': {
+        'properties': {
+          'title': {'type': 'string', 'description': ' \n '},
+        },
+      },
+    });
+
+    expect(schema.description, isEmpty);
+  });
+
   test('the property descriptions follow the order of the props', () {
     final schema = portableComponentSchema(
       _definition(

@@ -33,7 +33,7 @@ dependencies:
   re_highlight: ^0.0.3
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace. The constraint comes from the root bootstrap list.
-  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
   # Core's widgets (`StreamAppBar`, `StreamButton`) for the example's own
   # screens; the AI package exports only the theme and factory types.
   stream_core_flutter: ^0.5.3
