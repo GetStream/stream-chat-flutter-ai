@@ -96,7 +96,12 @@ dependencies:
   stream_chat_flutter_ai: ^0.2.0
 ```
 
-It requires Dart 3.11 or later and Flutter 3.41 or later.
+> [!IMPORTANT]
+> Build your app on `package:flutter/material.dart`, not the
+> [`material_ui`](https://pub.dev/packages/material_ui) package. The components use Flutter's own
+> `Material`, `Theme` and localizations, so under `material_ui`'s `MaterialApp` and `Scaffold` the
+> composer fails with "No Material widget found". The `flutter create` template of Flutter 3.50 and
+> later imports `material_ui`: switch its imports back to `package:flutter/material.dart`.
 
 ## ⚙️ Usage
 
