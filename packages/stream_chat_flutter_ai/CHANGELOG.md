@@ -1,3 +1,10 @@
+## Upcoming
+
+🐞 Fixed
+
+- A link in an agent's reply, or in its reasoning, opens when tapped: a web link in the browser, and any
+  other URL with the platform's default app. It did nothing before.
+
 ## 0.2.0
 
 💥 Breaking

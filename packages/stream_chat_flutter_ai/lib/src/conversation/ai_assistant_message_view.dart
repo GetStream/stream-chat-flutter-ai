@@ -11,6 +11,7 @@ import 'package:stream_chat_flutter_ai/src/parts/ai_reasoning_part.dart';
 import 'package:stream_chat_flutter_ai/src/parts/ai_tool_approver.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/streaming_reasoning_view.dart';
 import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// A reply of the agent: the steps it took, then its answer, typed out as it
 /// arrives, and then its attachments.
@@ -18,6 +19,9 @@ import 'package:stream_chat_flutter_ai/src/streaming_message_view.dart';
 /// Reasoning shows with [StreamingReasoningView], open while the model thinks,
 /// and the other steps as [AIMessagePartsView] shows them, asking this person
 /// about a tool call that waits for their approval when given an [approver].
+///
+/// A link in the answer or in its reasoning opens when tapped: a web link in
+/// the browser, and any other URL is handed to the platform.
 ///
 /// ```dart
 /// AIAssistantMessageView(text: reply.text, isGenerating: reply.isGenerating, parts: reply.parts)
@@ -212,14 +216,39 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
         : scope.clock.durationOfFirstStep(scope.turn, step.duration);
     final props = AIReasoningProps(reasoning: step, text: widget.reasoningText?.call(step), duration: duration);
     if (context.aiComponentBuilder<AIReasoningProps>() case final builder?) return builder(context, props);
-    if (duration == null) return StreamingReasoningView.part(step, text: props.text);
+    if (duration == null) return StreamingReasoningView.part(step, text: props.text, onTapLink: _openLink);
     final view = StreamingReasoningView(
       text: _shownText(step, props.text),
       isThinking: step.isStreaming,
       duration: duration,
       summary: step.summary,
+      onTapLink: _openLink,
     );
     return _opensFinished[step.id] == true ? FinishedReasoningScope(child: view) : view;
+  }
+
+  // Opens a tapped link with an absolute URL: a web link in the browser, and
+  // any other URL with the platform's default app. A link without a scheme
+  // has nothing to open.
+  void _openLink(String text, String? href, String title) {
+    final url = href == null ? null : Uri.tryParse(href);
+    if (url == null || !url.hasScheme) return;
+    final mode = url.isScheme('http') || url.isScheme('https')
+        ? LaunchMode.externalApplication
+        : LaunchMode.platformDefault;
+    unawaited(
+      launchUrl(url, mode: mode).then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) => FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'stream_chat_flutter_ai',
+            context: ErrorDescription('while opening a link'),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -237,6 +266,7 @@ class _AIAssistantMessageViewState extends State<AIAssistantMessageView> {
             text: _held ? '' : widget.text,
             expectMoreText: _generating || _held,
             onFinished: _onFinished,
+            onTapLink: _openLink,
           ),
         for (final attachment in widget.attachments)
           AIMessageAttachmentView.of(
