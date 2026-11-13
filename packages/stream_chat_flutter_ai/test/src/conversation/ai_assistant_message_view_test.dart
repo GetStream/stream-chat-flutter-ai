@@ -1,6 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 Widget _view(String text, {required bool isGenerating}) => MaterialApp(
   home: Scaffold(
@@ -137,5 +141,103 @@ void main() {
       expect(find.text('Hello, world!'), findsOneWidget);
       await _typeOut(tester);
     });
+
+    testWidgets('opens a web link in the answer in the browser', (tester) async {
+      final launcher = _useLauncher();
+      await tester.pumpWidget(_view('See [the docs](https://x.io/docs).', isGenerating: false));
+
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
+      await tester.pump();
+
+      expect(launcher.launched, ['https://x.io/docs']);
+      expect(launcher.modes, [PreferredLaunchMode.externalApplication]);
+    });
+
+    testWidgets('opens any other link in the answer with the platform default', (tester) async {
+      final launcher = _useLauncher();
+      await tester.pumpWidget(_view('Write to [us](mailto:hi@x.io).', isGenerating: false));
+
+      await tester.tapOnText(find.textRange.ofSubstring('us'));
+      await tester.pump();
+
+      expect(launcher.launched, ['mailto:hi@x.io']);
+      expect(launcher.modes, [PreferredLaunchMode.platformDefault]);
+    });
+
+    testWidgets('opens nothing for a link without a scheme', (tester) async {
+      final launcher = _useLauncher();
+      await tester.pumpWidget(_view('See [the docs](docs/setup.md).', isGenerating: false));
+
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
+      await tester.pump();
+
+      expect(launcher.launched, isEmpty);
+    });
+
+    testWidgets('reports a link that fails to open', (tester) async {
+      _useLauncher(throws: true);
+      await tester.pumpWidget(_view('See [the docs](https://x.io/docs).', isGenerating: false));
+
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
+      await tester.pump();
+
+      expect(tester.takeException(), isA<PlatformException>());
+    });
+
+    testWidgets('opens a link in the reasoning', (tester) async {
+      final launcher = _useLauncher();
+      const step = AIReasoningPart(id: 'step', preview: 'Checked [the docs](https://x.io/docs).', durationMs: 2000);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AIAssistantMessageView(text: 'Done.', parts: [AIMessagePart.fromReasoning(step)]),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Thought for 2s'));
+      await tester.pumpAndSettle();
+
+      // The reasoning's own tests tap its links through their recognizer too.
+      final paragraph = tester.widget<RichText>(find.text('Checked the docs.', findRichText: true));
+      (_linkIn(paragraph.text)!.recognizer! as TapGestureRecognizer).onTap!();
+      await tester.pump();
+
+      expect(launcher.launched, ['https://x.io/docs']);
+    });
   });
+}
+
+_FakeUrlLauncher _useLauncher({bool throws = false}) {
+  final launcher = _FakeUrlLauncher(throws: throws);
+  final previous = UrlLauncherPlatform.instance;
+  UrlLauncherPlatform.instance = launcher;
+  addTearDown(() => UrlLauncherPlatform.instance = previous);
+  return launcher;
+}
+
+final class _FakeUrlLauncher extends Fake with MockPlatformInterfaceMixin implements UrlLauncherPlatform {
+  _FakeUrlLauncher({required this.throws});
+
+  final bool throws;
+  final launched = <String>[];
+  final modes = <PreferredLaunchMode>[];
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launched.add(url);
+    modes.add(options.mode);
+    if (throws) throw PlatformException(code: 'x');
+    return true;
+  }
+}
+
+// The span of the link in [span]. Not `visitChildren`, which skips spans
+// without text of their own, as a link's is in its children.
+TextSpan? _linkIn(InlineSpan span) {
+  if (span is! TextSpan) return null;
+  if (span.recognizer != null) return span;
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    if (_linkIn(child) case final link?) return link;
+  }
+  return null;
 }
