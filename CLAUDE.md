@@ -134,14 +134,14 @@ release PR drops `publish_to: none`, the A2UI package is private and the release
 2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
 3. `release_tag.yml` reads `v<version>` from that commit, checks it matches every publishable pubspec
    (`.github/workflows/scripts/verify-release-versions.sh`) and isn't tagged yet, and pushes the tag with
-   `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
+   `CI_BOT_GITHUB_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
 4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC — core first, since the A2UI
    upload needs core `<version>` on pub.dev — and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on **each** package's pub.dev admin page (repository
 `GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, "Require GitHub Actions environment" left empty) and the
-`BOT_GITHUB_API_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
+`CI_BOT_GITHUB_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
 `refs/tags/v*` to the bot is worth adding too. pub.dev can't create a package through automated publishing,
 so a new package's first version is uploaded by hand by a publisher member before its admin page offers the
 setting; a release tag after that skips it if that version is already live.
