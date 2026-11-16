@@ -29,7 +29,7 @@ Future<(OpenUIRuntime, List<OpenUIActionEvent>)> _pump(
 }
 
 const _contact = '''
-root = Stack([form])
+root = Card([form])
 form = Form("contact", buttons, [name, pass])
 name = FormControl("Name", Input("name", "Your name", "text", {required: true, minLength: 2}), "As on your ID")
 pass = FormControl("Password", Input("secret", "", "password"))
@@ -43,8 +43,44 @@ void main() {
     testWidgets('a FormControl shows its label, a required mark and its hint', (tester) async {
       await _pump(tester, _contact);
 
-      expect(find.text('Name *', findRichText: true), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is RichText && widget.text.toPlainText(includeSemanticsLabels: false) == 'Name *',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('As on your ID'), findsOneWidget);
+    });
+
+    testWidgets('a single field is named by its FormControl label, and a required one reads as required', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _contact);
+
+      final name = tester.getSemantics(find.byType(TextField).first);
+      expect(name.label, 'Name');
+      expect(name, containsSemantics(isRequired: true));
+      // The password has an empty placeholder, so the label is all it is named by.
+      final password = tester.getSemantics(find.byType(TextField).last);
+      expect(password.label, 'Password');
+      expect(password, isNot(containsSemantics(isRequired: true)));
+      handle.dispose();
+    });
+
+    testWidgets('a Select, a DatePicker and a TextArea are named by their FormControl label', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, '''
+root = Stack([form])
+form = Form("f", buttons, [FormControl("Size", Select("size", [SelectItem("s", "Small")])), FormControl("Day", DatePicker("day")), FormControl("Notes", TextArea("notes"))])
+buttons = Buttons([Button("Send", @ToAssistant("Send"))])
+''');
+
+      final fields = find.byType(TextField);
+      expect(tester.getSemantics(fields.at(0)).label, contains('Size'));
+      expect(tester.getSemantics(fields.at(1)).label, contains('Day'));
+      expect(tester.getSemantics(fields.at(2)).label, contains('Notes'));
+      handle.dispose();
     });
 
     testWidgets('an Input writes its value and type under the form', (tester) async {
@@ -114,6 +150,47 @@ void main() {
       await _pump(tester, _contact);
 
       expect(tester.widget<TextField>(find.byType(TextField).last).obscureText, isTrue);
+    });
+
+    testWidgets('a password is as tall as the other fields and ends with the done action', (tester) async {
+      await _pump(tester, _contact);
+
+      final plain = tester.getSize(find.byType(StreamTextInput).first);
+      print(
+        'SIZES $plain ${tester.getSize(find.byType(TextField).last)} ${tester.getSize(find.byType(TextField).first)}',
+      );
+      final password = tester.getSize(find.byType(TextField).last);
+      expect(password.height, plain.height);
+      expect(tester.widget<TextField>(find.byType(TextField).last).textInputAction, TextInputAction.done);
+    });
+
+    testWidgets('a field already holding a value shows it in its first frame, not its placeholder', (tester) async {
+      final runtime = testRuntime(library: _library);
+      addTearDown(runtime.dispose);
+      runtime.update(
+        r'''
+$city = "Oslo"
+root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("City", Input("city", "Pick a city", "text", {}, $city))])])
+''',
+        isStreaming: false,
+      );
+      await tester.pumpWidget(testApp(OpenUIView(runtime: runtime, library: _library)));
+
+      final hint = find.ancestor(of: find.text('Pick a city'), matching: find.byType(AnimatedOpacity));
+      expect(tester.widget<AnimatedOpacity>(hint.first).opacity, 0);
+      expect(find.text('Oslo'), findsOneWidget);
+    });
+
+    testWidgets('a field the reply takes the focus from is not checked while it streams again', (tester) async {
+      final (runtime, _) = await _pump(tester, _contact);
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      runtime.update(_contact, isStreaming: true);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('This field is required'), findsNothing);
     });
 
     testWidgets('a primary button whose plan neither talks nor mutates skips the check', (tester) async {
@@ -327,6 +404,44 @@ root = Stack([OptionCards("plan", null, [OptionCard("a", "Basic"), OptionCard("b
       await tester.pump();
 
       expect(runtime.fieldValue(null, 'plan'), const OpenUIString('b'));
+    });
+
+    testWidgets('OptionCards in a form keep fitting their content as it streams in', (tester) async {
+      const program = '''
+root = Card([form])
+form = Form("trip", buttons, [control])
+buttons = Buttons([send])
+send = Button("Plan", @ToAssistant("Plan"))
+control = FormControl("Trip Type", cards, "What kind of trip are you planning?")
+cards = OptionCards("trip-type", "single", [oc1, oc2, oc3, oc4], { required: true })
+oc1 = OptionCard("adventure", "Adventure", "Hiking, trekking & outdoor activities", oc1icon)
+oc1icon = Icon("mountain", "nature")
+oc2 = OptionCard("beach", "Beach & Relaxation", "Sun, sand & leisure", oc2icon)
+oc2icon = Icon("waves", "nature")
+oc3 = OptionCard("cultural", "Cultural & Historical", "Museums, heritage & local experiences", oc3icon)
+oc3icon = Icon("landmark", "buildings")
+oc4 = OptionCard("city", "City Break", "Urban exploration & nightlife", oc4icon)
+oc4icon = Icon("building-2", "buildings")
+''';
+      final runtime = testRuntime(library: _library);
+      addTearDown(runtime.dispose);
+      runtime.update('', isStreaming: true);
+      await tester.pumpWidget(
+        testApp(
+          SingleChildScrollView(
+            child: OpenUIView(runtime: runtime, library: _library),
+          ),
+        ),
+      );
+
+      // A card that grows while its row mates don't must not be laid out again
+      // at the row's old height, which overflows it.
+      for (var end = 7; end < program.length + 7; end += 7) {
+        final done = end >= program.length;
+        runtime.update(program.substring(0, done ? program.length : end), isStreaming: !done);
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: 'at $end characters');
+      }
     });
   });
 
