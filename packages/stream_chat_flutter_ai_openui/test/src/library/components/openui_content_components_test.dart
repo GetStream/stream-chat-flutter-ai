@@ -554,14 +554,33 @@ root = Card([MarkDownRenderer("x", \$variant)])
 
       final ratio = tester.view.devicePixelRatio;
       final image = tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage).first);
-      expect(image.props.cacheWidth, (100 * ratio).ceil());
+      // A tile covers its box, so it is decoded at twice that.
+      expect(image.props.cacheWidth, (100 * ratio * 2).ceil());
       expect(image.props.cacheHeight, isNull);
 
-      // An image with no box of its own is decoded no wider than the screen.
+      // An image with no box of its own is decoded no wider than twice the screen, and 2048 pixels.
       runtime.update('root = Card([ImageBlock("https://a.dev/x.png", "X")])', isStreaming: false);
       await tester.pump();
       final block = tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage));
-      expect(block.props.cacheWidth, tester.view.physicalSize.width.ceil());
+      expect(block.props.cacheWidth, (tester.view.physicalSize.width * 2).ceil().clamp(0, 2048));
+    });
+
+    testWidgets('ImageGallery labels a tile without alt by its place and keeps an alt', (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      final handle = tester.ensureSemantics();
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program:
+            'root = Card([ImageGallery([{src: "https://a.dev/1.png"}, {src: "https://a.dev/2.png", alt: "Two"}, {src: "https://a.dev/3.png"}])])',
+      );
+
+      expect(find.bySemanticsLabel('Image 1 of 3'), findsOneWidget);
+      expect(find.bySemanticsLabel('Image 3 of 3'), findsOneWidget);
+      expect(find.bySemanticsLabel('Image 2 of 3'), findsNothing);
+      expect(find.bySemanticsLabel('Two'), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('ImageGallery draws nothing without images', (tester) async {
