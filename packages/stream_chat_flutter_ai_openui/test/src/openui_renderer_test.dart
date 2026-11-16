@@ -97,6 +97,26 @@ final class _PlaceCard extends AIUIComponent<_Place> {
   }
 }
 
+// An app component that shows the arguments it is given, as JSON.
+final class _Counter extends AIUIComponent<Map<String, Object?>> {
+  const _Counter();
+
+  @override
+  AIUIComponentDefinition get definition => const AIUIComponentDefinition(
+    name: 'counter',
+    description: 'A count.',
+    parameters: [AIUIParameter.required('count', AIUIParameterType.integer)],
+  );
+
+  @override
+  Map<String, Object?> readArguments(AIUIArguments arguments) => arguments.json;
+
+  @override
+  Widget build(BuildContext context, Map<String, Object?> arguments, AIUIComponentContext ui) {
+    return Text('count ${arguments['count']} ${arguments['count'].runtimeType}');
+  }
+}
+
 // An app component whose build throws.
 final class _Broken extends AIUIComponent<Object?> {
   const _Broken();
@@ -612,6 +632,15 @@ void main() {
           payload: {'title': 'Ohrid', 'component': 'place_card'},
         ),
       );
+    });
+
+    testWidgets('get a whole number as an int', (tester) async {
+      final engine = OpenUIRenderer().createEngine(_Host(components: const [_Counter()]));
+      addTearDown(engine.dispose);
+
+      await _pump(tester, engine, _doc('root = Card([Counter(2)])'));
+
+      expect(find.text('count 2 int'), findsOneWidget);
     });
 
     testWidgets('draw nothing while their values are still arriving', (tester) async {
