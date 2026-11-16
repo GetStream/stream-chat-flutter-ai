@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsRole;
+
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
@@ -298,6 +300,7 @@ class _OpenUITabsState extends State<_OpenUITabs> {
                     for (final item in items)
                       OpenUIPressable(
                         selected: item == active,
+                        role: SemanticsRole.tab,
                         onTap: () => setState(() {
                           _touched = true;
                           _selected = item.value;

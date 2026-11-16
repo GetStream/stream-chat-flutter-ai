@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show SemanticsRole, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -177,6 +177,7 @@ void main() {
         tester.getSemantics(find.text('Two')),
         matchesSemantics(
           isButton: true,
+          role: SemanticsRole.tab,
           isSelected: true,
           hasSelectedState: true,
           hasEnabledState: true,

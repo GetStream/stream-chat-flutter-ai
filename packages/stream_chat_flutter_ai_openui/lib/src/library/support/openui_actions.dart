@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -229,7 +230,17 @@ List<(ElementNode, Key)> openUIDrawnNodes(BuildContext context, List<ElementNode
 @internal
 class OpenUIPressable extends StatefulWidget {
   /// Creates the pressable [child].
-  const OpenUIPressable({super.key, required this.onTap, required this.child, this.label, this.selected, this.hint});
+  const OpenUIPressable({
+    super.key,
+    required this.onTap,
+    required this.child,
+    this.label,
+    this.selected,
+    this.checked,
+    this.inMutuallyExclusiveGroup = false,
+    this.role,
+    this.hint,
+  });
 
   /// What a tap runs, or `null` when it is disabled.
   final VoidCallback? onTap;
@@ -242,6 +253,16 @@ class OpenUIPressable extends StatefulWidget {
 
   /// Whether it is selected, or `null` when it can't be.
   final bool? selected;
+
+  /// Whether it is a checkbox or radio button that is checked, or `null` when
+  /// it is neither.
+  final bool? checked;
+
+  /// Whether it is a radio button among others of which one is checked.
+  final bool inMutuallyExclusiveGroup;
+
+  /// What assistive technologies read it as, or `null` for a button.
+  final SemanticsRole? role;
 
   /// What a tap does, as read to assistive technologies.
   final String? hint;
@@ -264,6 +285,9 @@ class _OpenUIPressableState extends State<OpenUIPressable> {
       button: true,
       enabled: onTap != null,
       selected: widget.selected,
+      checked: widget.checked,
+      inMutuallyExclusiveGroup: widget.inMutuallyExclusiveGroup,
+      role: widget.role,
       label: widget.label,
       hint: widget.hint,
       child: FocusableActionDetector(
