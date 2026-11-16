@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/localization/a2ui_translations.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 import '../../a2ui_test_app.dart';
@@ -75,6 +76,26 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
 
     expect(platform.players.single.plays, 1);
+  });
+
+  testWidgets('an AudioPlayer labels its play button with the translations around it', (tester) async {
+    installFakeAudioPlatform(tester);
+
+    await _pumpDutchAudio(tester);
+
+    expect(find.bySemanticsLabel('Afspelen'), findsOneWidget);
+  });
+
+  testWidgets('an AudioPlayer labels its pause button with the translations around it', (tester) async {
+    final platform = installFakeAudioPlatform(tester);
+    await _pumpDutchAudio(tester);
+
+    await tester.tap(find.bySemanticsLabel('Afspelen'));
+    await _until(tester, () => platform.players.isNotEmpty && platform.players.last.loaded.isNotEmpty);
+    platform.players.last.finishLoading();
+    await _until(tester, () => platform.players.last.plays > 0);
+
+    expect(find.bySemanticsLabel('Pauzeren'), findsOneWidget);
   });
 
   testWidgets('an AudioPlayer shows a spinner while its audio loads', (tester) async {
@@ -563,6 +584,30 @@ Future<A2UIProcessor> _pumpAudio(
     direction: direction,
     width: width,
   );
+}
+
+// Pumps an AudioPlayer of [_song] under a scope of Dutch translations.
+Future<void> _pumpDutchAudio(WidgetTester tester) async {
+  final processor = A2UIProcessor(catalogs: A2UICatalogs());
+  addTearDown(processor.dispose);
+  processor.apply([
+    createSurface([
+      {'id': 'root', 'component': 'AudioPlayer', 'url': _song},
+    ]),
+  ]);
+  await tester.pumpWidget(
+    A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+  );
+}
+
+class _DutchTranslations implements A2UITranslations {
+  const _DutchTranslations();
+
+  @override
+  String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
 }
 
 // Taps play and waits until the player asks for the audio.

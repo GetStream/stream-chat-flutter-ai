@@ -19,8 +19,11 @@ concurrency:
 
 jobs:
   release:
+    # Tag pushes publish, so they wait for a flutter-developers approval in
+    # the pub.dev environment. A manual run is a dry run and skips it.
+    environment: ${{ github.event_name == 'push' && 'pub.dev' || '' }}
     permissions:
-      contents: read  # The release is created with BOT_GITHUB_API_TOKEN
+      contents: read  # The release is created with CI_BOT_GITHUB_TOKEN
       id-token: write # Required for authentication using OIDC
     runs-on: ubuntu-latest
     steps:
@@ -105,4 +108,4 @@ jobs:
           generate_release_notes: true
           tag_name: ${{ steps.extract_version.outputs.tag }}
           prerelease: ${{ steps.extract_version.outputs.prerelease }}
-          token: ${{ secrets.BOT_GITHUB_API_TOKEN }}
+          token: ${{ secrets.CI_BOT_GITHUB_TOKEN }}
