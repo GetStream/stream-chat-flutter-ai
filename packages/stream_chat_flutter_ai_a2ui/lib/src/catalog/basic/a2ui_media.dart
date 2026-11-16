@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/localization/a2ui_translations.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 
 /// The box a video or an audio clip shows in: [height] tall, as wide as it is
@@ -179,7 +179,7 @@ class A2UIPlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final translations = AITranslations.of(context);
+    final translations = A2UITranslations.of(context);
     return Semantics(
       button: true,
       label: isPlaying ? translations.pauseMedia : translations.playMedia,

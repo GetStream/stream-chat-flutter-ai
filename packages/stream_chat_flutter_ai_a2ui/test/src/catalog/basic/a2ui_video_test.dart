@@ -4,9 +4,9 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/localization/a2ui_translations.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
@@ -380,7 +380,7 @@ void main() {
     ]);
 
     await tester.pumpWidget(
-      AITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+      A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
     );
 
     expect(find.bySemanticsLabel('Afspelen'), findsOneWidget);
@@ -797,7 +797,7 @@ String _posterUrl(WidgetTester tester) {
   return tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage)).props.url;
 }
 
-class _DutchTranslations extends DefaultAITranslations {
+class _DutchTranslations extends DefaultA2UITranslations {
   const _DutchTranslations();
 
   @override

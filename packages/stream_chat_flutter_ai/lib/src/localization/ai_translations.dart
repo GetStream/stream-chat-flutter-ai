@@ -333,14 +333,6 @@ abstract class AITranslations {
   /// A file attachment's [type] and [size], such as "PDF · 2.4 MB".
   String attachmentDetails(String type, String size);
 
-  /// Label of the button that plays a video or an audio clip of a reply's
-  /// generated UI.
-  String get playMedia;
-
-  /// Label of the button that pauses a video or an audio clip of a reply's
-  /// generated UI while it plays.
-  String get pauseMedia;
-
   /// [bytes] as a file size, such as "2.4 MB".
   String fileSize(int bytes);
 
@@ -602,12 +594,6 @@ class DefaultAITranslations extends AITranslations {
 
   @override
   String attachmentDetails(String type, String size) => '$type · $size';
-
-  @override
-  String get playMedia => 'Play';
-
-  @override
-  String get pauseMedia => 'Pause';
 
   @override
   String fileSize(int bytes) => formatFileSize(bytes);

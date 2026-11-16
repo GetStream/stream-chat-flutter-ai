@@ -1,0 +1,197 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
+
+void main() {
+  test('the default translations are in English', () {
+    const translations = DefaultA2UITranslations();
+
+    expect(translations.playMedia, 'Play');
+    expect(translations.pauseMedia, 'Pause');
+  });
+
+  testWidgets('without a scope or a delegate the defaults are read', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _Reader()));
+
+    expect(_read(tester), isA<DefaultA2UITranslations>());
+  });
+
+  testWidgets('a scope supplies the translations below it', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: A2UITranslationsScope(translations: _DutchTranslations(), child: _Reader()),
+      ),
+    );
+
+    expect(_read(tester).playMedia, 'Afspelen');
+  });
+
+  testWidgets("a delegate supplies the translations of the app's locale", (tester) async {
+    await tester.pumpWidget(_localizedApp(const Locale('nl'), child: const _Reader()));
+
+    expect(_read(tester).pauseMedia, 'Pauzeren');
+  });
+
+  testWidgets('a delegate serves the defaults for a locale it has no entry for', (tester) async {
+    await tester.pumpWidget(_localizedApp(const Locale('de'), child: const _Reader()));
+
+    expect(_read(tester), isA<DefaultA2UITranslations>());
+  });
+
+  testWidgets("a scope wins over the locale's delegate", (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(
+        const Locale('nl'),
+        child: const A2UITranslationsScope(translations: _ShoutingTranslations(), child: _Reader()),
+      ),
+    );
+
+    expect(_read(tester).playMedia, 'PLAY');
+  });
+
+  test('a delegate serves a language entry for each country of it', () {
+    const delegate = A2UITranslationsDelegate({'nl': _DutchTranslations()});
+
+    expect(delegate.resolve(const Locale('nl', 'BE')), isA<_DutchTranslations>());
+  });
+
+  test('a delegate serves a country entry before the entry of its language', () {
+    const delegate = A2UITranslationsDelegate({'pt': DefaultA2UITranslations(), 'pt_BR': _DutchTranslations()});
+
+    expect(delegate.resolve(const Locale('pt', 'BR')), isA<_DutchTranslations>());
+    expect(delegate.resolve(const Locale('pt', 'PT')), isA<DefaultA2UITranslations>());
+  });
+
+  test('a delegate rejects a key that is not a locale key', () {
+    const delegate = A2UITranslationsDelegate({'nl-NL': _DutchTranslations()});
+
+    expect(() => delegate.resolve(const Locale('nl')), throwsFlutterError);
+  });
+
+  test('a delegate loads its strings synchronously', () {
+    const delegate = A2UITranslationsDelegate({'nl': _DutchTranslations()});
+
+    expect(delegate.load(const Locale('nl')), isA<SynchronousFuture<A2UITranslations>>());
+  });
+
+  test('a delegate reloads only when its translations change', () {
+    const delegate = A2UITranslationsDelegate({'nl': _DutchTranslations()});
+
+    expect(delegate.shouldReload(const A2UITranslationsDelegate({'nl': _DutchTranslations()})), isFalse);
+    expect(delegate.shouldReload(const A2UITranslationsDelegate({'nl': _ShoutingTranslations()})), isTrue);
+  });
+
+  testWidgets('a scope rebuilds its dependents only when its translations change', (tester) async {
+    _BuildCounter.builds = 0;
+    Widget app(A2UITranslations translations) => MaterialApp(
+      home: A2UITranslationsScope(translations: translations, child: const _BuildCounter()),
+    );
+
+    await tester.pumpWidget(app(const _DutchTranslations()));
+    await tester.pumpWidget(app(const _DutchTranslations()));
+    expect(_BuildCounter.builds, 1);
+
+    await tester.pumpWidget(app(const _ShoutingTranslations()));
+    expect(_BuildCounter.builds, 2);
+  });
+
+  testWidgets('a scope carries its translations into a route pushed with captured themes', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: A2UITranslationsScope(
+          translations: const _DutchTranslations(),
+          child: Builder(
+            builder: (context) => TextButton(
+              onPressed: () {
+                final navigator = Navigator.of(context);
+                final themes = InheritedTheme.capture(from: context, to: navigator.context);
+                navigator.push(MaterialPageRoute<void>(builder: (_) => themes.wrap(const _Reader())));
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(_read(tester).playMedia, 'Afspelen');
+  });
+}
+
+Widget _localizedApp(Locale locale, {required Widget child}) {
+  return MaterialApp(
+    locale: locale,
+    supportedLocales: const [Locale('en'), Locale('nl'), Locale('de')],
+    localizationsDelegates: const [
+      A2UITranslationsDelegate({'nl': _DutchTranslations()}),
+      _AnyLocaleDelegate<MaterialLocalizations>(DefaultMaterialLocalizations()),
+      _AnyLocaleDelegate<CupertinoLocalizations>(DefaultCupertinoLocalizations()),
+    ],
+    home: child,
+  );
+}
+
+A2UITranslations _read(WidgetTester tester) => A2UITranslations.of(tester.element(find.byType(_Reader)));
+
+class _Reader extends StatelessWidget {
+  const _Reader();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}
+
+// Counts its builds, each of which reads the translations.
+class _BuildCounter extends StatelessWidget {
+  const _BuildCounter();
+
+  static int builds = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    A2UITranslations.of(context);
+    builds++;
+    return const SizedBox();
+  }
+}
+
+// Serves [value] for any locale, so an app can run in a locale Flutter's own
+// localizations don't carry.
+class _AnyLocaleDelegate<T> extends LocalizationsDelegate<T> {
+  const _AnyLocaleDelegate(this.value);
+
+  final T value;
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<T> load(Locale locale) => SynchronousFuture<T>(value);
+
+  @override
+  bool shouldReload(_AnyLocaleDelegate<T> old) => false;
+}
+
+class _DutchTranslations implements A2UITranslations {
+  const _DutchTranslations();
+
+  @override
+  String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
+}
+
+class _ShoutingTranslations implements A2UITranslations {
+  const _ShoutingTranslations();
+
+  @override
+  String get playMedia => 'PLAY';
+
+  @override
+  String get pauseMedia => 'PAUSE';
+}

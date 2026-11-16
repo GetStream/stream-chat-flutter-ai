@@ -1,3 +1,9 @@
+## Upcoming
+
+✅ Added
+
+- `A2UITranslations`, for the labels of the Video and AudioPlayer play and pause buttons.
+
 ## 0.2.0
 
 ✅ Added

@@ -1,3 +1,9 @@
+## Upcoming
+
+💥 Breaking
+
+- `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`; override them there.
+
 ## 0.2.0
 
 💥 Breaking

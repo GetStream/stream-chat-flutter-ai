@@ -451,14 +451,6 @@ void main() {
       expect(translations.cancelEditing, 'Cancel editing');
       expect(translations.agentError, "The agent couldn't answer. Try again.");
     });
-
-    test('labels the button that plays media "Play"', () {
-      expect(const DefaultAITranslations().playMedia, 'Play');
-    });
-
-    test('labels the button that pauses media "Pause"', () {
-      expect(const DefaultAITranslations().pauseMedia, 'Pause');
-    });
   });
 }
 
