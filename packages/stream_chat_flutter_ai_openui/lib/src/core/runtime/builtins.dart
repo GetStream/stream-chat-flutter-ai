@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
+import 'package:stream_core/stream_core.dart' show normalizeStringForSort;
 
 /// A built-in function: its arguments, positional and already evaluated
 /// (absent when not written), to its result.
@@ -116,13 +117,16 @@ abstract final class Builtins {
     return OpenUIArray([for (final (_, item) in indexed) item]);
   }
 
-  /// How `@Sort` orders two texts: ignoring case first, then lower case
-  /// before upper case.
+  /// How `@Sort` orders two texts: by their sort keys, which fold case,
+  /// accents and ligatures, so `é` sorts next to `e`; then ignoring case;
+  /// then lower case before upper case.
   ///
-  /// OpenUI orders text with the locale's collation (`localeCompare`), which
-  /// also orders accented letters next to their base letter; this doesn't
-  /// yet, so `é` sorts after `z`.
+  /// OpenUI orders text with the locale's collation (`localeCompare`); the
+  /// sort key comes close to it without one, and orders text as Stream's
+  /// servers order names.
   static int compareText(String a, String b) {
+    final key = normalizeStringForSort(a).compareTo(normalizeStringForSort(b));
+    if (key != 0) return key;
     final folded = a.toLowerCase().compareTo(b.toLowerCase());
     if (folded != 0) return folded;
     return _swapCase(a).compareTo(_swapCase(b));

@@ -169,7 +169,7 @@ void runEvaluatorConformance() {
       expect(firstDifference(actual['evaluatedRoot'], testCase['evaluatedRoot'], r'$.evaluatedRoot'), isNull);
       expect(firstDifference(actual['queries'], testCase['queries'], r'$.queries'), isNull);
       expect(firstDifference(actual['runtimeErrors'], testCase['runtimeErrors'], r'$.runtimeErrors'), isNull);
-    }, skip: evaluatorCaseSkipReason(testCase['name']! as String));
+    });
   }
 }
 
