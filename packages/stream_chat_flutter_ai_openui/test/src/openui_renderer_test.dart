@@ -97,6 +97,26 @@ final class _PlaceCard extends AIUIComponent<_Place> {
   }
 }
 
+// An app component that shows the arguments it is given, as JSON.
+final class _Counter extends AIUIComponent<Map<String, Object?>> {
+  const _Counter();
+
+  @override
+  AIUIComponentDefinition get definition => const AIUIComponentDefinition(
+    name: 'counter',
+    description: 'A count.',
+    parameters: [AIUIParameter.required('count', AIUIParameterType.integer)],
+  );
+
+  @override
+  Map<String, Object?> readArguments(AIUIArguments arguments) => arguments.json;
+
+  @override
+  Widget build(BuildContext context, Map<String, Object?> arguments, AIUIComponentContext ui) {
+    return Text('count ${arguments['count']} ${arguments['count'].runtimeType}');
+  }
+}
+
 // An app component whose build throws.
 final class _Broken extends AIUIComponent<Object?> {
   const _Broken();
@@ -411,7 +431,7 @@ void main() {
       await tester.pumpWidget(testApp(Builder(builder: (_) => engine.view(document, 'r1') ?? const SizedBox.shrink())));
       await tester.pump();
 
-      expect(host.states['r1'], isNotNull);
+      expect(host.states['r1'], containsPair('plan', containsPair('value', 'pro')));
       expect(host.statePhases, everyElement(isNot(SchedulerPhase.persistentCallbacks)));
     });
 
@@ -484,6 +504,20 @@ void main() {
     expect(host.calls, hasLength(2));
     // Disposed here, as its refresh timer must stop before the test ends.
     engine.dispose();
+  });
+
+  testWidgets('a written reply without a root or queries is dropped, so showing it again starts fresh', (tester) async {
+    final errors = <OpenUIErrorCode>[];
+    final engine = OpenUIRenderer(onError: (error, _) => errors.add(error.code)).createEngine(_Host());
+    addTearDown(engine.dispose);
+    final document = _doc('x = Nope("a")');
+
+    expect(await _pump(tester, engine, document), isFalse);
+    final first = [...errors];
+    expect(first, isNotEmpty);
+
+    expect(await _pump(tester, engine, document), isFalse);
+    expect(errors, [...first, ...first]);
   });
 
   testWidgets('a written reply whose root waits on a query draws it once the result lands', (tester) async {
@@ -612,6 +646,15 @@ void main() {
           payload: {'title': 'Ohrid', 'component': 'place_card'},
         ),
       );
+    });
+
+    testWidgets('get a whole number as an int', (tester) async {
+      final engine = OpenUIRenderer().createEngine(_Host(components: const [_Counter()]));
+      addTearDown(engine.dispose);
+
+      await _pump(tester, engine, _doc('root = Card([Counter(2)])'));
+
+      expect(find.text('count 2 int'), findsOneWidget);
     });
 
     testWidgets('draw nothing while their values are still arriving', (tester) async {

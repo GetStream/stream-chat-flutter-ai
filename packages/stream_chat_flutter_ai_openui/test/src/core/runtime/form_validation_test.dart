@@ -46,6 +46,17 @@ void main() {
     expect(_check('/relative/path', {'url': true}), 'Please enter a valid URL');
   });
 
+  test('a URL of a scheme without a host may have spaces', () {
+    expect(_check('note:hello world', {'url': true}), isNull);
+  });
+
+  test('a web URL needs a host and no whitespace', () {
+    for (final url in ['https://', 'http://', 'HTTPS://', 'https://a b.com', 'wss://', 'ftp://']) {
+      expect(_check(url, {'url': true}), 'Please enter a valid URL', reason: url);
+    }
+    expect(_check('https://a.com/x', {'url': true}), isNull);
+  });
+
   test('every rule but required lets an empty value pass', () {
     for (final empty in [null, '', <Object?>[], <String, Object?>{}]) {
       expect(_check(empty, {'email': true, 'minLength': 3, 'numeric': true}), isNull);

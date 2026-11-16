@@ -177,7 +177,9 @@ final class OpenUIEngine extends AIUIEngine {
       if (reply == null || !_shows(reply)) return const SizedBox.shrink();
       final arguments = {
         for (final prop in schema.props)
-          if (scope.value(prop.name) case final value?) prop.name: value,
+          // As JSON the app reads: whole numbers as ints, components in their
+          // JSON shape.
+          if (openUIPlainJson(scope.prop(prop.name)) case final value?) prop.name: value,
       };
       final Object? read;
       try {

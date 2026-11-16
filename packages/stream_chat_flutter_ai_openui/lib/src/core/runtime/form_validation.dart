@@ -97,6 +97,11 @@ abstract final class FormValidation {
 
   static final _email = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
+  // The schemes whose URLs name a host.
+  static const _hostSchemes = {'http', 'https', 'ws', 'wss', 'ftp'};
+
+  static final _whitespace = RegExp(r'\s');
+
   static String? _check(String type, OpenUIValue? value, OpenUIValue? argument) {
     if (type == 'required') return _required(value);
     if (isEmpty(value)) return null;
@@ -105,10 +110,14 @@ abstract final class FormValidation {
       case 'email':
         return text != null && _email.hasMatch(text) ? null : 'Please enter a valid email';
       case 'url':
-        // Any absolute URL, as `new URL()` takes it: `mailto:` and `urn:`
-        // have no host.
+        // Any URL with a scheme: `mailto:`, `tel:` and `urn:` have no host,
+        // but a web or file-transfer link needs one, and no whitespace.
         final uri = text == null ? null : Uri.tryParse(text);
-        return uri != null && uri.hasScheme ? null : 'Please enter a valid URL';
+        final valid =
+            uri != null &&
+            uri.hasScheme &&
+            (!_hostSchemes.contains(uri.scheme) || (uri.host.isNotEmpty && !text!.contains(_whitespace)));
+        return valid ? null : 'Please enter a valid URL';
       case 'numeric':
         final valid = switch (value) {
           OpenUINumber(:final value) => !value.isNaN,
