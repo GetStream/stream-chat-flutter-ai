@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_action_event.dart';
@@ -22,6 +23,9 @@ class _German extends DefaultOpenUITranslations {
 
   @override
   String get nextPage => 'Nächste Seite';
+
+  @override
+  String get selectPlaceholder => 'Wählen...';
 
   @override
   String trendUp(num percent) => 'Plus ${_german(percent)} Prozent';
@@ -84,22 +88,23 @@ const _form = '''
 root = Card([Form("f", Buttons([Button("Go", @ToAssistant("go"), "primary")]), [FormControl("Name", Input("name", "", "text", {required: true})), FormControl("Code", Input("code", "", "text", {minLength: 3}))])])
 ''';
 
-Future<List<OpenUIActionEvent>> _pumpIn(WidgetTester tester, String program, OpenUITranslations? translations) async {
-  final runtime = testRuntime();
+// Pumps the view of [program] read with [library], under [translations] when
+// given; returns the actions it runs.
+Future<List<OpenUIActionEvent>> _pumpIn(
+  WidgetTester tester,
+  String program,
+  OpenUITranslations? translations, {
+  OpenUILibrary? library,
+}) async {
+  final lib = library ?? OpenUILibrary.chat;
+  final runtime = testRuntime(library: lib);
   addTearDown(runtime.dispose);
   final events = <OpenUIActionEvent>[];
   runtime.actions.listen(events.add);
-  await pumpOpenUI(tester, runtime, program: program);
-  await tester.pump();
-  if (translations == null) return events;
-  await tester.pumpWidget(
-    testApp(
-      OpenUITranslationsScope(
-        translations: translations,
-        child: OpenUIView(runtime: runtime, library: OpenUILibrary.chat),
-      ),
-    ),
-  );
+  runtime.update(program, isStreaming: false);
+  Widget view = OpenUIView(runtime: runtime, library: lib);
+  if (translations != null) view = OpenUITranslationsScope(translations: translations, child: view);
+  await tester.pumpWidget(testApp(view));
   await tester.pump();
   return events;
 }
@@ -203,18 +208,15 @@ void main() {
     expect(find.bySemanticsLabel('Nächste Seite'), findsOneWidget);
   });
 
-  testWidgets('a delegate serves the translations of the locale, and English for another', (tester) async {
-    const delegate = OpenUITranslationsDelegate({'nl': _Dutch()});
-
-    expect(delegate.resolve(const Locale('nl', 'BE')), const _Dutch());
-    expect(delegate.resolve(const Locale('fr')), isNull);
-    expect(await delegate.load(const Locale('fr')), const DefaultOpenUITranslations());
-
+  testWidgets("a delegate supplies the translations of the app's locale", (tester) async {
     late OpenUITranslations found;
     await tester.pumpWidget(
       Localizations(
         locale: const Locale('nl'),
-        delegates: const [delegate, DefaultWidgetsLocalizations.delegate],
+        delegates: const [
+          OpenUITranslationsDelegate({'nl': _Dutch()}),
+          DefaultWidgetsLocalizations.delegate,
+        ],
         child: Builder(
           builder: (context) {
             found = OpenUITranslations.of(context);
@@ -224,7 +226,96 @@ void main() {
       ),
     );
     await tester.pump();
+
     expect(found, const _Dutch());
+  });
+
+  test('a delegate serves the defaults for a locale it has no entry for', () async {
+    const delegate = OpenUITranslationsDelegate({'nl': _Dutch()});
+
+    expect(await delegate.load(const Locale('fr')), const DefaultOpenUITranslations());
+  });
+
+  test('a delegate serves a language entry for each country of it', () {
+    const delegate = OpenUITranslationsDelegate({'nl': _Dutch()});
+
+    expect(delegate.resolve(const Locale('nl', 'BE')), const _Dutch());
+  });
+
+  test('a delegate serves a country entry before the entry of its language', () {
+    const delegate = OpenUITranslationsDelegate({'pt': DefaultOpenUITranslations(), 'pt_BR': _Dutch()});
+
+    expect(delegate.resolve(const Locale('pt', 'BR')), const _Dutch());
+  });
+
+  test('a delegate serves the language entry to a country without an entry of its own', () {
+    const delegate = OpenUITranslationsDelegate({'pt': DefaultOpenUITranslations(), 'pt_BR': _Dutch()});
+
+    expect(delegate.resolve(const Locale('pt', 'PT')), const DefaultOpenUITranslations());
+  });
+
+  test('a delegate serves a script entry to a locale with that script and a country', () {
+    const delegate = OpenUITranslationsDelegate({'zh': DefaultOpenUITranslations(), 'zh_Hant': _Dutch()});
+
+    expect(
+      delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+      const _Dutch(),
+    );
+  });
+
+  test('a delegate serves a country entry to a locale with a script it has no entry for', () {
+    const delegate = OpenUITranslationsDelegate({'zh': DefaultOpenUITranslations(), 'zh_TW': _Dutch()});
+
+    expect(
+      delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+      const _Dutch(),
+    );
+  });
+
+  test('a delegate rejects a key that is not a locale key', () {
+    const delegate = OpenUITranslationsDelegate({'nl-NL': _Dutch()});
+
+    expect(() => delegate.resolve(const Locale('nl')), throwsFlutterError);
+  });
+
+  test('a delegate accepts every key shape Locale.toString() produces', () {
+    const delegate = OpenUITranslationsDelegate({
+      'nl': _Dutch(),
+      'pt_BR': _Dutch(),
+      'zh_Hant': _Dutch(),
+      'zh_Hant_TW': _Dutch(),
+      'es_419': _Dutch(),
+    });
+
+    expect(
+      delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+      const _Dutch(),
+    );
+    expect(delegate.resolve(const Locale('es', '419')), const _Dutch());
+  });
+
+  test('a delegate loads its texts synchronously', () {
+    const delegate = OpenUITranslationsDelegate({'nl': _Dutch()});
+
+    expect(delegate.load(const Locale('nl')), isA<SynchronousFuture<OpenUITranslations>>());
+  });
+
+  test('a delegate does not reload for equal translations', () {
+    const delegate = OpenUITranslationsDelegate({'nl': _Dutch()});
+
+    expect(delegate.shouldReload(const OpenUITranslationsDelegate({'nl': _Dutch()})), isFalse);
+  });
+
+  test('a delegate reloads when its translations change', () {
+    const delegate = OpenUITranslationsDelegate({'nl': _Dutch()});
+
+    expect(delegate.shouldReload(const OpenUITranslationsDelegate({'nl': _German()})), isTrue);
+  });
+
+  test('a delegate names the locales it serves', () {
+    final translations = {'nl': const _Dutch(), 'pt_BR': const _German()};
+
+    expect(OpenUITranslationsDelegate(translations).toString(), 'OpenUITranslationsDelegate(nl, pt_BR)');
   });
 
   testWidgets('a scope outranks the delegate', (tester) async {
@@ -252,26 +343,62 @@ void main() {
     expect(found, const _German());
   });
 
-  test('a scope notifies when its translations change', () {
-    const child = SizedBox.shrink();
-    const a = OpenUITranslationsScope(translations: DefaultOpenUITranslations(), child: child);
-    const b = OpenUITranslationsScope(translations: DefaultOpenUITranslations(), child: child);
-    const c = OpenUITranslationsScope(translations: _Dutch(), child: child);
+  test('a scope lists its translations in its diagnostics', () {
+    final builder = DiagnosticPropertiesBuilder();
+    const OpenUITranslationsScope(translations: _Dutch(), child: SizedBox()).debugFillProperties(builder);
 
-    expect(a.updateShouldNotify(b), isFalse);
-    expect(a.updateShouldNotify(c), isTrue);
+    expect(builder.properties.map((property) => property.name), contains('translations'));
   });
 
-  test('a delegate reloads when its map changes, not when it is a new instance', () {
-    const a = OpenUITranslationsDelegate({'nl': _Dutch()});
-    const b = OpenUITranslationsDelegate({'nl': _Dutch()});
-    const c = OpenUITranslationsDelegate({'nl': _German()});
+  testWidgets('a scope does not rebuild its dependents for the same translations', (tester) async {
+    var builds = 0;
+    final counter = _BuildCounter(onBuild: () => builds++);
+    Widget app(OpenUITranslations translations) => MaterialApp(
+      home: OpenUITranslationsScope(translations: translations, child: counter),
+    );
 
-    expect(a.shouldReload(b), isFalse);
-    expect(a.shouldReload(c), isTrue);
+    await tester.pumpWidget(app(const _Dutch()));
+    await tester.pumpWidget(app(const _Dutch()));
+
+    expect(builds, 1);
   });
 
-  test('a delegate rejects a key that is not a locale', () {
-    expect(() => const OpenUITranslationsDelegate({'nl-NL': _Dutch()}).resolve(const Locale('nl')), throwsFlutterError);
+  testWidgets('a scope rebuilds its dependents when its translations change', (tester) async {
+    var builds = 0;
+    final counter = _BuildCounter(onBuild: () => builds++);
+    Widget app(OpenUITranslations translations) => MaterialApp(
+      home: OpenUITranslationsScope(translations: translations, child: counter),
+    );
+
+    await tester.pumpWidget(app(const _Dutch()));
+    await tester.pumpWidget(app(const _German()));
+
+    expect(builds, 2);
   });
+
+  testWidgets("a scope's translations reach the sheet a Modal opens", (tester) async {
+    await _pumpIn(
+      tester,
+      'root = Stack([Modal("Pick", true, [Select("s", [SelectItem("a", "A")])])])',
+      const _German(),
+      library: OpenUILibrary.standard,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wählen...'), findsOneWidget);
+  });
+}
+
+// Reads the translations in force and counts its builds through [onBuild].
+class _BuildCounter extends StatelessWidget {
+  const _BuildCounter({required this.onBuild});
+
+  final VoidCallback onBuild;
+
+  @override
+  Widget build(BuildContext context) {
+    OpenUITranslations.of(context);
+    onBuild();
+    return const SizedBox();
+  }
 }

@@ -49,14 +49,20 @@ abstract class OpenUITranslations {
 
   /// The translations in force at [context].
   ///
-  /// The nearest enclosing [OpenUITranslationsScope] wins, then what an
-  /// [OpenUITranslationsDelegate] loaded for the app's locale, then
-  /// [DefaultOpenUITranslations]. [context] depends on what it finds, so a
-  /// locale change or a new scope rebuilds the components that read it.
+  /// The first of these wins:
+  ///
+  /// 1. the nearest enclosing [OpenUITranslationsScope];
+  /// 2. what an [OpenUITranslationsDelegate] loaded for the app's locale, read
+  ///    through Flutter's [Localizations];
+  /// 3. [DefaultOpenUITranslations].
+  ///
+  /// A scope beats the delegate because it is placed by hand around specific
+  /// widgets. Widgets that call this rebuild when the app's locale changes or
+  /// the scope's translations change.
   static OpenUITranslations of(BuildContext context) {
-    return OpenUITranslationsScope.maybeOf(context) ??
-        Localizations.of<OpenUITranslations>(context, OpenUITranslations) ??
-        const DefaultOpenUITranslations();
+    if (OpenUITranslationsScope.maybeOf(context) case final scoped?) return scoped;
+    if (Localizations.of<OpenUITranslations>(context, OpenUITranslations) case final localized?) return localized;
+    return const DefaultOpenUITranslations();
   }
 
   /// The title of a card's sources.
@@ -182,7 +188,12 @@ abstract class OpenUITranslations {
   String validationMaxLength(int max);
 }
 
-/// The English [OpenUITranslations], used when no other is supplied.
+/// The English texts the OpenUI components ship, and what they draw when
+/// neither an [OpenUITranslationsScope] nor an [OpenUITranslationsDelegate]
+/// supplies others.
+///
+/// Consider implementing [OpenUITranslations] for other languages rather than
+/// subclassing this, so a string added later is a compile error.
 class DefaultOpenUITranslations extends OpenUITranslations {
   /// Creates the English translations.
   const DefaultOpenUITranslations();
@@ -321,7 +332,10 @@ class OpenUITranslationsScope extends InheritedTheme {
   final OpenUITranslations translations;
 
   /// The nearest enclosing scope's [translations], or `null` when there is no
-  /// scope above [context]. Components use [OpenUITranslations.of] instead.
+  /// scope above [context].
+  ///
+  /// This reads only the scope. To also fall back to the locale's delegate and
+  /// then to the English defaults, consider [OpenUITranslations.of].
   static OpenUITranslations? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<OpenUITranslationsScope>()?.translations;
   }
@@ -375,19 +389,21 @@ class OpenUITranslationsDelegate extends LocalizationsDelegate<OpenUITranslation
   /// unexplained.
   final Map<String, OpenUITranslations> translations;
 
-  /// The entry for [locale]: the exact match of `Locale.toString()` if
-  /// [translations] has one, otherwise the entry for the bare language code,
-  /// otherwise `null`.
+  /// The entry for [locale], or `null`: the exact match if [translations] has
+  /// one, otherwise the entry for its language and script, then for its
+  /// language and country, then for its language alone.
   ///
-  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, while a `'pt_BR'`
-  /// entry serves only Brazilian Portuguese. [load] turns the `null` case into
+  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, a `'pt_BR'` entry
+  /// serves only Brazilian Portuguese, and a `'zh_Hant'` entry serves
+  /// `zh_Hant_TW` too. [load] turns the `null` case into
   /// [DefaultOpenUITranslations], so `null` here means "nothing registered",
   /// never "no texts available".
   ///
-  /// Throws in debug if [translations] holds a key that is not a locale key.
-  /// That is a different failure from `null`: a malformed key can never match
-  /// any locale, so returning `null` for it would report a locale as not
-  /// translated when it was, under a key with a typo in it.
+  /// Throws a [FlutterError] in debug mode if [translations] holds a key that
+  /// is not a locale key. That is a different failure from `null`: a
+  /// malformed key can never match any locale, so returning `null` for it
+  /// would report a locale as not translated when it was, under a key with a
+  /// typo in it.
   OpenUITranslations? resolve(Locale locale) {
     assert(() {
       for (final key in translations.keys) {
@@ -400,7 +416,14 @@ class OpenUITranslationsDelegate extends LocalizationsDelegate<OpenUITranslation
       }
       return true;
     }(), 'OpenUITranslationsDelegate keys must be locale keys.');
-    return translations[locale.toString()] ?? translations[locale.languageCode];
+    if (translations[locale.toString()] case final exact?) return exact;
+    if (locale.scriptCode case final script?) {
+      if (translations['${locale.languageCode}_$script'] case final scripted?) return scripted;
+    }
+    if (locale.countryCode case final country?) {
+      if (translations['${locale.languageCode}_$country'] case final regional?) return regional;
+    }
+    return translations[locale.languageCode];
   }
 
   /// Always `true`: a locale without an entry gets the English defaults.
@@ -426,4 +449,7 @@ class OpenUITranslationsDelegate extends LocalizationsDelegate<OpenUITranslation
   String toString() => 'OpenUITranslationsDelegate(${translations.keys.join(', ')})';
 }
 
+// The shape [OpenUITranslationsDelegate.translations]'s keys take: `nl`,
+// `pt_BR`, `zh_Hant`, `zh_Hant_TW`, `es_419`. Case counts, since [Locale]
+// never normalizes it.
 final _localeKey = RegExp(r'^[a-z]{2,8}(_[A-Z][a-z]{3})?(_([A-Z]{2}|\d{3}))?$');
