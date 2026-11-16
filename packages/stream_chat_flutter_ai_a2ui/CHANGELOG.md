@@ -1,3 +1,9 @@
+## Upcoming
+
+🔄 Changed
+
+- Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
+
 ## 0.2.0
 
 ✅ Added
