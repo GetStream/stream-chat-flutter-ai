@@ -32,6 +32,9 @@ class _German extends DefaultOpenUITranslations {
   String get done => 'Fertig';
 
   @override
+  String galleryImage(int index, int count) => 'Bild $index von $count';
+
+  @override
   String trendPercent(num percent) => '${_german(percent)} %';
 
   @override
@@ -214,6 +217,14 @@ void main() {
 
     test('a trend percentage with at most 2 decimals', () {
       expect(english.trendPercent(1234.567), '1234.57%');
+    });
+
+    test('a whole trend percentage past the integer range in full', () {
+      expect(english.trendPercent(1e20), '100000000000000000000%');
+    });
+
+    test('a gallery image by its place', () {
+      expect(english.galleryImage(2, 5), 'Image 2 of 5');
     });
 
     test('a rise with at most 2 decimals', () {
@@ -418,6 +429,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('Fertig'), findsOneWidget);
+  });
+
+  testWidgets("an ImageGallery's tile without alt text is named in the translations' words", (tester) async {
+    await _pumpIn(
+      tester,
+      'root = Card([ImageGallery([{src: "https://a.dev/1.png"}, {src: "https://a.dev/2.png"}])])',
+      const _German(),
+    );
+
+    expect(find.bySemanticsLabel('Bild 2 von 2'), findsOneWidget);
   });
 
   testWidgets("the scrim of an ImageGallery's viewer is labelled as a dismissal", (tester) async {

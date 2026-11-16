@@ -11,7 +11,11 @@ import 'package:meta/meta.dart';
 @internal
 String openUIPlainNumber(num value, {int maxDecimals = 6}) {
   if (!value.isFinite) return value.toString();
-  if (value == value.truncateToDouble() && value.abs() < 1e21) return value.toInt().toString();
+  if (value == value.truncateToDouble() && value.abs() < 1e21) {
+    // Written out in full: an integer past 2⁶³ would be clamped.
+    final whole = value.toStringAsFixed(0);
+    return whole == '-0' ? '0' : whole;
+  }
   final fixed = value.toStringAsFixed(maxDecimals);
   if (fixed.contains('e')) return fixed;
   final trimmed = fixed.replaceFirst(RegExp(r'\.?0+$'), '');

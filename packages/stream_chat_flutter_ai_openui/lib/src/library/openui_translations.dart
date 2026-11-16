@@ -74,6 +74,10 @@ abstract class OpenUITranslations {
   /// What closes an image gallery's full-screen preview.
   String get done;
 
+  /// What an image gallery's tile [index] (counting from 1) of [count] reads
+  /// as when its image has no alternative text.
+  String galleryImage(int index, int count);
+
   /// What a select shows before an option is chosen.
   String get selectPlaceholder;
 
@@ -210,6 +214,9 @@ class DefaultOpenUITranslations extends OpenUITranslations {
 
   @override
   String get done => 'Done';
+
+  @override
+  String galleryImage(int index, int count) => 'Image $index of $count';
 
   @override
   String get selectPlaceholder => 'Select...';

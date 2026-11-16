@@ -78,9 +78,9 @@ class _GalleryImage {
 }
 
 // What a tile is called: its `alt`, or its place in the gallery when it has none.
-String _tileLabel(String? alt, int index, int count) {
+String _tileLabel(OpenUITranslations translations, String? alt, int index, int count) {
   if (alt != null && alt.isNotEmpty) return alt;
-  return 'Image ${index + 1} of $count';
+  return translations.galleryImage(index + 1, count);
 }
 
 class _Gallery extends StatelessWidget {
@@ -105,7 +105,7 @@ class _Gallery extends StatelessWidget {
               child: Semantics(
                 button: true,
                 // The tile is read by what it shows, and the image in it is not.
-                label: _tileLabel(image.alt, index, images.length),
+                label: _tileLabel(OpenUITranslations.of(context), image.alt, index, images.length),
                 excludeSemantics: true,
                 onTap: () => _preview(context, index),
                 child: GestureDetector(
