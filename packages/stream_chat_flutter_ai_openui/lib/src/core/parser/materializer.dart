@@ -206,10 +206,8 @@ abstract final class Materializer {
       return OpenUINull.instance;
     }
     if (_isRuntimeCall(node.name, context)) {
-      final lowered =
-          _materializeLazyBuiltin(node, context, const {}) ??
-          _materializeCall(node, context, (arg) => materializeExpression(arg, context));
-      return OpenUIExpression(lowered);
+      if (_materializeLazyBuiltin(node, context, const {}) case final lazy?) return OpenUIExpression(lazy);
+      return OpenUIExpression(_materializeCall(node, context, (arg) => materializeExpression(arg, context)));
     }
     return _materializeComponent(node, context);
   }
