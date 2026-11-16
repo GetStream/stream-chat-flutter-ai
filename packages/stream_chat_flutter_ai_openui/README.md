@@ -46,9 +46,10 @@ run as the host's `tools`: a query only with a read-only tool, a mutation from t
 refreshes pauses while the app is in the background, but not while its reply is scrolled off screen.
 
 Problems with a reply's program, such as a component the library doesn't have or a query whose tool failed, go to the
-renderer's `onError` with the reply's message id, each once for as long as the reply is shown, after the reply is written, so the app can send them
-back to the agent. So does what a component's builder throws. Without `onError`, problems are reported in debug builds
-only, and what a builder throws goes to `FlutterError.reportError`.
+renderer's `onError` with the reply's message id once the reply is written, so the app can send them back to the agent.
+Each comes once while the reply is shown, and again when the agent writes the reply again. So does what a component's
+builder throws, which also always goes to `FlutterError.reportError`. Without `onError`, problems are reported in debug
+builds only.
 
 A form field checks its `rules` before the form is submitted, all but `pattern`: a field with a `pattern` rule accepts
 any value for now.
