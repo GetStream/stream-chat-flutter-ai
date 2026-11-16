@@ -51,7 +51,7 @@ dependencies:
   photo_manager: ^3.9.0
   share_plus: ^13.3.1
   speech_to_text: ^7.0.0
-  stream_core_flutter: ^0.5.3
+  stream_core_flutter: ^0.5.4
   # Opens the web and email links of a reply's generated UI, unless the app
   # opens them itself.
   url_launcher: ^6.3.2
