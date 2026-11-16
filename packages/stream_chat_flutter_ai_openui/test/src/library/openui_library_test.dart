@@ -214,7 +214,7 @@ void main() {
 
       final source = File('lib/src/library/openui_component_name.dart').readAsStringSync();
       final constants = [
-        for (final match in RegExp(r"static const (\w+) = OpenUIComponentName\('(\w+)'\);").allMatches(source))
+        for (final match in RegExp(r"static const (\w+) = OpenUIComponentName\._\('(\w+)'\);").allMatches(source))
           (match.group(1)!, match.group(2)!),
       ];
 
