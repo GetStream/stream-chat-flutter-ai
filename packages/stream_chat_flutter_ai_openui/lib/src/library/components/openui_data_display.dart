@@ -92,7 +92,7 @@ Widget buildOpenUIEntityList(BuildContext context, OpenUIComponentScope scope) {
   final border = theme.border;
   Widget line(double alpha) => SizedBox(
     height: 1,
-    child: ColoredBox(color: border.withValues(alpha: alpha)),
+    child: ColoredBox(color: border.withValues(alpha: border.a * alpha)),
   );
   return SizedBox(
     width: double.infinity,

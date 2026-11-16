@@ -43,7 +43,8 @@ never sent.
 
 A link the program opens goes to the host's `open`, which decides which links open, never to `send`. The program's
 queries and mutations run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap.
-A query that refreshes pauses while the app is in the background, but not while its reply is scrolled off screen.
+A reply's queries run and refresh only while the reply is on screen and the app is in the foreground, so opening a
+long conversation runs only the queries of the replies in view.
 
 Problems with a reply's program, such as a component the library doesn't have or a query whose tool failed, go to the
 renderer's `onError` with the reply's message id once the reply is written, so the app can send them back to the agent.
@@ -84,7 +85,8 @@ Each level overrides more than the one before, and the rest keeps its defaults:
 `OpenUILibrary.chat`, the default, is OpenUI's chat library, whose programs are a `Card` with the answer in it, and
 `OpenUILibrary.standard` its standard library, whose programs are a `Stack`. Both draw their content, data display,
 card, layout, list, table, form, button and chart components. The charts are the core package's `ChartView`, drawn in
-the colors of `OpenUIThemeData.chartPalette`.
+the app's chart colors (the surrounding `ChartTheme`, then the AI package's default) unless
+`OpenUIThemeData.chartPalette` is set.
 
 To draw a component another way, replace its builder; the agent still writes the component as the library describes
 it. `buildDefault` draws what the package draws for it:

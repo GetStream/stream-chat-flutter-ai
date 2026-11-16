@@ -54,7 +54,7 @@ pubspec.yaml                                 # workspace root: `workspace:` memb
 analysis_options.yaml                        # lint + formatter config for every member
 packages/stream_chat_flutter_ai/             # the core published package
 packages/stream_chat_flutter_ai/example      # showcase app, publish_to: none
-packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin, publish_to: none until released
+packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin
 packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_to: none
 packages/stream_chat_flutter_ai_a2ui_conformance/ # A2UI conformance suites (tests only), publish_to: none
 packages/stream_chat_flutter_ai_openui/      # the OpenUI renderer plugin, publish_to: none until released
