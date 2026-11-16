@@ -70,6 +70,10 @@ final class OpenUIRenderer extends AIUIRenderer {
   /// What the agent's model is told before OpenUI's own instructions, such as
   /// which answers to write as UI and when to use the app's components, or
   /// `null` for nothing; see [capabilities].
+  ///
+  /// OpenUI's own instructions ask the model to answer in OpenUI Lang only. For
+  /// replies written in text that draw their UI in a fenced block, say so here
+  /// and name the block's label, [fence].
   final String? instructions;
 
   /// Overrides for the look of every reply's components, layered over the
