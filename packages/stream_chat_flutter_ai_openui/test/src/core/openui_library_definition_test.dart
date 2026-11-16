@@ -26,35 +26,38 @@ void main() {
   });
 
   group('a definition that is left out is logged', () {
-    late List<String> logs;
-    late void Function(String) original;
+    test('when it has an empty name, with the name', () {
+      final logs = _captureSkippedComponentLog();
 
-    setUp(() {
-      logs = [];
-      original = skippedComponentLog;
-      skippedComponentLog = logs.add;
-    });
-
-    tearDown(() => skippedComponentLog = original);
-
-    test('when it can not be read, with its name', () {
       placeableComponents(specLibrary(), [
         {'name': ''},
+      ]);
+
+      expect(logs.single, contains('""'));
+    });
+
+    test('when it has no name, with its index', () {
+      final logs = _captureSkippedComponentLog();
+
+      placeableComponents(specLibrary(), [
+        _definition('place_card'),
         {'description': 'no name'},
       ]);
 
-      expect(logs, hasLength(2));
-      expect(logs[0], contains('""'));
-      expect(logs[1], contains('index 1'));
+      expect(logs.single, contains('index 1'));
     });
 
     test('when its name can not be called, with the name', () {
+      final logs = _captureSkippedComponentLog();
+
       placeableComponents(specLibrary(), [_definition('open_url')]);
 
       expect(logs.single, allOf(contains('"OpenUrl"'), contains("can't be called")));
     });
 
     test('when its name is taken, with the name', () {
+      final logs = _captureSkippedComponentLog();
+
       placeableComponents(specLibrary(), [_definition('stack'), _definition('place_card'), _definition('place_card')]);
 
       expect(logs, hasLength(2));
@@ -63,6 +66,8 @@ void main() {
     });
 
     test('not when it is placed', () {
+      final logs = _captureSkippedComponentLog();
+
       placeableComponents(specLibrary(), [_definition('place_card')]);
 
       expect(logs, isEmpty);
@@ -500,6 +505,15 @@ int _deepestPlaceableLevels() {
     if (placeableComponents(LibraryDefinition.chat, [_nestedDefinition(levels)]).isNotEmpty) return levels;
   }
   return 0;
+}
+
+// The messages [skippedComponentLog] gets until the test ends.
+List<String> _captureSkippedComponentLog() {
+  final logs = <String>[];
+  final original = skippedComponentLog;
+  skippedComponentLog = logs.add;
+  addTearDown(() => skippedComponentLog = original);
+  return logs;
 }
 
 Map<String, Object?> _definition(String name, [String description = '']) {

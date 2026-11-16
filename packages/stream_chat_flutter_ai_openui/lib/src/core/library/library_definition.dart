@@ -118,8 +118,8 @@ final class LibraryDefinition {
   ///
   /// A name can't join when it can't be called in a program (see
   /// [isCallableName]) or when it is already a component, function or action
-  /// of this library or one the function claimed before. It logs why, in
-  /// debug mode, when it turns a name down.
+  /// of this library or one the function claimed before. It logs why when it
+  /// turns a name down (see [logSkippedComponent]).
   bool Function(String name) componentNameClaim() {
     final taken = {
       ...componentNames,
@@ -204,7 +204,9 @@ final class LibraryDefinition {
   /// Whether `prop` of `component` also takes a `$variable`, which it reads
   /// and writes.
   bool isBindable(String component, String prop) {
-    return this.component(component)?.props.any((schema) => schema.name == prop && schema.bindable) ?? false;
+    final schema = this.component(component);
+    if (schema == null) return false;
+    return schema.props.any((p) => p.name == prop && p.bindable);
   }
 
   /// The library as a JSON Schema document.

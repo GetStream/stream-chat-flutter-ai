@@ -225,7 +225,6 @@ void main() {
         expect(c.error, colors.accentError);
         expect(c.info, colors.accentPrimary);
         expect(c.neutral, colors.accentNeutral);
-        expect(c.chartPalette, hasLength(8));
       });
 
       testWidgets('the text styles come from the text theme, without colors', (tester) async {
@@ -254,12 +253,16 @@ void main() {
     });
   }
 
-  testWidgets('every value is set', (tester) async {
+  testWidgets('every value but the chart palette is set', (tester) async {
     final theme = await _resolve(tester);
 
-    for (final name in _allNames) {
+    for (final name in _allNames.where((name) => name != 'chartPalette')) {
       expect(_readResolved(theme, name), isNotNull, reason: name);
     }
+  });
+
+  testWidgets('the chart palette is left to the chart unless the app sets one', (tester) async {
+    expect((await _resolve(tester)).chartPalette, isNull);
   });
 
   testWidgets('spacing and radii come from the Stream tokens', (tester) async {
@@ -280,13 +283,12 @@ void main() {
     expect([t.smallCornerRadius, t.mediumCornerRadius, t.cornerRadius, t.pillCornerRadius], [7, 8, 9, 10]);
   });
 
-  testWidgets('code, metric and the chart palette are the same for every Stream theme', (tester) async {
+  testWidgets('code and metric are the same for every Stream theme', (tester) async {
     final light = await _resolve(tester, stream: StreamTheme.light());
     final dark = await _resolve(tester, stream: StreamTheme.dark());
 
     expect(dark.code, light.code);
     expect(dark.metric, light.metric);
-    expect(dark.chartPalette, light.chartPalette);
   });
 
   testWidgets('resolving fills only what the nearest OpenUITheme leaves null', (tester) async {

@@ -59,6 +59,12 @@ void main() {
     expect((error.code, error.statementId, error.component), (OpenUIErrorCode.missingRequired, 'root', 'Card'));
   });
 
+  test(r'an error in a $state default is reported against that state', () {
+    final error = _errors('root = Card("T")\n\$x = Nope("a")').single;
+
+    expect((error.code, error.statementId), (OpenUIErrorCode.unknownComponent, r'$x'));
+  });
+
   test('an error at a prop keeps its path', () {
     expect(_errors('root = Card()').single.path, '/title');
   });

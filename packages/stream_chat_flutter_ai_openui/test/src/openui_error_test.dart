@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
 
 void main() {
-  test('an error prints as source/code: message', () {
-    expect(_error().toString(), 'parser/unknown-component: A problem.');
+  test('an error prints its type, source, code and message', () {
+    expect(_error().toString(), 'OpenUIError(source: parser, code: unknown-component, message: A problem.)');
   });
 
   test('two errors with the same fields are equal', () {
