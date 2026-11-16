@@ -118,10 +118,27 @@ MaterialApp(
 )
 ```
 
-To customize the components' `StreamTheme` in such an app, add it to the legacy theme below the bridge,
-as Stream Chat's
-[`material_ui` compatibility guide](https://getstream.io/chat/docs/sdk/flutter/stream-chat-flutter/stream-chat-and-theming/#material_ui-compatibility)
-shows.
+`material_ui`'s `ThemeData` doesn't take a `StreamTheme` (see [Theming](#theming)). To customize it, add
+it to the legacy theme the bridge provides:
+
+```dart
+builder: (context, child) => MaterialUiCompatibilityBridge(
+  child: Builder(
+    builder: (context) {
+      final theme = legacy.Theme.of(context);
+      return legacy.Theme(
+        data: theme.copyWith(
+          extensions: [
+            ...theme.extensions.values,
+            StreamTheme(colorScheme: StreamColorScheme.fromSeed(brand: brandColor, brightness: theme.brightness)),
+          ],
+        ),
+        child: legacy.Material(type: legacy.MaterialType.transparency, child: child!),
+      );
+    },
+  ),
+),
+```
 
 ## ⚙️ Usage
 
