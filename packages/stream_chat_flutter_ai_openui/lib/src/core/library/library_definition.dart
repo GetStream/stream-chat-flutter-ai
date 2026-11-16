@@ -288,9 +288,9 @@ final class LibraryDefinition {
   /// component that is the only type a remaining prop takes, with the
   /// components it needs in turn.
   ///
-  /// The notes of the groups that remain and the default prompt options'
-  /// rules that name a removed component are dropped, and so are their
-  /// examples and tool examples that call one.
+  /// A note of a group that remains, or a rule of the default prompt options,
+  /// that mentions a removed component's name as a whole word is dropped, and
+  /// so is an example or tool example that calls one, as `Name(`.
   LibraryDefinition removing(Iterable<String> names) {
     var removed = {...names}..remove(root);
     while (true) {
