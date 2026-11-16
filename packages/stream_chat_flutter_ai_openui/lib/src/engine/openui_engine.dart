@@ -444,7 +444,26 @@ final class _HostTools implements OpenUIToolProvider {
       // The query's error reads the host's message, as on iOS and Android.
       throw _ToolFailure(error.message);
     }
-    return OpenUIValue.fromJson(output);
+    return OpenUIValue.fromJson(_plainOutput(output, 0));
+  }
+
+  // [output] as JSON: an iterable as a list, a map's keys as strings, and any
+  // other value that isn't JSON as its string, so an app's tool that returns
+  // one still answers the query.
+  static Object? _plainOutput(Object? output, int depth) {
+    // Bounds the recursion before reading, so a deep output fails the query
+    // with this message rather than a stack overflow.
+    if (depth > OpenUIValue.maxJsonDepth) {
+      throw const FormatException('A tool output nested more than ${OpenUIValue.maxJsonDepth} levels deep');
+    }
+    return switch (output) {
+      null || bool() || num() || String() => output,
+      Map<Object?, Object?>() => {
+        for (final MapEntry(:key, :value) in output.entries) '$key': _plainOutput(value, depth + 1),
+      },
+      Iterable<Object?>() => [for (final item in output) _plainOutput(item, depth + 1)],
+      _ => output.toString(),
+    };
   }
 }
 

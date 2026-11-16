@@ -415,6 +415,27 @@ void main() {
       expect(host.statePhases, everyElement(isNot(SchedulerPhase.persistentCallbacks)));
     });
 
+    testWidgets("a tool's output that isn't JSON reads as JSON, with other values as their text", (tester) async {
+      final host = _Host(
+        tools: {
+          'list': (_) => {
+            1: {'when', Uri.parse('https://a.dev')},
+          },
+        },
+      );
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      const program =
+          'q = Query("list", {}, {})\n'
+          'root = Stack([TextContent("" + @Count(q["1"])), TextContent(q["1"][1])])';
+
+      await _pump(tester, engine, _doc(program));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('https://a.dev'), findsOneWidget);
+    });
+
     testWidgets("declared defaults and kept state aren't given to the host as new state", (tester) async {
       final host = _Host()..states['r1'] = {r'$m': 'kept'};
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
