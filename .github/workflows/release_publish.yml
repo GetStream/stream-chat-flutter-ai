@@ -19,6 +19,9 @@ concurrency:
 
 jobs:
   release:
+    # Tag pushes publish, so they wait for a flutter-developers approval in
+    # the pub.dev environment. A manual run is a dry run and skips it.
+    environment: ${{ github.event_name == 'push' && 'pub.dev' || '' }}
     permissions:
       contents: read  # The release is created with CI_BOT_GITHUB_TOKEN
       id-token: write # Required for authentication using OIDC
