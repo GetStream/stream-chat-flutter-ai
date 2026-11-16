@@ -461,6 +461,21 @@ root = Card([MarkDownRenderer("x", \$variant)])
       expect(find.text('X'), findsOneWidget);
     });
 
+    testWidgets("a web address in a query's defaults loads nothing before its tool answers", (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program:
+            '\$q = "cat"\np = Query("pics", {}, {src: "https://a.dev/x.png?q=" + \$q})\n'
+            'root = Card([ImageBlock(p.src, "X")])',
+      );
+      await tester.pump();
+
+      expect(find.byType(StreamNetworkImage), findsNothing);
+    });
+
     testWidgets('a web address a tool gives loads', (tester) async {
       final tools = FakeTools()..results['pics'] = OpenUIValue.fromJson(const {'src': 'https://a.dev/q.png'});
       final runtime = testRuntime(tools: tools);
