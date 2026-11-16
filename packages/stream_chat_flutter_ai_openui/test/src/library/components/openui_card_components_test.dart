@@ -77,6 +77,28 @@ void main() {
         expect(dim, hasLength(1));
       });
 
+      testWidgets('EntityList multiplies a translucent border color by the line alpha', (tester) async {
+        final runtime = testRuntime();
+        addTearDown(runtime.dispose);
+        const border = Color(0x80336699);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          stream: stream,
+          theme: OpenUIThemeData(border: border),
+          program:
+              'root = Card([EntityList([{left: "A", right: "1"}, {left: "B", right: "2"}], "default", {left: "H", right: "R"}, {left: "F", right: "T"})])',
+        );
+
+        final alphas = tester
+            .widgetList<ColoredBox>(find.byType(ColoredBox))
+            .where((box) => box.color.r == border.r && box.color.g == border.g && box.color.b == border.b)
+            .map((box) => box.color.a)
+            .toList();
+        expect(alphas, contains(closeTo(border.a, 0.01)));
+        expect(alphas, contains(closeTo(border.a * 0.6, 0.01)));
+      });
+
       testWidgets('Text and BoldText draw in their sizes with subtext below', (tester) async {
         await draw(tester, 'Text("text", "Plain", "note", "text", "sm"), BoldText("text", "Bold", "", "text", "lg")');
 
@@ -413,6 +435,20 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a long previous value shrinks with an ellipsis instead of overflowing', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await pumpScaled(
+        tester,
+        r'root = Card([MetricIndicatorWithStrikethrough("$1,234,567,890.00", "sub", "$9,876,543,210.00 previously listed")])',
+      );
+
+      expect(tester.takeException(), isNull);
+      final previous = tester.widget<Text>(find.textContaining('previously listed'));
+      expect(previous.maxLines, 1);
+      expect(previous.overflow, TextOverflow.ellipsis);
     });
 
     testWidgets('the sources strip starts at the right in a right-to-left direction', (tester) async {

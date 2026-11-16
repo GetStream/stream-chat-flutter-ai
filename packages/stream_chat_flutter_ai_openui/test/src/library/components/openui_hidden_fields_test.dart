@@ -63,7 +63,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(events, isEmpty);
-      expect(find.text('Email *', findRichText: true), findsOneWidget);
+      expect(find.text('Email', findRichText: true), findsOneWidget);
       expect(find.text('This field is required'), findsOneWidget);
       expect(find.text('Other'), findsNothing);
     });
@@ -80,8 +80,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(events, isEmpty);
-      expect(find.text('Email *', findRichText: true), findsOneWidget);
-      expect(find.text('Phone *', findRichText: true), findsNothing);
+      expect(find.text('Email', findRichText: true), findsOneWidget);
+      expect(find.text('Phone', findRichText: true), findsNothing);
     });
 
     testWidgets('a valid hidden field does not block, and the defaults of hidden fields are kept', (tester) async {
@@ -168,7 +168,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(events, isEmpty);
-      expect(find.text('Email *', findRichText: true), findsOneWidget);
+      expect(find.text('Email', findRichText: true), findsOneWidget);
       expect(find.text('This field is required'), findsOneWidget);
     });
 
@@ -187,7 +187,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(events, isEmpty);
-      expect(find.text('Email *', findRichText: true), findsOneWidget);
+      expect(find.text('Email', findRichText: true), findsOneWidget);
       expect(find.text('This field is required'), findsOneWidget);
     });
   });
@@ -207,7 +207,7 @@ root = Card([Form("f", Buttons([Button("Go", @ToAssistant("Go"))]), [SectionBloc
       await tester.pumpAndSettle();
 
       expect(events, isEmpty);
-      expect(find.text('Email *', findRichText: true), findsOneWidget);
+      expect(find.text('Email', findRichText: true), findsOneWidget);
     });
   });
 }

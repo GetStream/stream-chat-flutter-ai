@@ -135,7 +135,16 @@ Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) 
   final error = name == null ? null : OpenUIFormScope.maybeOf(context)?.validation.errorOf(name);
   final hint = scope.text('hint') ?? '';
   final label = theme.bodySmall.copyWith(fontWeight: FontWeight.w500);
-  return Column(
+  final required = input != null && openUIIsRequired(input.props['rules']);
+  // A field that is a single text box, or a picker, is named by the label.
+  final named =
+      input != null &&
+      switch (input.typeName) {
+        'Input' || 'TextArea' || 'Select' => true,
+        'DatePicker' => scope.scopeOf(input).string('mode') != 'range',
+        _ => false,
+      };
+  final labelAndInput = Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     spacing: theme.sSpacing,
     children: [
@@ -146,15 +155,24 @@ Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) 
               text: scope.text('label') ?? '',
               style: label.copyWith(color: colors.text),
             ),
-            if (input != null && openUIIsRequired(input.props['rules']))
+            // The mark is drawn, but read as the field being required instead.
+            if (required)
               TextSpan(
                 text: ' *',
+                semanticsLabel: '',
                 style: label.copyWith(color: colors.error),
               ),
           ],
         ),
       ),
-      scope.buildProp('input'),
+      if (required) Semantics(isRequired: true, child: scope.buildProp('input')) else scope.buildProp('input'),
+    ],
+  );
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: theme.sSpacing,
+    children: [
+      if (named) MergeSemantics(child: labelAndInput) else labelAndInput,
       if (error != null)
         Semantics(
           liveRegion: true,

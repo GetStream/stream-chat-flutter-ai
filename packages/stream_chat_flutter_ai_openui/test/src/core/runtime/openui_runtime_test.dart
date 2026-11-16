@@ -593,6 +593,37 @@ void main() {
     looping.dispose();
   });
 
+  test(r'a $variable write keeps the identity of every element it did not change', () async {
+    runtime.update(
+      r'$n = 1'
+      '\nroot = Stack([Text("a"), Text(\$n), Button("go", @Set(\$n, 2)), Text("b")])',
+      isStreaming: false,
+    );
+    final before = [for (var i = 0; i < 4; i++) child(i)];
+    await click(2);
+
+    expect(child(1), isNot(before[1]));
+    expect(child(0), same(before[0]));
+    expect(child(2), same(before[2]));
+    expect(child(3), same(before[3]));
+  });
+
+  test('children that are reordered, added or removed keep the identity of the statements they came from', () {
+    runtime.update('a = Text("a")\nb = Text("b")\nc = Text("c")\nroot = Stack([a, b, c])', isStreaming: false);
+    final [a, b, c] = [child(0), child(1), child(2)];
+    runtime.update(
+      'a = Text("a")\nb = Text("b")\nc = Text("c")\nroot = Stack([c, a, b, Text("d")])',
+      isStreaming: false,
+    );
+
+    expect(child(0), same(c));
+    expect(child(1), same(a));
+    expect(child(2), same(b));
+    expect(child(3).props['text'], _v('d'));
+    runtime.update('a = Text("a")\nb = Text("b")\nc = Text("c")\nroot = Stack([b])', isStreaming: false);
+    expect(child(0), same(b));
+  });
+
   test('evaluating any cut of a program never throws', () {
     final programs = [
       for (final testCase in evaluatorCases()) testCase['input']! as String,

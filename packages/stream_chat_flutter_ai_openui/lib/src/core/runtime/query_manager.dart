@@ -85,6 +85,8 @@ final class QueryManager {
   final _cache = <String, _CacheEntry>{};
   bool _disposed = false;
   bool _paused = false;
+  // The cache keys asked to fetch while paused, fetched once resumed.
+  final _deferred = <String>{};
   int _generation = 0;
   QuerySnapshot _snapshot = QuerySnapshot.empty;
 
@@ -259,6 +261,15 @@ final class QueryManager {
     final tools = this.tools;
     final query = _queries.values.where((query) => query.key == key).firstOrNull;
     if (tools == null || query == null) return;
+    if (_paused) {
+      // It shows as fetching, with the data it has, until resumed.
+      _deferred.add(key);
+      for (final waiting in _queriesOn(key)) {
+        waiting.loading = true;
+      }
+      _publish();
+      return;
+    }
     final entry = _cache.putIfAbsent(key, _CacheEntry.new)..inFlight = true;
     for (final waiting in _queriesOn(key)) {
       waiting.loading = true;
@@ -414,7 +425,8 @@ final class QueryManager {
     }
   }
 
-  /// Stops the refresh timers, keeping the queries and their data.
+  /// Stops the refresh timers, keeping the queries and their data; a fetch
+  /// asked for while paused waits until [resume].
   void pause() {
     _paused = true;
     for (final query in _queries.values) {
@@ -423,10 +435,16 @@ final class QueryManager {
     }
   }
 
-  /// Starts the refresh timers [pause] stopped.
+  /// Runs the fetches asked for while paused, and starts the refresh timers
+  /// [pause] stopped.
   void resume() {
     if (!_paused || _disposed) return;
     _paused = false;
+    final deferred = [..._deferred];
+    _deferred.clear();
+    for (final key in deferred) {
+      if (!(_cache[key]?.inFlight ?? false)) _startFetch(key);
+    }
     for (final query in _queries.values) {
       if (query.refreshSeconds > 0 && query.refresh == null) _armRefresh(query);
     }
