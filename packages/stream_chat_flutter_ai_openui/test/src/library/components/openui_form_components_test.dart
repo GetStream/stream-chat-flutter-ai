@@ -28,7 +28,7 @@ Future<(OpenUIRuntime, List<OpenUIActionEvent>)> _pump(
 }
 
 const _contact = '''
-root = Stack([form])
+root = Card([form])
 form = Form("contact", buttons, [name, pass])
 name = FormControl("Name", Input("name", "Your name", "text", {required: true, minLength: 2}), "As on your ID")
 pass = FormControl("Password", Input("secret", "", "password"))
@@ -326,6 +326,44 @@ root = Stack([OptionCards("plan", null, [OptionCard("a", "Basic"), OptionCard("b
       await tester.pump();
 
       expect(runtime.fieldValue(null, 'plan'), const OpenUIString('b'));
+    });
+
+    testWidgets('OptionCards in a form keep fitting their content as it streams in', (tester) async {
+      const program = '''
+root = Card([form])
+form = Form("trip", buttons, [control])
+buttons = Buttons([send])
+send = Button("Plan", @ToAssistant("Plan"))
+control = FormControl("Trip Type", cards, "What kind of trip are you planning?")
+cards = OptionCards("trip-type", "single", [oc1, oc2, oc3, oc4], { required: true })
+oc1 = OptionCard("adventure", "Adventure", "Hiking, trekking & outdoor activities", oc1icon)
+oc1icon = Icon("mountain", "nature")
+oc2 = OptionCard("beach", "Beach & Relaxation", "Sun, sand & leisure", oc2icon)
+oc2icon = Icon("waves", "nature")
+oc3 = OptionCard("cultural", "Cultural & Historical", "Museums, heritage & local experiences", oc3icon)
+oc3icon = Icon("landmark", "buildings")
+oc4 = OptionCard("city", "City Break", "Urban exploration & nightlife", oc4icon)
+oc4icon = Icon("building-2", "buildings")
+''';
+      final runtime = testRuntime(library: _library);
+      addTearDown(runtime.dispose);
+      runtime.update('', isStreaming: true);
+      await tester.pumpWidget(
+        testApp(
+          SingleChildScrollView(
+            child: OpenUIView(runtime: runtime, library: _library),
+          ),
+        ),
+      );
+
+      // A card that grows while its row mates don't must not be laid out again
+      // at the row's old height, which overflows it.
+      for (var end = 7; end < program.length + 7; end += 7) {
+        final done = end >= program.length;
+        runtime.update(program.substring(0, done ? program.length : end), isStreaming: !done);
+        await tester.pump();
+        expect(tester.takeException(), isNull, reason: 'at $end characters');
+      }
     });
   });
 
