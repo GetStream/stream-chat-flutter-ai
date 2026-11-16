@@ -9,7 +9,7 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 /// names: `small`, `large`, `small-heavy`, `large-heavy`, or body text for
 /// any other.
 ///
-/// Web and email links in it open through the view. A `[n]` in it that names
+/// Its text can be selected. Web and email links in it open through the view. A `[n]` in it that names
 /// one of the enclosing card's sources links to that source.
 ///
 /// Internal to the package.
@@ -26,5 +26,6 @@ Widget buildOpenUITextContent(BuildContext context, OpenUIComponentScope scope) 
   return OpenUIMarkdownText(
     data: linkCitations(scope.text('text') ?? '', OpenUICitationSources.of(context)),
     style: style,
+    selectable: true,
   );
 }

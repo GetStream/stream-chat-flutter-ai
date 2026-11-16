@@ -94,13 +94,21 @@ String _escapeLine(String line) {
 /// opening through the view.
 ///
 /// With [inline], [data] is read as inline Markdown: the markers that would
-/// start a block, such as `#` or `1.`, are drawn as the text they are.
+/// start a block, such as `#` or `1.`, are drawn as the text they are. With
+/// [selectable], its text can be selected and copied.
 ///
 /// Internal to the package.
 @internal
 class OpenUIMarkdownText extends StatelessWidget {
   /// Creates the Markdown of [data].
-  const OpenUIMarkdownText({super.key, required this.data, this.style, this.color, this.inline = false});
+  const OpenUIMarkdownText({
+    super.key,
+    required this.data,
+    this.style,
+    this.color,
+    this.inline = false,
+    this.selectable = false,
+  });
 
   /// The Markdown.
   final String data;
@@ -114,16 +122,22 @@ class OpenUIMarkdownText extends StatelessWidget {
   /// Whether [data] is inline Markdown only.
   final bool inline;
 
+  /// Whether its text can be selected.
+  final bool selectable;
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
-    return OpenUIStreamTheme(
+    final body = OpenUIStreamTheme(
       theme: theme.copyWith(body: style, text: color),
       child: AIMarkdownBody(
         data: inline ? openUIEscapeBlockMarkers(data) : data,
         onTapLink: (text, href, title) => openOpenUILink(context, href),
       ),
     );
+    // A selection area, rather than selectable text, keeps the text and its
+    // links what assistive technologies read, and selects across paragraphs.
+    return selectable ? SelectionArea(child: body) : body;
   }
 }
 

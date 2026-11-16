@@ -12,3 +12,4 @@
   host's `open`, which decides which links open.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
+- The text of a `TextContent` and a `MarkDownRenderer` can be selected and copied.

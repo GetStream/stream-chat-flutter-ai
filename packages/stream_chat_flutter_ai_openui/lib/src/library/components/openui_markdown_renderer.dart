@@ -8,7 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support
 /// the space it is given, on the surface its `variant` names: none for `clear`
 /// (the default), a sunken one for `sunk` and a card for any other.
 ///
-/// Links in it open through the view. A `[n]` in it that names one of the
+/// Its text can be selected. Links in it open through the view. A `[n]` in it that names one of the
 /// enclosing card's sources links to that source.
 ///
 /// Internal to the package.
@@ -19,7 +19,7 @@ Widget buildOpenUIMarkDownRenderer(BuildContext context, OpenUIComponentScope sc
     width: double.infinity,
     child: OpenUISurface(
       variant: scope.string('variant') ?? 'clear',
-      child: OpenUIMarkdownText(data: text),
+      child: OpenUIMarkdownText(data: text, selectable: true),
     ),
   );
 }

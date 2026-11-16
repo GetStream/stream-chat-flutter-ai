@@ -94,6 +94,39 @@ void main() {
     });
   }
 
+  testWidgets('TextContent and MarkDownRenderer text can be selected, other text cannot', (tester) async {
+    final runtime = testRuntime();
+    addTearDown(runtime.dispose);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      program: 'root = Card([CardHeader("Title"), TextContent("Body"), MarkDownRenderer("More")])',
+    );
+
+    bool selectable(String text) => find
+        .ancestor(of: find.text(text, findRichText: true), matching: find.byType(SelectionArea))
+        .evaluate()
+        .isNotEmpty;
+    expect(selectable('Body'), isTrue);
+    expect(selectable('More'), isTrue);
+    expect(selectable('Title'), isFalse);
+  });
+
+  testWidgets('a link in selectable text still opens', (tester) async {
+    final opened = <Uri>[];
+    final runtime = testRuntime();
+    addTearDown(runtime.dispose);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      onOpenLink: opened.add,
+      program: 'root = Card([TextContent("[go](https://a.dev)")])',
+    );
+
+    await tester.tapOnText(find.textRange.ofSubstring('go'));
+    expect(opened, [Uri.parse('https://a.dev')]);
+  });
+
   group('MarkDownRenderer', () {
     testWidgets('draws its Markdown across the width, on a surface for card and sunk, none for clear', (tester) async {
       final runtime = testRuntime();
