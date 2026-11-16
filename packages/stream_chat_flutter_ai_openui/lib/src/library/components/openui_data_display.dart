@@ -9,15 +9,14 @@ import 'package:stream_core_flutter/core.dart';
 /// Builds an `Icon`: the icon its `name` (a Lucide icon name) and `category`
 /// find, in the secondary text color.
 ///
-/// It draws nothing when the design system has no icon for them. It reads as
-/// its name, without numbers: `trash-2` as `trash`.
+/// It draws a generic circle when the design system has no icon for them. It
+/// reads as its name, without numbers: `trash-2` as `trash`.
 ///
 /// Internal to the package.
 @internal
 Widget buildOpenUIIcon(BuildContext context, OpenUIComponentScope scope) {
   final name = scope.string('name') ?? '';
   final icon = openUIIconOf(context.streamIcons, name, scope.string('category'));
-  if (icon == null) return const SizedBox.shrink();
   final label = openUIIconLabel(name);
   // Aligned, so a parent that stretches its children doesn't stretch the icon.
   final widget = Align(
