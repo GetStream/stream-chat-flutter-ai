@@ -28,6 +28,9 @@ class _German extends DefaultOpenUITranslations {
   String get selectPlaceholder => 'Wählen...';
 
   @override
+  String trendPercent(num percent) => '${_german(percent)} %';
+
+  @override
   String trendUp(num percent) => 'Plus ${_german(percent)} Prozent';
 
   @override
@@ -184,6 +187,16 @@ void main() {
     expect(find.bySemanticsLabel('Plus 1.234,567 Prozent'), findsOneWidget);
   });
 
+  testWidgets("a trend's percentage shows as the translation writes it", (tester) async {
+    await _pumpIn(
+      tester,
+      'root = Card([MetricIndicatorInline("1", "", {direction: "up", value: 1234.567})])',
+      const _German(),
+    );
+
+    expect(find.text('1.234,567 %'), findsOneWidget);
+  });
+
   group('the English texts write numbers as the program does', () {
     const english = DefaultOpenUITranslations();
 
@@ -193,6 +206,10 @@ void main() {
 
     test('a limit with a fraction', () {
       expect(english.validationMax(0.5), 'Must be no more than 0.5');
+    });
+
+    test('a trend percentage with at most 2 decimals', () {
+      expect(english.trendPercent(1234.567), '1234.57%');
     });
 
     test('a trend with at most 2 decimals', () {

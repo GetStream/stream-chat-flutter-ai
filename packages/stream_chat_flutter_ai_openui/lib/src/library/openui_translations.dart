@@ -149,6 +149,10 @@ abstract class OpenUITranslations {
   /// from 1) runs when the item has no title.
   String visualCardItem(int index);
 
+  /// A metric's change of [percent] percent as its trend badge shows it,
+  /// such as `12.5%` for `12.5`.
+  String trendPercent(num percent);
+
   /// What a metric that rose by [percent] percent reads as, such as
   /// `12.5`.
   String trendUp(num percent);
@@ -275,6 +279,9 @@ class DefaultOpenUITranslations extends OpenUITranslations {
 
   @override
   String visualCardItem(int index) => 'Visual card $index';
+
+  @override
+  String trendPercent(num percent) => '${openUIPlainNumber(percent, maxDecimals: 2)}%';
 
   @override
   String trendUp(num percent) => 'Up ${openUIPlainNumber(percent, maxDecimals: 2)} percent';

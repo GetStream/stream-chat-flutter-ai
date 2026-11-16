@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_number_format.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -98,9 +97,7 @@ class _TrendBadge extends StatelessWidget {
     final theme = OpenUIViewScope.of(context).theme;
     final color = up ? theme.success : theme.error;
     final translations = OpenUITranslations.of(context);
-    // The number itself isn't translated, as the program writes numbers; what
-    // it reads as is.
-    final shown = '${openUIPlainNumber(value, maxDecimals: 2)}%';
+    final shown = translations.trendPercent(value);
     final icons = context.streamIcons;
     return Semantics(
       container: true,
