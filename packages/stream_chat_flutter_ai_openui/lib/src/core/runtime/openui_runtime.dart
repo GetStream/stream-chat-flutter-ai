@@ -437,7 +437,9 @@ final class OpenUIRuntime {
   bool allowsImageLink(String link) {
     if (link.isEmpty) return false;
     if (_text?.contains(link) ?? false) return true;
-    final pending = [..._queries.snapshot.values.values];
+    // Only what tools answered: a query's defaults can be built from what
+    // the person types.
+    final pending = [..._queries.toolResults];
     while (pending.isNotEmpty) {
       switch (pending.removeLast()) {
         case OpenUIString(:final value) when value == link:

@@ -177,7 +177,6 @@ void main() {
         tester.getSemantics(find.text('Two')),
         matchesSemantics(
           isButton: true,
-          role: SemanticsRole.tab,
           isSelected: true,
           hasSelectedState: true,
           hasEnabledState: true,
@@ -188,6 +187,7 @@ void main() {
           label: 'Two',
         ),
       );
+      expect(tester.getSemantics(find.text('Two')).getSemanticsData().role, SemanticsRole.tab);
     });
 
     for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {

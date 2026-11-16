@@ -90,8 +90,99 @@ String _escapeLine(String line) {
   return text;
 }
 
+/// [text] with each Markdown image, `![alt](url)` or `![alt][ref]`, turned
+/// into a link, `[alt](url)`, that shows its alt text and loads nothing.
+///
+/// An escaped `\![` stays as it is, and so does a `![` in a code span or a
+/// fenced code block. Where a code span or fence is unclear, the `!` is
+/// dropped anyway: at worst a `!` goes missing, and never does an image load.
+///
+/// Internal to the package.
+@internal
+String openUIImagesAsLinks(String text) {
+  if (!text.contains('![')) return text;
+  final out = StringBuffer();
+  String? fence;
+  // Whether a backtick run in this paragraph had no closing run on its line,
+  // so Markdown might close it on another line: code spans aren't trusted
+  // until a blank line.
+  var spansUnclear = false;
+  for (final (index, line) in text.split('\n').indexed) {
+    if (index > 0) out.write('\n');
+    if (fence != null) {
+      // Closed by any line that starts with the fence, even one Markdown
+      // wouldn't close on: what follows is then read as text.
+      if (line.trimLeft().startsWith(fence) && line.length - line.trimLeft().length <= 3) fence = null;
+      out.write(line);
+      continue;
+    }
+    // Only a fence at the start of a line, which nothing else can contain.
+    final opening = _fenceOpening.firstMatch(line);
+    if (opening != null && !(opening[1]!.startsWith('`') && opening[2]!.contains('`'))) {
+      fence = opening[1];
+      out.write(line);
+      continue;
+    }
+    if (line.trim().isEmpty) spansUnclear = false;
+    // A `<` may start an HTML tag or autolink, which a backtick in it doesn't
+    // open a code span in.
+    final spans = !spansUnclear && !line.contains('<');
+    var position = 0;
+    while (position < line.length) {
+      final char = line[position];
+      if (char == r'\') {
+        out.write(line.substring(position, (position + 2).clamp(0, line.length)));
+        position += 2;
+      } else if (char == '`') {
+        var end = position;
+        while (end < line.length && line[end] == '`') {
+          end++;
+        }
+        final close = spans ? _closingRun(line, end, end - position) : -1;
+        if (close == -1) {
+          if (!spans || _closingRun(line, end, end - position) == -1) spansUnclear = true;
+          out.write(line.substring(position, end));
+          position = end;
+        } else {
+          out.write(line.substring(position, close));
+          position = close;
+        }
+      } else if (char == '!' && position + 1 < line.length && line[position + 1] == '[') {
+        position++;
+      } else {
+        out.write(char);
+        position++;
+      }
+    }
+  }
+  return out.toString();
+}
+
+// A fence at the start of a line: its marker, then its info string.
+final _fenceOpening = RegExp(r'^(`{3,}|~{3,})(.*)$');
+
+// The end of the run of exactly [length] backticks after [from] in [line],
+// or -1 when there is none.
+int _closingRun(String line, int from, int length) {
+  var position = from;
+  while (position < line.length) {
+    if (line[position] != '`') {
+      position++;
+      continue;
+    }
+    var end = position;
+    while (end < line.length && line[end] == '`') {
+      end++;
+    }
+    if (end - position == length) return end;
+    position = end;
+  }
+  return -1;
+}
+
 /// Markdown in [style] and [color], as the design system draws it, with links
-/// opening through the view.
+/// opening through the view. An image in it is drawn as a link of its alt
+/// text, never loaded; see [openUIImagesAsLinks].
 ///
 /// With [inline], [data] is read as inline Markdown: the markers that would
 /// start a block, such as `#` or `1.`, are drawn as the text they are.
@@ -120,7 +211,7 @@ class OpenUIMarkdownText extends StatelessWidget {
     return OpenUIStreamTheme(
       theme: theme.copyWith(body: style, text: color),
       child: AIMarkdownBody(
-        data: inline ? openUIEscapeBlockMarkers(data) : data,
+        data: openUIImagesAsLinks(inline ? openUIEscapeBlockMarkers(data) : data),
         onTapLink: (text, href, title) => openOpenUILink(context, href),
       ),
     );

@@ -573,23 +573,34 @@ root = Stack([Form("f", Buttons([Button("Go")]), [Tabs([TabItem("a", "A", [FormC
       expect(events, isEmpty);
     });
 
-    testWidgets('a field shows and checks its literal value, and sends it once it is edited', (tester) async {
-      final (_, events) = await _pump(tester, '''
+    const literalField = '''
 root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("N", Input("n", "", "text", {required: true}, "Ann"))])])
-''');
+''';
+
+    testWidgets('a field shows its literal value', (tester) async {
+      await _pump(tester, literalField);
+
       expect(tester.widget<EditableText>(find.byType(EditableText)).controller.text, 'Ann');
+    });
+
+    testWidgets('a required field passes with its literal value, which the form does not send', (tester) async {
+      final (_, events) = await _pump(tester, literalField);
 
       await tester.tap(find.text('Go'));
       await tester.pump();
 
       final form = events.single.formState['f'];
       expect(form is OpenUIObject ? form.fields['n'] : null, isNull);
+    });
+
+    testWidgets('a field with a literal value sends what the person edits it to', (tester) async {
+      final (_, events) = await _pump(tester, literalField);
 
       await tester.enterText(find.byType(TextField), 'Bob');
       await tester.tap(find.text('Go'));
       await tester.pump();
 
-      final edited = events.last.formState['f']! as OpenUIObject;
+      final edited = events.single.formState['f']! as OpenUIObject;
       expect((edited.fields['n']! as OpenUIObject).fields['value'], const OpenUIString('Bob'));
     });
 
