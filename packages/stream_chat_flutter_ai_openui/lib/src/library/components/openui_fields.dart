@@ -226,8 +226,14 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
     super.dispose();
   }
 
+  // Whether the field had the focus when its focus node last notified: the
+  // node also notifies when the field is enabled or disabled, which isn't the
+  // person entering or leaving it.
+  bool _hadFocus = false;
+
   void _focusChanged() {
-    if (!mounted) return;
+    if (!mounted || _focus.hasFocus == _hadFocus) return;
+    _hadFocus = _focus.hasFocus;
     final validation = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
     if (_focus.hasFocus) {
       validation?.clearError(_name);
