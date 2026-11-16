@@ -14,262 +14,262 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 ///
 /// Each constant names a component of at least one of the two libraries; see
 /// [OpenUILibrary.types] for those of one library.
-extension type const OpenUIComponentName(String value) implements String {
+extension type const OpenUIComponentName._(String value) implements String {
   /// `Accordion`.
-  static const accordion = OpenUIComponentName('Accordion');
+  static const accordion = OpenUIComponentName._('Accordion');
 
   /// `AccordionItem`.
-  static const accordionItem = OpenUIComponentName('AccordionItem');
+  static const accordionItem = OpenUIComponentName._('AccordionItem');
 
   /// `AreaChart`.
-  static const areaChart = OpenUIComponentName('AreaChart');
+  static const areaChart = OpenUIComponentName._('AreaChart');
 
   /// `BarChart`.
-  static const barChart = OpenUIComponentName('BarChart');
+  static const barChart = OpenUIComponentName._('BarChart');
 
   /// `BoldText`.
-  static const boldText = OpenUIComponentName('BoldText');
+  static const boldText = OpenUIComponentName._('BoldText');
 
   /// `Button`.
-  static const button = OpenUIComponentName('Button');
+  static const button = OpenUIComponentName._('Button');
 
   /// `Buttons`.
-  static const buttons = OpenUIComponentName('Buttons');
+  static const buttons = OpenUIComponentName._('Buttons');
 
   /// `Callout`.
-  static const callout = OpenUIComponentName('Callout');
+  static const callout = OpenUIComponentName._('Callout');
 
   /// `Card`.
-  static const card = OpenUIComponentName('Card');
+  static const card = OpenUIComponentName._('Card');
 
   /// `CardHeader`.
-  static const cardHeader = OpenUIComponentName('CardHeader');
+  static const cardHeader = OpenUIComponentName._('CardHeader');
 
   /// `Carousel`.
-  static const carousel = OpenUIComponentName('Carousel');
+  static const carousel = OpenUIComponentName._('Carousel');
 
   /// `CheckBoxGroup`.
-  static const checkBoxGroup = OpenUIComponentName('CheckBoxGroup');
+  static const checkBoxGroup = OpenUIComponentName._('CheckBoxGroup');
 
   /// `CheckBoxItem`.
-  static const checkBoxItem = OpenUIComponentName('CheckBoxItem');
+  static const checkBoxItem = OpenUIComponentName._('CheckBoxItem');
 
   /// `ChipItem`.
-  static const chipItem = OpenUIComponentName('ChipItem');
+  static const chipItem = OpenUIComponentName._('ChipItem');
 
   /// `Chips`.
-  static const chips = OpenUIComponentName('Chips');
+  static const chips = OpenUIComponentName._('Chips');
 
   /// `CodeBlock`.
-  static const codeBlock = OpenUIComponentName('CodeBlock');
+  static const codeBlock = OpenUIComponentName._('CodeBlock');
 
   /// `Col`.
-  static const col = OpenUIComponentName('Col');
+  static const col = OpenUIComponentName._('Col');
 
   /// `CompositeCardBlock`.
-  static const compositeCardBlock = OpenUIComponentName('CompositeCardBlock');
+  static const compositeCardBlock = OpenUIComponentName._('CompositeCardBlock');
 
   /// `CompositeCardItem`.
-  static const compositeCardItem = OpenUIComponentName('CompositeCardItem');
+  static const compositeCardItem = OpenUIComponentName._('CompositeCardItem');
 
   /// `ContextCardBlock`.
-  static const contextCardBlock = OpenUIComponentName('ContextCardBlock');
+  static const contextCardBlock = OpenUIComponentName._('ContextCardBlock');
 
   /// `ContextCardItem`.
-  static const contextCardItem = OpenUIComponentName('ContextCardItem');
+  static const contextCardItem = OpenUIComponentName._('ContextCardItem');
 
   /// `DatePicker`.
-  static const datePicker = OpenUIComponentName('DatePicker');
+  static const datePicker = OpenUIComponentName._('DatePicker');
 
   /// `EditableTable`.
-  static const editableTable = OpenUIComponentName('EditableTable');
+  static const editableTable = OpenUIComponentName._('EditableTable');
 
   /// `EntityList`.
-  static const entityList = OpenUIComponentName('EntityList');
+  static const entityList = OpenUIComponentName._('EntityList');
 
   /// `FollowUpBlock`.
-  static const followUpBlock = OpenUIComponentName('FollowUpBlock');
+  static const followUpBlock = OpenUIComponentName._('FollowUpBlock');
 
   /// `FollowUpItem`.
-  static const followUpItem = OpenUIComponentName('FollowUpItem');
+  static const followUpItem = OpenUIComponentName._('FollowUpItem');
 
   /// `Form`.
-  static const form = OpenUIComponentName('Form');
+  static const form = OpenUIComponentName._('Form');
 
   /// `FormControl`.
-  static const formControl = OpenUIComponentName('FormControl');
+  static const formControl = OpenUIComponentName._('FormControl');
 
   /// `HorizontalBarChart`.
-  static const horizontalBarChart = OpenUIComponentName('HorizontalBarChart');
+  static const horizontalBarChart = OpenUIComponentName._('HorizontalBarChart');
 
   /// `Icon`.
-  static const icon = OpenUIComponentName('Icon');
+  static const icon = OpenUIComponentName._('Icon');
 
   /// `IconButton`.
-  static const iconButton = OpenUIComponentName('IconButton');
+  static const iconButton = OpenUIComponentName._('IconButton');
 
   /// `IconText`.
-  static const iconText = OpenUIComponentName('IconText');
+  static const iconText = OpenUIComponentName._('IconText');
 
   /// `Image`.
-  static const image = OpenUIComponentName('Image');
+  static const image = OpenUIComponentName._('Image');
 
   /// `ImageBlock`.
-  static const imageBlock = OpenUIComponentName('ImageBlock');
+  static const imageBlock = OpenUIComponentName._('ImageBlock');
 
   /// `ImageGallery`.
-  static const imageGallery = OpenUIComponentName('ImageGallery');
+  static const imageGallery = OpenUIComponentName._('ImageGallery');
 
   /// `ImageText`.
-  static const imageText = OpenUIComponentName('ImageText');
+  static const imageText = OpenUIComponentName._('ImageText');
 
   /// `ImageTextLarge`.
-  static const imageTextLarge = OpenUIComponentName('ImageTextLarge');
+  static const imageTextLarge = OpenUIComponentName._('ImageTextLarge');
 
   /// `InlineHeader`.
-  static const inlineHeader = OpenUIComponentName('InlineHeader');
+  static const inlineHeader = OpenUIComponentName._('InlineHeader');
 
   /// `Input`.
-  static const input = OpenUIComponentName('Input');
+  static const input = OpenUIComponentName._('Input');
 
   /// `Label`.
-  static const label = OpenUIComponentName('Label');
+  static const label = OpenUIComponentName._('Label');
 
   /// `LineChart`.
-  static const lineChart = OpenUIComponentName('LineChart');
+  static const lineChart = OpenUIComponentName._('LineChart');
 
   /// `ListBlock`.
-  static const listBlock = OpenUIComponentName('ListBlock');
+  static const listBlock = OpenUIComponentName._('ListBlock');
 
   /// `ListItem`.
-  static const listItem = OpenUIComponentName('ListItem');
+  static const listItem = OpenUIComponentName._('ListItem');
 
   /// `MarkDownRenderer`.
-  static const markDownRenderer = OpenUIComponentName('MarkDownRenderer');
+  static const markDownRenderer = OpenUIComponentName._('MarkDownRenderer');
 
   /// `MetricIndicatorInline`.
-  static const metricIndicatorInline = OpenUIComponentName('MetricIndicatorInline');
+  static const metricIndicatorInline = OpenUIComponentName._('MetricIndicatorInline');
 
   /// `MetricIndicatorWithStrikethrough`.
-  static const metricIndicatorWithStrikethrough = OpenUIComponentName('MetricIndicatorWithStrikethrough');
+  static const metricIndicatorWithStrikethrough = OpenUIComponentName._('MetricIndicatorWithStrikethrough');
 
   /// `Modal`.
-  static const modal = OpenUIComponentName('Modal');
+  static const modal = OpenUIComponentName._('Modal');
 
   /// `OptionCard`.
-  static const optionCard = OpenUIComponentName('OptionCard');
+  static const optionCard = OpenUIComponentName._('OptionCard');
 
   /// `OptionCards`.
-  static const optionCards = OpenUIComponentName('OptionCards');
+  static const optionCards = OpenUIComponentName._('OptionCards');
 
   /// `OverviewCardBlock`.
-  static const overviewCardBlock = OpenUIComponentName('OverviewCardBlock');
+  static const overviewCardBlock = OpenUIComponentName._('OverviewCardBlock');
 
   /// `OverviewCardItem`.
-  static const overviewCardItem = OpenUIComponentName('OverviewCardItem');
+  static const overviewCardItem = OpenUIComponentName._('OverviewCardItem');
 
   /// `PieChart`.
-  static const pieChart = OpenUIComponentName('PieChart');
+  static const pieChart = OpenUIComponentName._('PieChart');
 
   /// `Point`.
-  static const point = OpenUIComponentName('Point');
+  static const point = OpenUIComponentName._('Point');
 
   /// `RadarChart`.
-  static const radarChart = OpenUIComponentName('RadarChart');
+  static const radarChart = OpenUIComponentName._('RadarChart');
 
   /// `RadialChart`.
-  static const radialChart = OpenUIComponentName('RadialChart');
+  static const radialChart = OpenUIComponentName._('RadialChart');
 
   /// `RadioGroup`.
-  static const radioGroup = OpenUIComponentName('RadioGroup');
+  static const radioGroup = OpenUIComponentName._('RadioGroup');
 
   /// `RadioItem`.
-  static const radioItem = OpenUIComponentName('RadioItem');
+  static const radioItem = OpenUIComponentName._('RadioItem');
 
   /// `ScatterChart`.
-  static const scatterChart = OpenUIComponentName('ScatterChart');
+  static const scatterChart = OpenUIComponentName._('ScatterChart');
 
   /// `ScatterSeries`.
-  static const scatterSeries = OpenUIComponentName('ScatterSeries');
+  static const scatterSeries = OpenUIComponentName._('ScatterSeries');
 
   /// `SectionBlock`.
-  static const sectionBlock = OpenUIComponentName('SectionBlock');
+  static const sectionBlock = OpenUIComponentName._('SectionBlock');
 
   /// `SectionItem`.
-  static const sectionItem = OpenUIComponentName('SectionItem');
+  static const sectionItem = OpenUIComponentName._('SectionItem');
 
   /// `Select`.
-  static const select = OpenUIComponentName('Select');
+  static const select = OpenUIComponentName._('Select');
 
   /// `SelectItem`.
-  static const selectItem = OpenUIComponentName('SelectItem');
+  static const selectItem = OpenUIComponentName._('SelectItem');
 
   /// `Separator`.
-  static const separator = OpenUIComponentName('Separator');
+  static const separator = OpenUIComponentName._('Separator');
 
   /// `Series`.
-  static const series = OpenUIComponentName('Series');
+  static const series = OpenUIComponentName._('Series');
 
   /// `SingleStackedBarChart`.
-  static const singleStackedBarChart = OpenUIComponentName('SingleStackedBarChart');
+  static const singleStackedBarChart = OpenUIComponentName._('SingleStackedBarChart');
 
   /// `Slice`.
-  static const slice = OpenUIComponentName('Slice');
+  static const slice = OpenUIComponentName._('Slice');
 
   /// `Slider`.
-  static const slider = OpenUIComponentName('Slider');
+  static const slider = OpenUIComponentName._('Slider');
 
   /// `SnippetCardBlock`.
-  static const snippetCardBlock = OpenUIComponentName('SnippetCardBlock');
+  static const snippetCardBlock = OpenUIComponentName._('SnippetCardBlock');
 
   /// `SnippetCardItem`.
-  static const snippetCardItem = OpenUIComponentName('SnippetCardItem');
+  static const snippetCardItem = OpenUIComponentName._('SnippetCardItem');
 
   /// `Stack`.
-  static const stack = OpenUIComponentName('Stack');
+  static const stack = OpenUIComponentName._('Stack');
 
   /// `Steps`.
-  static const steps = OpenUIComponentName('Steps');
+  static const steps = OpenUIComponentName._('Steps');
 
   /// `StepsItem`.
-  static const stepsItem = OpenUIComponentName('StepsItem');
+  static const stepsItem = OpenUIComponentName._('StepsItem');
 
   /// `SwitchGroup`.
-  static const switchGroup = OpenUIComponentName('SwitchGroup');
+  static const switchGroup = OpenUIComponentName._('SwitchGroup');
 
   /// `SwitchItem`.
-  static const switchItem = OpenUIComponentName('SwitchItem');
+  static const switchItem = OpenUIComponentName._('SwitchItem');
 
   /// `TabItem`.
-  static const tabItem = OpenUIComponentName('TabItem');
+  static const tabItem = OpenUIComponentName._('TabItem');
 
   /// `Table`.
-  static const table = OpenUIComponentName('Table');
+  static const table = OpenUIComponentName._('Table');
 
   /// `Tabs`.
-  static const tabs = OpenUIComponentName('Tabs');
+  static const tabs = OpenUIComponentName._('Tabs');
 
   /// `Tag`.
-  static const tag = OpenUIComponentName('Tag');
+  static const tag = OpenUIComponentName._('Tag');
 
   /// `TagBlock`.
-  static const tagBlock = OpenUIComponentName('TagBlock');
+  static const tagBlock = OpenUIComponentName._('TagBlock');
 
   /// `Text`.
-  static const text = OpenUIComponentName('Text');
+  static const text = OpenUIComponentName._('Text');
 
   /// `TextArea`.
-  static const textArea = OpenUIComponentName('TextArea');
+  static const textArea = OpenUIComponentName._('TextArea');
 
   /// `TextCallout`.
-  static const textCallout = OpenUIComponentName('TextCallout');
+  static const textCallout = OpenUIComponentName._('TextCallout');
 
   /// `TextContent`.
-  static const textContent = OpenUIComponentName('TextContent');
+  static const textContent = OpenUIComponentName._('TextContent');
 
   /// `VisualCardBlock`.
-  static const visualCardBlock = OpenUIComponentName('VisualCardBlock');
+  static const visualCardBlock = OpenUIComponentName._('VisualCardBlock');
 
   /// `VisualCardItem`.
-  static const visualCardItem = OpenUIComponentName('VisualCardItem');
+  static const visualCardItem = OpenUIComponentName._('VisualCardItem');
 }
