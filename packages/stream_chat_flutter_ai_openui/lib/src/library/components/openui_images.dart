@@ -123,7 +123,7 @@ class _Gallery extends StatelessWidget {
     showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: OpenUITranslations.of(context).done,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       pageBuilder: (dialogContext, _, _) => captured.wrap(
         OpenUIViewScope(
           runtime: view.runtime,

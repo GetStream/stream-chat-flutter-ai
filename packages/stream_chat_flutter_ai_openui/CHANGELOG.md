@@ -13,5 +13,4 @@
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
 - `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
-  the texts the components draw and read out themselves, including a form's errors. Numbers reach a translation as
-  numbers, for it to format as its language needs. A trend reads as "Up 5 percent".
+  the texts the components draw and read out themselves, including a form's errors.

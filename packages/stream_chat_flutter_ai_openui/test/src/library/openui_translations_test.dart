@@ -7,6 +7,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
+import 'package:stream_core_flutter/core.dart';
 
 import '../openui_test_app.dart';
 
@@ -26,6 +27,9 @@ class _German extends DefaultOpenUITranslations {
 
   @override
   String get selectPlaceholder => 'Wählen...';
+
+  @override
+  String get done => 'Fertig';
 
   @override
   String trendPercent(num percent) => '${_german(percent)} %';
@@ -212,8 +216,11 @@ void main() {
       expect(english.trendPercent(1234.567), '1234.57%');
     });
 
-    test('a trend with at most 2 decimals', () {
-      expect(english.trendUp(12.5), 'Up 12.5 percent');
+    test('a rise with at most 2 decimals', () {
+      expect(english.trendUp(1234.567), 'Up 1234.57 percent');
+    });
+
+    test('a fall with at most 2 decimals', () {
       expect(english.trendDown(1234.567), 'Down 1234.57 percent');
     });
   });
@@ -403,6 +410,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Wählen...'), findsOneWidget);
+  });
+
+  testWidgets("a scope's translations reach the viewer an ImageGallery opens", (tester) async {
+    await _pumpIn(tester, 'root = Card([ImageGallery([{src: "https://a.dev/1.png", alt: "One"}])])', const _German());
+    await tester.tap(find.byType(StreamNetworkImage));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Fertig'), findsOneWidget);
+  });
+
+  testWidgets("the scrim of an ImageGallery's viewer is labelled as a dismissal", (tester) async {
+    await _pumpIn(tester, 'root = Card([ImageGallery([{src: "https://a.dev/1.png", alt: "One"}])])', null);
+    await tester.tap(find.byType(StreamNetworkImage));
+    await tester.pumpAndSettle();
+
+    final barriers = tester
+        .widgetList<ModalBarrier>(find.byType(ModalBarrier))
+        .map((barrier) => barrier.semanticsLabel);
+    expect(barriers, contains('Dismiss'));
   });
 }
 
