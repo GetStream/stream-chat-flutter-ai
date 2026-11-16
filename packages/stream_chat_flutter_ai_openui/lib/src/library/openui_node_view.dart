@@ -12,7 +12,7 @@ part of 'openui_component_scope.dart';
 ///
 /// Internal to the package.
 @internal
-class OpenUINodeView extends StatelessWidget {
+class OpenUINodeView extends StatefulWidget {
   /// Creates the widget of [node].
   const OpenUINodeView({super.key, required this.node});
 
@@ -20,7 +20,32 @@ class OpenUINodeView extends StatelessWidget {
   final ElementNode node;
 
   @override
-  Widget build(BuildContext context) {
+  State<OpenUINodeView> createState() => _OpenUINodeViewState();
+}
+
+// Keeps what it built while the component and the view are the same, so a
+// reply that grows builds only the components that changed.
+class _OpenUINodeViewState extends State<OpenUINodeView> {
+  Widget? _built;
+
+  ElementNode get node => widget.node;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _built = null;
+  }
+
+  @override
+  void didUpdateWidget(OpenUINodeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.node != widget.node) _built = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => _built ??= _buildNode(context);
+
+  Widget _buildNode(BuildContext context) {
     final view = OpenUIViewScope.of(context);
     final builder = view.library[node.typeName];
     if (builder == null) {

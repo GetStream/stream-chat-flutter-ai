@@ -27,8 +27,8 @@ void triggerOpenUIAction(
   bool inForm = true,
 }) {
   if (scope.isStreaming) return;
-  final runtime = OpenUIViewScope.of(context).runtime;
-  final formName = inForm ? OpenUIFormScope.maybeOf(context)?.formName : null;
+  final runtime = context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime;
+  final formName = inForm ? context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName : null;
   unawaited(runtime.trigger(label: label, formName: formName, action: action));
 }
 

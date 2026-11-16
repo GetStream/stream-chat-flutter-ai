@@ -18,6 +18,9 @@ import 'package:stream_core_flutter/core.dart';
 /// to the `$variable` its `value` names, or kept under its `name` in the form
 /// it is in.
 ///
+/// With [listen] `false`, for a read in a callback instead of a build, the
+/// caller isn't rebuilt when the view or form scope changes.
+///
 /// Internal to the package.
 @internal
 StateField openUIFieldState(
@@ -25,11 +28,14 @@ StateField openUIFieldState(
   OpenUIComponentScope scope,
   String componentType, {
   bool isSecret = false,
+  bool listen = true,
 }) {
-  return OpenUIViewScope.of(context).runtime.stateField(
+  final view = listen ? OpenUIViewScope.of(context) : context.getInheritedWidgetOfExactType<OpenUIViewScope>()!;
+  final form = listen ? OpenUIFormScope.maybeOf(context) : context.getInheritedWidgetOfExactType<OpenUIFormScope>();
+  return view.runtime.stateField(
     scope.text('name') ?? '',
     binding: scope.prop('value'),
-    formName: OpenUIFormScope.maybeOf(context)?.formName,
+    formName: form?.formName,
     componentType: componentType,
     isSecret: isSecret,
   );
@@ -42,7 +48,7 @@ StateField openUIFieldState(
 @internal
 void saveOpenUIDefault(BuildContext context, String name, String componentType, OpenUIValue? value) {
   if (value == null) return;
-  final runtime = OpenUIViewScope.of(context).runtime;
+  final runtime = context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime;
   final formName = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName;
   if (runtime.isStreaming || runtime.fieldValue(formName, name) != null) return;
   runtime.setFieldValue(formName, name, value, componentType: componentType);
@@ -66,12 +72,14 @@ void saveOpenUIFieldDefault(
   OpenUIValue? value,
 ) {
   if (value == null) return;
-  final field = openUIFieldState(context, scope, componentType);
+  final field = openUIFieldState(context, scope, componentType, listen: false);
   if (!field.isBound) {
     saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
     return;
   }
-  if (OpenUIViewScope.of(context).runtime.isStreaming || !JS.isNullish(field.value)) return;
+  if (context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime.isStreaming || !JS.isNullish(field.value)) {
+    return;
+  }
   field.set(value);
 }
 
@@ -191,10 +199,23 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
 
   String get _name => widget.scope.text('name') ?? '';
 
+  bool _filled = false;
+
   @override
   void initState() {
     super.initState();
     _focus.addListener(_focusChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_filled) return;
+    _filled = true;
+    // The field's value is there from the first frame, instead of the
+    // placeholder showing for one frame.
+    final value = _field(context).value;
+    if (!JS.isNullish(value)) _controller.text = JS.stringOf(value);
   }
 
   @override
@@ -209,13 +230,20 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
     final validation = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
     if (_focus.hasFocus) {
       validation?.clearError(_name);
-    } else {
+    } else if (!widget.scope.isStreaming) {
+      // A reply that streams again disables the field and takes its focus, which
+      // isn't the person leaving it.
       validateOpenUIField(context, widget.scope);
     }
   }
 
-  StateField _field(BuildContext context) =>
-      openUIFieldState(context, widget.scope, widget.multiline ? 'TextArea' : 'Input', isSecret: _isPassword);
+  StateField _field(BuildContext context, {bool listen = true}) => openUIFieldState(
+    context,
+    widget.scope,
+    widget.multiline ? 'TextArea' : 'Input',
+    isSecret: _isPassword,
+    listen: listen,
+  );
 
   // Shows [text], the field's value, once this frame is built, unless it
   // shows it already.
@@ -225,7 +253,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _syncScheduled = false;
       if (!mounted) return;
-      final current = _field(context).value;
+      final current = _field(context, listen: false).value;
       final latest = JS.isNullish(current) ? '' : JS.stringOf(current);
       if (_controller.text != latest) {
         _controller.value = TextEditingValue(
@@ -237,7 +265,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
   }
 
   void _changed(String text) {
-    _field(context).set(OpenUIString(text));
+    _field(context, listen: false).set(OpenUIString(text));
     context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation.clearError(_name);
   }
 
@@ -289,14 +317,26 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
   }
 
   // Core's text input can't obscure what is typed, so a password is a text
-  // field drawn with the theme's colors.
+  // field drawn as core draws its text input from its theme.
   Widget _password(BuildContext context, String? placeholder, bool enabled, bool hasError) {
-    final theme = OpenUIViewScope.of(context).theme;
-    final colors = theme;
-    OutlineInputBorder border(Color color) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(theme.mediumCornerRadius),
-      borderSide: BorderSide(color: color),
+    final colors = context.streamColorScheme;
+    final spacing = context.streamSpacing;
+    final style = context.streamTextInputTheme.style;
+    final radius = (style?.borderRadius ?? BorderRadius.all(context.streamRadius.lg)).resolve(
+      Directionality.of(context),
     );
+    OutlineInputBorder outline(BorderSide? side, BorderSide fallback) {
+      return OutlineInputBorder(borderRadius: radius, borderSide: side ?? fallback);
+    }
+
+    final border = outline(style?.border, BorderSide(color: colors.borderDefault));
+    final errorBorder = outline(style?.errorBorder, BorderSide(color: colors.borderError));
+    final focusBorder = outline(style?.focusBorder, BorderSide(color: colors.borderActive));
+    final shown = hasError ? errorBorder : border;
+    final textStyle = WidgetStateProperty.resolveAs<TextStyle?>(style?.textStyle, const {});
+    final hintStyle =
+        WidgetStateProperty.resolveAs<TextStyle?>(style?.hintStyle, const {}) ??
+        context.streamTextTheme.bodyDefault.copyWith(color: colors.textTertiary);
     return Material(
       type: MaterialType.transparency,
       child: TextField(
@@ -307,17 +347,32 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
         autocorrect: false,
         enableSuggestions: false,
         keyboardType: TextInputType.visiblePassword,
-        cursorColor: colors.accent,
-        style: theme.body.copyWith(color: colors.text),
+        textInputAction: TextInputAction.done,
+        cursorColor: hasError
+            ? style?.cursorErrorColor ?? colors.accentError
+            : style?.cursorColor ?? colors.accentPrimary,
+        cursorWidth: style?.cursorWidth ?? 2,
+        cursorHeight: style?.cursorHeight,
+        cursorRadius: style?.cursorRadius,
+        style: textStyle ?? context.streamTextTheme.bodyDefault.copyWith(color: colors.textPrimary),
         onChanged: _changed,
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: theme.body.copyWith(color: colors.tertiaryText),
+          hintStyle: hintStyle,
+          filled: style?.fillColor != null,
+          fillColor: style?.fillColor,
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: theme.mSpacing, vertical: theme.mSpacing),
-          enabledBorder: border(hasError ? colors.error : colors.border),
-          disabledBorder: border(colors.border),
-          focusedBorder: border(hasError ? colors.error : colors.accent),
+          // The input draws its border around its padding, which an outline
+          // border does inside it, so the padding grows by the border's width.
+          contentPadding:
+              (style?.contentPadding ?? EdgeInsets.symmetric(vertical: spacing.sm, horizontal: spacing.md)).resolve(
+                Directionality.of(context),
+              ) +
+              EdgeInsets.all(border.borderSide.width),
+          border: shown,
+          enabledBorder: shown,
+          focusedBorder: hasError ? errorBorder : focusBorder,
+          disabledBorder: shown,
         ),
       ),
     );
@@ -361,7 +416,7 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
             : () async {
                 final value = await pickOpenUIOption(context, options: options, selected: selected);
                 if (value == null || !context.mounted) return;
-                openUIFieldState(context, scope, 'Select').set(OpenUIString(value));
+                openUIFieldState(context, scope, 'Select', listen: false).set(OpenUIString(value));
                 validateOpenUIField(context, scope);
               },
       );
@@ -390,7 +445,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
     child: scope.watchState((context) {
       final value = openUIFieldState(context, scope, 'DatePicker').value;
       void write(OpenUIValue next) {
-        openUIFieldState(context, scope, 'DatePicker').set(next);
+        openUIFieldState(context, scope, 'DatePicker', listen: false).set(next);
         validateOpenUIField(context, scope);
       }
 
@@ -546,7 +601,7 @@ class _OpenUISliderState extends State<_OpenUISlider> {
       final values = _draft ?? stored;
       void commit(List<double> next) {
         setState(() => _draft = null);
-        openUIFieldState(context, scope, 'Slider').set(openUISliderStored(next));
+        openUIFieldState(context, scope, 'Slider', listen: false).set(openUISliderStored(next));
         validateOpenUIField(context, scope);
       }
 
