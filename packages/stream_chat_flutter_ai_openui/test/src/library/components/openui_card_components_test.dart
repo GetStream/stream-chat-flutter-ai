@@ -119,21 +119,31 @@ void main() {
         expect(find.text('5%'), findsNothing);
       });
 
-      testWidgets('a trend value shows up to 2 decimals with its thousands grouped, and a boolean reads as 1', (
-        tester,
-      ) async {
+      testWidgets('a trend value shows up to 2 decimals with its thousands grouped', (tester) async {
         await draw(
           tester,
           'MetricIndicatorInline("1", "", {direction: "up", value: 1234.567}), '
-          'MetricIndicatorInline("2", "", {direction: "up", value: 12.5}), '
-          r'MetricIndicatorInline("3", "", {direction: "up", value: $flag})',
-          before: '\$flag = true\n',
+          'MetricIndicatorInline("2", "", {direction: "up", value: 12.5})',
         );
 
         expect(find.text('1,234.57%'), findsOneWidget);
         expect(find.text('12.5%'), findsOneWidget);
-        expect(find.text('1%'), findsOneWidget);
+      });
+
+      testWidgets('a trend value is read out with up to 6 decimals', (tester) async {
+        await draw(tester, 'MetricIndicatorInline("1", "", {direction: "up", value: 1234.567})');
+
         expect(find.bySemanticsLabel('Up 1,234.567%'), findsOneWidget);
+      });
+
+      testWidgets('a trend value that is a boolean reads as 1', (tester) async {
+        await draw(
+          tester,
+          r'MetricIndicatorInline("1", "", {direction: "up", value: $flag})',
+          before: '\$flag = true\n',
+        );
+
+        expect(find.text('1%'), findsOneWidget);
       });
 
       testWidgets('MetricIndicatorWithStrikethrough strikes its previous value out', (tester) async {

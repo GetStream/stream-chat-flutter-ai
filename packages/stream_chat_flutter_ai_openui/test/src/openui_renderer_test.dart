@@ -431,7 +431,7 @@ void main() {
       await tester.pumpWidget(testApp(Builder(builder: (_) => engine.view(document, 'r1') ?? const SizedBox.shrink())));
       await tester.pump();
 
-      expect(host.states['r1'], isNotNull);
+      expect(host.states['r1'], containsPair('plan', containsPair('value', 'pro')));
       expect(host.statePhases, everyElement(isNot(SchedulerPhase.persistentCallbacks)));
     });
 

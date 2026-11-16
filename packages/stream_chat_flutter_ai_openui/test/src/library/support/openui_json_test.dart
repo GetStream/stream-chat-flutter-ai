@@ -18,7 +18,10 @@ void main() {
     test('gives -0 as the int 0', () {
       // -0.0 written as an int literal would be 0.
       // ignore: prefer_int_literals
-      expect(openUIPlainJson(const OpenUINumber(-0.0)), isA<int>());
+      final json = openUIPlainJson(const OpenUINumber(-0.0));
+
+      expect(json, isA<int>());
+      expect(json, equals(0));
     });
 
     test('keeps a whole number past 2^53 - 1 as a double', () {
