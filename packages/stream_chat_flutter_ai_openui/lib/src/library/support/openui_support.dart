@@ -161,7 +161,7 @@ class OpenUIRemoteImage extends StatelessWidget {
             fit: fit,
             width: double.infinity,
             height: double.infinity,
-            cacheWidth: _decodeWidth(context, extent),
+            cacheWidth: openUIDecodeWidth(context, extent: extent, fit: fit),
             placeholderBuilder: (context) => _Placeholder(alt: label, loading: true),
             errorBuilder: (context, error, retry) => _Placeholder(alt: label),
           );
@@ -170,12 +170,28 @@ class OpenUIRemoteImage extends StatelessWidget {
   }
 }
 
-// The width to decode an image at: [extent], the longer side of the box it is
-// drawn in, or the screen's width when that isn't known, in device pixels. Only
-// the width is set, so the image keeps its proportions.
-int _decodeWidth(BuildContext context, double? extent) {
+/// The widest an image is decoded, in device pixels.
+const _maxDecodeWidth = 2048;
+
+/// The width to decode an image at, in device pixels: [extent], the longer side
+/// of the box it is drawn in (or the screen's width when `null`), in logical
+/// pixels. Only the width is set, so the image keeps its proportions.
+///
+/// An image that has to cover or fill the box, or fit its height, may need
+/// more than the box's width, so it gets twice that. No image is decoded wider
+/// than 2048 pixels, and one shown at its own size ([BoxFit.none]) gets that.
+///
+/// Internal to the package.
+@internal
+int openUIDecodeWidth(BuildContext context, {required double? extent, required BoxFit fit}) {
+  if (fit == BoxFit.none) return _maxDecodeWidth;
+  final factor = switch (fit) {
+    BoxFit.cover || BoxFit.fill || BoxFit.fitHeight => 2,
+    _ => 1,
+  };
   final logical = extent ?? MediaQuery.sizeOf(context).width;
-  return (logical * MediaQuery.devicePixelRatioOf(context)).ceil();
+  final width = (logical * MediaQuery.devicePixelRatioOf(context) * factor).ceil();
+  return width < _maxDecodeWidth ? width : _maxDecodeWidth;
 }
 
 class _Placeholder extends StatelessWidget {
@@ -232,7 +248,7 @@ double openUIScaled(BuildContext context, double size) => MediaQuery.textScalerO
 String openUIJsonText(Object? value) {
   return switch (value) {
     String() => value,
-    num() when value.isFinite && value == value.truncateToDouble() => value.toInt().toString(),
+    num() when value.isFinite && value == value.truncateToDouble() && value.abs() < 1e21 => value.toStringAsFixed(0),
     num() || bool() => '$value',
     _ => '',
   };
