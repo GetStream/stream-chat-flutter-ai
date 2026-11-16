@@ -96,12 +96,32 @@ dependencies:
   stream_chat_flutter_ai: ^0.2.0
 ```
 
-> [!IMPORTANT]
-> Build your app on `package:flutter/material.dart`, not the
-> [`material_ui`](https://pub.dev/packages/material_ui) package. The components use Flutter's own
-> `Material`, `Theme` and localizations, so under `material_ui`'s `MaterialApp` and `Scaffold` the
-> composer fails with "No Material widget found". The `flutter create` template of Flutter 3.50 and
-> later imports `material_ui`: switch its imports back to `package:flutter/material.dart`.
+### Using `material_ui`
+
+The components are built on the Material library in the Flutter SDK (`package:flutter/material.dart`)
+and need its `Material`, `Theme` and localizations above them. An app built on that library has nothing
+to add. An app on the [`material_ui`](https://pub.dev/packages/material_ui) package, which the
+`flutter create` template imports from Flutter 3.50, has to provide them, or the composer fails with "No
+Material widget found". Add them in `MaterialApp.builder`: `material_ui`'s
+`MaterialUiCompatibilityBridge` gives the components a theme and localizations, and a transparent
+`Material` from the SDK library gives them a `Material`:
+
+```dart
+import 'package:flutter/material.dart' as legacy;
+import 'package:material_ui/material_ui.dart';
+
+MaterialApp(
+  builder: (context, child) => MaterialUiCompatibilityBridge(
+    child: legacy.Material(type: legacy.MaterialType.transparency, child: child!),
+  ),
+  home: const HomeScreen(),
+)
+```
+
+To customize the components' `StreamTheme` in such an app, add it to the legacy theme below the bridge,
+as Stream Chat's
+[`material_ui` compatibility guide](https://getstream.io/chat/docs/sdk/flutter/stream-chat-flutter/stream-chat-and-theming/#material_ui-compatibility)
+shows.
 
 ## ⚙️ Usage
 
