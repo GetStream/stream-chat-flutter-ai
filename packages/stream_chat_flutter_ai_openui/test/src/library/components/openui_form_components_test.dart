@@ -42,8 +42,44 @@ void main() {
     testWidgets('a FormControl shows its label, a required mark and its hint', (tester) async {
       await _pump(tester, _contact);
 
-      expect(find.text('Name *', findRichText: true), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is RichText && widget.text.toPlainText(includeSemanticsLabels: false) == 'Name *',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('As on your ID'), findsOneWidget);
+    });
+
+    testWidgets('a single field is named by its FormControl label, and a required one reads as required', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _contact);
+
+      final name = tester.getSemantics(find.byType(TextField).first);
+      expect(name.label, 'Name');
+      expect(name, containsSemantics(isRequired: true));
+      // The password has an empty placeholder, so the label is all it is named by.
+      final password = tester.getSemantics(find.byType(TextField).last);
+      expect(password.label, 'Password');
+      expect(password, isNot(containsSemantics(isRequired: true)));
+      handle.dispose();
+    });
+
+    testWidgets('a Select, a DatePicker and a TextArea are named by their FormControl label', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, '''
+root = Stack([form])
+form = Form("f", buttons, [FormControl("Size", Select("size", [SelectItem("s", "Small")])), FormControl("Day", DatePicker("day")), FormControl("Notes", TextArea("notes"))])
+buttons = Buttons([Button("Send", @ToAssistant("Send"))])
+''');
+
+      final fields = find.byType(TextField);
+      expect(tester.getSemantics(fields.at(0)).label, contains('Size'));
+      expect(tester.getSemantics(fields.at(1)).label, contains('Day'));
+      expect(tester.getSemantics(fields.at(2)).label, contains('Notes'));
+      handle.dispose();
     });
 
     testWidgets('an Input writes its value and type under the form', (tester) async {
@@ -113,6 +149,47 @@ void main() {
       await _pump(tester, _contact);
 
       expect(tester.widget<TextField>(find.byType(TextField).last).obscureText, isTrue);
+    });
+
+    testWidgets('a password is as tall as the other fields and ends with the done action', (tester) async {
+      await _pump(tester, _contact);
+
+      final plain = tester.getSize(find.byType(StreamTextInput).first);
+      print(
+        'SIZES $plain ${tester.getSize(find.byType(TextField).last)} ${tester.getSize(find.byType(TextField).first)}',
+      );
+      final password = tester.getSize(find.byType(TextField).last);
+      expect(password.height, plain.height);
+      expect(tester.widget<TextField>(find.byType(TextField).last).textInputAction, TextInputAction.done);
+    });
+
+    testWidgets('a field already holding a value shows it in its first frame, not its placeholder', (tester) async {
+      final runtime = testRuntime(library: _library);
+      addTearDown(runtime.dispose);
+      runtime.update(
+        r'''
+$city = "Oslo"
+root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("City", Input("city", "Pick a city", "text", {}, $city))])])
+''',
+        isStreaming: false,
+      );
+      await tester.pumpWidget(testApp(OpenUIView(runtime: runtime, library: _library)));
+
+      final hint = find.ancestor(of: find.text('Pick a city'), matching: find.byType(AnimatedOpacity));
+      expect(tester.widget<AnimatedOpacity>(hint.first).opacity, 0);
+      expect(find.text('Oslo'), findsOneWidget);
+    });
+
+    testWidgets('a field the reply takes the focus from is not checked while it streams again', (tester) async {
+      final (runtime, _) = await _pump(tester, _contact);
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      runtime.update(_contact, isStreaming: true);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('This field is required'), findsNothing);
     });
 
     testWidgets('a primary button whose plan neither talks nor mutates skips the check', (tester) async {
