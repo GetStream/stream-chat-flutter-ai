@@ -70,6 +70,22 @@ void main() {
     expect(() => delegate.resolve(const Locale('nl')), throwsFlutterError);
   });
 
+  test('a delegate accepts every key shape Locale.toString() produces', () {
+    const delegate = A2UITranslationsDelegate({
+      'nl': _DutchTranslations(),
+      'pt_BR': _DutchTranslations(),
+      'zh_Hant': _DutchTranslations(),
+      'zh_Hant_TW': _DutchTranslations(),
+      'es_419': _DutchTranslations(),
+    });
+
+    expect(
+      delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+      isA<_DutchTranslations>(),
+    );
+    expect(delegate.resolve(const Locale('es', '419')), isA<_DutchTranslations>());
+  });
+
   test('a delegate loads its strings synchronously', () {
     const delegate = A2UITranslationsDelegate({'nl': _DutchTranslations()});
 

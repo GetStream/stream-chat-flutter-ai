@@ -386,6 +386,63 @@ void main() {
     expect(find.bySemanticsLabel('Afspelen'), findsOneWidget);
   });
 
+  testWidgets('a Video labels its pause button with the translations around it', (tester) async {
+    final platform = installFakeVideoPlatform();
+
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([
+      createSurface([
+        {'id': 'root', 'component': 'Video', 'url': _clip},
+      ]),
+    ]);
+    await tester.pumpWidget(
+      A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+    );
+    await tester.tap(find.bySemanticsLabel('Afspelen'));
+    await tester.pump();
+    platform.initialize(0);
+    await tester.pump();
+    await tester.pump();
+
+    platform.reportPlaying(0, isPlaying: true);
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Pauzeren'), findsOneWidget);
+  });
+
+  testWidgets("a Video in a Modal's sheet labels its play button with the translations around the surface", (
+    tester,
+  ) async {
+    installFakeVideoPlatform();
+
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([
+      createSurface([
+        {'id': 'root', 'component': 'Modal', 'trigger': 'open', 'content': 'clip'},
+        {
+          'id': 'open',
+          'component': 'Button',
+          'child': 'open_label',
+          'action': {
+            'event': {'name': 'open_clip'},
+          },
+        },
+        {'id': 'open_label', 'component': 'Text', 'text': 'Watch'},
+        {'id': 'clip', 'component': 'Video', 'url': _clip},
+      ]),
+    ]);
+    await tester.pumpWidget(
+      A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+    );
+
+    await tester.tap(find.text('Watch'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Afspelen'), findsOneWidget);
+  });
+
   testWidgets('a Video play button is big enough to tap', (tester) async {
     installFakeVideoPlatform();
     final handle = tester.ensureSemantics();
