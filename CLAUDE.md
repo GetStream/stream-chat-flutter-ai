@@ -14,8 +14,10 @@ Do not add a Stream Chat dependency — that would change the package's core pre
 to need one, raise it rather than doing it.
 
 It **is** built on Stream's design system,
-[`stream_core_flutter`](https://github.com/GetStream/stream-core-flutter), which has no client or
-backend dependency: defaults come from `StreamTheme` tokens (`context.streamColorScheme`,
+[`stream_core_flutter`](https://github.com/GetStream/stream-core-flutter). That package depends on
+`stream_core`, Stream's networking core (dio HTTP, WebSockets, JWT through jose). The AI packages may use
+`stream_core`'s pure-Dart utilities, such as `normalizeStringForSort`, and nothing that makes requests,
+opens a socket or handles tokens. Defaults come from `StreamTheme` tokens (`context.streamColorScheme`,
 `context.streamTextTheme`, `context.streamSpacing`, `context.streamRadius`, `context.streamIcons`),
 not Material's `ColorScheme`/`TextTheme`; buttons, sheets, list tiles, spinners and most icons are core's
 components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadingSpinner`,
@@ -140,14 +142,14 @@ release PR drops `publish_to: none`, the A2UI package is private and the release
 2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
 3. `release_tag.yml` reads `v<version>` from that commit, checks it matches every publishable pubspec
    (`.github/workflows/scripts/verify-release-versions.sh`) and isn't tagged yet, and pushes the tag with
-   `BOT_GITHUB_API_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
+   `CI_BOT_GITHUB_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
 4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC — core first, since the A2UI
    upload needs core `<version>` on pub.dev — and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on **each** package's pub.dev admin page (repository
 `GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, "Require GitHub Actions environment" left empty) and the
-`BOT_GITHUB_API_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
+`CI_BOT_GITHUB_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
 `refs/tags/v*` to the bot is worth adding too. pub.dev can't create a package through automated publishing,
 so a new package's first version is uploaded by hand by a publisher member before its admin page offers the
 setting; a release tag after that skips it if that version is already live.
@@ -166,9 +168,9 @@ workflows can't tag or publish a `+build` version.
 - Imports inside `lib/` use `package:stream_chat_flutter_ai/...` (`always_use_package_imports`),
   not relative paths.
 - New public widgets get exported from `lib/stream_chat_flutter_ai.dart`.
-- Customers should `implement` `AITranslations`, not extend `DefaultAITranslations`, so a new
-  string shows up as a compile error. Adding a string still isn't a breaking change: list it under
-  `✅ Added`, not `💥 Breaking`.
+- Customers should `implement` `AITranslations` and `A2UITranslations`, not extend
+  `DefaultAITranslations` or `DefaultA2UITranslations`, so a new string shows up as a compile error.
+  Adding a string still isn't a breaking change: list it under `✅ Added`, not `💥 Breaking`.
 
 ## PR & commit conventions
 

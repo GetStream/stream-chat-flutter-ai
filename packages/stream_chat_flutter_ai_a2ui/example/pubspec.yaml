@@ -14,6 +14,9 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
+  # The Material and widgets localizations the Dutch locale needs.
+  flutter_localizations:
+    sdk: flutter
   # Resolves to the local `packages/stream_chat_flutter_ai` member of this
   # workspace: the Stream theme and the generative UI host the gallery shows
   # surfaces in. The constraint comes from the root bootstrap list.
@@ -21,7 +24,7 @@ dependencies:
   # Resolves to the local `packages/stream_chat_flutter_ai_a2ui` member of this
   # workspace.
   stream_chat_flutter_ai_a2ui: any
-  stream_core_flutter: ^0.5.3
+  stream_core_flutter: ^0.5.4
 
 flutter:
   uses-material-design: true
