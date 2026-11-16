@@ -13,10 +13,10 @@ void main() {
     group('drawn with the theme ($name)', () {
       final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), stream);
 
-      Future<void> draw(WidgetTester tester, String program) async {
+      Future<void> draw(WidgetTester tester, String program, {String before = ''}) async {
         final runtime = testRuntime();
         addTearDown(runtime.dispose);
-        await pumpOpenUI(tester, runtime, stream: stream, program: 'root = Card([$program])');
+        await pumpOpenUI(tester, runtime, stream: stream, program: '${before}root = Card([$program])');
       }
 
       testWidgets('Tag draws a neutral pill in the subtle fill and secondary color', (tester) async {
@@ -117,6 +117,23 @@ void main() {
         expect(tester.widget<Text>(find.text('2.5%')).style!.color, theme.error);
         expect(find.bySemanticsLabel('Down 2.5%'), findsOneWidget);
         expect(find.text('5%'), findsNothing);
+      });
+
+      testWidgets('a trend value shows up to 2 decimals with its thousands grouped, and a boolean reads as 1', (
+        tester,
+      ) async {
+        await draw(
+          tester,
+          'MetricIndicatorInline("1", "", {direction: "up", value: 1234.567}), '
+          'MetricIndicatorInline("2", "", {direction: "up", value: 12.5}), '
+          r'MetricIndicatorInline("3", "", {direction: "up", value: $flag})',
+          before: '\$flag = true\n',
+        );
+
+        expect(find.text('1,234.57%'), findsOneWidget);
+        expect(find.text('12.5%'), findsOneWidget);
+        expect(find.text('1%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 1,234.567%'), findsOneWidget);
       });
 
       testWidgets('MetricIndicatorWithStrikethrough strikes its previous value out', (tester) async {
@@ -328,7 +345,7 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('finds an icon for a name with trailing parts, or a category, and draws nothing for any other', (
+    testWidgets('finds an icon for a name with trailing parts, or a category, and a generic circle for any other', (
       tester,
     ) async {
       final runtime = testRuntime();
@@ -342,7 +359,7 @@ void main() {
 
       runtime.update('root = Card([Icon("zzz-qqq")])', isStreaming: false);
       await tester.pump();
-      expect(find.byType(Icon), findsNothing);
+      expect(tester.widget<Icon>(find.byType(Icon)).icon, Icons.circle_outlined);
     });
   });
 
@@ -536,6 +553,22 @@ void main() {
         tester.getSize(find.ancestor(of: find.text('Plain title'), matching: find.byType(ClipRRect)).first).height,
         greaterThanOrEqualTo(100),
       );
+    });
+
+    testWidgets('ContextCardBlock draws a title that is any component as a small tag of its text', (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program:
+            'root = Card([ContextCardBlock([ContextCardItem("a", Label("Hot"), "x"), ContextCardItem("b", Tag("Cold", null, "lg"), "y")])])',
+      );
+
+      final theme = OpenUIResolvedTheme.fromData(const OpenUIThemeData.empty(), StreamTheme.light());
+      // The Label is not a Tag, and is drawn as a small one of its `text` all the same.
+      expect(tester.widget<Text>(find.text('Hot')).style!.fontSize, theme.caption.fontSize);
+      expect(tester.widget<Text>(find.text('Cold')).style!.fontSize, theme.caption.fontSize);
     });
 
     testWidgets('ContextCardBlock with an image draws its text in white over it, at least 150 tall', (tester) async {
