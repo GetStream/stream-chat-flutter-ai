@@ -17,7 +17,9 @@ import 'package:meta/meta.dart';
 /// costs at most the input's length times the pattern's size. A pattern is
 /// rejected when it is longer than [maxPatternLength], or when it expands past
 /// [maxProgramSize] items once its counts are written out, such as
-/// `(?:a{100}){11}` or `a{0,600}b{0,600}`.
+/// `(?:a{100}){11}` or `a{0,600}b{0,600}`, or when compiling it costs more
+/// than [maxCompileCost], such as a long class or an empty group counted many
+/// times.
 ///
 /// It takes JavaScript's syntax without flags: literals, `.`, classes,
 /// `\d \D \w \W \s \S \b \B`, the character escapes, `^` and `$` at the
@@ -32,6 +34,11 @@ final class PatternMatcher {
 
   /// The most items a pattern may expand to once its counts are written out.
   static const maxProgramSize = 1000;
+
+  /// The most work compiling a pattern may take: one for each part written
+  /// out, one more for each class member past the first, and one for each
+  /// instruction compiled.
+  static const maxCompileCost = 4000;
 
   /// The longest pattern compiled.
   static const maxPatternLength = 1000;
@@ -50,10 +57,11 @@ final class PatternMatcher {
       final parsed = _Parser(pattern.runes.toList()).parsePattern();
       final nodes = [parsed.rest, ...parsed.required, ...parsed.forbidden];
       if (nodes.fold(0, (sum, node) => _bounded(sum + node.size)) > maxProgramSize) return null;
+      final budget = _Budget();
       return PatternMatcher._(
-        _Program.compile(parsed.rest),
-        [for (final node in parsed.required) _Program.compile(node)],
-        [for (final node in parsed.forbidden) _Program.compile(node)],
+        _Program.compile(parsed.rest, budget),
+        [for (final node in parsed.required) _Program.compile(node, budget)],
+        [for (final node in parsed.forbidden) _Program.compile(node, budget)],
       );
     } on FormatException {
       return null;
@@ -107,9 +115,12 @@ final class _Empty extends _Node {
 }
 
 final class _Char extends _Node {
-  const _Char(this.test);
+  const _Char(this.test, {this.weight = 1});
 
   final bool Function(int rune) test;
+
+  // How many tests [test] runs: a class's members, 1 otherwise.
+  final int weight;
 
   @override
   int get size => 1;
@@ -486,7 +497,7 @@ final class _Parser {
         tests.add((r) => r == low);
       }
     }
-    return _Char((r) => tests.any((test) => test(r)) != negated);
+    return _Char((r) => tests.any((test) => test(r)) != negated, weight: tests.isEmpty ? 1 : tests.length);
   }
 
   // One class member: a class escape's test, or a character.
@@ -556,19 +567,31 @@ final class _Check extends _Instruction {
 
 final class _Match extends _Instruction {}
 
+// The work spent compiling a pattern's programs, besides their instructions.
+final class _Budget {
+  int spent = 0;
+}
+
 final class _Program {
   _Program._(this._instructions);
 
-  factory _Program.compile(_Node node) {
+  // Throws a [FormatException] when compiling [node] would take [budget]
+  // past [PatternMatcher.maxCompileCost].
+  factory _Program.compile(_Node node, _Budget budget) {
     final instructions = <_Instruction>[];
-    _emit(node, instructions);
+    _emit(node, instructions, budget);
     instructions.add(_Match());
+    budget.spent += instructions.length;
     return _Program._(instructions);
   }
 
   final List<_Instruction> _instructions;
 
-  static void _emit(_Node node, List<_Instruction> out) {
+  static void _emit(_Node node, List<_Instruction> out, _Budget budget) {
+    budget.spent += node is _Char ? node.weight : 1;
+    if (budget.spent + out.length > PatternMatcher.maxCompileCost) {
+      throw const FormatException('Pattern too costly');
+    }
     switch (node) {
       case _Empty():
         break;
@@ -578,7 +601,7 @@ final class _Program {
         out.add(_Check(kind));
       case _Sequence(:final items):
         for (final item in items) {
-          _emit(item, out);
+          _emit(item, out, budget);
         }
       case _Alternation(:final options):
         final jumps = <_Jump>[];
@@ -586,13 +609,13 @@ final class _Program {
           if (i < options.length - 1) {
             final split = _Split(out.length + 1, 0);
             out.add(split);
-            _emit(options[i], out);
+            _emit(options[i], out, budget);
             final jump = _Jump(0);
             out.add(jump);
             jumps.add(jump);
             split.second = out.length;
           } else {
-            _emit(options[i], out);
+            _emit(options[i], out, budget);
           }
         }
         for (final jump in jumps) {
@@ -600,14 +623,14 @@ final class _Program {
         }
       case _Repeat(:final item, :final min, :final max):
         for (var i = 0; i < min; i++) {
-          _emit(item, out);
+          _emit(item, out, budget);
         }
         if (max == null) {
           // item*: L: split body, end; body; jump L.
           final split = _Split(out.length + 1, 0);
           final loop = out.length;
           out.add(split);
-          _emit(item, out);
+          _emit(item, out, budget);
           out.add(_Jump(loop));
           split.second = out.length;
         } else {
@@ -617,7 +640,7 @@ final class _Program {
             final split = _Split(out.length + 1, 0);
             out.add(split);
             splits.add(split);
-            _emit(item, out);
+            _emit(item, out, budget);
           }
           for (final split in splits) {
             split.second = out.length;

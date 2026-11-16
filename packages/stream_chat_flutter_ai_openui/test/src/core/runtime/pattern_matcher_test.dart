@@ -115,6 +115,23 @@ void main() {
       expect(PatternMatcher.compile('a{1001}'), isNull);
       expect(PatternMatcher.compile('a{99999999999999999999}'), isNull);
     });
+
+    for (final (pattern, why) in [
+      ('[${'b' * 400}a]{0,590}x', 'a long class counted many times'),
+      ('(?:(?:|){300}){300}x', 'an empty group counted many times'),
+      ('(?:${'(?:' * 190}a${')?' * 190}){999}x', 'nested optional groups counted many times'),
+      ('(?:${'(?:' * 190}a${')*' * 190}){999}x', 'nested repeated groups counted many times'),
+    ]) {
+      test('a pattern that costs too much to compile: $why', () {
+        expect(PatternMatcher.compile(pattern), isNull);
+      });
+    }
+
+    for (final pattern in [r'^[^\s@]+@[^\s@]+\.[^\s@]+$', r'^(?=.*\d)(?=.*[A-Z]).{8,}$']) {
+      test('not a common pattern that costs little to compile: $pattern', () {
+        expect(PatternMatcher.compile(pattern), isNotNull);
+      });
+    }
   });
 
   test('sizes a pattern as its counts written out', () {
