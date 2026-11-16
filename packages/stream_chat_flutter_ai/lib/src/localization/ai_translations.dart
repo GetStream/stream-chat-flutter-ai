@@ -333,14 +333,6 @@ abstract class AITranslations {
   /// A file attachment's [type] and [size], such as "PDF · 2.4 MB".
   String attachmentDetails(String type, String size);
 
-  /// Label of the button that plays a video or an audio clip of a reply's
-  /// generated UI.
-  String get playMedia;
-
-  /// Label of the button that pauses a video or an audio clip of a reply's
-  /// generated UI while it plays.
-  String get pauseMedia;
-
   /// [bytes] as a file size, such as "2.4 MB".
   String fileSize(int bytes);
 
@@ -604,12 +596,6 @@ class DefaultAITranslations extends AITranslations {
   String attachmentDetails(String type, String size) => '$type · $size';
 
   @override
-  String get playMedia => 'Play';
-
-  @override
-  String get pauseMedia => 'Pause';
-
-  @override
   String fileSize(int bytes) => formatFileSize(bytes);
 
   @override
@@ -858,12 +844,13 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
   /// for the reason given on [AITranslations].
   final Map<String, AITranslations> translations;
 
-  /// The entry for [locale]: the exact `language_COUNTRY` match if
-  /// [translations] has one, otherwise the entry for the bare language code,
-  /// otherwise `null`.
+  /// The entry for [locale]: the exact match if [translations] has one,
+  /// otherwise the entry for its language and script, then for its language
+  /// and country, then for the bare language code, otherwise `null`.
   ///
-  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, while a `'pt_BR'`
-  /// entry serves only Brazilian Portuguese. [load] turns the `null` case into
+  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, a `'pt_BR'` entry
+  /// serves only Brazilian Portuguese, and a `'zh_Hant'` entry serves
+  /// `zh_Hant_TW` too. [load] turns the `null` case into
   /// [DefaultAITranslations], so `null` here means "nothing registered", never
   /// "no strings available".
   ///
@@ -889,7 +876,14 @@ class AITranslationsDelegate extends LocalizationsDelegate<AITranslations> {
       return true;
     }(), 'AITranslationsDelegate keys must be locale keys.');
 
-    return translations[locale.toString()] ?? translations[locale.languageCode];
+    if (translations[locale.toString()] case final exact?) return exact;
+    if (locale.scriptCode case final script?) {
+      if (translations['${locale.languageCode}_$script'] case final scripted?) return scripted;
+    }
+    if (locale.countryCode case final country?) {
+      if (translations['${locale.languageCode}_$country'] case final regional?) return regional;
+    }
+    return translations[locale.languageCode];
   }
 
   /// Always `true`: a locale [translations] has no entry for is served the

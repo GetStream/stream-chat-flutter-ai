@@ -13,6 +13,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/stream_chat_flutter_ai_a2ui.dart';
 import 'package:stream_core_flutter/core.dart' show StreamButton;
@@ -40,11 +41,34 @@ class _GalleryAppState extends State<GalleryApp> {
       themeMode: _mode,
       theme: ThemeData(brightness: Brightness.light, extensions: [StreamTheme.light()]),
       darkTheme: ThemeData(brightness: Brightness.dark, extensions: [StreamTheme.dark()]),
+      // A2UI's labels come from its own delegate; an app that translates the
+      // core package's texts registers AITranslationsDelegate next to it.
+      // English needs no entry: a locale with no entry falls back to the
+      // defaults.
+      localizationsDelegates: const [
+        A2UITranslationsDelegate({'nl': DutchA2UITranslations()}),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en'), Locale('nl')],
       home: Builder(
         builder: (context) => ExamplesPage(onToggleMode: () => _toggleMode(Theme.of(context).brightness)),
       ),
     );
   }
+}
+
+/// The labels of the gallery's A2UI components in Dutch.
+class DutchA2UITranslations implements A2UITranslations {
+  /// Creates the Dutch labels.
+  const DutchA2UITranslations();
+
+  @override
+  String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
 }
 
 /// One example: its name, and the A2UI messages an agent would write.
