@@ -15,10 +15,14 @@ String openUIDateString(DateTime date) {
 /// The day [text] starts with, written `yyyy-MM-dd`, or `null` when it holds
 /// none.
 ///
+/// Anything after the day must start with `T` or a space, as in a date-time,
+/// or [text] holds no day.
+///
 /// Internal to the package.
 @internal
 DateTime? openUIParseDate(String? text) {
   if (text == null || text.length < 10) return null;
+  if (text.length > 10 && text[10] != 'T' && text[10] != ' ') return null;
   final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(text.substring(0, 10));
   if (match == null) return null;
   final (year, month, day) = (int.parse(match[1]!), int.parse(match[2]!), int.parse(match[3]!));
