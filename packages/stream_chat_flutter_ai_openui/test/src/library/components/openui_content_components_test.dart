@@ -305,7 +305,8 @@ void main() {
 
     for (final (name, url, canOpen, isLink) in [
       ('a web address', 'https://a.dev', true, true),
-      ('an address the view cannot open', 'ftp://a.dev', true, false),
+      ('a phone link, which the view passes on', 'tel:+1555', true, true),
+      ('an address that is not well formed', 'a.dev/x y', true, false),
       ('a web address when the view opens no links', 'https://a.dev', false, false),
     ]) {
       testWidgets('a source with $name ${isLink ? 'is' : 'is not'} announced as a link', (tester) async {

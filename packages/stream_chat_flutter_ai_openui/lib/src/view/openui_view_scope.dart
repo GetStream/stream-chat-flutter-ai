@@ -29,11 +29,16 @@ typedef OpenUIBuildErrorHandler = void Function(ElementNode node, Object error, 
 @internal
 Uri? openUIWebMediaUrl(Uri url) => _isWeb(url) ? url : null;
 
-/// Opens [href], a link a person tapped in the OpenUI around [context], when
-/// it is a web or email link, `http`, `https` or `mailto`.
+/// Opens [href], a link a person tapped in the OpenUI around [context], by
+/// the way its view opens links, when it is well formed.
+///
+/// A link is well formed when it starts with a scheme of letters, digits,
+/// `+`, `-` and `.` that begins with a letter, and has no whitespace or
+/// control characters. The scheme can be any, `tel` or `mailto` as well as
+/// `https`: the function that opens links decides which it opens.
 ///
 /// Nothing opens outside a reply's OpenUI, when its view has no way to open
-/// links, or when [href] is `null` or isn't a URL.
+/// links, or when [href] is `null` or isn't well formed.
 ///
 /// Internal to the package.
 @internal
@@ -45,15 +50,20 @@ void openOpenUILink(BuildContext context, String? href) {
   openLink(url);
 }
 
-/// The URL of [href] when it is a web or email link, `http`, `https` or
-/// `mailto`, and `null` when it is `null`, isn't a URL, or is any other kind.
+/// The URL of [href] when it is well formed, a scheme then no whitespace or
+/// control characters, whatever the scheme, and `null` otherwise.
+///
+/// The view's link opener decides which schemes it opens.
 ///
 /// Internal to the package.
 @internal
 Uri? openableOpenUILink(String? href) {
-  final url = href == null ? null : Uri.tryParse(href);
-  return url != null && (_isWeb(url) || url.isScheme('mailto')) ? url : null;
+  if (href == null || !_wellFormed.hasMatch(href)) return null;
+  return Uri.tryParse(href);
 }
+
+// A scheme, then anything but whitespace and control characters.
+final _wellFormed = RegExp(r'^[A-Za-z][A-Za-z0-9+\-.]*:[^\s\u0000-\u001f\u007f-\u009f]*$');
 
 bool _isWeb(Uri url) => (url.isScheme('http') || url.isScheme('https')) && url.host.isNotEmpty;
 

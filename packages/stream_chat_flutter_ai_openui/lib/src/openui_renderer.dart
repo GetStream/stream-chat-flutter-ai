@@ -33,9 +33,10 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// A tap on a control sends an [AIUIAction] named after the action, labeled
 /// with the control's label or [AITranslations.uiActionUntitled]; its payload
 /// carries the action's `context`, `params`, `message` and form values, never
-/// a password. A web or email link goes to [AIUIHosting.open]. Queries, once
-/// the reply is written, and mutations run as the host's tools; a query's
-/// refresh pauses while the app is in the background.
+/// a password. A link, of any scheme, goes to [AIUIHosting.open], which
+/// decides which it opens. Queries, once the reply is written, and mutations
+/// run as the host's tools; a query's refresh pauses while the app is in the
+/// background.
 ///
 /// The agent can also place the host's [AIUIHosting.components], by their
 /// name in PascalCase, such as `PlaceCard` for `place_card`. Their events are

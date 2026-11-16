@@ -300,20 +300,24 @@ void main() {
       expect(host.sent.single.label, 'Doorgaan');
     });
 
-    testWidgets('a web link opens through the host, never as an action', (tester) async {
+    testWidgets('a well-formed link of any scheme opens through the host, never as an action', (tester) async {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
       addTearDown(engine.dispose);
       await _pump(
         tester,
         engine,
-        _doc('root = Stack([Button("Web", @OpenUrl("https://getstream.io")), Button("Js", @OpenUrl("javascript:x"))])'),
+        _doc(
+          'root = Stack([Button("Web", @OpenUrl("https://getstream.io")), Button("Tel", @OpenUrl("tel:+1555")), '
+          'Button("Bad", @OpenUrl("getstream.io"))])',
+        ),
       );
 
       await tester.tap(find.text('Web'));
-      await tester.tap(find.text('Js'));
+      await tester.tap(find.text('Tel'));
+      await tester.tap(find.text('Bad'));
 
-      expect(host.opened, [Uri.parse('https://getstream.io')]);
+      expect(host.opened, [Uri.parse('https://getstream.io'), Uri.parse('tel:+1555')]);
       expect(host.sent, isEmpty);
     });
 
