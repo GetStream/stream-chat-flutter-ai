@@ -114,6 +114,28 @@ void main() {
       expect(tester.getSize(find.byType(AIMarkdownBody).first).width, lessThanOrEqualTo(360));
     });
 
+    testWidgets('draws a card surface for a variant it does not know', (tester) async {
+      Future<int> surfaces(String variant) async {
+        await tester.pumpWidget(const SizedBox());
+        final runtime = testRuntime();
+        addTearDown(runtime.dispose);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          program:
+              '''
+\$variant = "$variant"
+root = Card([MarkDownRenderer("x", \$variant)])
+''',
+        );
+        return find.ancestor(of: find.byType(AIMarkdownBody), matching: find.byType(DecoratedBox)).evaluate().length;
+      }
+
+      final clear = await surfaces('clear');
+      expect(await surfaces('bogus'), clear + 1);
+      expect(await surfaces('card'), clear + 1);
+    });
+
     testWidgets('links the citations of the card it is in', (tester) async {
       final opened = <Uri>[];
       final runtime = testRuntime();

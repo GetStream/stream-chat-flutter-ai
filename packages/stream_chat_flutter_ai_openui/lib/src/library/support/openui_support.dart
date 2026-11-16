@@ -28,8 +28,8 @@ Color openUIVariantColor(OpenUIResolvedTheme theme, String? name) {
   };
 }
 
-/// [child] on the surface of [variant]: `card` is a bordered card surface,
-/// `sunk` a sunken one, and anything else, `clear`, no surface.
+/// [child] on the surface of [variant]: `clear` is no surface, `sunk` a sunken
+/// one, and anything else, `card` among it, a bordered card surface.
 ///
 /// Internal to the package.
 @internal
@@ -47,9 +47,9 @@ class OpenUISurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
     final (color, border) = switch (variant) {
-      'card' => (theme.surface, Border.all(color: theme.border, width: 0.5)),
+      'clear' => (null, null),
       'sunk' => (theme.sunkenSurface, null),
-      _ => (null, null),
+      _ => (theme.surface, Border.all(color: theme.border, width: 0.5)),
     };
     if (color == null) return child;
     return DecoratedBox(
