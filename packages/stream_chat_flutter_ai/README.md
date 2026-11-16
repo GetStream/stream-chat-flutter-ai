@@ -1712,6 +1712,9 @@ and add the rest later. The delegate adds no dependency; `GlobalMaterialLocaliza
 The example app under `example/` has this wired up — an `AITranslationsDelegate` carrying a Dutch
 translation — so run it on a device set to Dutch to see the placeholder and the tooltips follow.
 
+Generative UI formats keep their strings in their own package: the A2UI components' labels are in
+`stream_chat_flutter_ai_a2ui`'s `A2UITranslations`, registered the same way.
+
 Many of these strings are `Tooltip` messages on icon-only buttons — the composer's send, stop, mic,
 "+", dismiss and remove-attachment controls, a code block's copy button, copy, share, regenerate and
 rate under a reply, and scroll to latest — which makes them the only accessible label those buttons

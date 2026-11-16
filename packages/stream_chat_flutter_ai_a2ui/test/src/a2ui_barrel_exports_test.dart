@@ -44,6 +44,10 @@ const _expectedNames = {
   'A2UIRenderer',
   'A2UITheme',
   'A2UIThemeData',
+  'A2UITranslations',
+  'A2UITranslationsDelegate',
+  'A2UITranslationsScope',
+  'DefaultA2UITranslations',
 };
 
 String _barrel() => File('lib/stream_chat_flutter_ai_a2ui.dart').readAsStringSync();

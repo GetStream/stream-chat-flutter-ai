@@ -36,7 +36,7 @@ dependencies:
   stream_chat_flutter_ai: ^0.2.0
   # Core's widgets (`StreamAppBar`, `StreamButton`) for the example's own
   # screens; the AI package exports only the theme and factory types.
-  stream_core_flutter: ^0.5.3
+  stream_core_flutter: ^0.5.4
 
 dev_dependencies:
   flutter_test:

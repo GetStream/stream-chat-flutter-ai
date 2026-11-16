@@ -17,7 +17,7 @@ workspace:
   - packages/stream_chat_flutter_ai_openui/example
 
 dev_dependencies:
-  melos: ^8.2.2
+  melos: ^8.10.1
 
 melos:
   categories:
@@ -79,7 +79,7 @@ melos:
         stream_chat_flutter_ai: ^0.2.0
         # Stream's design system: theme tokens, the component factory and the
         # base components (buttons, sheets, list tiles, icons) the AI packages build on.
-        stream_core_flutter: ^0.5.3
+        stream_core_flutter: ^0.5.4
         url_launcher: ^6.3.2
         uuid: ^4.5.1
         # The videos of A2UI replies, as in `stream_chat_flutter`.
