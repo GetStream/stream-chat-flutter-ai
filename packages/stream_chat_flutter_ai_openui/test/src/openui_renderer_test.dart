@@ -506,6 +506,20 @@ void main() {
     engine.dispose();
   });
 
+  testWidgets('a written reply without a root or queries is dropped, so showing it again starts fresh', (tester) async {
+    final errors = <OpenUIErrorCode>[];
+    final engine = OpenUIRenderer(onError: (error, _) => errors.add(error.code)).createEngine(_Host());
+    addTearDown(engine.dispose);
+    final document = _doc('x = Nope("a")');
+
+    expect(await _pump(tester, engine, document), isFalse);
+    final first = [...errors];
+    expect(first, isNotEmpty);
+
+    expect(await _pump(tester, engine, document), isFalse);
+    expect(errors, [...first, ...first]);
+  });
+
   testWidgets('a written reply whose root waits on a query draws it once the result lands', (tester) async {
     final host = _Host(
       tools: {
