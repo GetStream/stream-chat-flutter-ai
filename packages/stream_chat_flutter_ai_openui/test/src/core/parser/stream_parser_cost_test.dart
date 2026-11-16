@@ -19,10 +19,16 @@ void main() {
     expect(run.parser.debugPreparedCodeUnits, lessThan(_preparedFactor * run.program.length));
   });
 
-  test('finding the finished statements of a long reply reads each code unit once', () {
+  test('finding the finished statements of a long reply reads each code unit at most once', () {
     final run = _streamLongReply();
 
-    expect(run.parser.debugScannedCodeUnits, run.program.length);
+    expect(run.parser.debugScannedCodeUnits, lessThanOrEqualTo(run.program.length));
+  });
+
+  test('a reply that arrives complete is read whole without looking for its finished statements', () {
+    final parser = OpenUIStreamParser(_chat())..set(_longProgram(), complete: true);
+
+    expect(parser.debugScannedCodeUnits, 0);
   });
 
   test('each piece before the end of a long reply resolves only the root and the statement still arriving', () {
