@@ -61,6 +61,16 @@ void main() {
     expect(result.queryStatements.single.tool, isNotNull);
   });
 
+  test('the state values share one node budget, so many of them stop at it', () {
+    // Each `$sN = big` costs about 101 nodes, so 300 of them need about 30,000.
+    final big = List.generate(100, (i) => '$i').join(', ');
+    final states = [for (var i = 0; i < 300; i += 1) '\$s$i = big'];
+    final result = _parse(['root = Title("x")', 'big = [$big]', ...states].join('\n'));
+
+    expect(result.stateDeclarations[r'$s0'], isA<OpenUIArray>());
+    expect(result.stateDeclarations[r'$s299'], OpenUINull.instance);
+  });
+
   test('a chain of 10,000 operators does not overflow the stack', () {
     expect(() => _parse('root = Title("a"${' + "b"' * 10000})'), returnsNormally);
   });

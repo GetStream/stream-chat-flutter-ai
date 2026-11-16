@@ -3,8 +3,8 @@ import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_core_flutter/core.dart';
 
-/// An [OpenUIThemeData] with every value set, which the OpenUI components
-/// draw with.
+/// An [OpenUIThemeData] with every value set but [OpenUIThemeData.chartPalette],
+/// which the OpenUI components draw with.
 ///
 /// Resolution order is: the view's own theme, then the nearest [OpenUITheme],
 /// then the defaults from the app's [StreamTheme].
@@ -76,7 +76,7 @@ final class OpenUIResolvedTheme {
   Color get neutral => _data.neutral!;
 
   /// See [OpenUIThemeData.chartPalette].
-  List<Color> get chartPalette => _data.chartPalette!;
+  List<Color>? get chartPalette => _data.chartPalette;
 
   /// See [OpenUIThemeData.xsSpacing].
   double get xsSpacing => _data.xsSpacing!;

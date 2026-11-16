@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 
 import '../../core/runtime/fake_tools.dart';
 import '../../openui_test_app.dart';
@@ -315,22 +317,44 @@ void main() {
   });
 
   group('colors', () {
-    testWidgets("the series take the theme's chart palette", (tester) async {
-      final chart = await _draw(tester, '$_two)');
+    const bar = 'SingleStackedBarChart(["A", "B"], [40, 60])';
+    const enclosing = [Color(0xFF0A0A0A), Color(0xFF0B0B0B)];
+    const palette = [Color(0xFF112233), Color(0xFF445566)];
 
-      final palette = OpenUIThemeData.defaults(StreamTheme.light()).chartPalette;
-      expect(chart!.theme!.seriesColors, palette);
+    // The colors the bar's parts are painted in.
+    PaintPattern partsIn(List<Color> colors) => paints
+      ..rect(color: colors[0])
+      ..rect(color: colors[1]);
+
+    Future<void> drawIn(WidgetTester tester, {OpenUIThemeData? theme}) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      runtime.update('root = Card([$bar])', isStreaming: false);
+      await tester.pumpWidget(
+        testApp(
+          ChartTheme(
+            data: const ChartThemeData(seriesColors: enclosing),
+            child: OpenUIView(runtime: runtime, library: OpenUILibrary.chat, theme: theme),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    final painted = find.descendant(of: find.byType(ChartView), matching: find.byType(CustomPaint));
+
+    testWidgets("without a chart palette, the series take the surrounding chart theme's colors", (tester) async {
+      await drawIn(tester);
+
+      expect(tester.widget<ChartView>(find.byType(ChartView)).theme!.seriesColors, isNull);
+      expect(tester.renderObject(painted), partsIn(enclosing));
     });
 
-    testWidgets('a palette in the renderer theme takes its place', (tester) async {
-      const palette = [Color(0xFF112233), Color(0xFF445566)];
-      final chart = await _draw(
-        tester,
-        '$_two)',
-        theme: OpenUIThemeData(chartPalette: palette),
-      );
+    testWidgets("a palette in the renderer theme takes the place of the surrounding chart theme's", (tester) async {
+      await drawIn(tester, theme: OpenUIThemeData(chartPalette: palette));
 
-      expect(chart!.theme!.seriesColors, palette);
+      expect(tester.widget<ChartView>(find.byType(ChartView)).theme!.seriesColors, palette);
+      expect(tester.renderObject(painted), partsIn(palette));
     });
   });
 }
