@@ -182,12 +182,6 @@ class _Collector {
 @internal
 OpenUIValue? openUIFieldDefault(OpenUIComponentScope scope) {
   switch (scope.type) {
-    case 'Input' || 'TextArea' || 'Select' || 'DatePicker':
-      // A password is never kept, and a `$variable` isn't a default.
-      if (scope.type == 'Input' && scope.string('type') == 'password') return null;
-      final value = scope.prop('value');
-      if (value == null || value is OpenUINull || ReactiveBinding.targetOf(value) != null) return null;
-      return value;
     case 'CheckBoxGroup' || 'SwitchGroup':
       final checked = <String, OpenUIValue>{
         for (final item in scope.elements('items').map(scope.scopeOf))

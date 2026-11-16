@@ -8,7 +8,6 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
@@ -262,14 +261,12 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
       final rows? => rows.clamp(2, 100).toInt(),
       null => 3,
     };
-    final componentType = widget.multiline ? 'TextArea' : 'Input';
     return OpenUIFieldHost(
       name: _name,
       rules: scope.prop('rules'),
       // A password is never bound, so it is checked with what was typed.
       binding: _isPassword ? null : scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: () => saveOpenUIFieldDefault(context, scope, componentType, openUIFieldDefault(scope)),
       child: scope.watchState((context) {
         final value = _field(context).value;
         _show(JS.isNullish(value) ? '' : JS.stringOf(value));
@@ -349,7 +346,6 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
     rules: scope.prop('rules'),
     binding: scope.prop('value'),
     isStreaming: scope.isStreaming,
-    saveDefault: () => saveOpenUIFieldDefault(context, scope, 'Select', openUIFieldDefault(scope)),
     child: scope.watchState((context) {
       final field = openUIFieldState(context, scope, 'Select');
       final selected = JS.isNullish(field.value) ? null : JS.stringOf(field.value);
@@ -391,7 +387,6 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
     rules: scope.prop('rules'),
     binding: scope.prop('value'),
     isStreaming: scope.isStreaming,
-    saveDefault: () => saveOpenUIFieldDefault(context, scope, 'DatePicker', openUIFieldDefault(scope)),
     child: scope.watchState((context) {
       final value = openUIFieldState(context, scope, 'DatePicker').value;
       void write(OpenUIValue next) {

@@ -95,27 +95,41 @@ void main() {
           ),
         ),
       );
-      expect(_valueOf(runtime, 'phone'), const OpenUIString('123'));
       expect(_valueOf(runtime, 'plan'), const OpenUIString('pro'));
 
       await tester.tap(find.text('Go'));
       await tester.pump();
 
       final form = events.single.formState['f']! as OpenUIObject;
-      expect((form.fields['phone']! as OpenUIObject).fields['value'], const OpenUIString('123'));
       expect((form.fields['plan']! as OpenUIObject).fields['value'], const OpenUIString('pro'));
+    });
+
+    testWidgets('a hidden field with a literal value passes its required check without keeping it', (tester) async {
+      final (runtime, events) = await _pump(
+        tester,
+        _form(_tabs('TextContent("One")', 'FormControl("Phone", Input("phone", "", "text", {required: true}, "123"))')),
+      );
+
+      await tester.tap(find.text('Go'));
+      await tester.pump();
+
+      expect(events, hasLength(1));
+      expect(_valueOf(runtime, 'phone'), isNull);
     });
 
     testWidgets('keeps nothing while the reply streams, and the defaults once it ends', (tester) async {
       final program = _form(
-        _tabs('TextContent("One")', 'FormControl("Phone", Input("phone", "", "text", {required: true}, "123"))'),
+        _tabs(
+          'TextContent("One")',
+          'FormControl("Plan", RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro"))',
+        ),
       );
       final (runtime, _) = await _pump(tester, program, isStreaming: true);
-      expect(_valueOf(runtime, 'phone'), isNull);
+      expect(_valueOf(runtime, 'plan'), isNull);
 
       await _update(tester, runtime, program);
 
-      expect(_valueOf(runtime, 'phone'), const OpenUIString('123'));
+      expect(_valueOf(runtime, 'plan'), const OpenUIString('pro'));
     });
 
     testWidgets('a reply written again drops the rules of what it no longer holds', (tester) async {
