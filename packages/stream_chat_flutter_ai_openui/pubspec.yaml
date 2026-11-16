@@ -45,7 +45,7 @@ dependencies:
   # Stream's design system: the theme tokens and the components OpenUI
   # components are drawn with, so an app's component builders apply to them
   # too.
-  stream_core_flutter: ^0.5.3
+  stream_core_flutter: ^0.5.4
 
 dev_dependencies:
   flutter_test:
