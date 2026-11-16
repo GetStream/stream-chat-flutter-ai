@@ -1,9 +1,14 @@
 ## Upcoming
 
+✅ Added
+
+- `onTapLink` on `AIConversationView` and `AIAssistantMessageView`, and in `AIAssistantMessageProps` and
+  `AIReasoningProps`, opens links tapped in a reply's text or reasoning your own way.
+
 🐞 Fixed
 
-- A link in an agent's reply, or in its reasoning, opens when tapped: a web link in the browser, and any
-  other URL with the platform's default app. It did nothing before.
+- Links in an agent's reply and its reasoning now open when tapped.
+- A tapped link in `StreamingReasoningView` now reaches its `onTapLink`.
 
 ## 0.2.0
 

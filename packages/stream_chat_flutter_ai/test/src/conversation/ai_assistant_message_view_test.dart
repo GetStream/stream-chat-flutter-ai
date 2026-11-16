@@ -1,8 +1,8 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:stream_chat_flutter_ai/src/parts/json_fields.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
@@ -149,8 +149,7 @@ void main() {
       await tester.tapOnText(find.textRange.ofSubstring('the docs'));
       await tester.pump();
 
-      expect(launcher.launched, ['https://x.io/docs']);
-      expect(launcher.modes, [PreferredLaunchMode.externalApplication]);
+      expect(launcher.launched, [('https://x.io/docs', PreferredLaunchMode.externalApplication)]);
     });
 
     testWidgets('opens any other link in the answer with the platform default', (tester) async {
@@ -160,8 +159,7 @@ void main() {
       await tester.tapOnText(find.textRange.ofSubstring('us'));
       await tester.pump();
 
-      expect(launcher.launched, ['mailto:hi@x.io']);
-      expect(launcher.modes, [PreferredLaunchMode.platformDefault]);
+      expect(launcher.launched, [('mailto:hi@x.io', PreferredLaunchMode.platformDefault)]);
     });
 
     testWidgets('opens nothing for a link without a scheme', (tester) async {
@@ -184,6 +182,72 @@ void main() {
       expect(tester.takeException(), isA<PlatformException>());
     });
 
+    testWidgets('reports a link that no app can open', (tester) async {
+      _useLauncher(opens: false);
+      final issues = <String>[];
+      debugPartIssueReporter = issues.add;
+      addTearDown(() => debugPartIssueReporter = null);
+      await tester.pumpWidget(_view('Call [us](tel:+15550100).', isGenerating: false));
+
+      await tester.tapOnText(find.textRange.ofSubstring('us'));
+      await tester.pump();
+
+      expect(issues, ['stream_chat_flutter_ai: No app could open the link to tel:+15550100.']);
+    });
+
+    testWidgets('hands a tapped link to onTapLink instead of opening it', (tester) async {
+      final launcher = _useLauncher();
+      final taps = <(String, String?)>[];
+      const step = AIReasoningPart(id: 'step', preview: 'Read [the guide](https://x.io/guide).', durationMs: 2000);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AIAssistantMessageView(
+              text: 'See [the docs](https://x.io/docs).',
+              parts: [AIMessagePart.fromReasoning(step)],
+              onTapLink: (text, href, title) => taps.add((text, href)),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Thought for 2s'));
+      await tester.pumpAndSettle();
+
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
+      await tester.tapOnText(find.textRange.ofSubstring('the guide'));
+      await tester.pump();
+
+      expect(taps, [('the docs', 'https://x.io/docs'), ('the guide', 'https://x.io/guide')]);
+      expect(launcher.launched, isEmpty);
+    });
+
+    testWidgets('gives a custom reasoning builder the link opener', (tester) async {
+      final launcher = _useLauncher();
+      const step = AIReasoningPart(id: 'step', preview: 'Read [the guide](https://x.io/guide).');
+      await tester.pumpWidget(
+        StreamComponentFactory(
+          builders: StreamComponentBuilders(
+            extensions: streamAIComponentBuilders(
+              reasoning: (context, props) => GestureDetector(
+                onTap: () => props.onTapLink?.call('the guide', 'https://x.io/guide', ''),
+                child: const Text('Custom reasoning'),
+              ),
+            ),
+          ),
+          child: MaterialApp(
+            home: Scaffold(
+              body: AIAssistantMessageView(text: 'Done.', parts: [AIMessagePart.fromReasoning(step)]),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Custom reasoning'));
+      await tester.pump();
+
+      expect(launcher.launched, [('https://x.io/guide', PreferredLaunchMode.externalApplication)]);
+    });
+
     testWidgets('opens a link in the reasoning', (tester) async {
       final launcher = _useLauncher();
       const step = AIReasoningPart(id: 'step', preview: 'Checked [the docs](https://x.io/docs).', durationMs: 2000);
@@ -197,18 +261,41 @@ void main() {
       await tester.tap(find.text('Thought for 2s'));
       await tester.pumpAndSettle();
 
-      // The reasoning's own tests tap its links through their recognizer too.
-      final paragraph = tester.widget<RichText>(find.text('Checked the docs.', findRichText: true));
-      (_linkIn(paragraph.text)!.recognizer! as TapGestureRecognizer).onTap!();
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
       await tester.pump();
 
-      expect(launcher.launched, ['https://x.io/docs']);
+      expect(launcher.launched, [('https://x.io/docs', PreferredLaunchMode.externalApplication)]);
+    });
+
+    testWidgets('opens a link in reasoning that is still being written', (tester) async {
+      final launcher = _useLauncher();
+      const step = AIReasoningPart(
+        id: 'step',
+        status: AIReasoningStatus.streaming,
+        preview: 'Checking [the docs](https://x.io/docs).',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Scaffold(
+              body: AIAssistantMessageView(text: '', isGenerating: true, parts: [AIMessagePart.fromReasoning(step)]),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
+      await tester.pump();
+
+      expect(launcher.launched, [('https://x.io/docs', PreferredLaunchMode.externalApplication)]);
     });
   });
 }
 
-_FakeUrlLauncher _useLauncher({bool throws = false}) {
-  final launcher = _FakeUrlLauncher(throws: throws);
+_FakeUrlLauncher _useLauncher({bool throws = false, bool opens = true}) {
+  final launcher = _FakeUrlLauncher(throws: throws, opens: opens);
   final previous = UrlLauncherPlatform.instance;
   UrlLauncherPlatform.instance = launcher;
   addTearDown(() => UrlLauncherPlatform.instance = previous);
@@ -216,28 +303,16 @@ _FakeUrlLauncher _useLauncher({bool throws = false}) {
 }
 
 final class _FakeUrlLauncher extends Fake with MockPlatformInterfaceMixin implements UrlLauncherPlatform {
-  _FakeUrlLauncher({required this.throws});
+  _FakeUrlLauncher({required this.throws, required this.opens});
 
   final bool throws;
-  final launched = <String>[];
-  final modes = <PreferredLaunchMode>[];
+  final bool opens;
+  final launched = <(String, PreferredLaunchMode)>[];
 
   @override
   Future<bool> launchUrl(String url, LaunchOptions options) async {
-    launched.add(url);
-    modes.add(options.mode);
+    launched.add((url, options.mode));
     if (throws) throw PlatformException(code: 'x');
-    return true;
+    return opens;
   }
-}
-
-// The span of the link in [span]. Not `visitChildren`, which skips spans
-// without text of their own, as a link's is in its children.
-TextSpan? _linkIn(InlineSpan span) {
-  if (span is! TextSpan) return null;
-  if (span.recognizer != null) return span;
-  for (final child in span.children ?? const <InlineSpan>[]) {
-    if (_linkIn(child) case final link?) return link;
-  }
-  return null;
 }
