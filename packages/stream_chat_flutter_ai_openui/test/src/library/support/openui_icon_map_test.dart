@@ -70,7 +70,8 @@ void main() {
         'weather',
       ];
       for (final category in categories) {
-        expect(openUIIconOf(icons, 'zzz', category), isNot(_generic), reason: category);
+        // Neither none nor the generic one.
+        expect(openUIIconOf(icons, 'zzz', category), allOf(isNotNull, isNot(_generic)), reason: category);
       }
     });
 

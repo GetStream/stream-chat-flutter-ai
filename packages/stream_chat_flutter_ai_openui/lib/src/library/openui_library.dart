@@ -296,6 +296,9 @@ final class OpenUILibrary {
   /// A copy of this library without the components named in [types], so the
   /// agent isn't taught them and they show nothing.
   ///
+  /// The instructions also lose each note and rule that mentions a removed
+  /// component's name as a whole word, and each example that calls one.
+  ///
   /// The root component stays, and so does a component that is the only one
   /// a remaining component's prop takes, such as the items of a list.
   ///

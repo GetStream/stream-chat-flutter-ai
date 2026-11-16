@@ -27,8 +27,10 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// );
 /// ```
 ///
-/// A reply shows its text until its program has a root component, and keeps
-/// the values the person entered for as long as the host keeps the reply.
+/// A reply shows its text until its program has a root component, except a
+/// written reply with queries, whose root can wait on their results: it shows
+/// nothing until the root arrives. A reply keeps the values the person
+/// entered for as long as the host keeps the reply.
 ///
 /// A tap on a control sends an [AIUIAction] named after the action, labeled
 /// with the control's label or [AITranslations.uiActionUntitled]; its payload
@@ -82,6 +84,10 @@ final class OpenUIRenderer extends AIUIRenderer {
 
   /// The function that gives the URL each image loads from, or `null` to not
   /// load it. By default only web links load; see [webUrl].
+  ///
+  /// It is called only for a link the reply's program writes out or one of
+  /// its tools returns: a link built from what the person types never loads,
+  /// whatever this gives.
   final OpenUIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's OpenUI, with the
@@ -102,7 +108,8 @@ final class OpenUIRenderer extends AIUIRenderer {
   /// `null` for any other, such as a `file` URL.
   ///
   /// A reply's images load only from what this gives unless the renderer is
-  /// given another `mediaUrl`.
+  /// given another `mediaUrl`, and in either case only from links the
+  /// program writes out or its tools return.
   static Uri? webUrl(Uri url) => openUIWebMediaUrl(url);
 
   /// OpenUI, the format of the replies this renderer shows.
