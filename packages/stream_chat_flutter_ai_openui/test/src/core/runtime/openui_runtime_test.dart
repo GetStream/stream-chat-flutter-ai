@@ -95,6 +95,18 @@ void main() {
       expect(events.last.label, '');
     });
 
+    test('an action that changes the state reports the errors it leads to', () async {
+      runtime.update(
+        r'$t = true'
+        '\nroot = \$t ? Stack([Button("b", @Set(\$t, false))]) : 5',
+        isStreaming: false,
+      );
+      await click(0);
+
+      expect(runtime.root.value, isNull);
+      expect(runtime.errors.value.map((error) => error.code), [OpenUIErrorCode.noRoot]);
+    });
+
     test(r'@Set declares a $variable no statement declared', () async {
       runtime.update(r'root = Stack([Button("Go", @Set($new, 5))])', isStreaming: false);
       await click(0);

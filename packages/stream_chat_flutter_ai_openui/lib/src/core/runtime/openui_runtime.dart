@@ -315,6 +315,7 @@ final class OpenUIRuntime {
     if (key.startsWith(r'$')) {
       _runQueries();
       _recompute();
+      _collectErrors();
     }
     _publishState();
   }
