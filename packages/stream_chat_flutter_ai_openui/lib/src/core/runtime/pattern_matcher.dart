@@ -26,9 +26,10 @@ import 'package:meta/meta.dart';
 /// input's ends, groups, alternation and the counts `* + ? {n} {n,} {n,m}`,
 /// greedy or lazy. `\u{X}` is a code point, as with the `u` flag, and the
 /// input is read by code point. A lookahead right after a leading `^`, such as
-/// `^(?=.*\d).{8,}$`, is matched on its own from the input's start; any other
-/// lookahead, a lookbehind, a backreference, a Unicode property escape or an
-/// inline flag makes the pattern invalid.
+/// `^(?=.*\d).{8,}$`, is matched on its own from the input's start, when no
+/// `|` follows outside a group; any other lookahead, a lookbehind, a
+/// backreference, a legacy octal or control escape, a Unicode property escape
+/// or an inline flag makes the pattern invalid.
 final class PatternMatcher {
   PatternMatcher._(this._program, this._required, this._forbidden);
 
@@ -200,6 +201,8 @@ final class _Parser {
 
   static const _maxCount = PatternMatcher.maxProgramSize + 1;
 
+  static final _groupName = RegExp(r'^[A-Za-z_$][\w$]*$');
+
   _ParsedPattern parsePattern() {
     final required = <_Node>[];
     final forbidden = <_Node>[];
@@ -214,7 +217,10 @@ final class _Parser {
       }
       if (required.isNotEmpty || forbidden.isNotEmpty) {
         _index = index;
-        final rest = _parseAlternation();
+        // `^(?=a)b|c` checks the lookahead in the first option only, so an
+        // alternation after the lookaheads isn't matched on its own.
+        final rest = _parseSequence();
+        if (_current == 0x7c) throw const FormatException('Alternation after a lookahead');
         if (_index != _source.length) throw const FormatException('Unexpected )');
         return _ParsedPattern(
           _Sequence([const _Assert(_AssertKind.start), rest]),
@@ -352,7 +358,9 @@ final class _Parser {
       } else if (kind == 0x3c && _at(_index + 2) != 0x3d && _at(_index + 2) != 0x21) {
         // A named group.
         final close = _source.indexOf(0x3e, _index + 2);
-        if (close < 0 || close == _index + 2) throw const FormatException('Invalid group name');
+        if (close < 0 || !_groupName.hasMatch(String.fromCharCodes(_source.sublist(_index + 2, close)))) {
+          throw const FormatException('Invalid group name');
+        }
         _index = close + 1;
       } else {
         // A lookahead past the pattern's start, a lookbehind or a flag.
@@ -415,7 +423,9 @@ final class _Parser {
         return 0x0d;
       case 0x62 when inClass: // b, a backspace in a class
         return 0x08;
-      case 0x30 when !_isDigit(_current ?? 0): // 0
+      case 0x30: // 0
+        // `\0` followed by a digit is a legacy octal escape.
+        if (_isDigit(_current ?? 0)) throw const FormatException('Octal escape');
         return 0x00;
       case 0x63: // c
         final letter = _current;
@@ -423,7 +433,9 @@ final class _Parser {
           _index++;
           return letter % 32;
         }
-        // `\c` without a letter is a backslash and a `c`.
+        // `\c` without a letter is a backslash and a `c`, but a legacy
+        // control escape in a class.
+        if (inClass) throw const FormatException(r'Invalid \c escape');
         _index--;
         return 0x5c;
       case 0x78: // x
@@ -447,7 +459,8 @@ final class _Parser {
       case 0x70 || 0x50: // p P, a Unicode property
         throw const FormatException('Unsupported escape');
       default:
-        if (rune >= 0x31 && rune <= 0x39 && !inClass) throw const FormatException('Backreference');
+        // A backreference, or a legacy octal escape in a class.
+        if (rune >= 0x31 && rune <= 0x39) throw const FormatException('Backreference');
         // Any other escaped character stands for itself.
         return rune;
     }

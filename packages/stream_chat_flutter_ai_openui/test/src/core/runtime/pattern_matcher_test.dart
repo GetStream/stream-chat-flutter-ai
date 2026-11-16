@@ -43,6 +43,7 @@ void main() {
       (r'^(?:ab)+$', 'ababab', true),
       (r'^(?:ab)+$', 'aba', false),
       (r'^(?<year>\d{4})$', '2026', true),
+      (r'^(?<$_a1>x)$', 'x', true),
       ('^(|a)b', 'b', true),
       // Counts, greedy or lazy.
       (r'^a{2,3}$', 'a', false),
@@ -59,6 +60,11 @@ void main() {
       (r'^\x41B\u{1F600}$', 'AB😀', true),
       (r'^\t\n$', '\t\n', true),
       (r'^\.\*$', '.*', true),
+      (r'^\0$', '\u0000', true),
+      (r'^[\0]$', '\u0000', true),
+      (r'^\cA$', '\u0001', true),
+      (r'^[\cA]$', '\u0001', true),
+      (r'^\c1$', r'\c1', true),
       // The input is read by code point.
       (r'^.$', '😀', true),
       // Lookaheads right after a leading `^`.
@@ -67,6 +73,9 @@ void main() {
       (r'^(?=.*\d)(?=.*[A-Z]).{8,}$', 'Pass1', false),
       (r'^(?!admin).+$', 'user', true),
       (r'^(?!admin).+$', 'admin1', false),
+      ('^(?=.*a)(?:b|c)', 'ba', true),
+      ('^(?=.*a)(?:b|c)', 'ca', true),
+      ('^(?=.*a)(?:b|c)', 'c', false),
       // A common email pattern.
       (r'^[^\s@]+@[^\s@]+\.[^\s@]+$', 'a@b.co', true),
       (r'^[^\s@]+@[^\s@]+\.[^\s@]+$', 'a@b', false),
@@ -89,6 +98,12 @@ void main() {
       ('a(?=b)', 'a lookahead past the start'),
       ('(?=a)b', 'a lookahead without a leading ^'),
       ('(?i)a', 'an inline flag'),
+      ('^(?=a)b|c', 'an alternation after a leading lookahead'),
+      (r'\01', 'a legacy octal escape'),
+      (r'[\1]', 'a legacy octal escape in a class'),
+      (r'[\c1]', 'a legacy control escape in a class'),
+      ('(?<1a>x)', 'a group name starting with a digit'),
+      ('(?<a-b>x)', 'a group name with a hyphen'),
       (r'\p{L}', 'a Unicode property escape'),
       ('(a', 'an unclosed group'),
       ('a)', 'an unopened group'),
