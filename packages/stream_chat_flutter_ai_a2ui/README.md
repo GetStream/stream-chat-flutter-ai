@@ -17,6 +17,7 @@ When the person taps a button, the host gets an `AIUIAction`; forward it to your
 - [Customising](#customising)
 - [Errors](#errors)
 - [Video and audio](#video-and-audio)
+- [Localization](#localization)
 - [More](#more)
 
 ## Installation
@@ -365,6 +366,46 @@ Media loads only from web links, unless you give the renderer another `mediaUrl`
 A player is let go, and starts again from the beginning, when another screen is pushed over it. It plays on under a
 bottom sheet or a dialog, such as a `Modal`. Players don't pause each other. When the app goes to the background, a
 video pauses; audio keeps playing on Android, and on iOS follows the app's audio session and background modes.
+
+## Localization
+
+The components draw a few words of their own: the labels a screen reader reads for the play and pause buttons of a
+`Video` and an `AudioPlayer`. They come from an `A2UITranslations`, in English by default. The rest, such as a date
+input's date and a sheet's scrim label, come from Flutter's `MaterialLocalizations`.
+
+Implement `A2UITranslations` for each language, rather than extending `DefaultA2UITranslations`, so a string added
+later is a compile error instead of English in your app:
+
+```dart
+class DutchA2UITranslations implements A2UITranslations {
+  const DutchA2UITranslations();
+
+  @override
+  String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
+}
+```
+
+Register them per locale with an `A2UITranslationsDelegate`, next to the core package's `AITranslationsDelegate`:
+
+```dart
+MaterialApp(
+  localizationsDelegates: const [
+    AITranslationsDelegate({'nl': DutchTranslations()}),
+    A2UITranslationsDelegate({'nl': DutchA2UITranslations()}),
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ],
+  supportedLocales: const [Locale('en'), Locale('nl')],
+  home: ...,
+)
+```
+
+Keys take `Locale.toString()`'s form, such as `'nl'` or `'pt_BR'`, and a locale with no entry renders English. To pin
+one language over part of the tree instead, wrap it in an `A2UITranslationsScope`, which wins over the delegate and
+reaches the sheet a `Modal` opens.
 
 ## More
 

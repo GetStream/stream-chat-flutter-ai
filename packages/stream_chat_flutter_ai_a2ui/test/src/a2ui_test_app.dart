@@ -9,13 +9,15 @@ import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_resolved_theme.dart
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_theme.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/localization/a2ui_translations.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_view.dart';
 
 // Shows a surface of [components] and [data], the way a reply shows it, in a
 // box at most [width] wide, and returns the processor, disposed when the test
 // ends. The events of the surface's actions go to [events], and the links
-// they open to [onOpenLink].
+// they open to [onOpenLink]. With [translations], the app sits under an
+// [A2UITranslationsScope] of them.
 Future<A2UIProcessor> pumpSurface(
   WidgetTester tester, {
   required List<Map<String, Object?>> components,
@@ -31,24 +33,24 @@ Future<A2UIProcessor> pumpSurface(
   Brightness brightness = Brightness.light,
   StreamComponentBuilders? builders,
   StreamTheme? streamTheme,
+  A2UITranslations? translations,
 }) async {
   final processor = A2UIProcessor(catalogs: A2UICatalogs(), onError: errors?.add, onAction: events?.add);
   addTearDown(processor.dispose);
   processor.apply([createSurface(components, data: data)]);
-  await tester.pumpWidget(
-    surfaceApp(
-      processor.surface('s')!,
-      catalog: catalog,
-      theme: theme,
-      mediaUrl: mediaUrl,
-      onOpenLink: onOpenLink,
-      direction: direction,
-      width: width,
-      brightness: brightness,
-      builders: builders,
-      streamTheme: streamTheme,
-    ),
+  final app = surfaceApp(
+    processor.surface('s')!,
+    catalog: catalog,
+    theme: theme,
+    mediaUrl: mediaUrl,
+    onOpenLink: onOpenLink,
+    direction: direction,
+    width: width,
+    brightness: brightness,
+    builders: builders,
+    streamTheme: streamTheme,
   );
+  await tester.pumpWidget(translations == null ? app : A2UITranslationsScope(translations: translations, child: app));
   return processor;
 }
 

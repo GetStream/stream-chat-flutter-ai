@@ -4,9 +4,9 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_adapter.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/localization/a2ui_translations.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 
@@ -380,8 +380,61 @@ void main() {
     ]);
 
     await tester.pumpWidget(
-      AITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+      A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
     );
+
+    expect(find.bySemanticsLabel('Afspelen'), findsOneWidget);
+  });
+
+  testWidgets('a Video labels its pause button with the translations around it', (tester) async {
+    final platform = installFakeVideoPlatform();
+
+    final processor = A2UIProcessor(catalogs: A2UICatalogs());
+    addTearDown(processor.dispose);
+    processor.apply([
+      createSurface([
+        {'id': 'root', 'component': 'Video', 'url': _clip},
+      ]),
+    ]);
+    await tester.pumpWidget(
+      A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+    );
+    await tester.tap(find.bySemanticsLabel('Afspelen'));
+    await tester.pump();
+    platform.initialize(0);
+    await tester.pump();
+    await tester.pump();
+
+    platform.reportPlaying(0, isPlaying: true);
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Pauzeren'), findsOneWidget);
+  });
+
+  testWidgets("a Video in a Modal's sheet labels its play button with the translations around the surface", (
+    tester,
+  ) async {
+    installFakeVideoPlatform();
+    await pumpSurface(
+      tester,
+      components: [
+        {'id': 'root', 'component': 'Modal', 'trigger': 'open', 'content': 'clip'},
+        {
+          'id': 'open',
+          'component': 'Button',
+          'child': 'open_label',
+          'action': {
+            'event': {'name': 'open_clip'},
+          },
+        },
+        {'id': 'open_label', 'component': 'Text', 'text': 'Watch'},
+        {'id': 'clip', 'component': 'Video', 'url': _clip},
+      ],
+      translations: const _DutchTranslations(),
+    );
+
+    await tester.tap(find.text('Watch'));
+    await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Afspelen'), findsOneWidget);
   });
@@ -797,9 +850,12 @@ String _posterUrl(WidgetTester tester) {
   return tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage)).props.url;
 }
 
-class _DutchTranslations extends DefaultAITranslations {
+class _DutchTranslations implements A2UITranslations {
   const _DutchTranslations();
 
   @override
   String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
 }
