@@ -20,7 +20,7 @@ dependencies:
   # Resolves to the local `packages/stream_chat_flutter_ai_openui` member of
   # this workspace.
   stream_chat_flutter_ai_openui: any
-  stream_core_flutter: ^0.5.3
+  stream_core_flutter: ^0.5.4
 
 flutter:
   uses-material-design: true
