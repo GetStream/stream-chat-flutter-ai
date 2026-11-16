@@ -472,11 +472,31 @@ root = Stack([Modal("Details", $open, [Button("Hide", @Set($open, false))])])
           tester.view.physicalSize.height *
           tester.view.devicePixelRatio;
 
-      testWidgets('sm keeps a long sheet to half its height', (tester) async {
+      testWidgets('sm keeps a long sheet to half the height lg takes', (tester) async {
+        final screen = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+        await _pump(tester, 'root = Stack([Modal("Note", true, [$lines], "lg")])');
+        await tester.pumpAndSettle();
+        final large = screen - tester.getTopLeft(find.byType(StreamSheetHeader)).dy;
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+
+        await _pump(tester, 'root = Stack([Modal("Note", true, [$lines], "sm")])');
+        await tester.pumpAndSettle();
+        final small = screen - tester.getTopLeft(find.byType(StreamSheetHeader)).dy;
+
+        expect(small, moreOrLessEquals(large / 2, epsilon: 1));
+      });
+
+      testWidgets('sm keeps room for its header on a short screen', (tester) async {
+        tester.view
+          ..physicalSize = const Size(400, 150)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
         await _pump(tester, 'root = Stack([Modal("Note", true, [$lines], "sm")])');
         await tester.pumpAndSettle();
 
-        expect(headerTop(tester), greaterThan(0.45));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(StreamSheetHeader), findsOneWidget);
       });
 
       for (final size in ['', ', "lg"']) {
@@ -485,6 +505,20 @@ root = Stack([Modal("Details", $open, [Button("Hide", @Set($open, false))])])
           await tester.pumpAndSettle();
 
           expect(headerTop(tester), lessThan(0.2));
+        });
+      }
+
+      for (final size in ['sm', 'lg']) {
+        testWidgets('$size keeps its content above the keyboard', (tester) async {
+          tester.view
+            ..physicalSize = const Size(400, 800)
+            ..devicePixelRatio = 1
+            ..viewInsets = const FakeViewPadding(bottom: 350);
+          addTearDown(tester.view.reset);
+          await _pump(tester, 'root = Stack([Modal("Note", true, [Input("n", "Name")], "$size")])');
+          await tester.pumpAndSettle();
+
+          expect(tester.getBottomLeft(find.byType(EditableText)).dy, lessThanOrEqualTo(800 - 350));
         });
       }
 

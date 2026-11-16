@@ -83,7 +83,9 @@ Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
       themeStyle: StreamButtonThemeStyle.from(
         shape: scope.string('shape') == 'circle'
             ? const CircleBorder()
-            : RoundedSuperellipseBorder(borderRadius: BorderRadius.all(context.streamRadius.md)),
+            : RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(OpenUIViewScope.of(context).theme.smallCornerRadius),
+              ),
       ),
       onPressed: scope.isStreaming
           ? null

@@ -12,5 +12,5 @@
   host's `open`, which decides which links open.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
-- A `Modal` of `size` `sm` keeps its sheet to half the screen, and an `IconButton` draws its `shape`: a circle for
-  `circle`, otherwise a rounded square.
+- A `Modal` of `size` `sm` keeps its sheet to at most half the screen, and an `IconButton` draws its `shape`: a circle
+  for `circle`, otherwise a rounded square. A modal's content stays above the keyboard.
