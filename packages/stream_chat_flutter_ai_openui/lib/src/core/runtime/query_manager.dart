@@ -49,8 +49,7 @@ final class QueryNode {
   final double? refreshSeconds;
 }
 
-/// Fetches queries and runs mutations, as OpenUI's `queryManager.ts` does,
-/// with the timing of StreamChatOpenUI and the Android SDK.
+/// Fetches queries and runs mutations, as OpenUI's `queryManager.ts` does.
 ///
 /// A query fetches when it first appears and when its arguments change —
 /// once they have stayed the same for [argumentDebounce] — and again every
