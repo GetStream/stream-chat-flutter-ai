@@ -52,9 +52,9 @@ builder throws, which also always goes to `FlutterError.reportError`. Without `o
 builds only.
 
 A form field checks its `rules` before the form is submitted. A `pattern` is matched in time linear in the value, so a
-pattern the agent writes can't freeze the app: one longer than 1000 characters, or one that expands past 1000 items once
+pattern the agent writes can't freeze the app: one longer than 1000 UTF-16 code units, or one that expands past 1000 items once
 its counts are written out, is ignored, as is one with a lookbehind, a backreference or a lookahead anywhere but right
-after a leading `^`. A value longer than 4096 characters fails it.
+after a leading `^`. A value longer than 4096 UTF-16 code units fails it.
 
 ## What the agent is told
 

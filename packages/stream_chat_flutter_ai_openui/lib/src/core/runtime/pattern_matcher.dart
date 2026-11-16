@@ -41,10 +41,11 @@ final class PatternMatcher {
   /// instruction compiled.
   static const maxCompileCost = 4000;
 
-  /// The longest pattern compiled.
+  /// The longest pattern compiled, in UTF-16 code units.
   static const maxPatternLength = 1000;
 
-  /// The longest input matched; longer input matches nothing.
+  /// The longest input matched, in UTF-16 code units; longer input matches
+  /// nothing.
   static const maxInputLength = 4096;
 
   final _Program _program;
@@ -104,7 +105,7 @@ int _bounded(int size) => size > PatternMatcher.maxProgramSize ? PatternMatcher.
 sealed class _Node {
   const _Node();
 
-  // The items it expands to, as Android's `PatternSafety.size` counts them.
+  // The items it expands to once its counts are written out.
   int get size;
 }
 

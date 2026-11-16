@@ -34,7 +34,7 @@ final class ValidationRule {
 ///
 /// A `pattern` is matched as [PatternMatcher] matches it, anywhere in the
 /// value: one it rejects or can't read lets any value pass, and a value
-/// longer than [PatternMatcher.maxInputLength] fails it.
+/// longer than [PatternMatcher.maxInputLength] UTF-16 code units fails it.
 ///
 /// Every rule but `required` lets an empty value pass — `null`, `""`, an
 /// empty list, or an object with no keys — and the first rule that fails
