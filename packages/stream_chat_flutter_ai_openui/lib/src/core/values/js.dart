@@ -116,9 +116,8 @@ abstract final class JS {
         _ => null,
       };
       if (radix != null) {
-        // Summed digit by digit in a double, as StreamChatOpenUI and the
-        // Android SDK read it; past 2⁵³ that rounds at each digit, where
-        // JavaScript rounds once.
+        // Summed digit by digit in a double: past 2⁵³ that rounds at each
+        // digit, where JavaScript rounds once, so the last digits can differ.
         var result = 0.0;
         for (final codeUnit in trimmed.codeUnits.skip(2)) {
           final digit = _digitValue(codeUnit);
