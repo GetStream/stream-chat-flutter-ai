@@ -149,6 +149,7 @@ final class OpenUILangParser {
     for (final statement in statements.values) {
       switch (statement) {
         case StateStatement(:final id, :final initial):
+          context.currentStatementId = id;
           stateDeclarations[id] = Materializer.materializeValue(initial, context);
         case QueryStatement(:final id, :final call, :final deps):
           final args = Materializer.nameRawCallArgs(call.args, context, id);
