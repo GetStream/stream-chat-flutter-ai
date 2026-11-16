@@ -76,9 +76,10 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
                 OpenUIMarkdownText(
                   data: title,
                   style: (small ? styles.caption : styles.bodySmall).copyWith(fontWeight: FontWeight.w500),
+                  inline: true,
                 ),
                 if (subtitle != null)
-                  OpenUIMarkdownText(data: subtitle, style: styles.caption, color: colors.secondaryText),
+                  OpenUIMarkdownText(data: subtitle, style: styles.caption, color: colors.secondaryText, inline: true),
               ],
             ),
           ),

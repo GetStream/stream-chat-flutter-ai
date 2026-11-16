@@ -65,7 +65,7 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
           children: [
             Semantics(
               header: true,
-              child: OpenUIMarkdownText(data: section.trigger, style: theme.heading),
+              child: OpenUIMarkdownText(data: section.trigger, style: theme.heading, inline: true),
             ),
             section.scope.buildProp('content'),
           ],
@@ -128,6 +128,7 @@ Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
                             OpenUIMarkdownText(
                               data: item.text('title') ?? '',
                               style: theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                              inline: true,
                             ),
                             if (details case OpenUIString(:final value))
                               OpenUIMarkdownText(
@@ -492,6 +493,7 @@ class _Disclosures extends StatelessWidget {
                             child: OpenUIMarkdownText(
                               data: item.trigger,
                               style: heading ? theme.heading : theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                              inline: true,
                             ),
                           ),
                           ExcludeSemantics(

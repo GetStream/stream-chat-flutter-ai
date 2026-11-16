@@ -464,15 +464,14 @@ class _TitleSubtitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 2,
       children: [
-        Text(
-          title,
-          style: theme.bodySmall.copyWith(
-            fontWeight: bold ? FontWeight.w600 : FontWeight.w500,
-            color: colors.text,
-          ),
+        OpenUIMarkdownText(
+          data: title,
+          style: theme.bodySmall.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+          color: colors.text,
+          inline: true,
         ),
         if (subtitle case final subtitle? when subtitle.isNotEmpty)
-          Text(subtitle, style: theme.caption.copyWith(color: colors.secondaryText)),
+          OpenUIMarkdownText(data: subtitle, style: theme.caption, color: colors.secondaryText, inline: true),
       ],
     );
   }
