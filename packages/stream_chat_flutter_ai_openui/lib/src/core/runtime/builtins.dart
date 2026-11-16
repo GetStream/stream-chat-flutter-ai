@@ -97,36 +97,48 @@ abstract final class Builtins {
     final field = JS.toStringOrEmpty(_arg(args, 1));
     final direction = _arg(args, 2);
     final descending = (JS.isNullish(direction) ? 'asc' : JS.stringOf(direction)) == 'desc';
-    double compare(OpenUIValue a, OpenUIValue b) {
-      final left = field.isEmpty ? a : resolveField(a, field);
-      final right = field.isEmpty ? b : resolveField(b, field);
-      final order = _isNumericLike(left) && _isNumericLike(right)
-          ? JS.toNumber(left) - JS.toNumber(right)
-          : compareText(JS.toStringOrEmpty(left), JS.toStringOrEmpty(right)).toDouble();
-      return descending ? -order : order;
+    // Each item's field, read once, with its sort key.
+    final decorated = [
+      for (final (index, item) in array.items.indexed)
+        _SortItem.of(index, field.isEmpty ? item : resolveField(item, field)),
+    ];
+    int compare(_SortItem a, _SortItem b) {
+      final double order;
+      if (a.number != null && b.number != null) {
+        order = a.number! - b.number!;
+      } else {
+        final key = a.key.compareTo(b.key);
+        order = (key != 0 ? key : _compareFolded(a.text, b.text)).toDouble();
+      }
+      final directed = descending ? -order : order;
+      if (directed < 0) return -1;
+      if (directed > 0) return 1;
+      // List.sort isn't stable: ties, and NaN, keep their order through the
+      // index.
+      return a.index.compareTo(b.index);
     }
 
-    // List.sort isn't stable: ties keep their order through the index.
-    final indexed = array.items.indexed.toList()
-      ..sort((a, b) {
-        final order = compare(a.$2, b.$2);
-        if (order < 0) return -1;
-        if (order > 0) return 1;
-        return a.$1.compareTo(b.$1);
-      });
-    return OpenUIArray([for (final (_, item) in indexed) item]);
+    decorated.sort(compare);
+    final items = array.items;
+    return OpenUIArray([for (final item in decorated) items[item.index]]);
   }
 
-  /// How `@Sort` orders two texts: by their sort keys, which fold case,
-  /// accents and ligatures, so `é` sorts next to `e`; then ignoring case;
+  /// How `@Sort` orders two texts: by their sort keys, then ignoring case,
   /// then lower case before upper case.
   ///
-  /// OpenUI orders text with the locale's collation (`localeCompare`); the
-  /// sort key comes close to it without one, and orders text as Stream's
-  /// servers order names.
+  /// OpenUI orders text with the locale's collation (`localeCompare`). The
+  /// sort key is instead the order Stream's SDKs share: it folds case and the
+  /// accents and ligatures of Latin letters, so `é` sorts next to `e`, and
+  /// trims spaces and apostrophes from the ends; other scripts keep their
+  /// letters as they are.
   static int compareText(String a, String b) {
     final key = normalizeStringForSort(a).compareTo(normalizeStringForSort(b));
     if (key != 0) return key;
+    return _compareFolded(a, b);
+  }
+
+  // Ignoring case first, then lower case before upper case.
+  static int _compareFolded(String a, String b) {
     final folded = a.toLowerCase().compareTo(b.toLowerCase());
     if (folded != 0) return folded;
     return _swapCase(a).compareTo(_swapCase(b));
@@ -166,4 +178,26 @@ abstract final class Builtins {
 
     return OpenUIArray(array.items.where(keeps));
   }
+}
+
+// An item of `@Sort`: its index, its field as a number when it is one, and as
+// text with its sort key, each worked out once.
+final class _SortItem {
+  _SortItem(this.index, this.number, this.text, this.key);
+
+  factory _SortItem.of(int index, OpenUIValue? value) {
+    // Text too for a number, which is compared as text with a field that isn't.
+    final text = JS.toStringOrEmpty(value);
+    return _SortItem(
+      index,
+      Builtins._isNumericLike(value) ? JS.toNumber(value) : null,
+      text,
+      normalizeStringForSort(text),
+    );
+  }
+
+  final int index;
+  final double? number;
+  final String text;
+  final String key;
 }

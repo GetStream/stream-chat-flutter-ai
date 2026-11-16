@@ -12,4 +12,4 @@
   host's `open`, which decides which links open.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
-- `@Sort` orders accented letters next to their base letter, so `é` sorts with `e` rather than after `z`.
+- `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.
