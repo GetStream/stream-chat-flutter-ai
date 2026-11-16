@@ -38,7 +38,10 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
         borderRadius: BorderRadius.circular(theme.smallCornerRadius),
         child: SizedBox.square(
           dimension: side,
-          child: OpenUIRemoteImage(source: image['src'] as String?, alt: image['alt'] as String?),
+          child: OpenUIRemoteImage(
+            source: image['src'] is String ? image['src']! as String : null,
+            alt: image['alt'] is String ? image['alt']! as String : null,
+          ),
         ),
       );
     } else {
