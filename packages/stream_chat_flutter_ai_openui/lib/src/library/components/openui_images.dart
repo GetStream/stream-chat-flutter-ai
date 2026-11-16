@@ -77,6 +77,12 @@ class _GalleryImage {
   final String? details;
 }
 
+// What a tile is called: its `alt`, or its place in the gallery when it has none.
+String _tileLabel(String? alt, int index, int count) {
+  if (alt != null && alt.isNotEmpty) return alt;
+  return 'Image ${index + 1} of $count';
+}
+
 class _Gallery extends StatelessWidget {
   const _Gallery({required this.images});
 
@@ -99,7 +105,7 @@ class _Gallery extends StatelessWidget {
               child: Semantics(
                 button: true,
                 // The tile is read by what it shows, and the image in it is not.
-                label: image.alt,
+                label: _tileLabel(image.alt, index, images.length),
                 excludeSemantics: true,
                 onTap: () => _preview(context, index),
                 child: GestureDetector(
@@ -118,7 +124,8 @@ class _Gallery extends StatelessWidget {
   }
 
   void _preview(BuildContext context, int initial) {
-    final view = OpenUIViewScope.of(context);
+    // Read on a tap, outside a build, so without depending on the scope.
+    final view = context.getInheritedWidgetOfExactType<OpenUIViewScope>()!;
     final captured = InheritedTheme.capture(from: context, to: Navigator.of(context, rootNavigator: true).context);
     showGeneralDialog<void>(
       context: context,

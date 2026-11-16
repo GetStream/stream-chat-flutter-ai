@@ -180,7 +180,10 @@ class _RenderGrid extends RenderBox
     for (var start = 0; start < children.length; start += columns) {
       final row = children.skip(start).take(columns).toList();
       // Each child at its own height first, then those shorter than the row
-      // again at the row's height.
+      // again at least as tall as the row. Their height is only bounded below:
+      // with both bounds equal, a child that grows later, such as a card whose
+      // content arrives while it streams, would lay out again within its old
+      // height instead of the grid learning of it, and overflow.
       var height = 0.0;
       for (final child in row) {
         child.layout(BoxConstraints.tightFor(width: itemWidth), parentUsesSize: true);
@@ -188,7 +191,10 @@ class _RenderGrid extends RenderBox
       }
       for (final (index, child) in row.indexed) {
         if (child.size.height < height) {
-          child.layout(BoxConstraints.tightFor(width: itemWidth, height: height), parentUsesSize: true);
+          child.layout(
+            BoxConstraints(minWidth: itemWidth, maxWidth: itemWidth, minHeight: height),
+            parentUsesSize: true,
+          );
         }
         final x = index * (itemWidth + _spacing);
         (child.parentData! as _GridParentData).offset = Offset(

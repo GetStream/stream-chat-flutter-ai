@@ -300,6 +300,27 @@ void main() {
       expect(host.sent.single.label, 'Doorgaan');
     });
 
+    testWidgets("a button without a label sends the app's translation after the app's language changes", (
+      tester,
+    ) async {
+      final host = _Host();
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      final document = _doc('root = Stack([Button("", @ToAssistant("Next"))])');
+      Widget app(AITranslations translations) => testApp(
+        AITranslationsScope(
+          translations: translations,
+          child: Builder(builder: (_) => engine.view(document, 'r1')!),
+        ),
+      );
+      await tester.pumpWidget(app(const DefaultAITranslations()));
+      await tester.pumpWidget(app(const _Dutch()));
+
+      await tester.tap(find.byType(StreamButton).first);
+
+      expect(host.sent.single.label, 'Doorgaan');
+    });
+
     testWidgets('a web link opens through the host, never as an action', (tester) async {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
@@ -569,6 +590,147 @@ void main() {
       expect(reported.single.exception.toString(), contains("'card_header'"));
     });
   });
+
+  group('in a conversation', () {
+    // A conversation of 100 turns, each reply refreshing a query that names
+    // it every 5 seconds, shown by a host whose tool records the replies that
+    // ask.
+    Future<List<int>> openHistory(WidgetTester tester) async {
+      final tool = _ReplyTool();
+      final host = AIUIHost(renderers: [OpenUIRenderer()], tools: [tool], send: (_) async {});
+      addTearDown(host.dispose);
+      final messages = <AIMessage>[
+        for (var i = 0; i < 100; i++) ...[
+          _User('u$i'),
+          _Reply(
+            'r$i',
+            AIUIDocument(
+              format: AIUIFormat.openUI,
+              content: 'q = Query("list", {"reply": $i}, [], 5)\nroot = Card([CardHeader("Reply $i")])',
+            ),
+          ),
+        ],
+      ];
+      await tester.pumpWidget(
+        testApp(
+          SizedBox(
+            height: 600,
+            child: AIConversationView(messages: messages, ui: host),
+          ),
+        ),
+      );
+      // The conversation opens at its end once its turns are laid out.
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+      return tool.replies;
+    }
+
+    // The replies whose view is in the tree, on screen or about to be.
+    Set<int> built() => {
+      for (var i = 0; i < 100; i++)
+        if (find.text('Reply $i', skipOffstage: false).evaluate().isNotEmpty) i,
+    };
+
+    testWidgets('only the replies that show run their queries when it opens', (tester) async {
+      final replies = await openHistory(tester);
+
+      expect(built(), hasLength(lessThan(10)));
+      expect(built(), contains(99));
+      expect(replies.toSet(), built());
+      expect(replies, hasLength(built().length));
+    });
+
+    testWidgets('only the replies that show refresh their queries', (tester) async {
+      final replies = await openHistory(tester);
+      final shown = built();
+      replies.clear();
+      await tester.pump(const Duration(seconds: 21));
+
+      expect(replies.toSet(), shown);
+      expect(replies, hasLength(shown.length * 4));
+    });
+
+    testWidgets('a reply scrolled into view runs its queries, and one scrolled away stops', (tester) async {
+      final replies = await openHistory(tester);
+      final atEnd = built();
+      replies.clear();
+
+      final list = find.descendant(of: find.byType(AIConversationView), matching: find.byType(Scrollable)).first;
+      final position = tester.state<ScrollableState>(list).position;
+      position.jumpTo(position.minScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+      final atStart = built();
+      expect(atStart, contains(0));
+      expect(atStart.intersection(atEnd), isEmpty);
+      expect(replies.toSet(), atStart);
+
+      replies.clear();
+      await tester.pump(const Duration(seconds: 20));
+      expect(replies.toSet(), atStart);
+    });
+
+    testWidgets('only the replies that show run their queries again once the app is back', (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final replies = await openHistory(tester);
+      final shown = built();
+      replies.clear();
+
+      // The states an app goes through to the background and back.
+      void moveTo(List<AppLifecycleState> states) => states.forEach(tester.binding.handleAppLifecycleStateChanged);
+      moveTo(const [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]);
+      await tester.pump(const Duration(seconds: 30));
+      expect(replies, isEmpty);
+
+      moveTo(const [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]);
+      await tester.pump(const Duration(seconds: 6));
+      expect(replies.toSet(), shown);
+      expect(replies, hasLength(shown.length));
+    });
+  });
+}
+
+// A tool that records which reply each call came from.
+final class _ReplyTool extends AIResultClientTool {
+  final replies = <int>[];
+
+  @override
+  AIToolDefinition get definition => const AIToolDefinition(name: 'list', description: 'Lists', isReadOnly: true);
+
+  @override
+  Future<AIClientToolResult> run(AIToolCallPart call) async {
+    replies.add((call.arguments!['reply']! as num).toInt());
+    return AIClientToolResult.completed(const <Object?>[]);
+  }
+}
+
+final class _Reply with AIMessage {
+  _Reply(this.id, this.uiDocument);
+
+  @override
+  final String id;
+
+  @override
+  AIMessageRole get role => AIMessageRole.assistant;
+
+  @override
+  String get text => 'Here is the list.';
+
+  @override
+  final AIUIDocument uiDocument;
+}
+
+final class _User with AIMessage {
+  _User(this.id);
+
+  @override
+  final String id;
+
+  @override
+  AIMessageRole get role => AIMessageRole.user;
+
+  @override
+  String get text => 'Question $id';
 }
 
 // Dutch, for the label of a control without one; every other string is English.
