@@ -61,7 +61,30 @@ void main() {
     const delegate = A2UITranslationsDelegate({'pt': DefaultA2UITranslations(), 'pt_BR': _DutchTranslations()});
 
     expect(delegate.resolve(const Locale('pt', 'BR')), isA<_DutchTranslations>());
+  });
+
+  test('a delegate serves the language entry to a country without an entry of its own', () {
+    const delegate = A2UITranslationsDelegate({'pt': DefaultA2UITranslations(), 'pt_BR': _DutchTranslations()});
+
     expect(delegate.resolve(const Locale('pt', 'PT')), isA<DefaultA2UITranslations>());
+  });
+
+  test('a delegate serves a script entry to a locale with that script and a country', () {
+    const delegate = A2UITranslationsDelegate({'zh': DefaultA2UITranslations(), 'zh_Hant': _DutchTranslations()});
+
+    expect(
+      delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+      isA<_DutchTranslations>(),
+    );
+  });
+
+  test('a delegate serves a country entry to a locale with a script it has no entry for', () {
+    const delegate = A2UITranslationsDelegate({'zh': DefaultA2UITranslations(), 'zh_TW': _DutchTranslations()});
+
+    expect(
+      delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+      isA<_DutchTranslations>(),
+    );
   });
 
   test('a delegate rejects a key that is not a locale key', () {
@@ -92,10 +115,15 @@ void main() {
     expect(delegate.load(const Locale('nl')), isA<SynchronousFuture<A2UITranslations>>());
   });
 
-  test('a delegate reloads only when its translations change', () {
+  test('a delegate does not reload for equal translations', () {
     const delegate = A2UITranslationsDelegate({'nl': _DutchTranslations()});
 
     expect(delegate.shouldReload(const A2UITranslationsDelegate({'nl': _DutchTranslations()})), isFalse);
+  });
+
+  test('a delegate reloads when its translations change', () {
+    const delegate = A2UITranslationsDelegate({'nl': _DutchTranslations()});
+
     expect(delegate.shouldReload(const A2UITranslationsDelegate({'nl': _ShoutingTranslations()})), isTrue);
   });
 
@@ -112,18 +140,30 @@ void main() {
     expect(builder.properties.map((property) => property.name), contains('translations'));
   });
 
-  testWidgets('a scope rebuilds its dependents only when its translations change', (tester) async {
-    _BuildCounter.builds = 0;
+  testWidgets('a scope does not rebuild its dependents for the same translations', (tester) async {
+    var builds = 0;
+    final counter = _BuildCounter(onBuild: () => builds++);
     Widget app(A2UITranslations translations) => MaterialApp(
-      home: A2UITranslationsScope(translations: translations, child: const _BuildCounter()),
+      home: A2UITranslationsScope(translations: translations, child: counter),
     );
 
     await tester.pumpWidget(app(const _DutchTranslations()));
     await tester.pumpWidget(app(const _DutchTranslations()));
-    expect(_BuildCounter.builds, 1);
 
+    expect(builds, 1);
+  });
+
+  testWidgets('a scope rebuilds its dependents when its translations change', (tester) async {
+    var builds = 0;
+    final counter = _BuildCounter(onBuild: () => builds++);
+    Widget app(A2UITranslations translations) => MaterialApp(
+      home: A2UITranslationsScope(translations: translations, child: counter),
+    );
+
+    await tester.pumpWidget(app(const _DutchTranslations()));
     await tester.pumpWidget(app(const _ShoutingTranslations()));
-    expect(_BuildCounter.builds, 2);
+
+    expect(builds, 2);
   });
 
   testWidgets('a scope carries its translations into a route pushed with captured themes', (tester) async {
@@ -175,15 +215,16 @@ class _Reader extends StatelessWidget {
 }
 
 // Counts its builds, each of which reads the translations.
+// Reads the translations and reports each build to [onBuild].
 class _BuildCounter extends StatelessWidget {
-  const _BuildCounter();
+  const _BuildCounter({required this.onBuild});
 
-  static int builds = 0;
+  final VoidCallback onBuild;
 
   @override
   Widget build(BuildContext context) {
     A2UITranslations.of(context);
-    builds++;
+    onBuild();
     return const SizedBox();
   }
 }

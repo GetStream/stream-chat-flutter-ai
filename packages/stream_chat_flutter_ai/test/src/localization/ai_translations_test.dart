@@ -413,6 +413,24 @@ void main() {
       expect(delegate.resolve(const Locale('es', '419')), isA<_TestTranslations>());
     });
 
+    test('a script entry serves a locale with that script and a country', () {
+      const delegate = AITranslationsDelegate({'zh': DefaultAITranslations(), 'zh_Hant': _TestTranslations()});
+
+      expect(
+        delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+        isA<_TestTranslations>(),
+      );
+    });
+
+    test('a country entry serves a locale with a script it has no entry for', () {
+      const delegate = AITranslationsDelegate({'zh': DefaultAITranslations(), 'zh_TW': _TestTranslations()});
+
+      expect(
+        delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+        isA<_TestTranslations>(),
+      );
+    });
+
     test('shouldReload tracks the map, not the delegate instance', () {
       const a = AITranslationsDelegate({'nl': _TestTranslations()});
       const b = AITranslationsDelegate({'nl': _TestTranslations()});

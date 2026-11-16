@@ -49,13 +49,12 @@ abstract class A2UITranslations {
   /// 3. [DefaultA2UITranslations].
   ///
   /// A scope beats the delegate because it is placed by hand around specific
-  /// widgets. It depends on the nearest scope and, without one, on
-  /// [Localizations], so a locale change or a swapped scope rebuilds the
-  /// widgets that read it.
+  /// widgets. Widgets that call this rebuild when the app's locale changes or
+  /// the scope's translations change.
   static A2UITranslations of(BuildContext context) {
-    return A2UITranslationsScope.maybeOf(context) ??
-        Localizations.of<A2UITranslations>(context, A2UITranslations) ??
-        const DefaultA2UITranslations();
+    if (A2UITranslationsScope.maybeOf(context) case final scoped?) return scoped;
+    if (Localizations.of<A2UITranslations>(context, A2UITranslations) case final localized?) return localized;
+    return const DefaultA2UITranslations();
   }
 
   /// Label of the button that plays a Video or an AudioPlayer.
@@ -70,8 +69,8 @@ abstract class A2UITranslations {
 /// neither an [A2UITranslationsScope] nor an [A2UITranslationsDelegate]
 /// supplies others.
 ///
-/// Implement [A2UITranslations] for your own languages rather than
-/// subclassing this. See there for why.
+/// Consider implementing [A2UITranslations] for other languages rather than
+/// subclassing this, so a string added later is a compile error.
 class DefaultA2UITranslations extends A2UITranslations {
   /// Creates a [DefaultA2UITranslations].
   const DefaultA2UITranslations();
@@ -111,8 +110,8 @@ class A2UITranslationsScope extends InheritedTheme {
   /// The nearest enclosing scope's [translations], or `null` when there is no
   /// scope above [context].
   ///
-  /// This reads only the scope. Widgets want [A2UITranslations.of], which
-  /// falls back to the locale's delegate and then to the English defaults.
+  /// This reads only the scope. To also fall back to the locale's delegate and
+  /// then to the English defaults, consider [A2UITranslations.of].
   static A2UITranslations? maybeOf(BuildContext context) {
     return context.dependOnInheritedWidgetOfExactType<A2UITranslationsScope>()?.translations;
   }
@@ -165,13 +164,16 @@ class A2UITranslationsDelegate extends LocalizationsDelegate<A2UITranslations> {
   /// match a locale.
   final Map<String, A2UITranslations> translations;
 
-  /// The entry for [locale]: the exact match if [translations] has one,
-  /// otherwise the entry for its language code, otherwise `null`.
+  /// The entry for [locale], or `null`: the exact match if [translations] has
+  /// one, otherwise the entry for its language and script, then for its
+  /// language and country, then for its language alone.
   ///
-  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, while a `'pt_BR'`
-  /// entry serves only Brazilian Portuguese.
+  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, a `'pt_BR'` entry
+  /// serves only Brazilian Portuguese, and a `'zh_Hant'` entry serves
+  /// `zh_Hant_TW` too.
   ///
-  /// Throws in debug if [translations] holds a key that is not a locale key.
+  /// Throws a [FlutterError] in debug mode if [translations] holds a key that
+  /// is not a locale key.
   A2UITranslations? resolve(Locale locale) {
     assert(() {
       for (final key in translations.keys) {
@@ -187,7 +189,14 @@ class A2UITranslationsDelegate extends LocalizationsDelegate<A2UITranslations> {
       return true;
     }(), 'A2UITranslationsDelegate keys must be locale keys.');
 
-    return translations[locale.toString()] ?? translations[locale.languageCode];
+    if (translations[locale.toString()] case final exact?) return exact;
+    if (locale.scriptCode case final script?) {
+      if (translations['${locale.languageCode}_$script'] case final scripted?) return scripted;
+    }
+    if (locale.countryCode case final country?) {
+      if (translations['${locale.languageCode}_$country'] case final regional?) return regional;
+    }
+    return translations[locale.languageCode];
   }
 
   /// Always `true`: a locale [translations] has no entry for is served the

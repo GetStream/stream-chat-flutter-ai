@@ -5,6 +5,11 @@
 - `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`: remove them
   from your `AITranslations` implementation and implement `A2UITranslations` instead.
 
+🐞 Fixed
+
+- `AITranslationsDelegate` serves a language-and-script entry, such as `'zh_Hant'`, to a locale with that script and
+  a country, and a language-and-country entry to a locale that also has a script.
+
 ## 0.2.0
 
 💥 Breaking
