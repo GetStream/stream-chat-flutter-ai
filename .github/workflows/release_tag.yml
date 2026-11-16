@@ -16,7 +16,7 @@ jobs:
     if: "${{ startsWith(github.event.head_commit.message, 'chore(repo): release v') }}"
     runs-on: ubuntu-latest
     permissions:
-      contents: read  # The tag is pushed with BOT_GITHUB_API_TOKEN
+      contents: read  # The tag is pushed with CI_BOT_GITHUB_TOKEN
 
     steps:
       - name: 📚 Checkout branch
@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
           # A tag pushed with the default GITHUB_TOKEN does not trigger other
           # workflows, so `release_publish` would never run.
-          token: ${{ secrets.BOT_GITHUB_API_TOKEN }}
+          token: ${{ secrets.CI_BOT_GITHUB_TOKEN }}
 
       - name: 🏷️ Extract Version Tag
         id: extract_tag

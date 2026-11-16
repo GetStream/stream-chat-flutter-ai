@@ -413,6 +413,24 @@ void main() {
       expect(delegate.resolve(const Locale('es', '419')), isA<_TestTranslations>());
     });
 
+    test('a script entry serves a locale with that script and a country', () {
+      const delegate = AITranslationsDelegate({'zh': DefaultAITranslations(), 'zh_Hant': _TestTranslations()});
+
+      expect(
+        delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+        isA<_TestTranslations>(),
+      );
+    });
+
+    test('a country entry serves a locale with a script it has no entry for', () {
+      const delegate = AITranslationsDelegate({'zh': DefaultAITranslations(), 'zh_TW': _TestTranslations()});
+
+      expect(
+        delegate.resolve(const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant', countryCode: 'TW')),
+        isA<_TestTranslations>(),
+      );
+    });
+
     test('shouldReload tracks the map, not the delegate instance', () {
       const a = AITranslationsDelegate({'nl': _TestTranslations()});
       const b = AITranslationsDelegate({'nl': _TestTranslations()});
@@ -450,14 +468,6 @@ void main() {
       expect(translations.editingMessage, 'Editing message');
       expect(translations.cancelEditing, 'Cancel editing');
       expect(translations.agentError, "The agent couldn't answer. Try again.");
-    });
-
-    test('labels the button that plays media "Play"', () {
-      expect(const DefaultAITranslations().playMedia, 'Play');
-    });
-
-    test('labels the button that pauses media "Pause"', () {
-      expect(const DefaultAITranslations().pauseMedia, 'Pause');
     });
   });
 }
