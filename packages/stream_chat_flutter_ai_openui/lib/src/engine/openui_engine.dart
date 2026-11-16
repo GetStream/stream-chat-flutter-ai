@@ -43,6 +43,8 @@ final class OpenUIEngine extends AIUIEngine {
 
   late final AppLifecycleListener _lifecycle;
   final Map<String, _OpenUIReply> _replies = {};
+  // The reply of each runtime, for the app's components to find theirs.
+  final Expando<_OpenUIReply> _replyOf = Expando();
   // The latest document of each reply that [receive] got during a frame, to
   // apply once it ends.
   final Map<String, AIUIDocument> _received = {};
@@ -97,7 +99,7 @@ final class OpenUIEngine extends AIUIEngine {
       theme: _renderer.theme,
       mediaUrl: _renderer.mediaUrl,
       onOpenLink: _host.open,
-      onBuildError: (node, error, stack) => _reportBuildError(reply, node, error, stack),
+      onBuildError: (node, error, stack) => _reportBuildError(reply, node, error),
       // Read in the app's language where the view builds, as Android does.
       onUntitledLabel: (label) => reply.untitledLabel = label,
     );
@@ -166,9 +168,9 @@ final class OpenUIEngine extends AIUIEngine {
   OpenUIComponentBuilder _appComponentBuilder(AIUIComponent<Object?> component, ComponentSchema schema) {
     return (context, scope) {
       final runtime = OpenUIViewScope.of(context).runtime;
-      final reply = _replies.values.where((reply) => identical(reply.runtime, runtime)).firstOrNull;
+      final reply = _replyOf[runtime];
       // A reply removed while its view still shows draws nothing new.
-      if (reply == null) return const SizedBox.shrink();
+      if (reply == null || !_shows(reply)) return const SizedBox.shrink();
       final arguments = {
         for (final prop in schema.props)
           if (scope.value(prop.name) case final value?) prop.name: value,
@@ -214,10 +216,10 @@ final class OpenUIEngine extends AIUIEngine {
     if (!_shows(reply)) return;
     if (event.type == OpenUIActionEvent.openUrl) {
       final url = switch (event.params['url']) {
-        OpenUIString(:final value) => Uri.tryParse(value),
+        OpenUIString(:final value) => openableOpenUILink(value),
         _ => null,
       };
-      if (url != null && _isOpenable(url)) _host.open(url);
+      if (url != null) _host.open(url);
       return;
     }
     final params = {...event.params}..remove('context');
@@ -245,13 +247,6 @@ final class OpenUIEngine extends AIUIEngine {
     );
   }
 
-  // Whether [url] is a web link to a host or an email link, the only links a
-  // reply's program opens, as on iOS.
-  static bool _isOpenable(Uri url) {
-    if (url.isScheme('mailto')) return true;
-    return (url.isScheme('http') || url.isScheme('https')) && url.host.isNotEmpty;
-  }
-
   void _reportErrors(List<OpenUIError> errors, _OpenUIReply reply) {
     for (final error in errors) {
       if (!reply.reported.add(error)) continue;
@@ -259,12 +254,10 @@ final class OpenUIEngine extends AIUIEngine {
     }
   }
 
-  void _reportBuildError(_OpenUIReply reply, ElementNode node, Object error, StackTrace stack) {
-    final onError = _renderer.onError;
-    if (onError == null) {
-      _reportToFlutter(error, "while building the OpenUI component '${node.typeName}'", stack: stack);
-      return;
-    }
+  // The view has reported [error] to [FlutterError.reportError] already; this
+  // gives it to `onError` too.
+  void _reportBuildError(_OpenUIReply reply, ElementNode node, Object error) {
+    if (_renderer.onError == null) return;
     // Like the program's problems, given once, and only once the reply is
     // written: a component still arriving may not be drawable yet.
     if (reply.runtime.isStreaming) return;
@@ -359,6 +352,7 @@ final class _OpenUIReply {
       // key type, such as after decoding it.
       initialState: saved is Map ? {for (final MapEntry(:key, :value) in saved.entries) '$key': value} : null,
     );
+    _engine._replyOf[runtime] = this;
     _actions = runtime.actions.listen((event) => _engine._handle(event, this));
     runtime.state.addListener(_saveState);
     runtime.errors.addListener(_reportErrors);
@@ -373,12 +367,29 @@ final class _OpenUIReply {
   /// the app where the reply's view last built.
   String untitledLabel = const DefaultAITranslations().uiActionUntitled;
   late final StreamSubscription<OpenUIActionEvent> _actions;
-  // The errors given to `onError` already, each given once.
+  // The errors given to `onError` already, each given once while the agent
+  // extends the reply's text.
   final Set<OpenUIError> reported = {};
+  String? _text;
+  // Whether the agent wrote the reply again since its problems were last
+  // given.
+  bool _rewritten = false;
 
   void update(AIUIDocument document) {
     final text = document.text;
+    // A reply the agent writes again, rather than goes on with, may make the
+    // same mistakes, which are given again.
+    if (text != null && _text != null && !text.startsWith(_text!)) {
+      reported.clear();
+      _rewritten = true;
+    }
+    _text = text;
     runtime.update(text == null ? null : openUIProgramOf(text), isStreaming: document.isStreaming);
+    // The runtime doesn't notify problems equal to the ones it had.
+    if (_rewritten && !document.isStreaming) {
+      _rewritten = false;
+      _reportErrors();
+    }
   }
 
   // The state changes while the reply builds too, such as when a field saves
@@ -419,7 +430,23 @@ final class _HostTools implements OpenUIToolProvider {
     // gone.
     await Future<void>.value();
     if (isClosed) throw StateError("The reply is gone, so the tool $name doesn't run.");
-    final output = await _host.runTool(name, arguments: openUIJsonObject(args), userInitiated: userInitiated);
+    final Object? output;
+    try {
+      output = await _host.runTool(name, arguments: openUIJsonObject(args), userInitiated: userInitiated);
+    } on AIUIToolException catch (error) {
+      // The query's error reads the host's message, as on iOS and Android.
+      throw _ToolFailure(error.message);
+    }
     return OpenUIValue.fromJson(output);
   }
+}
+
+// Why the host couldn't run a tool, read as its message alone.
+final class _ToolFailure implements Exception {
+  const _ToolFailure(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

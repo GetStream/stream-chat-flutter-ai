@@ -90,24 +90,37 @@ abstract final class Preprocessor {
   /// ```` ```Enjoy! ````, four backticks or an indented fence keeps that
   /// fence, and whatever the reply says after it, in the program.
   /// [stripFences] would read the fence as the opening of a block and lose
-  /// the program. So when the first fence outside a `"…"` string comes after
+  /// the program. So when the only fence outside a `"…"` string comes after
   /// a statement, a line such as `root = …` or `$name = …`, the text before
-  /// the fence is returned. Prose before an opening fence has no statement,
-  /// so a program in its own fenced block is kept.
+  /// the fence is returned. A fence with another one after it opens a block,
+  /// even when the prose before it has a line such as `Total = 20`, so a
+  /// program in its own fenced block is kept.
   static String withoutTrailingFence(String text) {
-    var i = 0;
+    final fence = _fenceFrom(text, 0);
+    if (fence == null) return text;
+    var end = fence;
+    while (end < text.length && text.codeUnitAt(end) == _backtick) {
+      end += 1;
+    }
+    if (_fenceFrom(text, end) != null) return text;
+    final before = text.substring(0, fence);
+    return _statement.hasMatch(before) ? before : text;
+  }
+
+  // Where the first fence outside a `"…"` string at or after [start] begins,
+  // or `null` when there is none.
+  static int? _fenceFrom(String text, int start) {
+    var i = start;
     while (i < text.length) {
       final next = _skipString(text, i);
       if (next > i) {
         i = next;
         continue;
       }
-      if (_isFence(text, i)) break;
+      if (_isFence(text, i)) return i;
       i += 1;
     }
-    if (i >= text.length) return text;
-    final before = text.substring(0, i);
-    return _statement.hasMatch(before) ? before : text;
+    return null;
   }
 
   // A line that starts a statement: a name or `$variable`, then `=` but not

@@ -85,6 +85,11 @@ void main() {
       expect(Preprocessor.withoutTrailingFence('Plan:\n```Enjoy!'), 'Plan:\n```Enjoy!');
     });
 
+    test('keeps a fenced program after prose with a line like a statement', () {
+      const text = 'Your bill:\nTotal = 20\n```openui-lang\nroot = Card([])\n```';
+      expect(Preprocessor.withoutTrailingFence(text), text);
+    });
+
     test('cuts a fence the reply goes on after', () {
       expect(Preprocessor.withoutTrailingFence('a = 1\n```Enjoy!\n\nHave fun.'), 'a = 1\n');
     });

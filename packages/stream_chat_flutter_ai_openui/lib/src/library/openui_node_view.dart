@@ -6,9 +6,9 @@ part of 'openui_component_scope.dart';
 ///
 /// It draws nothing when the component's type has no builder; in debug
 /// builds it reports each such type once per runtime with [debugPrint]. A
-/// builder that throws draws nothing either: the error goes to the view's
-/// [OpenUIViewScope.onBuildError], or to [FlutterError.reportError] when it
-/// has none.
+/// builder that throws draws nothing either: the error goes to
+/// [FlutterError.reportError] with its stack trace, then to the view's
+/// [OpenUIViewScope.onBuildError] when it has one.
 ///
 /// Internal to the package.
 @internal
@@ -40,19 +40,15 @@ class OpenUINodeView extends StatelessWidget {
     try {
       return builder(context, scope);
     } on Object catch (error, stack) {
-      final onBuildError = OpenUIViewScope.of(context).onBuildError;
-      if (onBuildError != null) {
-        onBuildError(node, error, stack);
-      } else {
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stack,
-            library: 'stream_chat_flutter_ai_openui',
-            context: ErrorDescription("while building the OpenUI component '${node.typeName}'"),
-          ),
-        );
-      }
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'stream_chat_flutter_ai_openui',
+          context: ErrorDescription("while building the OpenUI component '${node.typeName}'"),
+        ),
+      );
+      OpenUIViewScope.of(context).onBuildError?.call(node, error, stack);
       return const SizedBox.shrink();
     }
   }
