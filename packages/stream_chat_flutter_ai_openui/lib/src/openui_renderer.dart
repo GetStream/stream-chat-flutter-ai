@@ -93,13 +93,14 @@ final class OpenUIRenderer extends AIUIRenderer {
   ///
   /// It gets the problems with the program once the reply is written, such as
   /// a component the library doesn't have or a query whose tool failed, so
-  /// the app can send them back to the agent. Each comes once for as long as
-  /// the reply is shown and the agent goes on with its text; a reply the host
-  /// drops and shows again, or the agent writes again, gives them again. It
-  /// also gets what a component's builder throws, as a
-  /// [OpenUIErrorCode.renderError]; that error always goes to
-  /// [FlutterError.reportError] too, with its stack trace. Each arrives after
-  /// the frame being built.
+  /// the app can send them back to the agent. It also gets what a
+  /// component's builder throws, as a [OpenUIErrorCode.renderError]; that
+  /// error always goes to [FlutterError.reportError] too, with its stack
+  /// trace.
+  ///
+  /// Each problem arrives once, after the frame being built, and again only
+  /// when the reply is removed and shown again or the agent rewrites it
+  /// rather than extends it.
   final OpenUIErrorHandler? onError;
 
   /// The `url` itself when it is a web link to a host, `http` or `https`, or
