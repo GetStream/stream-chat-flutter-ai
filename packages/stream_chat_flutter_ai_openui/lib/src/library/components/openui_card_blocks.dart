@@ -4,10 +4,10 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_item_context.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_node_props.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -543,7 +543,7 @@ Widget _block(
                     triggerOpenUIAction(
                       context,
                       scope,
-                      label: label ?? OpenUIStrings.cardItem(kind, index + 1),
+                      label: label ?? OpenUITranslations.of(context).cardItem(kind, index + 1),
                       action: mergeOpenUIItemContext(action, {
                         'itemIndex': OpenUINumber(index.toDouble()),
                         ...context_,

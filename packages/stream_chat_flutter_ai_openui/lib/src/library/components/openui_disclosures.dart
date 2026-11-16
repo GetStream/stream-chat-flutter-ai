@@ -4,8 +4,8 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -598,13 +598,13 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
             children: [
               pager(
                 rtl ? context.streamIcons.chevronRight : context.streamIcons.chevronLeft,
-                OpenUIStrings.previousSlide,
+                OpenUITranslations.of(context).previousSlide,
                 current - 1,
                 enabled: current > 0,
               ),
               Semantics(
                 container: true,
-                label: OpenUIStrings.slidePosition(current + 1, count),
+                label: OpenUITranslations.of(context).slidePosition(current + 1, count),
                 excludeSemantics: true,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -624,7 +624,7 @@ class _OpenUICarouselState extends State<_OpenUICarousel> {
               ),
               pager(
                 rtl ? context.streamIcons.chevronLeft : context.streamIcons.chevronRight,
-                OpenUIStrings.nextSlide,
+                OpenUITranslations.of(context).nextSlide,
                 current + 1,
                 enabled: current < count - 1,
               ),

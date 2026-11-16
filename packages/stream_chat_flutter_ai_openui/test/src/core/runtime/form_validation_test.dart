@@ -4,7 +4,8 @@ import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart'
 
 OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
 
-String? _check(Object? value, Object? rules) => FormValidation.validate(_v(value), FormValidation.parse(_v(rules)));
+FormValidationError? _check(Object? value, Object? rules) =>
+    FormValidation.validate(_v(value), FormValidation.parse(_v(rules)));
 
 void main() {
   test('rules come as an object or a list of strings', () {
@@ -20,15 +21,15 @@ void main() {
   });
 
   test('each rule gives its message', () {
-    expect(_check('', {'required': true}), 'This field is required');
-    expect(_check({'a': false}, {'required': true}), 'At least one option is required');
-    expect(_check('a b@c.d', {'email': true}), 'Please enter a valid email');
-    expect(_check('openui.com', {'url': true}), 'Please enter a valid URL');
-    expect(_check('abc', {'numeric': true}), 'Must be a number');
-    expect(_check('3', {'min': 5}), 'Must be at least 5');
-    expect(_check(9, {'max': 5}), 'Must be no more than 5');
-    expect(_check('ab', {'minLength': 3}), 'Must be at least 3 characters');
-    expect(_check('abcd', {'maxLength': 3}), 'Must be no more than 3 characters');
+    expect(_check('', {'required': true}), const FormValidationError(FormValidationErrorCode.required));
+    expect(_check({'a': false}, {'required': true}), const FormValidationError(FormValidationErrorCode.requiredOption));
+    expect(_check('a b@c.d', {'email': true}), const FormValidationError(FormValidationErrorCode.email));
+    expect(_check('openui.com', {'url': true}), const FormValidationError(FormValidationErrorCode.url));
+    expect(_check('abc', {'numeric': true}), const FormValidationError(FormValidationErrorCode.numeric));
+    expect(_check('3', {'min': 5}), const FormValidationError(FormValidationErrorCode.min, '5'));
+    expect(_check(9, {'max': 5}), const FormValidationError(FormValidationErrorCode.max, '5'));
+    expect(_check('ab', {'minLength': 3}), const FormValidationError(FormValidationErrorCode.minLength, '3'));
+    expect(_check('abcd', {'maxLength': 3}), const FormValidationError(FormValidationErrorCode.maxLength, '3'));
   });
 
   test('values that pass', () {
@@ -43,7 +44,7 @@ void main() {
     for (final url in ['mailto:a@b.co', 'tel:+15550100', 'urn:isbn:0451450523', 'file:///tmp/a.txt']) {
       expect(_check(url, {'url': true}), isNull, reason: url);
     }
-    expect(_check('/relative/path', {'url': true}), 'Please enter a valid URL');
+    expect(_check('/relative/path', {'url': true}), const FormValidationError(FormValidationErrorCode.url));
   });
 
   test('every rule but required lets an empty value pass', () {
@@ -53,7 +54,10 @@ void main() {
   });
 
   test('the first failing rule gives the error, and unknown rules are skipped', () {
-    expect(_check('a', {'shout': true, 'minLength': 2, 'email': true}), 'Must be at least 2 characters');
+    expect(
+      _check('a', {'shout': true, 'minLength': 2, 'email': true}),
+      const FormValidationError(FormValidationErrorCode.minLength, '2'),
+    );
   });
 
   test('a pattern rule is skipped for now', () {

@@ -4,6 +4,7 @@ import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -157,7 +158,10 @@ Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) 
       if (error != null)
         Semantics(
           liveRegion: true,
-          child: StreamHelperText(text: error, state: StreamHelperState.error),
+          child: StreamHelperText(
+            text: openUIValidationMessage(OpenUITranslations.of(context), error),
+            state: StreamHelperState.error,
+          ),
         )
       else if (hint.isNotEmpty)
         Text(hint, style: theme.caption.copyWith(color: colors.secondaryText)),

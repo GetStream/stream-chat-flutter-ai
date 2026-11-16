@@ -105,7 +105,7 @@ void main() {
         expect(value.style!.color, theme.text);
         expect(find.text('5%'), findsOneWidget);
         expect(tester.widget<Text>(find.text('5%')).style!.color, theme.success);
-        expect(find.bySemanticsLabel('Up 5%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 5 percent'), findsOneWidget);
       });
 
       testWidgets('a trend that goes down is red, and one without a direction draws no badge', (tester) async {
@@ -115,7 +115,7 @@ void main() {
         );
 
         expect(tester.widget<Text>(find.text('2.5%')).style!.color, theme.error);
-        expect(find.bySemanticsLabel('Down 2.5%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Down 2.5 percent'), findsOneWidget);
         expect(find.text('5%'), findsNothing);
       });
 
@@ -133,7 +133,7 @@ void main() {
         expect(find.text('1,234.57%'), findsOneWidget);
         expect(find.text('12.5%'), findsOneWidget);
         expect(find.text('1%'), findsOneWidget);
-        expect(find.bySemanticsLabel('Up 1,234.567%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 1,234.567 percent'), findsOneWidget);
       });
 
       testWidgets('MetricIndicatorWithStrikethrough strikes its previous value out', (tester) async {

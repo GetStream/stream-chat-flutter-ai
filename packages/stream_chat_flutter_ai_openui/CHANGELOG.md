@@ -12,3 +12,6 @@
   host's `open`, which decides which links open.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
+- `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
+  the texts the components draw and read out themselves, including a form's errors, and write a trend's percentage
+  with the locale's separators. A source without a title is called "Source", and a trend reads as "Up 5 percent".

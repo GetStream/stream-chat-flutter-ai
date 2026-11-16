@@ -458,7 +458,7 @@ final class OpenUIRuntime {
   /// them, and `bindings` the value prop of each field: one bound to a
   /// `$variable` is checked with the variable, and one with a literal value
   /// that the form's state has none for with that value.
-  Map<String, String> validate(
+  Map<String, FormValidationError> validate(
     String? formName,
     Map<String, OpenUIValue?> rules, {
     Map<String, OpenUIValue?> bindings = const {},

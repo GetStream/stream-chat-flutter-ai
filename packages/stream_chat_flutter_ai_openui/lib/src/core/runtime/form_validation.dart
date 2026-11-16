@@ -27,6 +27,59 @@ final class ValidationRule {
   int get hashCode => Object.hash(type, argument);
 }
 
+/// What a value fails: the rule's kind of error.
+enum FormValidationErrorCode {
+  /// A `required` field has no value.
+  required,
+
+  /// A `required` group of checkboxes has none ticked.
+  requiredOption,
+
+  /// An `email` field's value isn't an email address.
+  email,
+
+  /// A `url` field's value isn't a URL.
+  url,
+
+  /// A `numeric` field's value isn't a number.
+  numeric,
+
+  /// The value is below the `min` rule's number.
+  min,
+
+  /// The value is above the `max` rule's number.
+  max,
+
+  /// The value is shorter than the `minLength` rule's number.
+  minLength,
+
+  /// The value is longer than the `maxLength` rule's number.
+  maxLength,
+}
+
+/// The error a value gets from a rule it fails: its [code], and for the
+/// rules that compare with a number, that [argument] as JavaScript writes it.
+@immutable
+final class FormValidationError {
+  /// Creates the error [code] with its [argument].
+  const FormValidationError(this.code, [this.argument]);
+
+  /// What the value fails.
+  final FormValidationErrorCode code;
+
+  /// The number the rule compares with, such as `3`, or `null`.
+  final String? argument;
+
+  @override
+  bool operator ==(Object other) => other is FormValidationError && other.code == code && other.argument == argument;
+
+  @override
+  int get hashCode => Object.hash(code, argument);
+
+  @override
+  String toString() => argument == null ? code.name : '${code.name}($argument)';
+}
+
 /// The validation rules of OpenUI Lang 1.0 (specification §5.4), as
 /// OpenUI's `utils/validation.ts` checks them: `required`, `email`, `url`,
 /// `numeric`, `min`, `max`, `minLength` and `maxLength`. `pattern` is read
@@ -75,7 +128,7 @@ abstract final class FormValidation {
   ///
   /// `pattern` is skipped too, for now: the regular expressions the model
   /// writes need a matcher that can't freeze the app, which isn't here yet.
-  static String? validate(OpenUIValue? value, List<ValidationRule> rules) {
+  static FormValidationError? validate(OpenUIValue? value, List<ValidationRule> rules) {
     for (final rule in rules) {
       if (_check(rule.type, value, rule.argument) case final error?) return error;
     }
@@ -96,51 +149,55 @@ abstract final class FormValidation {
 
   static final _email = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
-  static String? _check(String type, OpenUIValue? value, OpenUIValue? argument) {
+  static FormValidationError? _check(String type, OpenUIValue? value, OpenUIValue? argument) {
     if (type == 'required') return _required(value);
     if (isEmpty(value)) return null;
     final text = value is OpenUIString ? value.value : null;
     switch (type) {
       case 'email':
-        return text != null && _email.hasMatch(text) ? null : 'Please enter a valid email';
+        return text != null && _email.hasMatch(text) ? null : const FormValidationError(FormValidationErrorCode.email);
       case 'url':
         // Any absolute URL, as `new URL()` takes it: `mailto:` and `urn:`
         // have no host.
         final uri = text == null ? null : Uri.tryParse(text);
-        return uri != null && uri.hasScheme ? null : 'Please enter a valid URL';
+        return uri != null && uri.hasScheme ? null : const FormValidationError(FormValidationErrorCode.url);
       case 'numeric':
         final valid = switch (value) {
           OpenUINumber(:final value) => !value.isNaN,
           OpenUIString(:final value) => JS.trim(value).isNotEmpty && !JS.parseFloat(value).isNaN,
           _ => false,
         };
-        return valid ? null : 'Must be a number';
+        return valid ? null : const FormValidationError(FormValidationErrorCode.numeric);
       case 'min':
         final min = JS.toNumber(argument);
         final n = _number(value);
-        return n.isNaN || n >= min ? null : 'Must be at least ${JS.numberToString(min)}';
+        return n.isNaN || n >= min ? null : FormValidationError(FormValidationErrorCode.min, JS.numberToString(min));
       case 'max':
         final max = JS.toNumber(argument);
         final n = _number(value);
-        return n.isNaN || n <= max ? null : 'Must be no more than ${JS.numberToString(max)}';
+        return n.isNaN || n <= max ? null : FormValidationError(FormValidationErrorCode.max, JS.numberToString(max));
       case 'minLength':
         final min = JS.toNumber(argument);
-        return text == null || text.length >= min ? null : 'Must be at least ${JS.numberToString(min)} characters';
+        return text == null || text.length >= min
+            ? null
+            : FormValidationError(FormValidationErrorCode.minLength, JS.numberToString(min));
       case 'maxLength':
         final max = JS.toNumber(argument);
-        return text == null || text.length <= max ? null : 'Must be no more than ${JS.numberToString(max)} characters';
+        return text == null || text.length <= max
+            ? null
+            : FormValidationError(FormValidationErrorCode.maxLength, JS.numberToString(max));
       default:
         return null;
     }
   }
 
-  static String? _required(OpenUIValue? value) {
-    if (isEmpty(value)) return 'This field is required';
+  static FormValidationError? _required(OpenUIValue? value) {
+    if (isEmpty(value)) return const FormValidationError(FormValidationErrorCode.required);
     // A group of checkboxes, `{option: bool}`, needs one ticked.
     if (value case OpenUIObject(:final fields) when !fields.containsKey('value') && fields.isNotEmpty) {
       final options = fields.values;
       if (options.every((option) => option is OpenUIBool) && !options.contains(const OpenUIBool(true))) {
-        return 'At least one option is required';
+        return const FormValidationError(FormValidationErrorCode.requiredOption);
       }
     }
     return null;

@@ -7,9 +7,9 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -148,7 +148,7 @@ class _PickerInputState extends State<_PickerInput> {
   }
 }
 
-String? _errorOf(BuildContext context, OpenUIComponentScope scope) =>
+FormValidationError? _errorOf(BuildContext context, OpenUIComponentScope scope) =>
     OpenUIFormScope.maybeOf(context)?.validation.errorOf(scope.text('name') ?? '');
 
 /// Builds an `Input`: a one-line text field with its `placeholder`, of the
@@ -352,7 +352,7 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
       final label = options.where((option) => option.$1 == selected).firstOrNull?.$2;
       return _PickerInput(
         text: label ?? '',
-        hintText: scope.text('placeholder') ?? OpenUIStrings.selectPlaceholder,
+        hintText: scope.text('placeholder') ?? OpenUITranslations.of(context).selectPlaceholder,
         hasError: hasError,
         small: scope.string('size') == 'small',
         trailing: Icon(context.streamIcons.chevronDown),
@@ -398,7 +398,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
         return _PickerInput(
           labelText: range ? title : null,
           text: date == null ? '' : openUIDateString(date),
-          hintText: OpenUIStrings.chooseDate,
+          hintText: OpenUITranslations.of(context).chooseDate,
           hasError: hasError,
           onTap: scope.isStreaming
               ? null
@@ -419,7 +419,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: theme.sSpacing,
           children: [
-            row(OpenUIStrings.dateFrom, from, (date) {
+            row(OpenUITranslations.of(context).dateFrom, from, (date) {
               write(
                 OpenUIObject({
                   ...fields,
@@ -428,7 +428,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
                 }),
               );
             }),
-            row(OpenUIStrings.dateTo, to, first: from, (date) {
+            row(OpenUITranslations.of(context).dateTo, to, first: from, (date) {
               write(
                 OpenUIObject({
                   ...fields,
@@ -441,7 +441,7 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
         );
       } else {
         final date = openUIParseDate(value is OpenUIString ? value.value : null);
-        content = row(OpenUIStrings.date, date, (date) => write(OpenUIString(openUIDateString(date))));
+        content = row(OpenUITranslations.of(context).date, date, (date) => write(OpenUIString(openUIDateString(date))));
       }
       return content;
     }),
@@ -568,7 +568,9 @@ class _OpenUISliderState extends State<_OpenUISlider> {
         }
 
         final thumbLabel = values.length == 2
-            ? (index == 0 ? OpenUIStrings.sliderLower(label) : OpenUIStrings.sliderUpper(label))
+            ? (index == 0
+                  ? OpenUITranslations.of(context).sliderLower(label)
+                  : OpenUITranslations.of(context).sliderUpper(label))
             : label;
         return Semantics(
           container: true,

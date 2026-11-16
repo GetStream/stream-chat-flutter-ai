@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -123,7 +123,7 @@ class _Gallery extends StatelessWidget {
     showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: OpenUIStrings.done,
+      barrierLabel: OpenUITranslations.of(context).done,
       pageBuilder: (dialogContext, _, _) => captured.wrap(
         OpenUIViewScope(
           runtime: view.runtime,
@@ -174,7 +174,7 @@ class _PreviewState extends State<_Preview> {
           type: .ghost,
           size: .small,
           icon: Icon(context.streamIcons.xmark),
-          tooltip: OpenUIStrings.done,
+          tooltip: OpenUITranslations.of(context).done,
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),

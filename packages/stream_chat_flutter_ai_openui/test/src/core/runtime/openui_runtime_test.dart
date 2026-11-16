@@ -225,8 +225,8 @@ void main() {
           'missing': _v({'required': true}),
         }),
         {
-          'e': 'Must be at least 3 characters',
-          'missing': 'This field is required',
+          'e': const FormValidationError(FormValidationErrorCode.minLength, '3'),
+          'missing': const FormValidationError(FormValidationErrorCode.required),
         },
       );
     });
@@ -285,7 +285,7 @@ void main() {
       runtime.validate(null, {
         'q': _v({'required': true}),
       }),
-      {'q': 'This field is required'},
+      {'q': const FormValidationError(FormValidationErrorCode.required)},
     );
   });
 

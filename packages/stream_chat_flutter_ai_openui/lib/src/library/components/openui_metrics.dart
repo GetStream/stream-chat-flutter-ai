@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -96,12 +96,13 @@ class _TrendBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
     final color = up ? theme.success : theme.error;
-    final shown = '${_grouped(value, 2)}%';
-    final spoken = '${_grouped(value, 6)}%';
+    final translations = OpenUITranslations.of(context);
+    final shown = translations.percent(_grouped(value, 2, translations));
+    final spoken = _grouped(value, 6, translations);
     final icons = context.streamIcons;
     return Semantics(
       container: true,
-      label: up ? OpenUIStrings.trendUp(spoken) : OpenUIStrings.trendDown(spoken),
+      label: up ? translations.trendUp(spoken) : translations.trendDown(spoken),
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -134,13 +135,13 @@ class _TrendBadge extends StatelessWidget {
   }
 }
 
-// [value] with at most [decimals] decimals and its thousands grouped by commas,
-// such as `1,234.5`.
-String _grouped(double value, int decimals) {
+// [value] with at most [decimals] decimals, written with [translations]'s
+// separators, such as `1,234.5` in English.
+String _grouped(double value, int decimals, OpenUITranslations translations) {
   final fixed = value.toStringAsFixed(decimals);
   if (fixed.contains('e')) return fixed;
   final parts = fixed.split('.');
-  final integer = parts.first.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+  final integer = parts.first.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => translations.groupSeparator);
   final fraction = parts.length > 1 ? parts[1].replaceFirst(RegExp(r'0+$'), '') : '';
-  return fraction.isEmpty ? integer : '$integer.$fraction';
+  return fraction.isEmpty ? integer : '$integer${translations.decimalSeparator}$fraction';
 }
