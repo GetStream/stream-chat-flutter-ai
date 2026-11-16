@@ -86,6 +86,7 @@ final class OpenUIRuntime {
   final _errors = ValueNotifier<List<OpenUIError>>(const []);
   final _state = ValueNotifier<Map<String, OpenUIValue>>(const {});
   final _actions = StreamController<OpenUIActionEvent>.broadcast(sync: true);
+  final _stateUpdates = StreamController<Map<String, OpenUIValue>>.broadcast(sync: true);
 
   Map<String, OpenUIValue>? _initialState;
   String? _text;
@@ -113,7 +114,17 @@ final class OpenUIRuntime {
 
   /// The `$variables` and form fields, without the secret ones, to keep and
   /// give back as `initialState` or to [restore].
+  ///
+  /// It also changes as [update] reads declared defaults; [stateUpdates]
+  /// gives only what to keep.
   ValueListenable<Map<String, OpenUIValue>> get state => _state;
+
+  /// The [state] each time the person or an action changes it, for the host
+  /// to keep.
+  ///
+  /// Reading declared defaults or applying kept state, in [update], the
+  /// constructor or [restore], adds nothing.
+  Stream<Map<String, OpenUIValue>> get stateUpdates => _stateUpdates.stream;
 
   /// The actions for the host: messages to the model, links to open, and
   /// the library's own actions.
@@ -164,13 +175,14 @@ final class OpenUIRuntime {
   /// Starts the refresh timers [pause] stopped.
   void resume() => _queries.resume();
 
-  /// Stops every timer and call, and closes [actions]; nothing changes
-  /// afterwards.
+  /// Stops every timer and call, and closes [actions] and [stateUpdates];
+  /// nothing changes afterwards.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     _queries.dispose();
     unawaited(_actions.close());
+    unawaited(_stateUpdates.close());
     _root.dispose();
     _streaming.dispose();
     _isQueryLoading.dispose();
@@ -217,7 +229,8 @@ final class OpenUIRuntime {
     } finally {
       _initializing = false;
     }
-    _publishState();
+    // Defaults and kept state are no change to keep, so the host isn't told.
+    _publishState(isUpdate: false);
   }
 
   // The saved `$variables`, handed to the store; the saved form fields are
@@ -234,13 +247,15 @@ final class OpenUIRuntime {
     return bindings;
   }
 
-  void _publishState() {
+  void _publishState({bool isUpdate = true}) {
     final next = {
       for (final MapEntry(:key, :value) in _store.snapshot.entries)
         if (!OpenUIStore.isSecret(value)) key: OpenUIStore.withoutSecrets(value),
     };
-    // Only a change notifies: the host saves the state each time it does.
-    if (!mapEquals(next, _state.value)) _state.value = next;
+    // Only a change notifies.
+    if (mapEquals(next, _state.value)) return;
+    _state.value = next;
+    if (isUpdate) _stateUpdates.add(next);
   }
 
   void _runQueries() {
