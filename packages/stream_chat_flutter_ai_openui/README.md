@@ -8,7 +8,7 @@ replies, through the generative UI of [`stream_chat_flutter_ai`](../stream_chat_
 ```yaml
 dependencies:
   stream_chat_flutter_ai: ^0.2.0
-  stream_chat_flutter_ai_openui: ^0.1.0
+  stream_chat_flutter_ai_openui: ^0.2.0
 ```
 
 Both packages are released together, with the same version.
@@ -154,3 +154,8 @@ lists each action the agent would get.
 The OpenUI Lang 1.0 conformance fixtures it is tested against are vendored, unchanged, under
 [`test/conformance/upstream`](test/conformance/upstream), with their license, and
 [`test/conformance/generated`](test/conformance/generated).
+
+## License
+
+OpenUI is MIT licensed. This package's language runtime, component library definitions, prompt text and components
+are derived from it; see [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).

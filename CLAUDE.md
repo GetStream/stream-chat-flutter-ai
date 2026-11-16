@@ -26,7 +26,7 @@ components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadin
 (theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
 uses, so a core minor bump is released in step with chat.
 
-A second package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
+A second package, `stream_chat_flutter_ai_a2ui`, is the A2UI renderer
 plugin for the core package's generative UI. It uses only the core package's public API, and hides
 `a2ui_core` (the A2UI protocol library) inside `lib/src/core/`: no other file imports it, and no
 `a2ui_core` type appears in its API, so the protocol library can be replaced. The same holds for
@@ -129,9 +129,9 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 ## Releasing
 
 Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`. The published packages
-(`stream_chat_flutter_ai`, and `stream_chat_flutter_ai_a2ui` and `stream_chat_flutter_ai_openui` once they are
-released) are released **in lockstep**: they always share one `version:`, one `v<version>` tag publishes all of them, and the
-OpenUI and A2UI packages depend on `stream_chat_flutter_ai: ^<version>`, which lives in the root
+(`stream_chat_flutter_ai` and `stream_chat_flutter_ai_a2ui`, and `stream_chat_flutter_ai_openui` once it is
+released) are released **in lockstep**: they always share one `version:`, one `v<version>` tag publishes all of them,
+and the OpenUI and A2UI packages depend on `stream_chat_flutter_ai: ^<version>`, which lives in the root
 `melos.command.bootstrap` list like every other constraint and is copied into the packages by `melos bootstrap`.
 Until its first release PR drops `publish_to: none`, a package is private and the release tooling skips it.
 
