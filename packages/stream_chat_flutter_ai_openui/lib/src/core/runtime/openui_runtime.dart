@@ -159,10 +159,12 @@ final class OpenUIRuntime {
   }
 
   /// Stops the queries' refresh timers, such as while the app is in the
-  /// background; their data stays.
+  /// background; their data stays, and a fetch asked for meanwhile waits
+  /// until [resume].
   void pause() => _queries.pause();
 
-  /// Starts the refresh timers [pause] stopped.
+  /// Runs the fetches asked for while paused, and starts the refresh timers
+  /// [pause] stopped.
   void resume() => _queries.resume();
 
   /// Stops every timer and call, and closes [actions]; nothing changes

@@ -21,7 +21,8 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 ///
 /// A reply's runtime is made the first time its widget is asked for with
 /// [view], starting from the state the host kept for it, and is kept until
-/// the reply is [remove]d or the engine is disposed.
+/// the reply is [remove]d or the engine is disposed. Its queries fetch and
+/// refresh only while its widget shows and the app is in the foreground.
 ///
 /// The host's components join the renderer's library when the engine is
 /// made; one that can't is left out, and reported in debug builds.
@@ -51,6 +52,7 @@ final class OpenUIEngine extends AIUIEngine {
   // What waits for the frame being built to end, in the order it came.
   final List<VoidCallback> _afterFrame = [];
   bool _disposed = false;
+  bool _inBackground = false;
 
   // The key of an app component's action payload that names the component.
   static const _componentKey = 'component';
@@ -107,14 +109,16 @@ final class OpenUIEngine extends AIUIEngine {
   }
 
   void _pauseAll() {
+    _inBackground = true;
     for (final reply in _replies.values) {
       reply.runtime.pause();
     }
   }
 
   void _resumeAll() {
+    _inBackground = false;
     for (final reply in _replies.values) {
-      reply.runtime.resume();
+      if (reply.shown > 0) reply.runtime.resume();
     }
   }
 
@@ -342,6 +346,8 @@ final class _OpenUIReply {
       initialState: saved is Map ? {for (final MapEntry(:key, :value) in saved.entries) '$key': value} : null,
     );
     _engine._replyOf[runtime] = this;
+    // Its queries wait until its view shows.
+    runtime.pause();
     _actions = runtime.actions.listen((event) => _engine._handle(event, this));
     runtime.state.addListener(_saveState);
     runtime.errors.addListener(_reportErrors);
@@ -354,16 +360,34 @@ final class _OpenUIReply {
 
   /// The reply's widget, the same for each of its documents, as it follows
   /// the runtime.
-  late final Widget view = OpenUIView(
-    runtime: runtime,
-    library: _engine.library,
-    theme: _engine._renderer.theme,
-    mediaUrl: _engine._renderer.mediaUrl,
-    onOpenLink: _engine._host.open,
-    onBuildError: (node, error, stack) => _engine._reportBuildError(this, node, error),
-    // Read in the app's language where the view builds, as Android does.
-    onUntitledLabel: (label) => untitledLabel = label,
+  late final Widget view = _ShownReply(
+    reply: this,
+    child: OpenUIView(
+      runtime: runtime,
+      library: _engine.library,
+      theme: _engine._renderer.theme,
+      mediaUrl: _engine._renderer.mediaUrl,
+      onOpenLink: _engine._host.open,
+      onBuildError: (node, error, stack) => _engine._reportBuildError(this, node, error),
+      // Read in the app's language where the view builds, as Android does.
+      onUntitledLabel: (label) => untitledLabel = label,
+    ),
   );
+
+  /// How many of the reply's views show, each counted once it is still there
+  /// a frame after the one it was built in.
+  int shown = 0;
+
+  // Counts a view that shows, and lets the queries run when it is the first
+  // and the app is in the foreground.
+  void _show() {
+    if (shown++ == 0 && !_engine._inBackground) runtime.resume();
+  }
+
+  // Stops the queries' refreshes when the last view that showed goes.
+  void _hide() {
+    if (--shown == 0) runtime.pause();
+  }
 
   /// The label of an action from a control without one, in the language of
   /// the app where the reply's view last built.
@@ -451,4 +475,47 @@ final class _ToolFailure implements Exception {
 
   @override
   String toString() => message;
+}
+
+// Lets [reply]'s queries run while [child] shows. A view counts once it is
+// still there a frame after the one it was built in, as a list may build a
+// row only to lay it out and drop it, or show its first rows for a frame
+// before it moves to its end.
+class _ShownReply extends StatefulWidget {
+  const _ShownReply({required this.reply, required this.child});
+
+  final _OpenUIReply reply;
+  final Widget child;
+
+  @override
+  State<_ShownReply> createState() => _ShownReplyState();
+}
+
+class _ShownReplyState extends State<_ShownReply> {
+  bool _counted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // A frame is asked for, as the list may stay still.
+      SchedulerBinding.instance
+        ..addPostFrameCallback((_) {
+          if (!mounted) return;
+          _counted = true;
+          widget.reply._show();
+        })
+        ..ensureVisualUpdate();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_counted) widget.reply._hide();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

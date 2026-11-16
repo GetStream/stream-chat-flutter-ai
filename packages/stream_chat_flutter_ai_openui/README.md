@@ -42,8 +42,9 @@ it differs from the label, and, in a form, the form's name under `form` and its 
 never sent.
 
 A web or email link the program opens goes to the host's `open`, never to `send`. The program's queries and mutations
-run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap. A query that
-refreshes pauses while the app is in the background, but not while its reply is scrolled off screen.
+run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap. A reply's queries
+run and refresh only while the reply is on screen and the app is in the foreground, so opening a long conversation
+runs only the queries of the replies in view.
 
 Problems with a reply's program, such as a component the library doesn't have or a query whose tool failed, go to the
 renderer's `onError` with the reply's message id once the reply is written, so the app can send them back to the agent.
