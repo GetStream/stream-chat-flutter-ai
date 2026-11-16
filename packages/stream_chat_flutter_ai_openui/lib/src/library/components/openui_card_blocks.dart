@@ -101,7 +101,8 @@ Widget buildOpenUIOverviewCardBlock(BuildContext context, OpenUIComponentScope s
 /// Builds a `ContextCardBlock`: its `items` as cards, each with a `title`, a
 /// `body` and, when it has a `bgImageSrc`, that image behind them.
 ///
-/// A `title` that is a `Tag` is drawn as a tag. The `bgColor` isn't drawn.
+/// A `title` that is a component is drawn as a small tag of its `text`, `icon`
+/// and `variant`. The `bgColor` isn't drawn.
 ///
 /// With an `action`, the block's items can be tapped, unless the reply is
 /// still streaming, to run it with what the tapped item shows merged in.
@@ -126,8 +127,16 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
       final scheme = context.streamColorScheme;
       final onImage = image ? scheme.textOnAccent : null;
       final titleText = openUIJsonText(item.scope.value('title'));
-      final title = titleNode != null && titleNode.typeName == 'Tag'
-          ? item.scope.buildNode(titleNode)
+      final title = titleNode != null
+          ? item.scope.buildNode(
+              ElementNode(
+                typeName: 'Tag',
+                props: {...titleNode.props, 'size': const OpenUIString('sm')},
+                partial: titleNode.partial,
+                hasDynamicProps: titleNode.hasDynamicProps,
+                statementId: titleNode.statementId,
+              ),
+            )
           : titleText.isEmpty
           ? null
           : Text(
@@ -179,6 +188,7 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
                           data: body,
                           style: theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
                           color: onImage ?? theme.text,
+                          inline: true,
                         ),
                     ],
                   ),

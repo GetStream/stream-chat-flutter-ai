@@ -70,6 +70,23 @@ void main() {
       });
     }
 
+    for (final (component, program) in [
+      ('InlineHeader heading', 'InlineHeader("{}")'),
+      ('InlineHeader description', 'InlineHeader("Head", "{}")'),
+      ('TextCallout description', 'TextCallout("info", "Title", "{}")'),
+      ('ContextCardBlock body', 'ContextCardBlock([ContextCardItem("a", "T", "{}")])'),
+    ]) {
+      for (final text in ['# of orders', '1. Paris']) {
+        testWidgets('$component draws "$text" as text', (tester) async {
+          final runtime = testRuntime();
+          addTearDown(runtime.dispose);
+          await pumpOpenUI(tester, runtime, program: 'root = Card([${program.replaceFirst('{}', text)}])');
+
+          expect(_plainTexts(tester), contains(text));
+        });
+      }
+    }
+
     testWidgets('a metric value draws a leading # as text', (tester) async {
       final runtime = testRuntime();
       addTearDown(runtime.dispose);

@@ -18,7 +18,7 @@ Widget buildOpenUILabel(BuildContext context, OpenUIComponentScope scope) {
 }
 
 /// Builds an `InlineHeader`: its `heading` as inline Markdown, with its
-/// `description` below it when that isn't empty, read as a heading.
+/// `description` below it, also inline, when that isn't empty.
 ///
 /// Internal to the package.
 @internal
@@ -37,12 +37,13 @@ Widget buildOpenUIInlineHeader(BuildContext context, OpenUIComponentScope scope)
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: theme.xsSpacing / 2,
             children: [
-              OpenUIMarkdownText(data: scope.text('heading') ?? '', style: theme.heading),
+              OpenUIMarkdownText(data: scope.text('heading') ?? '', style: theme.heading, inline: true),
               if (description.isNotEmpty)
                 OpenUIMarkdownText(
                   data: description,
                   style: theme.caption,
                   color: theme.secondaryText,
+                  inline: true,
                 ),
             ],
           ),
@@ -92,7 +93,7 @@ Widget buildOpenUICodeBlock(BuildContext context, OpenUIComponentScope scope) {
   );
 }
 
-/// Builds a `TextCallout`: its `title` and `description`
+/// Builds a `TextCallout`: its `title` and `description` (inline Markdown)
 /// beside a bar of its `variant`'s color.
 ///
 /// Internal to the package.
@@ -137,6 +138,7 @@ Widget buildOpenUITextCallout(BuildContext context, OpenUIComponentScope scope) 
                         data: description,
                         style: theme.bodySmall,
                         color: theme.secondaryText,
+                        inline: true,
                       ),
                   ],
                 ),
