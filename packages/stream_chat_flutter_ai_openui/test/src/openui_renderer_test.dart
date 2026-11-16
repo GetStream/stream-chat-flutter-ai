@@ -300,6 +300,27 @@ void main() {
       expect(host.sent.single.label, 'Doorgaan');
     });
 
+    testWidgets("a button without a label sends the app's translation after the app's language changes", (
+      tester,
+    ) async {
+      final host = _Host();
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      final document = _doc('root = Stack([Button("", @ToAssistant("Next"))])');
+      Widget app(AITranslations translations) => testApp(
+        AITranslationsScope(
+          translations: translations,
+          child: Builder(builder: (_) => engine.view(document, 'r1')!),
+        ),
+      );
+      await tester.pumpWidget(app(const DefaultAITranslations()));
+      await tester.pumpWidget(app(const _Dutch()));
+
+      await tester.tap(find.byType(StreamButton).first);
+
+      expect(host.sent.single.label, 'Doorgaan');
+    });
+
     testWidgets('a web link opens through the host, never as an action', (tester) async {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);

@@ -91,18 +91,7 @@ final class OpenUIEngine extends AIUIEngine {
       }
       return null;
     }
-    // A new view for each document, as the view reads whether the reply
-    // streams when it builds.
-    return OpenUIView(
-      runtime: reply.runtime,
-      library: library,
-      theme: _renderer.theme,
-      mediaUrl: _renderer.mediaUrl,
-      onOpenLink: _host.open,
-      onBuildError: (node, error, stack) => _reportBuildError(reply, node, error),
-      // Read in the app's language where the view builds, as Android does.
-      onUntitledLabel: (label) => reply.untitledLabel = label,
-    );
+    return reply.view;
   }
 
   @override
@@ -362,6 +351,19 @@ final class _OpenUIReply {
   final String messageId;
   late final OpenUIRuntime runtime;
   late final _tools = _HostTools(_engine._host);
+
+  /// The reply's widget, the same for each of its documents, as it follows
+  /// the runtime.
+  late final Widget view = OpenUIView(
+    runtime: runtime,
+    library: _engine.library,
+    theme: _engine._renderer.theme,
+    mediaUrl: _engine._renderer.mediaUrl,
+    onOpenLink: _engine._host.open,
+    onBuildError: (node, error, stack) => _engine._reportBuildError(this, node, error),
+    // Read in the app's language where the view builds, as Android does.
+    onUntitledLabel: (label) => untitledLabel = label,
+  );
 
   /// The label of an action from a control without one, in the language of
   /// the app where the reply's view last built.
