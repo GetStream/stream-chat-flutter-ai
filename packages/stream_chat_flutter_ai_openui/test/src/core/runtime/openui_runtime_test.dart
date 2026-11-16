@@ -8,8 +8,6 @@ import '../../../conformance/openui_conformance.dart';
 import 'fake_timers.dart';
 import 'fake_tools.dart';
 
-OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
-
 void main() {
   late FakeTools tools;
   late FakeTimers timers;
@@ -43,17 +41,24 @@ void main() {
   }
 
   group('streaming', () {
-    test('errors stay empty and no tool runs until the stream ends', () async {
-      const program = 'root = Stack([Unknown("x")])\nq = Query("list", {}, null)';
+    test('errors stay empty until the stream ends', () {
+      const program = 'root = Stack([Unknown("x")])';
       runtime.update(program, isStreaming: true);
 
       expect(runtime.errors.value, isEmpty);
-      expect(tools.calls, isEmpty);
       runtime.update(program, isStreaming: false);
       expect(runtime.errors.value.map((error) => error.code), contains(OpenUIErrorCode.unknownComponent));
-      expect(tools.calls, hasLength(1));
       runtime.update('$program\n', isStreaming: true);
       expect(runtime.errors.value, isEmpty);
+    });
+
+    test('no tool runs until the stream ends', () {
+      const program = 'root = Stack([Text("x")])\nq = Query("list", {}, null)';
+      runtime.update(program, isStreaming: true);
+
+      expect(tools.calls, isEmpty);
+      runtime.update(program, isStreaming: false);
+      expect(tools.calls, hasLength(1));
     });
 
     test('text that is no program reports parse-failed once it ends', () {
@@ -73,7 +78,29 @@ void main() {
   });
 
   group('actions', () {
-    test('@Set and @Reset write the state, and events carry it as it is when they run', () async {
+    test('@Set writes the state', () async {
+      runtime.update(
+        r'$n = 1'
+        '\nroot = Stack([Button("Go", @Set(\$n, \$n + 1))])',
+        isStreaming: false,
+      );
+      await click(0);
+
+      expect(runtime.state.value[r'$n'], _v(2));
+    });
+
+    test('@Reset writes back the default', () async {
+      runtime.update(
+        r'$n = 1'
+        '\nroot = Stack([Button("Go", Action([@Set(\$n, \$n + 1), @Reset(\$n)]))])',
+        isStreaming: false,
+      );
+      await click(0);
+
+      expect(runtime.state.value[r'$n'], _v(1));
+    });
+
+    test('the events of an action carry the state as it is when they run', () async {
       runtime.update(
         r'$n = 1'
         '\nroot = Stack([Button("Go", Action([@Set(\$n, \$n + 1), @ToAssistant("hi", {k: 1}), @Reset(\$n), @OpenUrl("https://a.b")]))])',
@@ -81,7 +108,6 @@ void main() {
       );
       await click(0);
 
-      expect(runtime.state.value[r'$n'], _v(1));
       expect(events, hasLength(2));
       expect(events.first.type, OpenUIActionEvent.continueConversation);
       expect(events.first.message, 'hi');
@@ -558,3 +584,5 @@ OpenUIValue? _bindingTo(OpenUIRuntime runtime, String target) => runtime.root.va
 extension on OpenUIValue {
   ElementNode get node => (this as OpenUIElement).node;
 }
+
+OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
