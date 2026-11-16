@@ -98,12 +98,13 @@ class _TrendBadge extends StatelessWidget {
     final theme = OpenUIViewScope.of(context).theme;
     final color = up ? theme.success : theme.error;
     final translations = OpenUITranslations.of(context);
-    final shown = translations.percent(openUIFormatNumber(value, 2, translations));
-    final spoken = openUIFormatNumber(value, 6, translations);
+    // The number itself isn't translated, as the program writes numbers; what
+    // it reads as is.
+    final shown = '${openUIPlainNumber(value, maxDecimals: 2)}%';
     final icons = context.streamIcons;
     return Semantics(
       container: true,
-      label: up ? translations.trendUp(spoken) : translations.trendDown(spoken),
+      label: up ? translations.trendUp(value) : translations.trendDown(value),
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(

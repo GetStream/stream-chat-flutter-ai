@@ -157,10 +157,19 @@ lists each action the agent would get.
 The texts the components draw or read out themselves, such as a table's page controls, a date picker's labels and the
 errors of a form's `rules`, come from `OpenUITranslations`, in English by default. An implementation for another
 language is registered per locale with `OpenUITranslationsDelegate`, or pinned over part of the tree with
-`OpenUITranslationsScope`. Its `decimalSeparator` and `groupSeparator` write a metric's trend and a form rule's limit
-in the locale's way, and its `percent` the trend's percentage:
+`OpenUITranslationsScope`. Numbers, such as a form rule's limit or a metric's trend, reach it as numbers, which a
+translation formats as its language needs, for example with `intl`:
 
 ```dart
+class DutchOpenUITranslations implements OpenUITranslations {
+  const DutchOpenUITranslations();
+
+  @override
+  String validationMin(num min) => 'Minstens ${NumberFormat.decimalPattern('nl').format(min)}';
+
+  // ...and every other text.
+}
+
 MaterialApp(
   localizationsDelegates: const [
     OpenUITranslationsDelegate({'nl': DutchOpenUITranslations()}),

@@ -225,7 +225,7 @@ void main() {
           'missing': _v({'required': true}),
         }),
         {
-          'e': const FormValidationError(FormValidationErrorCode.minLength, '3'),
+          'e': const FormValidationError(FormValidationErrorCode.minLength, 3),
           'missing': const FormValidationError(FormValidationErrorCode.required),
         },
       );

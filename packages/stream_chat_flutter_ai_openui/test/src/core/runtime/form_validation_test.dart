@@ -26,10 +26,10 @@ void main() {
     expect(_check('a b@c.d', {'email': true}), const FormValidationError(FormValidationErrorCode.email));
     expect(_check('openui.com', {'url': true}), const FormValidationError(FormValidationErrorCode.url));
     expect(_check('abc', {'numeric': true}), const FormValidationError(FormValidationErrorCode.numeric));
-    expect(_check('3', {'min': 5}), const FormValidationError(FormValidationErrorCode.min, '5'));
-    expect(_check(9, {'max': 5}), const FormValidationError(FormValidationErrorCode.max, '5'));
-    expect(_check('ab', {'minLength': 3}), const FormValidationError(FormValidationErrorCode.minLength, '3'));
-    expect(_check('abcd', {'maxLength': 3}), const FormValidationError(FormValidationErrorCode.maxLength, '3'));
+    expect(_check('3', {'min': 5}), const FormValidationError(FormValidationErrorCode.min, 5));
+    expect(_check(9, {'max': 5}), const FormValidationError(FormValidationErrorCode.max, 5));
+    expect(_check('ab', {'minLength': 3}), const FormValidationError(FormValidationErrorCode.minLength, 3));
+    expect(_check('abcd', {'maxLength': 3}), const FormValidationError(FormValidationErrorCode.maxLength, 3));
   });
 
   test('values that pass', () {
@@ -53,10 +53,26 @@ void main() {
     }
   });
 
+  test('a minLength with a fraction is rounded up, as the check counts it', () {
+    expect(_check('ab', {'minLength': 2.5}), const FormValidationError(FormValidationErrorCode.minLength, 3));
+  });
+
+  test('a maxLength with a fraction is rounded down, as the check counts it', () {
+    expect(_check('abc', {'maxLength': 2.5}), const FormValidationError(FormValidationErrorCode.maxLength, 2));
+  });
+
+  test('a length rule whose limit is NaN is skipped', () {
+    expect(_check('ab', {'minLength': 'many'}), isNull);
+  });
+
+  test('a length rule whose limit is infinite is skipped', () {
+    expect(_check('ab', ['maxLength:-Infinity']), isNull);
+  });
+
   test('the first failing rule gives the error, and unknown rules are skipped', () {
     expect(
       _check('a', {'shout': true, 'minLength': 2, 'email': true}),
-      const FormValidationError(FormValidationErrorCode.minLength, '2'),
+      const FormValidationError(FormValidationErrorCode.minLength, 2),
     );
   });
 

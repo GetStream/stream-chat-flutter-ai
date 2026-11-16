@@ -58,26 +58,27 @@ enum FormValidationErrorCode {
 }
 
 /// The error a value gets from a rule it fails: its [code], and for the
-/// rules that compare with a number, that [argument] as JavaScript writes it.
+/// rules that compare with a number, that [limit].
 @immutable
 final class FormValidationError {
-  /// Creates the error [code] with its [argument].
-  const FormValidationError(this.code, [this.argument]);
+  /// Creates the error [code] with its [limit].
+  const FormValidationError(this.code, [this.limit]);
 
   /// What the value fails.
   final FormValidationErrorCode code;
 
-  /// The number the rule compares with, such as `3`, or `null`.
-  final String? argument;
+  /// The number the rule compares with, such as `3`, or `null`. It is a whole
+  /// number for `minLength` and `maxLength`.
+  final num? limit;
 
   @override
-  bool operator ==(Object other) => other is FormValidationError && other.code == code && other.argument == argument;
+  bool operator ==(Object other) => other is FormValidationError && other.code == code && other.limit == limit;
 
   @override
-  int get hashCode => Object.hash(code, argument);
+  int get hashCode => Object.hash(code, limit);
 
   @override
-  String toString() => argument == null ? code.name : '${code.name}($argument)';
+  String toString() => limit == null ? code.name : '${code.name}($limit)';
 }
 
 /// The validation rules of OpenUI Lang 1.0 (specification §5.4), as
@@ -171,21 +172,26 @@ abstract final class FormValidation {
       case 'min':
         final min = JS.toNumber(argument);
         final n = _number(value);
-        return n.isNaN || n >= min ? null : FormValidationError(FormValidationErrorCode.min, JS.numberToString(min));
+        return n.isNaN || n >= min ? null : FormValidationError(FormValidationErrorCode.min, min);
       case 'max':
         final max = JS.toNumber(argument);
         final n = _number(value);
-        return n.isNaN || n <= max ? null : FormValidationError(FormValidationErrorCode.max, JS.numberToString(max));
+        return n.isNaN || n <= max ? null : FormValidationError(FormValidationErrorCode.max, max);
+      // A length is whole, so a limit is rounded the way it is checked: at
+      // least 2.5 characters is at least 3. A limit that isn't a finite
+      // number names no length, and the rule is skipped.
       case 'minLength':
         final min = JS.toNumber(argument);
+        if (!min.isFinite) return null;
         return text == null || text.length >= min
             ? null
-            : FormValidationError(FormValidationErrorCode.minLength, JS.numberToString(min));
+            : FormValidationError(FormValidationErrorCode.minLength, min.ceil());
       case 'maxLength':
         final max = JS.toNumber(argument);
+        if (!max.isFinite) return null;
         return text == null || text.length <= max
             ? null
-            : FormValidationError(FormValidationErrorCode.maxLength, JS.numberToString(max));
+            : FormValidationError(FormValidationErrorCode.maxLength, max.floor());
       default:
         return null;
     }

@@ -9,7 +9,8 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 
 import '../openui_test_app.dart';
 
-// German-like texts for the few the tests read; the rest stay English.
+// German-like texts for the few the tests read; the rest stay English. It
+// writes numbers itself, as a translation does.
 class _German extends DefaultOpenUITranslations {
   const _German();
 
@@ -17,28 +18,27 @@ class _German extends DefaultOpenUITranslations {
   String get validationRequired => 'Pflichtfeld';
 
   @override
-  String validationMinLength(String min) => 'Mindestens $min Zeichen';
+  String validationMinLength(int min) => 'Mindestens $min Zeichen';
 
   @override
   String get nextPage => 'Nächste Seite';
 
   @override
-  String get decimalSeparator => ',';
+  String trendUp(num percent) => 'Plus ${_german(percent)} Prozent';
 
   @override
-  String get groupSeparator => '.';
+  String validationMin(num min) => 'Mindestens ${_german(min)}';
 
   @override
-  String percent(String number) => '$number %';
+  String snippetCardItem(int index) => 'Karte $index';
+}
 
-  @override
-  String trendUp(String number) => 'Plus $number Prozent';
-
-  @override
-  String validationMin(String min) => 'Mindestens $min';
-
-  @override
-  String snippetCardItem(String index) => 'Karte $index';
+// [value] with German separators, as `intl` would write it.
+String _german(num value) {
+  final whole = value.truncate();
+  final grouped = whole.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
+  final fraction = value == whole ? '' : value.toString().split('.').last;
+  return fraction.isEmpty ? grouped : '$grouped,$fraction';
 }
 
 // A text of its own for every form error, to tell each apart from English.
@@ -61,16 +61,16 @@ class _Marked extends DefaultOpenUITranslations {
   String get validationNumeric => '#numeric';
 
   @override
-  String validationMin(String min) => '#min $min';
+  String validationMin(num min) => '#min $min';
 
   @override
-  String validationMax(String max) => '#max $max';
+  String validationMax(num max) => '#max $max';
 
   @override
-  String validationMinLength(String min) => '#minLength $min';
+  String validationMinLength(int min) => '#minLength $min';
 
   @override
-  String validationMaxLength(String max) => '#maxLength $max';
+  String validationMaxLength(int max) => '#maxLength $max';
 }
 
 class _Dutch extends DefaultOpenUITranslations {
@@ -125,7 +125,7 @@ void main() {
     expect(find.text('Mindestens 3 Zeichen'), findsOneWidget);
   });
 
-  testWidgets("a form rule's limit uses the translations' separators", (tester) async {
+  testWidgets("a form rule's limit reaches the translation as a number, which it formats", (tester) async {
     await _pumpIn(
       tester,
       'root = Card([Form("f", Buttons([Button("Go", @ToAssistant("go"), "primary")]), [FormControl("A", Input("a", "", "number", {min: 1500})), FormControl("B", Input("b", "", "number", {min: 0.5}))])])',
@@ -146,10 +146,10 @@ void main() {
     (const FormValidationError(FormValidationErrorCode.email), '#email'),
     (const FormValidationError(FormValidationErrorCode.url), '#url'),
     (const FormValidationError(FormValidationErrorCode.numeric), '#numeric'),
-    (const FormValidationError(FormValidationErrorCode.min, '1000'), '#min 1,000'),
-    (const FormValidationError(FormValidationErrorCode.max, '2.5'), '#max 2.5'),
-    (const FormValidationError(FormValidationErrorCode.minLength, '3'), '#minLength 3'),
-    (const FormValidationError(FormValidationErrorCode.maxLength, 'Infinity'), '#maxLength Infinity'),
+    (const FormValidationError(FormValidationErrorCode.min, 1000), '#min 1000'),
+    (const FormValidationError(FormValidationErrorCode.max, 2.5), '#max 2.5'),
+    (const FormValidationError(FormValidationErrorCode.minLength, 3), '#minLength 3'),
+    (const FormValidationError(FormValidationErrorCode.maxLength, 4), '#maxLength 4'),
   ]) {
     test('the ${error.code.name} error comes from its translation', () {
       expect(openUIValidationMessage(const _Marked(), error), message);
@@ -169,15 +169,31 @@ void main() {
     expect(events.single.label, 'Karte 1');
   });
 
-  testWidgets("a trend's percentage uses the translations' separators", (tester) async {
+  testWidgets("a trend's percentage reaches the translation as a number, which it formats", (tester) async {
     await _pumpIn(
       tester,
       'root = Card([MetricIndicatorInline("1", "", {direction: "up", value: 1234.567})])',
       const _German(),
     );
 
-    expect(find.text('1.234,57 %'), findsOneWidget);
     expect(find.bySemanticsLabel('Plus 1.234,567 Prozent'), findsOneWidget);
+  });
+
+  group('the English texts write numbers as the program does', () {
+    const english = DefaultOpenUITranslations();
+
+    test('a whole limit without a fraction', () {
+      expect(english.validationMin(1500.0), 'Must be at least 1500');
+    });
+
+    test('a limit with a fraction', () {
+      expect(english.validationMax(0.5), 'Must be no more than 0.5');
+    });
+
+    test('a trend with at most 2 decimals', () {
+      expect(english.trendUp(12.5), 'Up 12.5 percent');
+      expect(english.trendDown(1234.567), 'Down 1234.57 percent');
+    });
   });
 
   testWidgets("a table's controls read in the translations' words", (tester) async {

@@ -119,7 +119,7 @@ void main() {
         expect(find.text('5%'), findsNothing);
       });
 
-      testWidgets('a trend value shows up to 2 decimals with its thousands grouped, and a boolean reads as 1', (
+      testWidgets('a trend value shows up to 2 decimals, and a boolean reads as 1', (
         tester,
       ) async {
         await draw(
@@ -130,10 +130,10 @@ void main() {
           before: '\$flag = true\n',
         );
 
-        expect(find.text('1,234.57%'), findsOneWidget);
+        expect(find.text('1234.57%'), findsOneWidget);
         expect(find.text('12.5%'), findsOneWidget);
         expect(find.text('1%'), findsOneWidget);
-        expect(find.bySemanticsLabel('Up 1,234.567 percent'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 1234.57 percent'), findsOneWidget);
       });
 
       testWidgets('MetricIndicatorWithStrikethrough strikes its previous value out', (tester) async {

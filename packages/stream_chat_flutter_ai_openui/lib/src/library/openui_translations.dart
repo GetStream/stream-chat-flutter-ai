@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_number_format.dart';
 
 /// The texts OpenUI components draw or read out that the agent didn't write.
 ///
@@ -10,6 +11,11 @@ import 'package:flutter/widgets.dart';
 /// on `MaterialApp.localizationsDelegates`, or pinned over a subtree with an
 /// [OpenUITranslationsScope]. Without either, the components fall back to
 /// [DefaultOpenUITranslations], in English.
+///
+/// Numbers, such as a form rule's limit or a metric's trend, reach a
+/// translation as numbers, and it formats them as its language needs, for
+/// example with `intl`'s `NumberFormat`. [DefaultOpenUITranslations] writes
+/// them as the program does, such as `1500` and `12.5`.
 ///
 /// The texts of the components `stream_chat_flutter_ai` draws, such as a
 /// code block's copy button, come from its `AITranslations`.
@@ -118,49 +124,31 @@ abstract class OpenUITranslations {
   String changes(int count);
 
   /// The label of the action a `SnippetCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title. [index] is formatted with
-  /// [decimalSeparator] and [groupSeparator].
-  String snippetCardItem(String index);
+  /// from 1) runs when the item has no title.
+  String snippetCardItem(int index);
 
   /// The label of the action an `OverviewCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title. [index] is formatted with
-  /// [decimalSeparator] and [groupSeparator].
-  String overviewCardItem(String index);
+  /// from 1) runs when the item has no title.
+  String overviewCardItem(int index);
 
   /// The label of the action a `ContextCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title. [index] is formatted with
-  /// [decimalSeparator] and [groupSeparator].
-  String contextCardItem(String index);
+  /// from 1) runs when the item has no title.
+  String contextCardItem(int index);
 
   /// The label of the action a `CompositeCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title. [index] is formatted with
-  /// [decimalSeparator] and [groupSeparator].
-  String compositeCardItem(String index);
+  /// from 1) runs when the item has no title.
+  String compositeCardItem(int index);
 
   /// The label of the action a `VisualCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title. [index] is formatted with
-  /// [decimalSeparator] and [groupSeparator].
-  String visualCardItem(String index);
+  /// from 1) runs when the item has no title.
+  String visualCardItem(int index);
 
-  /// What separates the whole part of a number from its fraction, such as
-  /// the `.` of `12.5`.
-  String get decimalSeparator;
+  /// What a metric that rose by [percent] percent reads as, such as
+  /// `12.5`.
+  String trendUp(num percent);
 
-  /// What separates the groups of thousands of a number, such as the `,` of
-  /// `1,250`.
-  String get groupSeparator;
-
-  /// The percentage [number], already formatted with [decimalSeparator] and
-  /// [groupSeparator], as a metric's trend shows it.
-  String percent(String number);
-
-  /// What a metric that rose by [number] percent reads as. [number] is
-  /// formatted with [decimalSeparator] and [groupSeparator].
-  String trendUp(String number);
-
-  /// What a metric that fell by [number] percent reads as. [number] is
-  /// formatted with [decimalSeparator] and [groupSeparator].
-  String trendDown(String number);
+  /// What a metric that fell by [percent] percent reads as, such as `12.5`.
+  String trendDown(num percent);
 
   /// The error of a field with the `required` rule that has no value.
   String get validationRequired;
@@ -180,18 +168,18 @@ abstract class OpenUITranslations {
   String get validationNumeric;
 
   /// The error of a field whose value is below its `min` rule's [min].
-  String validationMin(String min);
+  String validationMin(num min);
 
   /// The error of a field whose value is above its `max` rule's [max].
-  String validationMax(String max);
+  String validationMax(num max);
 
   /// The error of a field whose value is shorter than its `minLength` rule's
   /// [min] characters.
-  String validationMinLength(String min);
+  String validationMinLength(int min);
 
   /// The error of a field whose value is longer than its `maxLength` rule's
   /// [max] characters.
-  String validationMaxLength(String max);
+  String validationMaxLength(int max);
 }
 
 /// The English [OpenUITranslations], used when no other is supplied.
@@ -263,34 +251,25 @@ class DefaultOpenUITranslations extends OpenUITranslations {
   String changes(int count) => count == 1 ? '1 change' : '$count changes';
 
   @override
-  String snippetCardItem(String index) => 'Snippet card $index';
+  String snippetCardItem(int index) => 'Snippet card $index';
 
   @override
-  String overviewCardItem(String index) => 'Overview card $index';
+  String overviewCardItem(int index) => 'Overview card $index';
 
   @override
-  String contextCardItem(String index) => 'Context card $index';
+  String contextCardItem(int index) => 'Context card $index';
 
   @override
-  String compositeCardItem(String index) => 'Composite card $index';
+  String compositeCardItem(int index) => 'Composite card $index';
 
   @override
-  String visualCardItem(String index) => 'Visual card $index';
+  String visualCardItem(int index) => 'Visual card $index';
 
   @override
-  String get decimalSeparator => '.';
+  String trendUp(num percent) => 'Up ${openUIPlainNumber(percent, maxDecimals: 2)} percent';
 
   @override
-  String get groupSeparator => ',';
-
-  @override
-  String percent(String number) => '$number%';
-
-  @override
-  String trendUp(String number) => 'Up $number percent';
-
-  @override
-  String trendDown(String number) => 'Down $number percent';
+  String trendDown(num percent) => 'Down ${openUIPlainNumber(percent, maxDecimals: 2)} percent';
 
   @override
   String get validationRequired => 'This field is required';
@@ -308,16 +287,16 @@ class DefaultOpenUITranslations extends OpenUITranslations {
   String get validationNumeric => 'Must be a number';
 
   @override
-  String validationMin(String min) => 'Must be at least $min';
+  String validationMin(num min) => 'Must be at least ${openUIPlainNumber(min)}';
 
   @override
-  String validationMax(String max) => 'Must be no more than $max';
+  String validationMax(num max) => 'Must be no more than ${openUIPlainNumber(max)}';
 
   @override
-  String validationMinLength(String min) => 'Must be at least $min characters';
+  String validationMinLength(int min) => 'Must be at least $min characters';
 
   @override
-  String validationMaxLength(String max) => 'Must be no more than $max characters';
+  String validationMaxLength(int max) => 'Must be no more than $max characters';
 }
 
 /// Pins [translations] for the OpenUI components below it, whatever the

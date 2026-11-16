@@ -10,7 +10,6 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_number_format.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
 /// Runs [action], the action of the control labelled [label] that [scope]
@@ -317,24 +316,16 @@ class _OpenUIPressableState extends State<OpenUIPressable> {
 /// Internal to the package.
 @internal
 String openUIValidationMessage(OpenUITranslations translations, FormValidationError error) {
-  final argument = _limit(error.argument ?? '', translations);
+  final limit = error.limit ?? 0;
   return switch (error.code) {
     FormValidationErrorCode.required => translations.validationRequired,
     FormValidationErrorCode.requiredOption => translations.validationRequiredOption,
     FormValidationErrorCode.email => translations.validationEmail,
     FormValidationErrorCode.url => translations.validationUrl,
     FormValidationErrorCode.numeric => translations.validationNumeric,
-    FormValidationErrorCode.min => translations.validationMin(argument),
-    FormValidationErrorCode.max => translations.validationMax(argument),
-    FormValidationErrorCode.minLength => translations.validationMinLength(argument),
-    FormValidationErrorCode.maxLength => translations.validationMaxLength(argument),
+    FormValidationErrorCode.min => translations.validationMin(limit),
+    FormValidationErrorCode.max => translations.validationMax(limit),
+    FormValidationErrorCode.minLength => translations.validationMinLength(limit.toInt()),
+    FormValidationErrorCode.maxLength => translations.validationMaxLength(limit.toInt()),
   };
-}
-
-// The rule's limit [text], as JavaScript writes a number, with
-// [translations]'s separators. `NaN` and `Infinity` stay as they are.
-String _limit(String text, OpenUITranslations translations) {
-  final value = double.tryParse(text);
-  if (value == null || !value.isFinite) return text;
-  return openUIFormatNumber(value, 6, translations);
 }
