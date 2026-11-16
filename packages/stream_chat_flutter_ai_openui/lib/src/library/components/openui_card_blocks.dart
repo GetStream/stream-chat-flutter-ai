@@ -26,7 +26,7 @@ Widget buildOpenUISnippetCardBlock(BuildContext context, OpenUIComponentScope sc
   return _block(
     context,
     scope,
-    kind: 'Snippet',
+    untitled: (translations, index) => translations.snippetCardItem(index),
     describe: _describeSnippet,
     minItem: 150,
     carouselItem: 220,
@@ -65,7 +65,7 @@ Widget buildOpenUIOverviewCardBlock(BuildContext context, OpenUIComponentScope s
   return _block(
     context,
     scope,
-    kind: 'Overview',
+    untitled: (translations, index) => translations.overviewCardItem(index),
     describe: _describeOverview,
     minItem: 140,
     carouselItem: 180,
@@ -113,7 +113,7 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
   return _block(
     context,
     scope,
-    kind: 'Context',
+    untitled: (translations, index) => translations.contextCardItem(index),
     describe: _describeContext,
     minItem: 150,
     carouselItem: 210,
@@ -217,7 +217,7 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
   return _block(
     context,
     scope,
-    kind: 'Composite',
+    untitled: (translations, index) => translations.compositeCardItem(index),
     describe: _describeComposite,
     minItem: 250,
     carouselItem: 270,
@@ -267,7 +267,7 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
   return _block(
     context,
     scope,
-    kind: 'Visual',
+    untitled: (translations, index) => translations.visualCardItem(index),
     describe: _describeVisual,
     minItem: 150,
     carouselItem: 200,
@@ -516,7 +516,7 @@ Widget _block(
   BuildContext context,
   OpenUIComponentScope scope,
   Widget Function(BuildContext context, _Item item) build, {
-  required String kind,
+  required String Function(OpenUITranslations translations, int index) untitled,
   required _Description Function(_Item item) describe,
   required double minItem,
   required double carouselItem,
@@ -543,7 +543,7 @@ Widget _block(
                     triggerOpenUIAction(
                       context,
                       scope,
-                      label: label ?? OpenUITranslations.of(context).cardItem(kind, index + 1),
+                      label: label ?? untitled(OpenUITranslations.of(context), index + 1),
                       action: mergeOpenUIItemContext(action, {
                         'itemIndex': OpenUINumber(index.toDouble()),
                         ...context_,

@@ -117,11 +117,25 @@ abstract class OpenUITranslations {
   /// How many cells of an editable table changed.
   String changes(int count);
 
-  /// The label of the action a card block's item [index] (counting from 1)
-  /// runs when the item has no title. [kind] is the block's kind as the
-  /// program names it: `Snippet`, `Overview`, `Context`, `Composite` or
-  /// `Visual`.
-  String cardItem(String kind, int index);
+  /// The label of the action a `SnippetCardBlock`'s item [index] (counting
+  /// from 1) runs when the item has no title.
+  String snippetCardItem(int index);
+
+  /// The label of the action an `OverviewCardBlock`'s item [index] (counting
+  /// from 1) runs when the item has no title.
+  String overviewCardItem(int index);
+
+  /// The label of the action a `ContextCardBlock`'s item [index] (counting
+  /// from 1) runs when the item has no title.
+  String contextCardItem(int index);
+
+  /// The label of the action a `CompositeCardBlock`'s item [index] (counting
+  /// from 1) runs when the item has no title.
+  String compositeCardItem(int index);
+
+  /// The label of the action a `VisualCardBlock`'s item [index] (counting
+  /// from 1) runs when the item has no title.
+  String visualCardItem(int index);
 
   /// What separates the whole part of a number from its fraction, such as
   /// the `.` of `12.5`.
@@ -244,7 +258,19 @@ class DefaultOpenUITranslations extends OpenUITranslations {
   String changes(int count) => count == 1 ? '1 change' : '$count changes';
 
   @override
-  String cardItem(String kind, int index) => '$kind card $index';
+  String snippetCardItem(int index) => 'Snippet card $index';
+
+  @override
+  String overviewCardItem(int index) => 'Overview card $index';
+
+  @override
+  String contextCardItem(int index) => 'Context card $index';
+
+  @override
+  String compositeCardItem(int index) => 'Composite card $index';
+
+  @override
+  String visualCardItem(int index) => 'Visual card $index';
 
   @override
   String get decimalSeparator => '.';
