@@ -14,8 +14,10 @@ Do not add a Stream Chat dependency — that would change the package's core pre
 to need one, raise it rather than doing it.
 
 It **is** built on Stream's design system,
-[`stream_core_flutter`](https://github.com/GetStream/stream-core-flutter), which has no client or
-backend dependency: defaults come from `StreamTheme` tokens (`context.streamColorScheme`,
+[`stream_core_flutter`](https://github.com/GetStream/stream-core-flutter). That package depends on
+`stream_core`, Stream's networking core (dio HTTP, WebSockets, JWT through jose). The AI packages may use
+`stream_core`'s pure-Dart utilities, such as `normalizeStringForSort`, and nothing that makes requests,
+opens a socket or handles tokens. Defaults come from `StreamTheme` tokens (`context.streamColorScheme`,
 `context.streamTextTheme`, `context.streamSpacing`, `context.streamRadius`, `context.streamIcons`),
 not Material's `ColorScheme`/`TextTheme`; buttons, sheets, list tiles, spinners and most icons are core's
 components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadingSpinner`,

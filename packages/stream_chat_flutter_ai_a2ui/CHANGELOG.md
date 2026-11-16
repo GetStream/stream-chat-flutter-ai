@@ -10,6 +10,10 @@
 - `A2UITranslations`, `DefaultA2UITranslations`, `A2UITranslationsScope` and `A2UITranslationsDelegate`, for the
   labels of the Video and AudioPlayer play and pause buttons.
 
+🔄 Changed
+
+- Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
+
 ## 0.2.0
 
 ✅ Added
