@@ -29,7 +29,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
         ? null
         : () {
             final action = scope.prop('action');
-            final validation = OpenUIFormScope.maybeOf(context)?.validation;
+            final validation = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
             if (variant == 'primary' && validation != null && _needsValidation(action) && !validation.validateForm()) {
               return;
             }

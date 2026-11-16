@@ -62,7 +62,7 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
           ? null
           : (bool value) {
               final next = OpenUIObject({...checked, itemName: OpenUIBool(value)});
-              openUIFieldState(context, scope, type).set(next);
+              openUIFieldState(context, scope, type, listen: false).set(next);
               if (rules != null) validateOpenUIField(context, scope);
             };
       if (index > 0 && isSwitch) rows.add(SizedBox(height: 0.5, child: ColoredBox(color: colors.border)));
@@ -147,7 +147,12 @@ Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
                   onTap: scope.isStreaming
                       ? null
                       : () {
-                          openUIFieldState(context, scope, 'RadioGroup').set(OpenUIString(values[index]));
+                          openUIFieldState(
+                            context,
+                            scope,
+                            'RadioGroup',
+                            listen: false,
+                          ).set(OpenUIString(values[index]));
                           validateOpenUIField(context, scope);
                         },
                   child: Row(

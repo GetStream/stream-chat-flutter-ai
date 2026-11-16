@@ -52,11 +52,15 @@ Widget _metric(BuildContext context, OpenUIComponentScope scope, {required bool 
                       : FittedBox(fit: BoxFit.scaleDown, alignment: AlignmentDirectional.centerStart, child: value),
                 ),
                 if (previousValue.isNotEmpty)
-                  Text(
-                    previousValue,
-                    style: theme.bodySmall.copyWith(
-                      color: theme.tertiaryText,
-                      decoration: TextDecoration.lineThrough,
+                  Flexible(
+                    child: Text(
+                      previousValue,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.bodySmall.copyWith(
+                        color: theme.tertiaryText,
+                        decoration: TextDecoration.lineThrough,
+                      ),
                     ),
                   ),
               ],
