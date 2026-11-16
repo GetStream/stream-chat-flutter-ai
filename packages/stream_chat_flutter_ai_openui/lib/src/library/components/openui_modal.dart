@@ -20,6 +20,9 @@ import 'package:stream_core_flutter/core.dart';
 /// such as after scrolling out of view and back, until the reply rewrites it. The sheet closes when
 /// the modal leaves the reply.
 ///
+/// A `size` of `sm` keeps the sheet to half the height it can take, its
+/// content scrolling within; any other size lets it grow to fit its content.
+///
 /// Internal to the package.
 @internal
 Widget buildOpenUIModal(BuildContext context, OpenUIComponentScope scope) => _OpenUIModal(scope: scope);
@@ -162,22 +165,30 @@ class _OpenUIModalSheet extends StatelessWidget {
           Builder(
             builder: (context) {
               final theme = OpenUIViewScope.of(context).theme;
+              final small = scope.string('size') == 'sm';
               // The sheet is a route of the app's, which may have no Material.
               return Material(
                 type: MaterialType.transparency,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    StreamSheetHeader(title: Text(scope.text('title') ?? '')),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        controller: scrollController,
-                        padding: EdgeInsets.all(theme.lSpacing),
-                        child: scope.buildProp('children'),
-                      ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: small && constraints.hasBoundedHeight ? constraints.maxHeight / 2 : double.infinity,
                     ),
-                  ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        StreamSheetHeader(title: Text(scope.text('title') ?? '')),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            controller: scrollController,
+                            padding: EdgeInsets.all(theme.lSpacing),
+                            child: scope.buildProp('children'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },

@@ -463,6 +463,40 @@ root = Stack([Modal("Details", $open, [Button("Hide", @Set($open, false))])])
       expect(find.text('Changed'), findsOneWidget);
     });
 
+    group('size', () {
+      final lines = List.generate(60, (i) => 'TextContent("Line $i")').join(', ');
+
+      // How far down the sheet's header sits, as a share of the screen.
+      double headerTop(WidgetTester tester) =>
+          tester.getTopLeft(find.byType(StreamSheetHeader)).dy /
+          tester.view.physicalSize.height *
+          tester.view.devicePixelRatio;
+
+      testWidgets('sm keeps a long sheet to half its height', (tester) async {
+        await _pump(tester, 'root = Stack([Modal("Note", true, [$lines], "sm")])');
+        await tester.pumpAndSettle();
+
+        expect(headerTop(tester), greaterThan(0.45));
+      });
+
+      for (final size in ['', ', "lg"']) {
+        testWidgets('${size.isEmpty ? 'no size' : 'lg'} lets a long sheet grow to full height', (tester) async {
+          await _pump(tester, 'root = Stack([Modal("Note", true, [$lines]$size)])');
+          await tester.pumpAndSettle();
+
+          expect(headerTop(tester), lessThan(0.2));
+        });
+      }
+
+      testWidgets('sm leaves a short sheet its own height', (tester) async {
+        await _pump(tester, 'root = Stack([Modal("Note", true, [TextContent("Hi")], "sm")])');
+        await tester.pumpAndSettle();
+
+        expect(headerTop(tester), greaterThan(0.6));
+        expect(find.text('Hi'), findsOneWidget);
+      });
+    });
+
     testWidgets('closes when it leaves the reply, and its content updates while open', (tester) async {
       final (runtime, _) = await _pump(tester, 'root = Stack([Modal("Note", true, [TextContent("Hi")])])');
       await tester.pumpAndSettle();
