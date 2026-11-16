@@ -214,7 +214,6 @@ class _Reader extends StatelessWidget {
   Widget build(BuildContext context) => const SizedBox();
 }
 
-// Counts its builds, each of which reads the translations.
 // Reads the translations and reports each build to [onBuild].
 class _BuildCounter extends StatelessWidget {
   const _BuildCounter({required this.onBuild});
