@@ -358,7 +358,9 @@ final class _OpenUIReply {
     );
     _engine._replyOf[runtime] = this;
     _actions = runtime.actions.listen((event) => _engine._handle(event, this));
-    runtime.state.addListener(_saveState);
+    // Declared defaults and the kept state the reply starts from aren't new
+    // state for the host.
+    _stateUpdates = runtime.stateUpdates.listen(_saveState);
     runtime.errors.addListener(_reportErrors);
   }
 
@@ -371,6 +373,7 @@ final class _OpenUIReply {
   /// the app where the reply's view last built.
   String untitledLabel = const DefaultAITranslations().uiActionUntitled;
   late final StreamSubscription<OpenUIActionEvent> _actions;
+  late final StreamSubscription<Map<String, OpenUIValue>> _stateUpdates;
   // The errors given to `onError` already, each given once while the agent
   // extends the reply's text.
   final Set<OpenUIError> reported = {};
@@ -400,8 +403,8 @@ final class _OpenUIReply {
   // its default, and the host may notify its listeners when it is set, so it
   // is given once the frame ends. What the reply held when it changed is what
   // the host gets, also when the reply is removed in between.
-  void _saveState() {
-    final state = openUIPlainJsonObject(runtime.state.value);
+  void _saveState(Map<String, OpenUIValue> values) {
+    final state = openUIPlainJsonObject(values);
     _engine._whenNotBuilding(() {
       if (!_engine._disposed) _engine._host.setState(messageId, state);
     });
@@ -412,7 +415,7 @@ final class _OpenUIReply {
   void dispose() {
     _tools.isClosed = true;
     unawaited(_actions.cancel());
-    runtime.state.removeListener(_saveState);
+    unawaited(_stateUpdates.cancel());
     runtime.errors.removeListener(_reportErrors);
     runtime.dispose();
   }

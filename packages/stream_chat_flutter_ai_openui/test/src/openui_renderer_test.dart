@@ -403,13 +403,27 @@ void main() {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
       addTearDown(engine.dispose);
-      final document = _doc('\$n = "a"\nroot = Stack([TextContent("Body")])');
+      // A field saves its default as it builds, once the reply is written.
+      final document = _doc(
+        'root = Stack([RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro")])',
+      );
 
       await tester.pumpWidget(testApp(Builder(builder: (_) => engine.view(document, 'r1') ?? const SizedBox.shrink())));
       await tester.pump();
 
-      expect(host.states['r1'], containsPair(r'$n', 'a'));
+      expect(host.states['r1'], isNotNull);
       expect(host.statePhases, everyElement(isNot(SchedulerPhase.persistentCallbacks)));
+    });
+
+    testWidgets("declared defaults and kept state aren't given to the host as new state", (tester) async {
+      final host = _Host()..states['r1'] = {r'$m': 'kept'};
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      host.statePhases.clear();
+
+      await _pump(tester, engine, _doc('\$n = "a"\n\$m = "b"\nroot = Stack([TextContent("Body")])'));
+
+      expect(host.statePhases, isEmpty);
     });
 
     testWidgets('state kept as a map of any key type is given back', (tester) async {
