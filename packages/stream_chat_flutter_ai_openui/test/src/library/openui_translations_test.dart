@@ -38,7 +38,7 @@ class _German extends DefaultOpenUITranslations {
   String validationMin(String min) => 'Mindestens $min';
 
   @override
-  String snippetCardItem(int index) => 'Karte $index';
+  String snippetCardItem(String index) => 'Karte $index';
 }
 
 // A text of its own for every form error, to tell each apart from English.

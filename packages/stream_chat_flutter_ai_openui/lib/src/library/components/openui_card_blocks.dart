@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.da
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_item_context.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_node_props.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_number_format.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -26,7 +27,8 @@ Widget buildOpenUISnippetCardBlock(BuildContext context, OpenUIComponentScope sc
   return _block(
     context,
     scope,
-    untitled: (translations, index) => translations.snippetCardItem(index),
+    untitled: (translations, index) =>
+        translations.snippetCardItem(openUIFormatNumber(index.toDouble(), 0, translations)),
     describe: _describeSnippet,
     minItem: 150,
     carouselItem: 220,
@@ -65,7 +67,8 @@ Widget buildOpenUIOverviewCardBlock(BuildContext context, OpenUIComponentScope s
   return _block(
     context,
     scope,
-    untitled: (translations, index) => translations.overviewCardItem(index),
+    untitled: (translations, index) =>
+        translations.overviewCardItem(openUIFormatNumber(index.toDouble(), 0, translations)),
     describe: _describeOverview,
     minItem: 140,
     carouselItem: 180,
@@ -113,7 +116,8 @@ Widget buildOpenUIContextCardBlock(BuildContext context, OpenUIComponentScope sc
   return _block(
     context,
     scope,
-    untitled: (translations, index) => translations.contextCardItem(index),
+    untitled: (translations, index) =>
+        translations.contextCardItem(openUIFormatNumber(index.toDouble(), 0, translations)),
     describe: _describeContext,
     minItem: 150,
     carouselItem: 210,
@@ -217,7 +221,8 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
   return _block(
     context,
     scope,
-    untitled: (translations, index) => translations.compositeCardItem(index),
+    untitled: (translations, index) =>
+        translations.compositeCardItem(openUIFormatNumber(index.toDouble(), 0, translations)),
     describe: _describeComposite,
     minItem: 250,
     carouselItem: 270,
@@ -267,7 +272,8 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
   return _block(
     context,
     scope,
-    untitled: (translations, index) => translations.visualCardItem(index),
+    untitled: (translations, index) =>
+        translations.visualCardItem(openUIFormatNumber(index.toDouble(), 0, translations)),
     describe: _describeVisual,
     minItem: 150,
     carouselItem: 200,

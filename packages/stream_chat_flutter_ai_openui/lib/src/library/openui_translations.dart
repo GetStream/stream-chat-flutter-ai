@@ -118,24 +118,29 @@ abstract class OpenUITranslations {
   String changes(int count);
 
   /// The label of the action a `SnippetCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title.
-  String snippetCardItem(int index);
+  /// from 1) runs when the item has no title. [index] is formatted with
+  /// [decimalSeparator] and [groupSeparator].
+  String snippetCardItem(String index);
 
   /// The label of the action an `OverviewCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title.
-  String overviewCardItem(int index);
+  /// from 1) runs when the item has no title. [index] is formatted with
+  /// [decimalSeparator] and [groupSeparator].
+  String overviewCardItem(String index);
 
   /// The label of the action a `ContextCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title.
-  String contextCardItem(int index);
+  /// from 1) runs when the item has no title. [index] is formatted with
+  /// [decimalSeparator] and [groupSeparator].
+  String contextCardItem(String index);
 
   /// The label of the action a `CompositeCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title.
-  String compositeCardItem(int index);
+  /// from 1) runs when the item has no title. [index] is formatted with
+  /// [decimalSeparator] and [groupSeparator].
+  String compositeCardItem(String index);
 
   /// The label of the action a `VisualCardBlock`'s item [index] (counting
-  /// from 1) runs when the item has no title.
-  String visualCardItem(int index);
+  /// from 1) runs when the item has no title. [index] is formatted with
+  /// [decimalSeparator] and [groupSeparator].
+  String visualCardItem(String index);
 
   /// What separates the whole part of a number from its fraction, such as
   /// the `.` of `12.5`.
@@ -258,19 +263,19 @@ class DefaultOpenUITranslations extends OpenUITranslations {
   String changes(int count) => count == 1 ? '1 change' : '$count changes';
 
   @override
-  String snippetCardItem(int index) => 'Snippet card $index';
+  String snippetCardItem(String index) => 'Snippet card $index';
 
   @override
-  String overviewCardItem(int index) => 'Overview card $index';
+  String overviewCardItem(String index) => 'Overview card $index';
 
   @override
-  String contextCardItem(int index) => 'Context card $index';
+  String contextCardItem(String index) => 'Context card $index';
 
   @override
-  String compositeCardItem(int index) => 'Composite card $index';
+  String compositeCardItem(String index) => 'Composite card $index';
 
   @override
-  String visualCardItem(int index) => 'Visual card $index';
+  String visualCardItem(String index) => 'Visual card $index';
 
   @override
   String get decimalSeparator => '.';
