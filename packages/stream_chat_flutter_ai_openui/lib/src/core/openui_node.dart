@@ -10,6 +10,7 @@ library;
 import 'package:meta/meta.dart';
 
 export 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart' show ElementNode;
+export 'package:stream_chat_flutter_ai_openui/src/core/parser/upstream_shape.dart' show plainJson;
 export 'package:stream_chat_flutter_ai_openui/src/core/runtime/action_plan.dart' show ActionPlan, ActionStepType;
 export 'package:stream_chat_flutter_ai_openui/src/core/runtime/evaluator.dart' show ReactiveBinding;
 export 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart' show JS;

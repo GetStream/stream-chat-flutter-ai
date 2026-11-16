@@ -240,11 +240,11 @@ final class OpenUIEngine extends AIUIEngine {
           name: event.type,
           label: event.label.isEmpty ? reply.untitledLabel : event.label,
           payload: {
-            if (context != null) 'context': openUIJson(context),
-            if (params.isNotEmpty) 'params': openUIJsonObject(params),
+            if (context != null) 'context': openUIPlainJson(context),
+            if (params.isNotEmpty) 'params': openUIPlainJsonObject(params),
             if (message.isNotEmpty && message != event.label) 'message': message,
             if (event.formName case final form?) 'form': form,
-            if (values.isNotEmpty) 'values': openUIJsonObject(values),
+            if (values.isNotEmpty) 'values': openUIPlainJsonObject(values),
           },
         ),
       ),
@@ -401,7 +401,7 @@ final class _OpenUIReply {
   // is given once the frame ends. What the reply held when it changed is what
   // the host gets, also when the reply is removed in between.
   void _saveState() {
-    final state = openUIJsonObject(runtime.state.value);
+    final state = openUIPlainJsonObject(runtime.state.value);
     _engine._whenNotBuilding(() {
       if (!_engine._disposed) _engine._host.setState(messageId, state);
     });
@@ -436,7 +436,7 @@ final class _HostTools implements OpenUIToolProvider {
     if (isClosed) throw StateError("The reply is gone, so the tool $name doesn't run.");
     final Object? output;
     try {
-      output = await _host.runTool(name, arguments: openUIJsonObject(args), userInitiated: userInitiated);
+      output = await _host.runTool(name, arguments: openUIPlainJsonObject(args), userInitiated: userInitiated);
     } on AIUIToolException catch (error) {
       // The query's error reads the host's message, as on iOS and Android.
       throw _ToolFailure(error.message);

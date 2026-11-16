@@ -357,6 +357,23 @@ void main() {
       expect([for (final call in host.calls) (call.name, call.userInitiated)], [('list', false), ('save', true)]);
     });
 
+    testWidgets("a tool's arguments carry whole numbers as ints", (tester) async {
+      final host = _Host(tools: {'save': (_) => true});
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      const program =
+          'm = Mutation("save", {page: 2, size: 2.5})\n'
+          'root = Stack([Button("Save", Action([@Run(m)]))])';
+
+      await _pump(tester, engine, _doc(program));
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(seconds: 1));
+
+      final arguments = host.calls.single.arguments;
+      expect(arguments['page'], isA<int>());
+      expect(arguments['size'], 2.5);
+    });
+
     testWidgets("the reply's state is saved in the host and given back to a new engine", (tester) async {
       final host = _Host();
       final renderer = OpenUIRenderer(library: OpenUILibrary.standard);
