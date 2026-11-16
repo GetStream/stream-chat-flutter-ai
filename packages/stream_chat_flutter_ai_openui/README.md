@@ -51,8 +51,10 @@ Each comes once while the reply is shown, and again when the agent writes the re
 builder throws, which also always goes to `FlutterError.reportError`. Without `onError`, problems are reported in debug
 builds only.
 
-A form field checks its `rules` before the form is submitted, all but `pattern`: a field with a `pattern` rule accepts
-any value for now.
+A form field checks its `rules` before the form is submitted. A `pattern` is matched in time linear in the value, so a
+pattern the agent writes can't freeze the app: one longer than 1000 characters, or one that expands past 1000 items once
+its counts are written out, is ignored, as is one with a lookbehind, a backreference or a lookahead anywhere but right
+after a leading `^`. A value longer than 4096 characters fails it.
 
 ## What the agent is told
 

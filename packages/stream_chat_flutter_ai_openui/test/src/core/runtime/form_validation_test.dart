@@ -56,8 +56,35 @@ void main() {
     expect(_check('a', {'shout': true, 'minLength': 2, 'email': true}), 'Must be at least 2 characters');
   });
 
-  test('a pattern rule is skipped for now', () {
-    expect(_check('ab123', {'pattern': r'^[A-Z]{2}\d{3}$'}), isNull);
+  group('pattern', () {
+    test('passes a value it finds a match in and fails one it does not', () {
+      expect(_check('AB123', {'pattern': r'^[A-Z]{2}\d{3}$'}), isNull);
+      expect(_check('ab123', {'pattern': r'^[A-Z]{2}\d{3}$'}), 'Invalid format');
+      expect(_check('xx42yy', {'pattern': r'\d+'}), isNull);
+      expect(_check('ab123', [r'pattern:^[a-z]+\d+$']), isNull);
+    });
+
+    test('lets an empty value through', () {
+      expect(_check('', {'pattern': r'^\d+$'}), isNull);
+    });
+
+    test('lets any value through when the pattern is invalid or rejected', () {
+      expect(_check('ab', {'pattern': '(a'}), isNull);
+      expect(_check('ab', {'pattern': r'(a)\1'}), isNull);
+      expect(_check('ab', {'pattern': 'a{0,600}b{0,600}x'}), isNull);
+      expect(_check('ab', {'pattern': 5}), isNull);
+    });
+
+    test('fails a value longer than the input cap', () {
+      expect(_check('a' * 4096, {'pattern': 'a'}), isNull);
+      expect(_check('a' * 4097, {'pattern': 'a'}), 'Invalid format');
+    });
+
+    test('decides a pattern that backtracks without freezing', () {
+      final watch = Stopwatch()..start();
+      expect(_check('${'a' * 4000}b', {'pattern': r'^(a+)+$'}), 'Invalid format');
+      expect(watch.elapsed, lessThan(const Duration(seconds: 1)));
+    });
   });
 
   test('a form field is checked by its value', () {

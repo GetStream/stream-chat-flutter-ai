@@ -12,3 +12,4 @@
   host's `open`, which decides which links open.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
+- A form field checks its `pattern` rule, in time linear in the value, so a pattern can't freeze the app.

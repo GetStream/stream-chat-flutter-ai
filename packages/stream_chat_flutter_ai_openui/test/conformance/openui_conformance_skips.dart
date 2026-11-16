@@ -8,13 +8,6 @@
 /// The areas of the specification's fixtures this package runs.
 const specAreasRun = ['grammar', 'entry', 'errors', 'streaming', 'evaluation', 'actions', 'state', 'editing'];
 
-const _needsPatternMatcher =
-    "A `pattern` rule needs a regular expression matcher that can't freeze the app, which the package doesn't have yet.";
-
-/// Why the validation case with [rules] isn't run, or `null` when it is.
-String? specValidationSkipReason(Object? rules) =>
-    rules is Map<String, Object?> && rules.containsKey('pattern') ? _needsPatternMatcher : null;
-
 const _needsCollation =
     "@Sort orders text with the locale's collation, which puts accented letters next to their base letter; "
     "the package doesn't collate by locale yet.";
