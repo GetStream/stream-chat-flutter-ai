@@ -19,6 +19,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/runtime/form_validation.d
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/query_manager.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/store.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/tool_provider.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/runtime/tree_reuse.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
@@ -290,8 +291,9 @@ final class OpenUIRuntime {
       do {
         _recomputeAgain = false;
         passes += 1;
-        final (root, errors) = PropEvaluator.evaluateRoot(_result, _context());
+        final (evaluated, errors) = PropEvaluator.evaluateRoot(_result, _context());
         _runtimeErrors = errors;
+        final root = evaluated == null ? null : reuseUnchanged(evaluated, _root.value);
         if (root != _root.value) _root.value = root;
         _isQueryLoading.value = _queries.snapshot.loading.isNotEmpty;
       } while (_recomputeAgain && passes < maxPasses);
