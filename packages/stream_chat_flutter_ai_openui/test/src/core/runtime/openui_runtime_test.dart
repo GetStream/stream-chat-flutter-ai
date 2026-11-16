@@ -171,6 +171,47 @@ void main() {
       expect(tools.calls.single.args, {'title': _v('b')});
     });
 
+    test('the steps of one action update the reply once', () async {
+      runtime.update(
+        r'$a = 0'
+        '\n\$b = 0\nroot = Stack([Button("Go", Action([@Set(\$a, 1), @Set(\$b, 2), @Set(\$a, 3)])), Text(\$a + \$b)])',
+        isStreaming: false,
+      );
+      var updates = 0;
+      runtime.root.addListener(() => updates += 1);
+      await click(0);
+
+      expect(updates, 1);
+      expect(runtime.state.value, {r'$a': _v(3), r'$b': _v(2)});
+    });
+
+    test('a query an action fetches again reads the state its earlier steps set', () async {
+      runtime.update(
+        r'$x = 1'
+        '\nq = Query("list", {x: \$x}, null)\nroot = Stack([Button("Go", Action([@Set(\$x, 2), @Run(q)]))])',
+        isStreaming: false,
+      );
+      tools.calls.single.answer.complete(_v(1));
+      await pumpMicrotasks();
+      await click(0);
+
+      expect(tools.calls.last.args, {'x': _v(2)});
+    });
+
+    test('the state set while a mutation runs shows at once', () async {
+      runtime.update(
+        r'$x = "a"'
+        '\nm = Mutation("save", {})\nroot = Stack([Button("Go", @Run(m)), Text(\$x)])',
+        isStreaming: false,
+      );
+      final run = click(0);
+      runtime.setFieldValue(null, r'$x', _v('b'));
+
+      expect(child(1).props['text'], _v('b'));
+      tools.calls.single.answer.complete(_v('ok'));
+      await run;
+    });
+
     test('a library action sends its event with the control label', () async {
       runtime.update('root = Stack([Button("Copy", @CopyToClipboard("t"))])', isStreaming: false);
       await click(0);

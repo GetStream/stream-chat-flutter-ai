@@ -95,6 +95,11 @@ final class OpenUIRuntime {
   bool _recomputing = false;
   bool _recomputeAgain = false;
   bool _initializing = false;
+  // While an action's steps run, a change to the state is only noted, and the
+  // reply is updated once they are done; see [_holdUpdates].
+  bool _holdingUpdates = false;
+  bool _variablesChanged = false;
+  bool _stateChanged = false;
   List<OpenUIError> _runtimeErrors = const [];
   bool _disposed = false;
 
@@ -225,11 +230,14 @@ final class OpenUIRuntime {
     return bindings;
   }
 
+  // The state as it is now, without secrets, even while its updates are held.
+  Map<String, OpenUIValue> _currentState() => {
+    for (final MapEntry(:key, :value) in _store.snapshot.entries)
+      if (!OpenUIStore.isSecret(value)) key: OpenUIStore.withoutSecrets(value),
+  };
+
   void _publishState() {
-    final next = {
-      for (final MapEntry(:key, :value) in _store.snapshot.entries)
-        if (!OpenUIStore.isSecret(value)) key: OpenUIStore.withoutSecrets(value),
-    };
+    final next = _currentState();
     // Only a change notifies: the host saves the state each time it does.
     if (!mapEquals(next, _state.value)) _state.value = next;
   }
@@ -312,12 +320,35 @@ final class OpenUIRuntime {
 
   void _storeChanged(String key) {
     if (_disposed || _initializing) return;
+    if (_holdingUpdates) {
+      _variablesChanged |= key.startsWith(r'$');
+      _stateChanged = true;
+      return;
+    }
     if (key.startsWith(r'$')) {
       _runQueries();
       _recompute();
       _collectErrors();
     }
     _publishState();
+  }
+
+  // Holds the updates a change to the state makes until [_releaseUpdates], so
+  // the steps of one action update the reply once rather than once each.
+  void _holdUpdates() => _holdingUpdates = true;
+
+  // Makes the updates held since [_holdUpdates], once, and stops holding them.
+  void _releaseUpdates() {
+    _holdingUpdates = false;
+    if (_disposed) return;
+    if (_variablesChanged) {
+      _runQueries();
+      _recompute();
+      _collectErrors();
+    }
+    if (_stateChanged) _publishState();
+    _variablesChanged = false;
+    _stateChanged = false;
   }
 
   void _queriesChanged() {
@@ -428,7 +459,7 @@ final class OpenUIRuntime {
   Map<String, OpenUIValue> _formState(String? formName) {
     final form = formName == null ? null : _store.get(formName);
     if (form is OpenUIObject && !OpenUIStore.isSecret(form)) return {formName!: OpenUIStore.withoutSecrets(form)};
-    return _state.value;
+    return _holdingUpdates ? _currentState() : _state.value;
   }
 
   void _emit(
@@ -457,9 +488,10 @@ final class OpenUIRuntime {
   /// A plan runs its steps in order: `@Set` and `@Reset` write the state,
   /// `@Run` runs a mutation, waiting for it and stopping the plan when it
   /// fails, or fetches a query again; the others go to [actions], each with
-  /// the form state as it is when the step runs. A legacy `{type, params}`
-  /// object, or no action, sends a message to the model labelled with the
-  /// control.
+  /// the form state as it is when the step runs. The reply is updated once for
+  /// the steps' changes to the state, before a `@Run` and at the end, rather
+  /// than after each step. A legacy `{type, params}` object, or no action,
+  /// sends a message to the model labelled with the control.
   Future<void> trigger({required String label, String? formName, OpenUIValue? action}) async {
     if (_disposed) return;
     if (action case OpenUIObject(:final fields) when !ActionPlan.isPlan(action)) {
@@ -484,12 +516,26 @@ final class OpenUIRuntime {
       _emit(OpenUIActionEvent.continueConversation, formName, message: label, label: label);
       return;
     }
+    // The steps write the state without updating the reply, which is updated
+    // once, before a query or mutation runs, which may read it, and at the
+    // end. A mutation's wait isn't held, so what happens meanwhile, such as
+    // typing in a field, shows at once.
+    _holdUpdates();
+    try {
+      await _runSteps(action, label: label, formName: formName);
+    } finally {
+      _releaseUpdates();
+    }
+  }
+
+  Future<void> _runSteps(OpenUIObject action, {required String label, String? formName}) async {
     for (final step in ActionPlan.stepsOf(ActionPlan.ownSteps(action))) {
       if (_disposed) return;
       if (step is! OpenUIObject) continue;
       final fields = step.fields;
       switch (fields['type']) {
         case OpenUIString(value: ActionStepType.run):
+          _releaseUpdates();
           final id = JS.toStringOrEmpty(fields['statementId']);
           if (fields['refType'] == const OpenUIString('mutation')) {
             final args = _result?.mutationStatements.where((mutation) => mutation.statementId == id).firstOrNull?.args;
@@ -499,6 +545,7 @@ final class OpenUIRuntime {
           } else {
             _queries.invalidate([id]);
           }
+          _holdUpdates();
         case OpenUIString(value: ActionStepType.continueConversation):
           _emit(
             OpenUIActionEvent.continueConversation,
