@@ -560,6 +560,8 @@ void main() {
     final view = engine.view(_doc(program), 'r1');
     expect(view, isNotNull);
     await tester.pumpWidget(testApp(view!));
+    // The queries run once the view has shown for a frame, then land.
+    await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Found'), findsOneWidget);
