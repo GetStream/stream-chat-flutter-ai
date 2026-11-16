@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
 
+import '../../core/runtime/fake_tools.dart';
 import '../../openui_test_app.dart';
 
 void main() {
@@ -445,6 +446,33 @@ root = Card([MarkDownRenderer("x", \$variant)])
       await tester.pump();
       expect(find.byType(StreamNetworkImage), findsNothing);
       expect(find.text('X'), findsOneWidget);
+    });
+
+    testWidgets('a web address built from what the person types loads nothing', (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: '\$q = "cat"\nroot = Card([ImageBlock("https://a.dev/x.png?q=" + \$q, "X")])',
+      );
+
+      expect(find.byType(StreamNetworkImage), findsNothing);
+      expect(find.text('X'), findsOneWidget);
+    });
+
+    testWidgets('a web address a tool gives loads', (tester) async {
+      final tools = FakeTools()..results['pics'] = OpenUIValue.fromJson(const {'src': 'https://a.dev/q.png'});
+      final runtime = testRuntime(tools: tools);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: 'p = Query("pics", {}, {src: ""})\nroot = Card([ImageBlock(p.src, "X")])',
+      );
+      await tester.pump();
+
+      expect(find.byType(StreamNetworkImage), findsOneWidget);
     });
 
     const gallery =

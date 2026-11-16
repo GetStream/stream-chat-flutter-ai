@@ -129,8 +129,9 @@ class OpenUIMarkdownText extends StatelessWidget {
 
 /// The image of [source], filling the width it is given.
 ///
-/// It loads web links only, and through the view's media function. While it
-/// loads, or when it can't, it shows a sunken box with [alt] in it. With an
+/// It loads only a web link that the reply's program wrote out or one of its
+/// tools gave, and through the view's media function. While it loads, or
+/// when it can't, it shows a sunken box with [alt] in it. With an
 /// [alt] it reads as an image with that description; without one it is left
 /// out of the semantics.
 ///
@@ -156,10 +157,14 @@ class OpenUIRemoteImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uri = source == null ? null : Uri.tryParse(source!.trim());
+    final view = OpenUIViewScope.of(context);
+    final source = this.source;
+    // Only a link the program wrote out or a tool gave loads, so an image
+    // can't send what the person types to a server, however it is built.
+    final uri = source == null || !view.runtime.allowsImageLink(source) ? null : Uri.tryParse(source.trim());
     final url = uri == null || !((uri.isScheme('http') || uri.isScheme('https')) && uri.host.isNotEmpty)
         ? null
-        : OpenUIViewScope.of(context).mediaUrl(uri);
+        : view.mediaUrl(uri);
     final label = alt ?? '';
     final child = url == null
         ? _Placeholder(alt: label)
