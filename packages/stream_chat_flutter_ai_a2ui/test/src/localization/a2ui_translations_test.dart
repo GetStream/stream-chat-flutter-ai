@@ -83,6 +83,19 @@ void main() {
     expect(delegate.shouldReload(const A2UITranslationsDelegate({'nl': _ShoutingTranslations()})), isTrue);
   });
 
+  test('a delegate names the locales it serves', () {
+    final translations = {'nl': const _DutchTranslations(), 'pt_BR': const _ShoutingTranslations()};
+
+    expect(A2UITranslationsDelegate(translations).toString(), 'A2UITranslationsDelegate(nl, pt_BR)');
+  });
+
+  test('a scope lists its translations in its diagnostics', () {
+    final builder = DiagnosticPropertiesBuilder();
+    const A2UITranslationsScope(translations: _DutchTranslations(), child: SizedBox()).debugFillProperties(builder);
+
+    expect(builder.properties.map((property) => property.name), contains('translations'));
+  });
+
   testWidgets('a scope rebuilds its dependents only when its translations change', (tester) async {
     _BuildCounter.builds = 0;
     Widget app(A2UITranslations translations) => MaterialApp(
