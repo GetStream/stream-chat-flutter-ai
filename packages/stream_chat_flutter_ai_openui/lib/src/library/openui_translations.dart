@@ -6,15 +6,15 @@ import 'package:flutter/widgets.dart';
 /// Every such text resolves through an instance of this class: the labels
 /// of pickers, tables, carousels and sources, what screen readers announce
 /// for controls without a visible label, and the errors of a form's
-/// `rules`. Supply one per locale with an [OpenUITranslationsDelegate] on
-/// `MaterialApp.localizationsDelegates`, or pin one over a subtree with an
-/// [OpenUITranslationsScope]. Supply neither and the components fall back to
+/// `rules`. One is supplied per locale with an [OpenUITranslationsDelegate]
+/// on `MaterialApp.localizationsDelegates`, or pinned over a subtree with an
+/// [OpenUITranslationsScope]. Without either, the components fall back to
 /// [DefaultOpenUITranslations], in English.
 ///
 /// The texts of the components `stream_chat_flutter_ai` draws, such as a
 /// code block's copy button, come from its `AITranslations`.
 ///
-/// **Implement this class**, rather than extending
+/// **Consider implementing this class**, rather than extending
 /// [DefaultOpenUITranslations]:
 ///
 /// ```dart
@@ -28,11 +28,11 @@ import 'package:flutter/widgets.dart';
 /// }
 /// ```
 ///
-/// That way a text this package adds later is a compile error that tells you
-/// there is something new to translate, instead of English showing up in your
-/// app. Adding a text is not considered a breaking change.
+/// That way a text this package adds later is a compile error that points at
+/// something new to translate, instead of English showing up in the app.
+/// Adding a text is not considered a breaking change.
 ///
-/// **Give your class a `const` constructor** and construct it as
+/// **Consider a `const` constructor**, with the class constructed as
 /// `const DutchOpenUITranslations()`: a scope compares instances to decide
 /// whether to notify, so a new instance on every build rebuilds every
 /// component that reads it.
@@ -325,8 +325,8 @@ class DefaultOpenUITranslations extends OpenUITranslations {
 /// )
 /// ```
 ///
-/// To translate by locale, register an [OpenUITranslationsDelegate] instead.
-/// A scope outranks the delegate. It is an [InheritedTheme], so a route the
+/// Translating by locale is the job of an [OpenUITranslationsDelegate]
+/// instead. A scope outranks the delegate. It is an [InheritedTheme], so a route the
 /// components push, such as a modal's sheet, carries it as it does a `Theme`.
 class OpenUITranslationsScope extends InheritedTheme {
   /// Creates an [OpenUITranslationsScope].
@@ -359,8 +359,8 @@ class OpenUITranslationsScope extends InheritedTheme {
 
 /// Supplies [OpenUITranslations] per locale through Flutter's localizations.
 ///
-/// Register it on `MaterialApp.localizationsDelegates` and list the locales in
-/// `supportedLocales`:
+/// It is registered on `MaterialApp.localizationsDelegates`, with the locales
+/// listed in `supportedLocales`:
 ///
 /// ```dart
 /// MaterialApp(
@@ -379,13 +379,31 @@ class OpenUITranslationsDelegate extends LocalizationsDelegate<OpenUITranslation
   /// Creates an [OpenUITranslationsDelegate] serving [translations].
   const OpenUITranslationsDelegate(this.translations);
 
-  /// The translations to serve, keyed by locale in `Locale.toString()`'s
-  /// form: a language code (`'nl'`), or a language and country joined by an
-  /// underscore (`'pt_BR'`).
+  /// The translations to serve, keyed by locale.
+  ///
+  /// A key equals `Locale.toString()` of an entry of the app's
+  /// `supportedLocales`, such as `'pt_BR'`, or that entry's bare language
+  /// code, such as `'pt'`. A locale with a script takes the script in its key
+  /// too, as `Locale.toString()` writes it: `'zh_Hant_TW'`. The hyphenated
+  /// BCP-47 form, such as `'pt-BR'`, never matches, and neither does a key
+  /// in another case, as [Locale] matches its subtags verbatim. A debug-only
+  /// check rejects such a key rather than leaving it to fall back to English
+  /// unexplained.
   final Map<String, OpenUITranslations> translations;
 
-  /// The entry for [locale]: the one for its language and country, else the
-  /// one for its language, else `null`.
+  /// The entry for [locale]: the exact match of `Locale.toString()` if
+  /// [translations] has one, otherwise the entry for the bare language code,
+  /// otherwise `null`.
+  ///
+  /// So a single `'pt'` entry serves `pt_BR` and `pt_PT`, while a `'pt_BR'`
+  /// entry serves only Brazilian Portuguese. [load] turns the `null` case into
+  /// [DefaultOpenUITranslations], so `null` here means "nothing registered",
+  /// never "no texts available".
+  ///
+  /// Throws in debug if [translations] holds a key that is not a locale key.
+  /// That is a different failure from `null`: a malformed key can never match
+  /// any locale, so returning `null` for it would report a locale as not
+  /// translated when it was, under a key with a typo in it.
   OpenUITranslations? resolve(Locale locale) {
     assert(() {
       for (final key in translations.keys) {
@@ -402,6 +420,12 @@ class OpenUITranslationsDelegate extends LocalizationsDelegate<OpenUITranslation
   }
 
   /// Always `true`: a locale without an entry gets the English defaults.
+  ///
+  /// Claiming every locale is deliberate. `WidgetsApp` warns in debug when
+  /// any `supportedLocales` entry is unsupported by any one delegate, so
+  /// reporting honestly here would put a warning in the console of every app
+  /// that supports more locales than it has translated this package into.
+  /// [resolve] tells what is actually registered.
   @override
   bool isSupported(Locale locale) => true;
 

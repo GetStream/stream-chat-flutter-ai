@@ -155,10 +155,10 @@ lists each action the agent would get.
 ## Translations
 
 The texts the components draw or read out themselves, such as a table's page controls, a date picker's labels and the
-errors of a form's `rules`, come from `OpenUITranslations`, in English by default. Implement it for another language
-and register it per locale with `OpenUITranslationsDelegate`, or pin it over part of the tree with
-`OpenUITranslationsScope`. Its `decimalSeparator`, `groupSeparator` and `percent` write a metric's trend in the
-locale's way:
+errors of a form's `rules`, come from `OpenUITranslations`, in English by default. An implementation for another
+language is registered per locale with `OpenUITranslationsDelegate`, or pinned over part of the tree with
+`OpenUITranslationsScope`. Its `decimalSeparator` and `groupSeparator` write a metric's trend and a form rule's limit
+in the locale's way, and its `percent` the trend's percentage:
 
 ```dart
 MaterialApp(
