@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/library/component_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/library_definition.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/portable_component.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.dart';
@@ -12,7 +13,9 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart'
 // assistant (test/fixtures/README.md), made the way its generator makes them:
 // the chat library without the components `prompt.json` doesn't keep, the
 // app's components added as content with its notes, its preamble, its rules
-// after the library's, and its examples in place of the library's.
+// after the library's, and its examples in place of the library's. The
+// generator keeps the library's own notes and rules whatever they name, which
+// `removing` doesn't, so they are put back from the full chat library.
 void main() {
   test('the instructions are the ones the agent backend generated', () {
     final expected = File('test/fixtures/vision_agents_instructions.md').readAsStringSync();
@@ -73,7 +76,22 @@ LibraryDefinition _library() {
   final keep = {...(config['keep']! as List<Object?>).cast<String>()};
   final chat = LibraryDefinition.chat;
   final definitions = jsonDecode(File('test/fixtures/ohrid_app_components.json').readAsStringSync()) as List<Object?>;
-  return chat.removing(chat.componentNames.where((name) => !keep.contains(name))).addingContent(
+  final kept = chat.removing(chat.componentNames.where((name) => !keep.contains(name)));
+  return LibraryDefinition(
+    root: kept.root,
+    components: kept.components,
+    componentGroups: [
+      for (final group in kept.componentGroups)
+        ComponentGroup(
+          group.name,
+          components: group.components,
+          notes: chat.componentGroups.firstWhere((original) => original.name == group.name).notes,
+        ),
+    ],
+    defaultPromptOptions: chat.defaultPromptOptions,
+    functions: kept.functions,
+    actions: kept.actions,
+  ).addingContent(
     [for (final definition in definitions) portableComponentSchema(definition! as Map<String, Object?>)],
     notes: (config['notes']! as List<Object?>).cast<String>(),
   );

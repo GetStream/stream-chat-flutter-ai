@@ -62,6 +62,36 @@ final class PromptOptions {
   /// `null` for whether [toolCalls] or [bindings] is on.
   final bool? builtinFunctions;
 
+  /// A pattern that matches a whole-word mention of any of `names`, or `null`
+  /// when there are none.
+  static RegExp? mentionOf(Iterable<String> names) {
+    if (names.isEmpty) return null;
+    return RegExp(r'\b(?:' + names.map(RegExp.escape).join('|') + r')\b');
+  }
+
+  /// A copy of these options without the rules that mention one of the
+  /// components `names`, and without the examples and tool examples that call
+  /// one.
+  PromptOptions withoutComponents(Iterable<String> names) {
+    final mention = mentionOf(names);
+    if (mention == null) return this;
+    final call = RegExp(r'\b(?:' + names.map(RegExp.escape).join('|') + r')\(');
+    return copyWith(
+      additionalRules: [
+        for (final rule in additionalRules)
+          if (!mention.hasMatch(rule)) rule,
+      ],
+      examples: [
+        for (final example in examples)
+          if (!call.hasMatch(example)) example,
+      ],
+      toolExamples: [
+        for (final example in toolExamples)
+          if (!call.hasMatch(example)) example,
+      ],
+    );
+  }
+
   /// A copy of these options with the given preamble, rules, examples, tool
   /// examples and tools in place of the current ones; the modes and flags
   /// are kept.
