@@ -101,8 +101,8 @@ class OpenUIViewScope extends InheritedTheme {
   /// reported in debug builds, each reported once.
   final Set<String> unknownTypes;
 
-  /// The function that gets what a component's builder threw, or `null` to
-  /// report it to [FlutterError.reportError].
+  /// The function that gets what a component's builder threw, after it has
+  /// gone to [FlutterError.reportError], or `null`.
   final OpenUIBuildErrorHandler? onBuildError;
 
   /// The scope around [context], or `null` outside a reply's OpenUI.

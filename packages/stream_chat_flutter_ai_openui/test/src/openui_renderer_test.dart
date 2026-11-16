@@ -317,14 +317,20 @@ void main() {
       expect(host.sent, isEmpty);
     });
 
-    testWidgets('a removed reply sends nothing', (tester) async {
-      final host = _Host();
-      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+    testWidgets("a removed reply's buttons and app components send nothing", (tester) async {
+      final host = _Host(components: const [_PlaceCard()]);
+      final engine = OpenUIRenderer().createEngine(host);
       addTearDown(engine.dispose);
-      await _pump(tester, engine, _doc('root = Stack([Button("Go", @ToAssistant("Go"))])'));
+      await _pump(
+        tester,
+        engine,
+        _doc('root = Card([PlaceCard("Ohrid"), Buttons([Button("Go", @ToAssistant("Go"))])])'),
+      );
 
       engine.remove('r1');
+      await tester.tap(find.text('Place Ohrid'));
       await tester.tap(find.text('Go'));
+      await tester.pump();
 
       expect(host.sent, isEmpty);
     });
@@ -403,6 +409,27 @@ void main() {
     });
   });
 
+  testWidgets("a query's refresh pauses while the app is in the background", (tester) async {
+    final host = _Host(tools: {'list': (_) => <Object?>[]});
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final engine = OpenUIRenderer().createEngine(host);
+    await _pump(tester, engine, _doc('q = Query("list", {}, [], 10)\nroot = Card([CardHeader("Title")])'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(host.calls, hasLength(1));
+
+    // The states an app goes through to the background and back.
+    void moveTo(List<AppLifecycleState> states) => states.forEach(tester.binding.handleAppLifecycleStateChanged);
+    moveTo(const [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]);
+    await tester.pump(const Duration(seconds: 30));
+    expect(host.calls, hasLength(1));
+
+    moveTo(const [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]);
+    await tester.pump(const Duration(seconds: 11));
+    expect(host.calls, hasLength(2));
+    // Disposed here, as its refresh timer must stop before the test ends.
+    engine.dispose();
+  });
+
   testWidgets('a reply written without a root stops its queries', (tester) async {
     final host = _Host(tools: {'list': (_) => <Object?>[]});
     final engine = OpenUIRenderer(onError: (_, _) {}).createEngine(host);
@@ -427,9 +454,35 @@ void main() {
       expect(errors, isEmpty);
 
       await _pump(tester, engine, _doc(program));
-      await _pump(tester, engine, _doc(program));
+      // More text, whose root has the same problem and a new one.
+      await _pump(tester, engine, _doc('$program\nroot = Card([CardHeader("Title"), Nope("x"), Nada("y")])'));
 
-      expect(errors, [(OpenUIErrorCode.unknownComponent, 'r1')]);
+      expect(errors, [(OpenUIErrorCode.unknownComponent, 'r1'), (OpenUIErrorCode.unknownComponent, 'r1')]);
+    });
+
+    testWidgets('a reply the agent writes again gives its problems again', (tester) async {
+      final errors = <OpenUIErrorCode>[];
+      final engine = OpenUIRenderer(onError: (error, _) => errors.add(error.code)).createEngine(_Host());
+      addTearDown(engine.dispose);
+
+      await _pump(tester, engine, _doc('root = Card([CardHeader("Title"), Nope("x")])'));
+      await _pump(tester, engine, _doc('root = Card([CardHeader("Again"), Nope("x")])'));
+
+      expect(find.text('Again'), findsOneWidget);
+      expect(errors, [OpenUIErrorCode.unknownComponent, OpenUIErrorCode.unknownComponent]);
+    });
+
+    testWidgets("a tool the host can't run reaches onError with the host's message", (tester) async {
+      final errors = <OpenUIError>[];
+      final engine = OpenUIRenderer(onError: (error, _) => errors.add(error)).createEngine(_Host());
+      addTearDown(engine.dispose);
+
+      await _pump(tester, engine, _doc('q = Query("nope", {}, [])\nroot = Card([CardHeader("Title")])'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(errors.single.code, OpenUIErrorCode.toolError);
+      expect(errors.single.message, contains('No tool named nope'));
+      expect(errors.single.message, isNot(contains('AIUIToolException')));
     });
 
     testWidgets('a builder that throws reaches onError as a render error', (tester) async {
@@ -438,13 +491,22 @@ void main() {
         onError: (error, _) => errors.add(error),
       ).createEngine(_Host(components: const [_Broken()]));
       addTearDown(engine.dispose);
+      final reported = <FlutterErrorDetails>[];
+      final onFlutterError = FlutterError.onError;
+      FlutterError.onError = reported.add;
 
       const program = 'root = Card([CardHeader("Title"), b])\nb = Broken()';
       await _pump(tester, engine, _doc(program, isStreaming: true));
       expect(errors, isEmpty);
       await _pump(tester, engine, _doc(program));
       await _pump(tester, engine, _doc('$program\n'));
+      FlutterError.onError = onFlutterError;
 
+      expect(reported, isNotEmpty, reason: 'it reaches FlutterError too, while streaming as well');
+      expect(
+        reported,
+        everyElement(predicate<FlutterErrorDetails>((d) => d.exception is StateError && d.stack != null)),
+      );
       expect(errors.single.code, OpenUIErrorCode.renderError);
       expect(errors.single.component, 'Broken');
       expect(errors.single.statementId, 'b');

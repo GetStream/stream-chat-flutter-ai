@@ -27,33 +27,20 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// );
 /// ```
 ///
-/// A reply shows nothing of its own until its program has a root component;
-/// meanwhile the conversation shows the agent writing, and a reply that ends
-/// without one shows its text. A reply keeps the values the person entered
-/// for as long as the host keeps the reply.
+/// A reply shows its text until its program has a root component, and keeps
+/// the values the person entered for as long as the host keeps the reply.
 ///
-/// A tap on a control sends an [AIUIAction] named after the action, such as
-/// `continue_conversation`, labeled with the control's label, or, when it
-/// has none, [AITranslations.uiActionUntitled] in the app's language. Its payload holds, when there are any, the action's
-/// `context`, its other `params`, the agent's own `message` for it when it
-/// differs from the label, and, in a form, the form's name under `form` and
-/// its values under `values`, without passwords. A link the program opens,
-/// a web or email link only, goes to [AIUIHosting.open] instead. The
-/// program's queries and mutations run as the host's tools, queries only
-/// once the reply is written. A query's refresh timer pauses while the app is
-/// in the background, but not while its reply is scrolled off screen.
+/// A tap on a control sends an [AIUIAction] named after the action, labeled
+/// with the control's label or [AITranslations.uiActionUntitled]; its payload
+/// carries the action's `context`, `params`, `message` and form values, never
+/// a password. A web or email link goes to [AIUIHosting.open]. Queries, once
+/// the reply is written, and mutations run as the host's tools; a query's
+/// refresh pauses while the app is in the background.
 ///
-/// The app's own components, the host's [AIUIHosting.components], can be
-/// placed by the agent too, wherever the library's content goes, such as in
-/// a chat `Card`. It names one in PascalCase, `PlaceCard` for `place_card`,
-/// with the component's parameters as its arguments, and it is drawn with
-/// its [AIUIComponent.readArguments] and [AIUIComponent.build]. Nothing shows
-/// while its values don't fit its parameters and the reply is still being
-/// written. An event it reports with [AIUIComponentContext.emit] is sent as
-/// an [AIUIAction] named after the event, with the label the component gave
-/// and its payload, to which `component`, the app's name for it, is added. A
-/// component whose name is taken by the library, such as `card`, or by an
-/// earlier component, is left out, and reported in debug builds.
+/// The agent can also place the host's [AIUIHosting.components], by their
+/// name in PascalCase, such as `PlaceCard` for `place_card`. Their events are
+/// sent as [AIUIAction]s with `component` added to the payload. A component
+/// whose name is taken is left out, and reported in debug builds.
 ///
 /// See also:
 ///
@@ -99,12 +86,14 @@ final class OpenUIRenderer extends AIUIRenderer {
   /// The function that gets the problems with a reply's OpenUI, with the
   /// reply's message id, or `null` to report them in debug builds only.
   ///
-  /// It gets the problems with the program once the reply is written, each
-  /// once for as long as the reply is shown (a reply the host drops and shows
-  /// again reports its problems again), such as a component the library doesn't have or a query whose
-  /// tool failed, so the app can send them back to the agent. It also gets
-  /// what a component's builder throws, as a [OpenUIErrorCode.renderError],
-  /// which otherwise goes to [FlutterError.reportError]. Each arrives after
+  /// It gets the problems with the program once the reply is written, such as
+  /// a component the library doesn't have or a query whose tool failed, so
+  /// the app can send them back to the agent. Each comes once for as long as
+  /// the reply is shown and the agent goes on with its text; a reply the host
+  /// drops and shows again, or the agent writes again, gives them again. It
+  /// also gets what a component's builder throws, as a
+  /// [OpenUIErrorCode.renderError]; that error always goes to
+  /// [FlutterError.reportError] too, with its stack trace. Each arrives after
   /// the frame being built.
   final OpenUIErrorHandler? onError;
 
