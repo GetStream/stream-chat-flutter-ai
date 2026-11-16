@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/a2ui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_debug_log.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_image.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/catalog/basic/a2ui_media.dart';
+import 'package:stream_chat_flutter_ai_a2ui/src/localization/a2ui_translations.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/surface/a2ui_surface_scope.dart';
 import 'package:stream_core_flutter/core.dart';
 import 'package:video_player/video_player.dart';
@@ -266,7 +266,7 @@ class _PauseArea extends StatelessWidget {
     return SizedBox.expand(
       child: Semantics(
         button: true,
-        label: AITranslations.of(context).pauseMedia,
+        label: A2UITranslations.of(context).pauseMedia,
         onTap: onPressed,
         excludeSemantics: true,
         child: GestureDetector(onTap: onPressed, behavior: HitTestBehavior.opaque),

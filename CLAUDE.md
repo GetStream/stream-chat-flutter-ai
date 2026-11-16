@@ -162,9 +162,9 @@ workflows can't tag or publish a `+build` version.
 - Imports inside `lib/` use `package:stream_chat_flutter_ai/...` (`always_use_package_imports`),
   not relative paths.
 - New public widgets get exported from `lib/stream_chat_flutter_ai.dart`.
-- Customers should `implement` `AITranslations`, not extend `DefaultAITranslations`, so a new
-  string shows up as a compile error. Adding a string still isn't a breaking change: list it under
-  `✅ Added`, not `💥 Breaking`.
+- Customers should `implement` `AITranslations` and `A2UITranslations`, not extend
+  `DefaultAITranslations` or `DefaultA2UITranslations`, so a new string shows up as a compile error.
+  Adding a string still isn't a breaking change: list it under `✅ Added`, not `💥 Breaking`.
 
 ## PR & commit conventions
 
