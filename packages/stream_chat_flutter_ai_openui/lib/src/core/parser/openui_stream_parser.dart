@@ -196,16 +196,14 @@ final class OpenUIStreamParser {
   ///
   /// `complete` is read as for [set].
   ParseResult result({bool complete = false}) {
-    final pendingStart = _scanCompleted();
     if (complete) return _completeResult ??= _readWhole();
+    final pendingStart = _scanCompleted();
     final length = _prepared.length;
     final endingName = _endingName(_buffer);
     if (_lastResult case final last?) {
       if (last.revision == _prepared.revision && last.endingName == endingName) return last.result;
-      if (_completedCount > manyStatements &&
-          length >= last.length &&
-          length - last.length < length ~/ _growthBeforeRebuild) {
-        return last.result;
+      if (_completedCount > manyStatements && length >= last.length) {
+        if (length - last.length < length ~/ _growthBeforeRebuild) return last.result;
       }
     }
     final result = _readPendingIfGrown(math.min(pendingStart, length));
@@ -391,7 +389,10 @@ final class OpenUIStreamParser {
   }
 
   // The blanks a statement's continuation may start after: space, tab, and
-  // line ends, not every white space JavaScript trims.
+  // line ends, the ones OpenUI's streaming parser skips there, so a statement
+  // ends where it ends in OpenUI. Another blank before a `?`, such as a form
+  // feed, ends the statement until the reply is complete, whose whole parse
+  // skips every blank.
   static bool _isSpace(int unit) => unit == _space || unit == _tab || unit == _carriageReturn || unit == _lineFeed;
 
   void _addCompleted(String text) {

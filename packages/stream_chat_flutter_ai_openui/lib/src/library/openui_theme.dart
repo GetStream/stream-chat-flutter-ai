@@ -23,6 +23,11 @@ import 'package:stream_core_flutter/core.dart';
 /// text styles too, and still use the builders the app gives the design
 /// system through [StreamComponentFactory].
 ///
+/// It does so through the design system's tokens inside a reply, so every
+/// Stream component there takes OpenUI's look, including the app's own
+/// components the agent places in the reply: they follow the theme's corner
+/// radii and spacing too. Outside a reply, the app's tokens are unchanged.
+///
 /// Nesting one inside another replaces rather than layers, the way [IconTheme]
 /// does; use [OpenUITheme.merge] to add to an enclosing scope instead.
 class OpenUITheme extends InheritedTheme {
@@ -160,7 +165,8 @@ class OpenUIThemeData with Diagnosticable {
       code = null,
       metric = null;
 
-  /// The look the [stream] theme gives: every value set, from its tokens.
+  /// The look the [stream] theme gives: every value set from its tokens, but
+  /// [chartPalette], which a chart then takes from its own theme.
   ///
   /// Internal to the package.
   @internal
@@ -184,7 +190,6 @@ class OpenUIThemeData with Diagnosticable {
       error: colors.accentError,
       info: colors.accentPrimary,
       neutral: colors.accentNeutral,
-      chartPalette: _defaultChartPalette,
       xsSpacing: spacing.xxs,
       sSpacing: spacing.xs,
       mSpacing: spacing.sm,
@@ -207,119 +212,173 @@ class OpenUIThemeData with Diagnosticable {
   }
 
   /// The color of links, selected controls and primary buttons.
+  ///
+  /// Defaults to the Stream theme's `accentPrimary`.
   final Color? accent;
 
   /// The color of text and icons drawn on [accent].
+  ///
+  /// Defaults to the Stream theme's `textOnAccent`.
   final Color? onAccent;
 
   /// The color of most text, such as titles and body text.
+  ///
+  /// Defaults to the Stream theme's `textPrimary`.
   final Color? text;
 
   /// The color of less prominent text, such as subtitles.
+  ///
+  /// Defaults to the Stream theme's `textSecondary`.
   final Color? secondaryText;
 
   /// The color of the least prominent text, such as placeholders.
+  ///
+  /// Defaults to the Stream theme's `textTertiary`.
   final Color? tertiaryText;
 
   /// The background of cards.
+  ///
+  /// Defaults to the Stream theme's `backgroundSurfaceCard`.
   final Color? surface;
 
   /// The background of parts set into a card, such as a sunken card.
+  ///
+  /// Defaults to the Stream theme's `backgroundSurface`.
   final Color? sunkenSurface;
 
   /// A light fill, such as the background of inline code.
+  ///
+  /// Defaults to the Stream theme's `backgroundSurfaceSubtle`.
   final Color? subtleFill;
 
   /// The color of borders and dividers.
+  ///
+  /// Defaults to the Stream theme's `borderDefault`.
   final Color? border;
 
   /// The color of success, such as a positive change.
+  ///
+  /// Defaults to the Stream theme's `accentSuccess`.
   final Color? success;
 
   /// The color of warnings.
+  ///
+  /// Defaults to the Stream theme's `accentWarning`.
   final Color? warning;
 
   /// The color of errors and of negative changes.
+  ///
+  /// Defaults to the Stream theme's `accentError`.
   final Color? error;
 
   /// The color of information.
+  ///
+  /// Defaults to the Stream theme's `accentPrimary`.
   final Color? info;
 
   /// The color of what has no other status color.
+  ///
+  /// Defaults to the Stream theme's `accentNeutral`.
   final Color? neutral;
 
   /// The colors of a chart's series, in order.
+  ///
+  /// Defaults to the series colors of the surrounding `ChartTheme`, and then the chart's own.
   final List<Color>? chartPalette;
 
   /// The extra small space, in logical pixels.
+  ///
+  /// Defaults to the Stream theme's `spacing.xxs`.
   final double? xsSpacing;
 
   /// The small space.
+  ///
+  /// Defaults to the Stream theme's `spacing.xs`.
   final double? sSpacing;
 
   /// The medium space, such as between a card's children.
+  ///
+  /// Defaults to the Stream theme's `spacing.sm`.
   final double? mSpacing;
 
   /// The large space, such as inside a card.
+  ///
+  /// Defaults to the Stream theme's `spacing.md`.
   final double? lSpacing;
 
   /// The extra large space.
+  ///
+  /// Defaults to the Stream theme's `spacing.xl`.
   final double? xlSpacing;
 
   /// The largest space.
+  ///
+  /// Defaults to the Stream theme's `spacing.xxl`.
   final double? xxlSpacing;
 
   /// The small corner radius, such as of a chip.
+  ///
+  /// Defaults to the Stream theme's `radius.md`.
   final double? smallCornerRadius;
 
   /// The medium corner radius, such as of a sunken card.
+  ///
+  /// Defaults to the Stream theme's `radius.lg`.
   final double? mediumCornerRadius;
 
   /// The corner radius of cards.
+  ///
+  /// Defaults to the Stream theme's `radius.xl`.
   final double? cornerRadius;
 
   /// The corner radius that rounds the ends of a control fully, such as of a tag.
+  ///
+  /// Defaults to the Stream theme's `radius.max`.
   final double? pillCornerRadius;
 
   /// The style of titles, such as a card header's title. It sets no color:
   /// components color their text with [text] and the other colors.
+  ///
+  /// Defaults to the Stream theme's `headingMd`.
   final TextStyle? title;
 
   /// The style of headings, such as a section's.
+  ///
+  /// Defaults to the Stream theme's `headingSm`.
   final TextStyle? heading;
 
   /// The style of body text.
+  ///
+  /// Defaults to the Stream theme's `bodyDefault`.
   final TextStyle? body;
 
   /// The style of large body text.
+  ///
+  /// Defaults to the size of the Stream theme's `headingMd` at the weight of its `bodyDefault`.
   final TextStyle? bodyLarge;
 
   /// The style of small body text, such as a card header's subtitle.
+  ///
+  /// Defaults to the Stream theme's `captionDefault`.
   final TextStyle? bodySmall;
 
   /// The style of captions, the smallest text.
+  ///
+  /// Defaults to the Stream theme's `metadataDefault`.
   final TextStyle? caption;
 
   /// The style of code, such as of a code block.
   ///
   /// It doesn't style inline code in Markdown text yet.
+  ///
+  /// Defaults to a 13-point monospace font.
   // TODO(FLU-1238): pass it to `AIMarkdownBody` once that has a hook for it.
   final TextStyle? code;
 
   /// The style of metrics, the large numbers of a data card.
+  ///
+  /// Defaults to 22 points at weight 600.
   final TextStyle? metric;
-
-  // The chart colors of OpenUI's iOS and Android components.
-  static const _defaultChartPalette = [
-    Color(0xFF4078F5),
-    Color(0xFF1CB59E),
-    Color(0xFFFA9E29),
-    Color(0xFFE04A75),
-    Color(0xFF8C61ED),
-    Color(0xFF29ADE0),
-    Color(0xFF9EB833),
-    Color(0xFFED6945),
-  ];
 
   static const _defaultCode = TextStyle(
     fontFamily: 'monospace',
