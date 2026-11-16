@@ -2,7 +2,13 @@
 
 ✅ Added
 
-- `A2UITranslations`, for the labels of the Video and AudioPlayer play and pause buttons.
+- `A2UITranslations`, `DefaultA2UITranslations`, `A2UITranslationsScope` and `A2UITranslationsDelegate`, for the
+  labels of the Video and AudioPlayer play and pause buttons.
+
+🔄 Changed
+
+- `playMedia` and `pauseMedia` now come from `A2UITranslations`, and overrides on `AITranslations` no longer apply.
+  Register an `A2UITranslationsDelegate` or scope.
 
 ## 0.2.0
 

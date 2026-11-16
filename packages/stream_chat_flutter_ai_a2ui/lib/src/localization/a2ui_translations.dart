@@ -49,8 +49,9 @@ abstract class A2UITranslations {
   /// 3. [DefaultA2UITranslations].
   ///
   /// A scope beats the delegate because it is placed by hand around specific
-  /// widgets. Every step registers [context] as a dependent, so a locale
-  /// change or a swapped scope rebuilds the widgets that read it.
+  /// widgets. It depends on the nearest scope and, without one, on
+  /// [Localizations], so a locale change or a swapped scope rebuilds the
+  /// widgets that read it.
   static A2UITranslations of(BuildContext context) {
     return A2UITranslationsScope.maybeOf(context) ??
         Localizations.of<A2UITranslations>(context, A2UITranslations) ??

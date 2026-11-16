@@ -797,9 +797,12 @@ String _posterUrl(WidgetTester tester) {
   return tester.widget<StreamNetworkImage>(find.byType(StreamNetworkImage)).props.url;
 }
 
-class _DutchTranslations extends DefaultA2UITranslations {
+class _DutchTranslations implements A2UITranslations {
   const _DutchTranslations();
 
   @override
   String get playMedia => 'Afspelen';
+
+  @override
+  String get pauseMedia => 'Pauzeren';
 }
