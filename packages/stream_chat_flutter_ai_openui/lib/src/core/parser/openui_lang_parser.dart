@@ -142,12 +142,14 @@ final class OpenUILangParser {
     final stateDeclarations = <String, OpenUIValue>{};
     final queries = <QueryStatementInfo>[];
     final mutations = <MutationStatementInfo>[];
+    // The declarations share one budget of their own, so a root that used up
+    // its budget doesn't leave them read as `null`, and many of them can't
+    // multiply the work.
+    context.nodes = 0;
     for (final statement in statements.values) {
-      // Each statement has its own node budget, so a root that used up its
-      // own doesn't leave the state values and queries read as `null`.
-      context.nodes = 0;
       switch (statement) {
         case StateStatement(:final id, :final initial):
+          context.currentStatementId = id;
           stateDeclarations[id] = Materializer.materializeValue(initial, context);
         case QueryStatement(:final id, :final call, :final deps):
           final args = Materializer.nameRawCallArgs(call.args, context, id);

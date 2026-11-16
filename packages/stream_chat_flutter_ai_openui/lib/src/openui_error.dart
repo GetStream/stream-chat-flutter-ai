@@ -1,4 +1,4 @@
-import 'package:meta/meta.dart';
+import 'package:flutter/foundation.dart';
 
 /// A problem found while reading or running an OpenUI Lang program.
 ///
@@ -84,7 +84,7 @@ final class OpenUIError {
   int get hashCode => Object.hash(source, code, message, statementId, component, path, toolName, hint, isWarning);
 
   @override
-  String toString() => '$source/$code: $message';
+  String toString() => '${objectRuntimeType(this, 'OpenUIError')}(source: $source, code: $code, message: $message)';
 }
 
 /// Where an [OpenUIError] comes from.
