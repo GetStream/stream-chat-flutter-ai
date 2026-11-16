@@ -430,15 +430,29 @@ void main() {
     engine.dispose();
   });
 
-  testWidgets('a reply written without a root stops its queries', (tester) async {
-    final host = _Host(tools: {'list': (_) => <Object?>[]});
+  testWidgets('a written reply whose root waits on a query draws it once the result lands', (tester) async {
+    final host = _Host(
+      tools: {
+        'search': (_) => {
+          'items': ['a'],
+        },
+      },
+    );
+    // Before the result lands the root picks no component, which is reported.
     final engine = OpenUIRenderer(onError: (_, _) {}).createEngine(host);
     addTearDown(engine.dispose);
+    const program =
+        'data = Query("search", {}, {items: []})\n'
+        'root = data.items.length > 0 ? Card([TextContent("Found")]) : null';
 
-    expect(engine.view(_doc('q = Query("list", {}, [], 10)\nSorry.'), 'r1'), isNull);
-    await tester.pump(const Duration(seconds: 30));
+    // The host keeps the one view it got for the written reply.
+    final view = engine.view(_doc(program), 'r1');
+    expect(view, isNotNull);
+    await tester.pumpWidget(testApp(view!));
+    await tester.pump(const Duration(seconds: 1));
 
-    expect(host.calls, isEmpty);
+    expect(find.text('Found'), findsOneWidget);
+    expect(host.calls.map((call) => call.name), ['search']);
   });
 
   group('errors', () {

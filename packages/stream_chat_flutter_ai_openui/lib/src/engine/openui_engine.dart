@@ -81,12 +81,16 @@ final class OpenUIEngine extends AIUIEngine {
     // The document asked for now is the reply's latest.
     _received.remove(messageId);
     final reply = (_replies[messageId] ??= _OpenUIReply(this, messageId))..update(document);
-    if (reply.runtime.root.value == null) {
-      // A reply written without a root shows its text: its runtime goes,
-      // after the problems it found are given, so no query of it runs on.
+    final runtime = reply.runtime;
+    // A written reply with queries gets its view without a root, as the root
+    // can depend on their results and draws once they land: the host keeps
+    // the view it got for a document.
+    if (runtime.root.value == null && (document.isStreaming || !runtime.hasQueries)) {
+      // A reply written without a root or queries shows its text: its
+      // runtime goes, after the problems it found are given.
       if (!document.isStreaming) {
         _whenNotBuilding(() {
-          if (_shows(reply) && reply.runtime.root.value == null) remove(messageId);
+          if (_shows(reply) && runtime.root.value == null && !runtime.hasQueries) remove(messageId);
         });
       }
       return null;
@@ -94,7 +98,7 @@ final class OpenUIEngine extends AIUIEngine {
     // A new view for each document, as the view reads whether the reply
     // streams when it builds.
     return OpenUIView(
-      runtime: reply.runtime,
+      runtime: runtime,
       library: library,
       theme: _renderer.theme,
       mediaUrl: _renderer.mediaUrl,

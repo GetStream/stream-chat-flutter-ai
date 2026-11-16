@@ -126,6 +126,10 @@ final class OpenUIRuntime {
   /// the text it already had does without changing [root].
   ValueListenable<bool> get streaming => _streaming;
 
+  /// Whether the text read so far has `Query` statements, whose results the
+  /// [root] can depend on.
+  bool get hasQueries => _result?.queryStatements.isNotEmpty ?? false;
+
   /// Reads the reply's whole text so far, `text`.
   ///
   /// While `isStreaming`, queries and mutations don't run and [errors] is
