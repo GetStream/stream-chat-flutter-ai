@@ -104,8 +104,10 @@ abstract final class FormValidation {
       case 'email':
         return text != null && _email.hasMatch(text) ? null : 'Please enter a valid email';
       case 'url':
+        // Any absolute URL, as `new URL()` takes it: `mailto:` and `urn:`
+        // have no host.
         final uri = text == null ? null : Uri.tryParse(text);
-        return uri != null && uri.hasScheme && uri.host.isNotEmpty ? null : 'Please enter a valid URL';
+        return uri != null && uri.hasScheme ? null : 'Please enter a valid URL';
       case 'numeric':
         final valid = switch (value) {
           OpenUINumber(:final value) => !value.isNaN,

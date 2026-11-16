@@ -39,6 +39,13 @@ void main() {
     expect(_check('5', {'min': 5, 'max': 5}), isNull);
   });
 
+  test('a URL needs a scheme, not a host', () {
+    for (final url in ['mailto:a@b.co', 'tel:+15550100', 'urn:isbn:0451450523', 'file:///tmp/a.txt']) {
+      expect(_check(url, {'url': true}), isNull, reason: url);
+    }
+    expect(_check('/relative/path', {'url': true}), 'Please enter a valid URL');
+  });
+
   test('every rule but required lets an empty value pass', () {
     for (final empty in [null, '', <Object?>[], <String, Object?>{}]) {
       expect(_check(empty, {'email': true, 'minLength': 3, 'numeric': true}), isNull);
