@@ -412,6 +412,32 @@ final class OpenUIRuntime {
     );
   }
 
+  /// Whether an image may load from `link`: only when the link is written
+  /// out in the text [update] last read, or is a text value in what a query
+  /// or mutation gave.
+  ///
+  /// A link built from what the person typed is neither, so an image can't
+  /// send it to a server as they type. An empty link is never allowed.
+  @internal
+  bool allowsImageLink(String link) {
+    if (link.isEmpty) return false;
+    if (_text?.contains(link) ?? false) return true;
+    final pending = [..._queries.snapshot.values.values];
+    while (pending.isNotEmpty) {
+      switch (pending.removeLast()) {
+        case OpenUIString(:final value) when value == link:
+          return true;
+        case OpenUIArray(:final items):
+          pending.addAll(items);
+        case OpenUIObject(:final fields):
+          pending.addAll(fields.values);
+        case _:
+          break;
+      }
+    }
+    return false;
+  }
+
   /// The errors of the fields of the form `formName` that fail their rules,
   /// by field name; `rules` holds each field's rules as the program wrote
   /// them, and `bindings` the value prop of each field: one bound to a
