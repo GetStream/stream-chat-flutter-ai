@@ -415,11 +415,9 @@ void main() {
     tester,
   ) async {
     installFakeVideoPlatform();
-
-    final processor = A2UIProcessor(catalogs: A2UICatalogs());
-    addTearDown(processor.dispose);
-    processor.apply([
-      createSurface([
+    await pumpSurface(
+      tester,
+      components: [
         {'id': 'root', 'component': 'Modal', 'trigger': 'open', 'content': 'clip'},
         {
           'id': 'open',
@@ -431,10 +429,8 @@ void main() {
         },
         {'id': 'open_label', 'component': 'Text', 'text': 'Watch'},
         {'id': 'clip', 'component': 'Video', 'url': _clip},
-      ]),
-    ]);
-    await tester.pumpWidget(
-      A2UITranslationsScope(translations: const _DutchTranslations(), child: surfaceApp(processor.surface('s')!)),
+      ],
+      translations: const _DutchTranslations(),
     );
 
     await tester.tap(find.text('Watch'));

@@ -2,8 +2,7 @@
 
 💥 Breaking
 
-- `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`: remove them
-  from your `AITranslations` implementation and implement `A2UITranslations` instead.
+- `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`: remove them from your `AITranslations` implementation and implement `A2UITranslations` instead.
 
 🐞 Fixed
 
