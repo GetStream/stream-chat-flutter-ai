@@ -360,11 +360,11 @@ final class A2UICatalogs {
   // Opens [link] with what the running action was given to open links with
   // (see `A2UINode.act`), which decides which links open: the host's `open`
   // opens only web and email links unless the app opens links itself. A link
-  // an agent writes is untrusted, so only one [AIUILinks] allows reaches it,
+  // an agent writes is untrusted, so only one [AIUILinkSchemes] allows reaches it,
   // whatever the core lets through. What this throws is
   // reported as a problem of the action's surface.
   static void _openUrl(Uri link) {
-    if (!AIUILinks.allows(link)) {
+    if (!AIUILinkSchemes.allows(link)) {
       throw core.A2uiExpressionError(
         "Function 'openUrl' may not open a '${link.scheme.toLowerCase()}' link.",
         expression: 'openUrl',

@@ -13,7 +13,7 @@ void main() {
     ('whatsapp://send', false),
   ]) {
     test('${allowed ? 'allows' : 'does not allow'} $url', () {
-      expect(AIUILinks.allows(Uri.parse(url)), allowed);
+      expect(AIUILinkSchemes.allows(Uri.parse(url)), allowed);
     });
   }
 }

@@ -18,7 +18,7 @@ import 'package:a2ui_core/a2ui_core.dart' as core;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:json_schema_builder/json_schema_builder.dart' show Schema;
-import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart' show AIUILinks;
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart' show AIUILinkSchemes;
 import 'package:stream_chat_flutter_ai_a2ui/src/a2ui_error.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_action_event.dart';
 import 'package:stream_chat_flutter_ai_a2ui/src/core/a2ui_stream.dart';
