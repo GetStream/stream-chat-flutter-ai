@@ -294,7 +294,7 @@ final class OpenUIRuntime {
         final (evaluated, errors) = PropEvaluator.evaluateRoot(_result, _context());
         _runtimeErrors = errors;
         final root = evaluated == null ? null : reuseUnchanged(evaluated, _root.value);
-        if (root != _root.value) _root.value = root;
+        if (!identical(root, _root.value)) _root.value = root;
         _isQueryLoading.value = _queries.snapshot.loading.isNotEmpty;
       } while (_recomputeAgain && passes < maxPasses);
     } finally {
