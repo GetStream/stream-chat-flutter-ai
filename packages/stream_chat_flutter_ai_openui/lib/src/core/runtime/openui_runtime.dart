@@ -463,9 +463,9 @@ final class OpenUIRuntime {
     );
   }
 
-  /// Whether an image may load from `link`: only when the link is written
-  /// out in the text [update] last read, or is a text value in what a query
-  /// or mutation gave.
+  /// Whether an image may load from `link`: only when the link is contained
+  /// in the text [update] last read, or is a text value in what a query or
+  /// mutation gave.
   ///
   /// A link built from what the person typed is neither, so an image can't
   /// send it to a server as they type. An empty link is never allowed.

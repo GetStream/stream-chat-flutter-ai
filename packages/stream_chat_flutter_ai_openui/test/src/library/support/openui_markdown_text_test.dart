@@ -45,6 +45,14 @@ void main() {
       expect(openUIImagesAsLinks('<a title="`">![x](y)<b title="`">'), '<a title="`">[x](y)<b title="`">');
     });
 
+    test('escapes the markers before an image, so none of them starts one', () {
+      expect(openUIImagesAsLinks('!![x](y) and !!![x](y)'), r'\![x](y) and \!\![x](y)');
+    });
+
+    test('turns an image in a table cell into a link, whatever the backticks around it', () {
+      expect(openUIImagesAsLinks('| `x | ![i](u) | y` |'), '| `x | [i](u) | y` |');
+    });
+
     test('leaves text without images alone', () {
       expect(openUIImagesAsLinks('Wow! [link](u) `code`'), 'Wow! [link](u) `code`');
     });
