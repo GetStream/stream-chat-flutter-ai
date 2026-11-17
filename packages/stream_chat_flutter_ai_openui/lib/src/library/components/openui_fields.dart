@@ -54,14 +54,12 @@ void saveOpenUIDefault(BuildContext context, String name, String componentType, 
   runtime.setFieldValue(formName, name, value, componentType: componentType);
 }
 
-/// Keeps [value], what the field [scope] draws shows by default, as its value.
+/// Keeps [value], what the field [scope] draws shows by default, as its value,
+/// as [saveOpenUIDefault] does.
 ///
-/// A field that isn't bound keeps it as [saveOpenUIDefault] does. A field
-/// bound to a `$variable` shows its default without writing it in OpenUI; here
-/// it is written, through the binding, once the reply ends and only when the
-/// variable has no value, so what the field shows is what its actions, its
-/// required check and the form's state read. That differs from OpenUI, which
-/// leaves the variable unset until the person changes the field.
+/// A field bound to a `$variable` shows its default without writing it: the
+/// variable stays unset until the person changes the field, so its actions
+/// and its required check read the variable, not the default shown.
 ///
 /// Internal to the package.
 @internal
@@ -72,15 +70,8 @@ void saveOpenUIFieldDefault(
   OpenUIValue? value,
 ) {
   if (value == null) return;
-  final field = openUIFieldState(context, scope, componentType, listen: false);
-  if (!field.isBound) {
-    saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
-    return;
-  }
-  if (context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime.isStreaming || !JS.isNullish(field.value)) {
-    return;
-  }
-  field.set(value);
+  if (openUIFieldState(context, scope, componentType, listen: false).isBound) return;
+  saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
 }
 
 /// Checks the field [scope] draws now, when it is in a form and has rules.
