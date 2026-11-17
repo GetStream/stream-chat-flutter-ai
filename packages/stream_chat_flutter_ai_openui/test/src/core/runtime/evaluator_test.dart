@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_conformance_seams.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_test_interface.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/action_plan.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/builtins.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/evaluator.dart';
 
-import '../../../conformance/openui_conformance.dart';
+import 'spec_runtime.dart';
 
-final _spec = conformanceLibraries()['spec']!;
+final _spec = specSchema;
 
 // Evaluates `program` with the spec library, its `Upper` function and its
 // bindable props.
@@ -22,7 +22,7 @@ Map<String, Object?> _run(
   return debugEvaluate(
     schema ?? _spec,
     program,
-    isBindable: conformanceBindables('spec'),
+    isBindable: specBindable,
     state: state,
     refs: refs,
     functions: functions ?? specFunctions,

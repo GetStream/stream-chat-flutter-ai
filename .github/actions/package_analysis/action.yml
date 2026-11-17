@@ -26,7 +26,7 @@ runs:
         for pubspec in packages/*/pubspec.yaml; do
           package=$(dirname "$pubspec")
           echo "::group::$package"
-          # A package of tests only, such as the A2UI conformance suites, has no lib/.
+          # A package of tests only, such as the A2UI and OpenUI conformance suites, has no lib/.
           if [[ -d "$package/lib" ]]; then
             (cd "$package" && dart analyze --fatal-infos lib)
           fi

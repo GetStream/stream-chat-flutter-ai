@@ -9,7 +9,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/library/library_definitio
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_generator.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.dart';
 
-import '../src/core/library/spec_library.dart';
+import 'spec_library.dart';
 
 // The system prompts OpenUI's own implementation generates for its chat,
 // standard and specification libraries with different options
@@ -62,7 +62,7 @@ void main() {
 }
 
 List<Map<String, Object?>> _goldens() {
-  final json = jsonDecode(File('test/conformance/generated/prompt-goldens.json').readAsStringSync()) as List<Object?>;
+  final json = jsonDecode(File('test/generated/prompt-goldens.json').readAsStringSync()) as List<Object?>;
   return json.cast<Map<String, Object?>>();
 }
 
@@ -72,7 +72,7 @@ Map<String, Object?> _spec(String library) {
     'spec' => 'spec-library.json',
     _ => 'upstream-playground-library.spec.json',
   };
-  return jsonDecode(File('test/conformance/generated/$file').readAsStringSync()) as Map<String, Object?>;
+  return jsonDecode(File('test/generated/$file').readAsStringSync()) as Map<String, Object?>;
 }
 
 String _libraryPrompt(Map<String, Object?> golden) {

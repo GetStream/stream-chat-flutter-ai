@@ -1,16 +1,20 @@
-/// Entry points into the OpenUI Lang core that only the conformance tests
-/// use.
+/// The test interface: the tests' way into the OpenUI Lang core.
+///
+/// Every public function here is `@internal` and `@visibleForTesting`. The
+/// OpenUI conformance suites, in the private
+/// `stream_chat_flutter_ai_openui_conformance` package, use it, and so do a
+/// few unit tests. Nothing here is exported from the package, and no
+/// production code calls it; the production classes don't know it exists.
 ///
 /// A conformance case reads a program and compares what the core gives with
 /// what OpenUI's own implementation gave. Each entry point here is the
 /// narrowest way in for one kind of case, and works in plain data or the
 /// package's own types, so a replacement core has to provide the same ones to
-/// pass the same suites.
+/// pass the same suites. What it needs from the core must be what the core
+/// already offers, never a member added for a test.
 ///
 /// One of the core's boundary files: code outside `lib/src/core/` may import
 /// it.
-///
-/// Internal to the package.
 @internal
 library;
 
@@ -37,29 +41,27 @@ export 'package:stream_chat_flutter_ai_openui/src/core/runtime/evaluator.dart' s
 export 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 
 /// The program `existing` with the edit-mode answer `patch` applied.
+@visibleForTesting
 String debugMergeStatements(String existing, String patch) => StatementMerger.merge(existing, patch);
 
 /// What reading `text` against `schema` gives, as OpenUI's own parser writes
 /// it: `root`, `meta`, `stateDeclarations`, `queryStatements` and
 /// `mutationStatements` (and `rootExpression` when the entry picks a
 /// component only when evaluated), in plain JSON values.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 Map<String, Object?> debugParse(OpenUILibrarySchema schema, String text) {
   return parseResultJson(OpenUILangParser(schema).parse(text));
 }
 
 /// The errors reading `text` against `schema` reports, with their hints.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 List<OpenUIError> debugParseErrors(OpenUILibrarySchema schema, String text) {
   return parserErrors(OpenUILangParser(schema).parse(text), schema);
 }
 
 /// What reading `chunks` one after another against `schema` gives after each
 /// of them, as OpenUI's own parser writes it, while the stream hasn't ended.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 List<Map<String, Object?>> debugStreamParseSteps(OpenUILibrarySchema schema, List<String> chunks) {
   final parser = OpenUIStreamParser(schema);
   return [for (final chunk in chunks) parseResultJson(parser.push(chunk))];
@@ -68,8 +70,7 @@ List<Map<String, Object?>> debugStreamParseSteps(OpenUILibrarySchema schema, Lis
 /// What reading `chunks` one after another against `schema` gives once the
 /// stream ends with the last of them, as OpenUI's own parser writes it; with
 /// no chunks, what an ended stream of no text gives.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 Map<String, Object?> debugStreamParseComplete(OpenUILibrarySchema schema, List<String> chunks) {
   final parser = OpenUIStreamParser(schema);
   var result = parser.result(complete: true);
@@ -90,8 +91,7 @@ Map<String, Object?> debugStreamParseComplete(OpenUILibrarySchema schema, List<S
 /// null, error: null}`. The
 /// props `isBindable` names take a `$variable` both ways, and `functions`
 /// are the library's functions.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 Map<String, Object?> debugEvaluate(
   OpenUILibrarySchema schema,
   String text, {
@@ -180,8 +180,7 @@ Map<String, Object?> debugEvaluate(
 /// `{"type": [id, text]}`, which enters `text` in the field the statement
 /// `id` made. A field or control inside a `Form` belongs to that form. Timers
 /// run as soon as each interaction is done.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 Future<Map<String, Object?>> debugInteract(
   OpenUILibrarySchema schema,
   String program,
@@ -280,11 +279,66 @@ final class _FixtureTools implements OpenUIToolProvider {
 
 /// The name of the error a field holding `value` gets from the validation
 /// `rules`, both plain JSON, or `null` when it passes them.
-///
-/// Only the conformance tests use it.
+@visibleForTesting
 String? debugValidate(Object? rules, Object? value) {
   return FormValidation.validate(
     OpenUIValue.fromJson(value),
     FormValidation.parse(OpenUIValue.fromJson(rules)),
   )?.toString();
+}
+
+/// `result` as OpenUI's own parser gives it: `root`, `rootExpression` when
+/// set, `meta`, `stateDeclarations`, `queryStatements` and
+/// `mutationStatements`, with shared arguments written in full.
+///
+/// Its size can double with each level of calls nested in calls, so only the
+/// tests write it.
+@visibleForTesting
+Map<String, Object?> parseResultJson(ParseResult result) {
+  final meta = result.meta;
+  Object? optional(AstNode? node) => node == null ? null : astJson(node, expandSharedArgs: true);
+  return {
+    'root': switch (result.root) {
+      final root? => elementJson(root, expandSharedArgs: true),
+      null => null,
+    },
+    if (result.rootExpression case final expression?) 'rootExpression': astJson(expression, expandSharedArgs: true),
+    'meta': {
+      'incomplete': meta.incomplete,
+      'unresolved': meta.unresolved,
+      'orphaned': meta.orphaned,
+      'statementCount': meta.statementCount,
+      'errors': [
+        for (final error in meta.errors)
+          {
+            'code': error.code as String,
+            'component': error.component,
+            'path': error.path,
+            'message': error.message,
+            if (error.statementId case final id?) 'statementId': id,
+            if (error.isWarning) 'severity': 'warning',
+          },
+      ],
+    },
+    'stateDeclarations': {
+      for (final MapEntry(:key, :value) in result.stateDeclarations.entries)
+        key: plainJson(value, expandSharedArgs: true),
+    },
+    'queryStatements': [
+      for (final query in result.queryStatements)
+        {
+          'statementId': query.statementId,
+          'toolAST': optional(query.tool),
+          'argsAST': optional(query.args),
+          'defaultsAST': optional(query.defaults),
+          'refreshAST': optional(query.refresh),
+          if (query.deps case final deps?) 'deps': deps,
+          'complete': query.complete,
+        },
+    ],
+    'mutationStatements': [
+      for (final mutation in result.mutationStatements)
+        {'statementId': mutation.statementId, 'toolAST': optional(mutation.tool), 'argsAST': optional(mutation.args)},
+    ],
+  };
 }

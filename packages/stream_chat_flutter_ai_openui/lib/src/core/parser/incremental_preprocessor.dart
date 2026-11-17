@@ -37,12 +37,6 @@ final class IncrementalPreprocessor {
   int get revision => _revision;
   var _revision = 0;
 
-  /// How many code units all appends have read.
-  ///
-  /// Only the tests read it.
-  int get debugReadCodeUnits => _debugReadCodeUnits;
-  var _debugReadCodeUnits = 0;
-
   final _fences = _FenceStripper();
   var _comments = _CommentStripper();
 
@@ -84,7 +78,6 @@ final class IncrementalPreprocessor {
     _output.addAll(undecided);
     final undecidedEnd = _contentEnd(undecided);
     _length = undecidedEnd == null ? _committedContentEnd : _committed + undecidedEnd;
-    _debugReadCodeUnits += _fences.debugRead + _comments.debugRead;
     if (startedOver || _length != previousLength || !_endIs(previousEnd, previousStable)) _revision += 1;
     return startedOver;
   }
@@ -146,9 +139,6 @@ final class _FenceStripper {
   // before it.
   bool startedOver = false;
 
-  // How many code units the last `feed` read, for the tests.
-  int debugRead = 0;
-
   // What the undecided backticks read as if the text ended here: text, unless
   // they are outside fences, which drop text.
   String get undecided => !_fenced || _place == _Place.content ? _pending : '';
@@ -157,7 +147,6 @@ final class _FenceStripper {
     final input = start == 0 && _pending.isEmpty ? text : _pending + text.substring(start);
     _pending = '';
     startedOver = false;
-    debugRead = input.length;
     final output = <int>[];
     var index = 0;
     while (index < input.length) {
@@ -236,14 +225,9 @@ final class _CommentStripper {
   // would drop.
   final _held = <int>[];
 
-  // How many code units the last `feed` and `undecided` read, for the
-  // tests.
-  int debugRead = 0;
-
   // Passes on to `keep`, in order, the code units of `input` that stay in the
   // text whatever follows.
   void feed(List<int> input, void Function(int unit) keep) {
-    debugRead = input.length;
     for (final unit in input) {
       _step(unit, keep);
     }
@@ -304,7 +288,6 @@ final class _CommentStripper {
   List<int> undecided(String rest) {
     if (_inComment) return const [];
     if (rest.isEmpty && _held.lastOrNull != _slash) return const [];
-    debugRead += _held.length + rest.length;
     return [..._held, ...rest.codeUnits];
   }
 }

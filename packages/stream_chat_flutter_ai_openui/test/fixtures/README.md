@@ -14,8 +14,8 @@
   `ios_to_number.txt` StreamChatOpenUI's `JS.stringToNumber`, produced by running it (`be3e9db`); the two are equal.
 - `ios_depth_boundaries.txt` — what StreamChatOpenUI's `OpenUIParser` gives (`be3e9db`, run) for operator chains
   `root = Title("a" + "b" + …)` and bracket nesting `root = Stack([[…1…]])` around its limit of 256, and for chains
-  of references `r0 = [r1]`, `r1 = [r2]`, … ending in `Title("end")`, with the minimal library of the parser
-  conformance cases.
+  of references `r0 = [r1]`, `r1 = [r2]`, … ending in `Title("end")`, with a minimal library of two components,
+  `Stack(children)` and `Title(text)`.
 - `ohrid_prompt_example.oui` — the OpenUI Lang block of the Ohrid weekend example in the prompt the Stream agent
   backend gives its model (GetStream/Vision-Agents `accelerate` @ `3b7a53f977`,
   `examples/voice_agents/swift_assistant/openui/instructions.md`, lines 157–179), unchanged.
@@ -36,9 +36,9 @@ The system prompt of the Stream agent backend's trip assistant (GetStream/Vision
 `examples/voice_agents/swift_assistant/openui/`, unchanged), which its generator writes from the chat library and the
 app's components above:
 
-- `vision_agents_prompt.json` — what the generator is given (`prompt.json`): the chat components to keep, the
+- `agents_prompt.json` — what the generator is given (`prompt.json`): the chat components to keep, the
   preamble, the notes on the app's components, the extra rules and the examples. Its `components` path,
   `../app/SwiftAssistant/UIComponents.json`, is the file vendored here as `ohrid_app_components.json`, which is the same
   at both commits.
-- `vision_agents_instructions.md` — the prompt it wrote (`instructions.md`), which
-  `test/src/core/library/vision_agents_instructions_test.dart` generates again and compares.
+- `agents_instructions.md` — the prompt it wrote (`instructions.md`), which
+  `test/src/core/library/agents_instructions_test.dart` generates again and compares.

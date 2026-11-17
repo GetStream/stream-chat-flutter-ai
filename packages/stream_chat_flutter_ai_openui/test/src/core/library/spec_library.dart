@@ -5,9 +5,8 @@ import 'package:stream_chat_flutter_ai_openui/src/core/library/prompt_options.da
 import 'package:stream_chat_flutter_ai_openui/src/core/library/prop_type.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/library/schemas/schema_dsl.dart';
 
-// The test library of the OpenUI Lang specification's fixtures
-// (conformance/generated/spec-library.json), written with this package's
-// schema types.
+// The test library of the OpenUI Lang specification: twelve components, the
+// `Upper` function and the actions, written with this package's schema types.
 LibraryDefinition specLibrary() {
   return LibraryDefinition(
     root: 'Stack',

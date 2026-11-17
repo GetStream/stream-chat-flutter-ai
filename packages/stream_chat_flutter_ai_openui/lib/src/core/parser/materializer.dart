@@ -70,11 +70,6 @@ final class MaterializeContext {
   /// reference counted again.
   int nodes = 0;
 
-  /// How many nodes this pass resolved itself rather than reused.
-  ///
-  /// Only the tests read it.
-  int debugResolvedNodes = 0;
-
   /// How many references led back to a statement being resolved.
   int cycles = 0;
 
@@ -206,7 +201,6 @@ abstract final class Materializer {
     context
       ..depth += 1
       ..nodes += 1
-      ..debugResolvedNodes += 1
       ..deepest = math.max(context.deepest, context.depth);
     return true;
   }

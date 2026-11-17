@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/builtin_calls.dart';
@@ -215,23 +212,24 @@ void main() {
   });
 
   test('a spec gives its root component', () {
-    expect(_spec('upstream-chat-library.spec.json').root, 'Card');
+    final spec = OpenUILibrarySchema.fromSpec(const {
+      'root': 'Card',
+      'schema': {
+        r'$defs': {
+          'Card': {
+            'properties': {
+              'children': {'type': 'array'},
+            },
+          },
+        },
+      },
+    });
+
+    expect(spec.root, 'Card');
   });
 
   test('a schema without a root has none', () {
     expect(OpenUILibrarySchema.fromJsonSchema(const {}).root, isNull);
-  });
-
-  test("the chat library's spec compiles all its components", () {
-    expect(_spec('upstream-chat-library.spec.json').componentNames, hasLength(84));
-  });
-
-  test("the standard library's spec compiles all its components", () {
-    expect(_spec('upstream-playground-library.spec.json').componentNames, hasLength(82));
-  });
-
-  test("the specification's test library compiles all its components", () {
-    expect(_spec('spec-library.json').componentNames, hasLength(12));
   });
 
   test('a schema holding something that is not JSON throws', () {
@@ -248,9 +246,4 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
-}
-
-OpenUILibrarySchema _spec(String file) {
-  final json = jsonDecode(File('test/conformance/generated/$file').readAsStringSync()) as Map<String, Object?>;
-  return OpenUILibrarySchema.fromSpec(json);
 }

@@ -188,9 +188,10 @@ The texts of the components `stream_chat_flutter_ai` draws, such as a code block
 
 ## Tests
 
-The OpenUI Lang 1.0 conformance fixtures it is tested against are vendored, unchanged, under
-[`test/conformance/upstream`](test/conformance/upstream), with their license, and
-[`test/conformance/generated`](test/conformance/generated).
+The OpenUI Lang 1.0 conformance suites it is tested against are vendored, unchanged, with their license, in the
+repository's
+[`stream_chat_flutter_ai_openui_conformance`](https://github.com/GetStream/stream-chat-flutter-ai/tree/main/packages/stream_chat_flutter_ai_openui_conformance)
+package, which isn't published.
 
 ## License
 
