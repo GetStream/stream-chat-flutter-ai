@@ -146,9 +146,9 @@ component builders an app registers with `StreamComponentFactory` (`button`, `ch
 `networkImage`, `loadingSpinner`, `sheetHeader`) draw them in OpenUI replies too. A password field is never given to
 the `textInput` builder.
 
-Images load only from web links the program writes out or one of its tools gives, so an image can't send what the
-person types to a server. They load through the renderer's `mediaUrl`, which loads web links unless it is given
-another function.
+Images load only from web links contained in the program text or given by one of its tools, so an image can't send
+what the person types to a server. They load through the renderer's `mediaUrl`, which loads web links unless it is
+given another function.
 
 The [example](example) shows a conversation whose replies are OpenUI, one of them written line by line as an agent
 streams it, and a gallery of the programs the library's prompts teach the model with, one with every chart type. It
