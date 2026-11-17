@@ -17,3 +17,4 @@
 - A form field checks its `pattern` rule, in time linear in the value, so a pattern can't freeze the app.
 - `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
   the texts the components draw and read out themselves, including a form's errors.
+- `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.

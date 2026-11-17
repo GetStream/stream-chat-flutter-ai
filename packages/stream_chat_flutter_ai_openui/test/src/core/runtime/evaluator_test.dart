@@ -129,6 +129,18 @@ void main() {
       );
     });
 
+    test('@Sort orders accented letters next to their base letter', () {
+      expect(_values('@Sort(["zoe", "Émile", "eve", "Ana", "élan"], "")'), [
+        ['Ana', 'élan', 'Émile', 'eve', 'zoe'],
+      ]);
+    });
+
+    test('@Sort orders an accented letter after its base letter', () {
+      expect(_values('@Sort(["f", "é", "e"], "")'), [
+        ['e', 'é', 'f'],
+      ]);
+    });
+
     test('@Sort gives a value that is not a list back as it is', () {
       expect(_values('@Sort("text", "x")'), ['text']);
     });

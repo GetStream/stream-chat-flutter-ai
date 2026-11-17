@@ -132,7 +132,7 @@ void _registerSpecCase(
         : read()['root'];
 
     expect(firstDifference(canonicalTree(actual), expected['root']), isNull);
-  }, skip: specRootSkipReason(caseName));
+  });
 
   if (specRoundtripSkipReason(caseName) case final reason?) {
     test('$label: the serialized tree parses back', () {}, skip: reason);

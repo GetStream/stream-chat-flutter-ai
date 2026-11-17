@@ -77,6 +77,9 @@ melos:
         # Every package that depends on the core package is released in
         # lockstep with it, so this is always `^<the release's version>`.
         stream_chat_flutter_ai: ^0.2.0
+        # The sort key OpenUI's `@Sort` orders text by; `stream_core_flutter`
+        # depends on it too.
+        stream_core: ^0.5.2
         # Stream's design system: theme tokens, the component factory and the
         # base components (buttons, sheets, list tiles, icons) the AI packages build on.
         stream_core_flutter: ^0.5.4
