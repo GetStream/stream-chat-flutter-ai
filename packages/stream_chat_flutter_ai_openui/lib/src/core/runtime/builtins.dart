@@ -91,6 +91,13 @@ abstract final class Builtins {
   // `@Sort(array, field, direction)`: a stable sort by `field` (the item
   // itself when empty), numbers and numeric text as numbers, the rest as text;
   // a value that isn't an array comes back as it is.
+  //
+  // Text is ordered by its sort key, then ignoring case, then lower case
+  // before upper case. OpenUI orders text with the locale's collation
+  // (`localeCompare`); the sort key is instead the order Stream's SDKs share:
+  // it folds case and the accents and ligatures of Latin letters, so `é` sorts
+  // next to `e`, and trims spaces and apostrophes from the ends; other scripts
+  // keep their letters as they are.
   static OpenUIValue _sort(List<OpenUIValue?> args) {
     final array = _arg(args, 0);
     if (array is! OpenUIArray) return array ?? OpenUINull.instance;
@@ -121,20 +128,6 @@ abstract final class Builtins {
     decorated.sort(compare);
     final items = array.items;
     return OpenUIArray([for (final item in decorated) items[item.index]]);
-  }
-
-  /// How `@Sort` orders two texts: by their sort keys, then ignoring case,
-  /// then lower case before upper case.
-  ///
-  /// OpenUI orders text with the locale's collation (`localeCompare`). The
-  /// sort key is instead the order Stream's SDKs share: it folds case and the
-  /// accents and ligatures of Latin letters, so `é` sorts next to `e`, and
-  /// trims spaces and apostrophes from the ends; other scripts keep their
-  /// letters as they are.
-  static int compareText(String a, String b) {
-    final key = normalizeStringForSort(a).compareTo(normalizeStringForSort(b));
-    if (key != 0) return key;
-    return _compareFolded(a, b);
   }
 
   // Ignoring case first, then lower case before upper case.
