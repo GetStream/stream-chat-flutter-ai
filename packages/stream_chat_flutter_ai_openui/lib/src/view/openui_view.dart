@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:flutter/widgets.dart';
 // Imported for the doc links below only.
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
@@ -72,30 +73,35 @@ class OpenUIView extends StatelessWidget {
       data: data,
       child: OpenUIStreamTheme(
         theme: resolved,
-        child: DefaultTextStyle.merge(
-          style: resolved.body.copyWith(color: resolved.text),
-          child: IconTheme.merge(
-            data: IconThemeData(color: resolved.text),
-            child: ListenableBuilder(
-              listenable: Listenable.merge([runtime.root, runtime.streaming]),
-              builder: (context, _) {
-                final root = runtime.root.value;
-                if (root == null) return const SizedBox.shrink();
-                return OpenUIViewScope(
-                  runtime: runtime,
-                  library: library,
-                  theme: resolved,
-                  mediaUrl: mediaUrl,
-                  openLink: onOpenLink,
-                  isStreaming: runtime.isStreaming,
-                  unknownTypes: _unknownTypes[runtime] ??= {},
-                  child: _QueryLoading(
-                    isLoading: runtime.isQueryLoading,
-                    spacing: resolved.sSpacing,
-                    child: OpenUINodeView(node: root),
-                  ),
-                );
-              },
+        // The text fields and switches of the components need a Material
+        // above them, which an app without one doesn't give.
+        child: Material(
+          type: MaterialType.transparency,
+          child: DefaultTextStyle.merge(
+            style: resolved.body.copyWith(color: resolved.text),
+            child: IconTheme.merge(
+              data: IconThemeData(color: resolved.text),
+              child: ListenableBuilder(
+                listenable: Listenable.merge([runtime.root, runtime.streaming]),
+                builder: (context, _) {
+                  final root = runtime.root.value;
+                  if (root == null) return const SizedBox.shrink();
+                  return OpenUIViewScope(
+                    runtime: runtime,
+                    library: library,
+                    theme: resolved,
+                    mediaUrl: mediaUrl,
+                    openLink: onOpenLink,
+                    isStreaming: runtime.isStreaming,
+                    unknownTypes: _unknownTypes[runtime] ??= {},
+                    child: _QueryLoading(
+                      isLoading: runtime.isQueryLoading,
+                      spacing: resolved.sSpacing,
+                      child: OpenUINodeView(node: root),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),

@@ -51,6 +51,13 @@ abstract base class OpenUIComponentScope {
   /// `children`, reads as `null`; draw it with [buildProp].
   Object? value(String name);
 
+  /// The prop [name] as the program gives it, expressions and components
+  /// included, or `null` when this component doesn't set it.
+  ///
+  /// Internal to the package.
+  @internal
+  OpenUIValue? prop(String name);
+
   /// The prop [name] when it is a string, or `null` otherwise.
   String? string(String name);
 
@@ -114,6 +121,12 @@ abstract base class OpenUIComponentScope {
   /// Internal to the package.
   @internal
   StateField stateField(String name);
+
+  /// The component this scope is of.
+  ///
+  /// Internal to the package.
+  @internal
+  ElementNode get node;
 
   /// The widget [builder] builds, built again each time a `$variable` or form
   /// field of the reply changes.

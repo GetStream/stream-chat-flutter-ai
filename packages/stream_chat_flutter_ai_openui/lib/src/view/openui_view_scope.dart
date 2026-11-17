@@ -60,7 +60,7 @@ bool _isWeb(Uri url) => (url.isScheme('http') || url.isScheme('https')) && url.h
 ///
 /// Internal to the package.
 @internal
-class OpenUIViewScope extends InheritedWidget {
+class OpenUIViewScope extends InheritedTheme {
   /// Creates the scope of the OpenUI below [child].
   const OpenUIViewScope({
     super.key,
@@ -106,6 +106,22 @@ class OpenUIViewScope extends InheritedWidget {
     final scope = maybeOf(context);
     assert(scope != null, 'No OpenUIViewScope found: OpenUI components are built inside an OpenUIView.');
     return scope!;
+  }
+
+  // Carried into routes a component opens, such as a modal's sheet, with
+  // [InheritedTheme.capture], so what they show is drawn as the view draws.
+  @override
+  Widget wrap(BuildContext context, Widget child) {
+    return OpenUIViewScope(
+      theme: theme,
+      runtime: runtime,
+      library: library,
+      mediaUrl: mediaUrl,
+      openLink: openLink,
+      isStreaming: isStreaming,
+      unknownTypes: unknownTypes,
+      child: child,
+    );
   }
 
   @override

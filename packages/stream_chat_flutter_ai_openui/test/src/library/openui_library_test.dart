@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_definition.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_header.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_layout.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_text_content.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_name.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
@@ -44,11 +45,33 @@ const _drawn = [
   'ContextCardBlock',
   'CompositeCardBlock',
   'VisualCardBlock',
+  'Tabs',
+  'Accordion',
+  'Steps',
+  'Carousel',
+  'ListBlock',
+  'Table',
+  'EditableTable',
+  'Form',
+  'FormControl',
+  'Input',
+  'TextArea',
+  'Select',
+  'DatePicker',
+  'Slider',
+  'CheckBoxGroup',
+  'SwitchGroup',
+  'RadioGroup',
+  'Chips',
+  'OptionCards',
+  'Button',
+  'Buttons',
+  'IconButton',
 ];
 
 void main() {
   group('built-in libraries', () {
-    test('chat has the chat library components and draws Card and the content, data and card components', () {
+    test('chat has the chat library components and draws all but the charts', () {
       final chat = OpenUILibrary.chat;
 
       expect(chat.types, LibraryDefinition.chat.componentNames);
@@ -56,18 +79,25 @@ void main() {
       expect(chat['Card'], buildOpenUIChatCard);
       expect(chat['CardHeader'], buildOpenUICardHeader);
       expect(chat['TextContent'], buildOpenUITextContent);
-      expect(chat.types.where((type) => chat[type] != null), unorderedEquals(['Card', ..._drawn]));
+      expect(
+        chat.types.where((type) => chat[type] != null),
+        unorderedEquals(['Card', 'SectionBlock', 'FollowUpBlock', ..._drawn]),
+      );
     });
 
-    test('standard has the standard library components and draws the same components, other than Card', () {
+    test('standard has the standard library components and draws its Stack, Card and Modal and all but the charts', () {
       final standard = OpenUILibrary.standard;
 
       expect(standard.types, LibraryDefinition.standard.componentNames);
-      expect(standard.types.where((type) => standard[type] != null), unorderedEquals(_drawn));
+      expect(standard['Card'], buildOpenUIStandardCard);
+      expect(
+        standard.types.where((type) => standard[type] != null),
+        unorderedEquals(['Stack', 'Card', 'Modal', ..._drawn]),
+      );
     });
 
     test('a type with no builder gives null', () {
-      expect(OpenUILibrary.chat['Table'], isNull);
+      expect(OpenUILibrary.chat['BarChart'], isNull);
       expect(OpenUILibrary.chat['Nope'], isNull);
     });
   });
@@ -83,10 +113,10 @@ void main() {
     });
 
     test('takes a type this package does not draw yet', () {
-      final library = OpenUILibrary.chat.replacing('Table', _brand);
+      final library = OpenUILibrary.chat.replacing('BarChart', _brand);
 
-      expect(library['Table'], _brand);
-      expect(library.replacedBuilderOf('Table'), isNull);
+      expect(library['BarChart'], _brand);
+      expect(library.replacedBuilderOf('BarChart'), isNull);
     });
 
     test('takes a component name constant', () {
