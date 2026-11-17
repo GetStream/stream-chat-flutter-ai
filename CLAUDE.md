@@ -143,15 +143,17 @@ Until its first release PR drops `publish_to: none`, a package is private and th
 2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
 3. `release_tag.yml` reads `v<version>` from that commit, checks it matches every publishable pubspec
    (`.github/workflows/scripts/verify-release-versions.sh`) and isn't tagged yet, and pushes the tag with
-   `CI_BOT_GITHUB_TOKEN` (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
-4. `release_publish.yml` runs on the tag, publishes over pub.dev OIDC — core first, since the OpenUI and
+   a `stream-flutter-ci-bot` app token (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
+4. `release_publish.yml` runs on the tag in the `pub.dev` environment, which waits for a `flutter-developers`
+   approval, then publishes over pub.dev OIDC — core first, since the OpenUI and
    A2UI uploads need core `<version>` on pub.dev — and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on **each** package's pub.dev admin page (repository
-`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, "Require GitHub Actions environment" left empty) and the
-`CI_BOT_GITHUB_TOKEN` repo secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
-`refs/tags/v*` to the bot is worth adding too. pub.dev can't create a package through automated publishing,
+`GetStream/stream-chat-flutter-ai`, tag pattern `v{{version}}`, "Require GitHub Actions environment" set to `pub.dev`,
+manual publishing off), plus the `stream-flutter-ci-bot` app's `FLUTTER_CI_BOT_CLIENT_ID` org variable and
+`FLUTTER_CI_BOT_PRIVATE_KEY` org secret. Any `v*` tag push publishes from that ref's workflow, so a tag ruleset limiting
+`refs/tags/v*` to the app (as its bypass actor) is worth adding too. pub.dev can't create a package through automated publishing,
 so a new package's first version is uploaded by hand by a publisher member before its admin page offers the
 setting; a release tag after that skips it if that version is already live.
 
