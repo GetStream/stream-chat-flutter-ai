@@ -12,5 +12,8 @@
   phone link the UI opens goes to the host's `open`, which decides whether it opens.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
+- A `Modal` of `size` `sm` keeps its sheet to at most half the screen, and an `IconButton` draws its `shape`: a circle
+  for `circle`, otherwise a rounded square. A modal's content stays above the keyboard.
+- A form field checks its `pattern` rule, in time linear in the value, so a pattern can't freeze the app.
 - `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
   the texts the components draw and read out themselves, including a form's errors.

@@ -54,9 +54,10 @@ Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
   return OverflowBar(spacing: spacing, overflowSpacing: spacing, children: buttons);
 }
 
-/// Builds an `IconButton`: its `icon` in a round button of its `variant`
-/// (`secondary` by default) and `size`, that runs its `action` labelled with
-/// its `name`, which is also what it reads as.
+/// Builds an `IconButton`: its `icon` in a button of its `variant`
+/// (`secondary` by default), `size` and `shape` (`circle`, or a rounded
+/// square by default), that runs its `action` labelled with its `name`, which
+/// is also what it reads as.
 ///
 /// It never checks the form it is in, and can't be tapped while the reply
 /// streams.
@@ -79,6 +80,13 @@ Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
       style: _style(variant, destructive: false),
       type: _type(variant),
       size: _size(scope.string('size')),
+      themeStyle: StreamButtonThemeStyle.from(
+        shape: scope.string('shape') == 'circle'
+            ? const CircleBorder()
+            : RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(OpenUIViewScope.of(context).theme.smallCornerRadius),
+              ),
+      ),
       onPressed: scope.isStreaming
           ? null
           : () => triggerOpenUIAction(context, scope, label: name, action: scope.prop('action')),

@@ -300,6 +300,6 @@ void _registerValidationCases(String name, Directory directory) {
       final error = debugValidate(testCase['rules'], testCase['value']);
 
       expect(error == null, testCase['valid'], reason: error);
-    }, skip: specValidationSkipReason(testCase['rules']));
+    });
   }
 }

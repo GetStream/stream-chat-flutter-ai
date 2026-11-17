@@ -85,6 +85,9 @@ class _Marked extends DefaultOpenUITranslations {
 
   @override
   String validationMaxLength(int max) => '#maxLength $max';
+
+  @override
+  String get validationPattern => '#pattern';
 }
 
 class _Dutch extends DefaultOpenUITranslations {
@@ -165,6 +168,7 @@ void main() {
     (const FormValidationError(FormValidationErrorCode.max, 2.5), '#max 2.5'),
     (const FormValidationError(FormValidationErrorCode.minLength, 3), '#minLength 3'),
     (const FormValidationError(FormValidationErrorCode.maxLength, 4), '#maxLength 4'),
+    (const FormValidationError(FormValidationErrorCode.pattern), '#pattern'),
   ]) {
     test('the ${error.code.name} error comes from its translation', () {
       expect(openUIValidationMessage(const _Marked(), error), message);

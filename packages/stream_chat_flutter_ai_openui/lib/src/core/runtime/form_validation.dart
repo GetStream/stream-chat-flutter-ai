@@ -5,6 +5,7 @@
 library;
 
 import 'package:meta/meta.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/runtime/pattern_matcher.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/js.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 
@@ -55,6 +56,9 @@ enum FormValidationErrorCode {
 
   /// The value is longer than the `maxLength` rule's number.
   maxLength,
+
+  /// The value doesn't match the `pattern` rule's regular expression.
+  pattern,
 }
 
 /// The error a value gets from a rule it fails: its [code], and for the
@@ -83,8 +87,11 @@ final class FormValidationError {
 
 /// The validation rules of OpenUI Lang 1.0 (specification §5.4), as
 /// OpenUI's `utils/validation.ts` checks them: `required`, `email`, `url`,
-/// `numeric`, `min`, `max`, `minLength` and `maxLength`. `pattern` is read
-/// but not checked yet: a field with a `pattern` rule accepts any value.
+/// `numeric`, `min`, `max`, `minLength`, `maxLength` and `pattern`.
+///
+/// A `pattern` is matched as [PatternMatcher] matches it, anywhere in the
+/// value: one it rejects or can't read lets any value pass, and a value
+/// longer than [PatternMatcher.maxInputLength] UTF-16 code units fails it.
 ///
 /// Every rule but `required` lets an empty value pass — `null`, `""`, an
 /// empty list, or an object with no keys — and the first rule that fails
@@ -126,9 +133,6 @@ abstract final class FormValidation {
 
   /// The error of the first of `rules` that `value` fails, or `null` when it
   /// passes them all. A rule of another name is skipped.
-  ///
-  /// `pattern` is skipped too, for now: the regular expressions the model
-  /// writes need a matcher that can't freeze the app, which isn't here yet.
   static FormValidationError? validate(OpenUIValue? value, List<ValidationRule> rules) {
     for (final rule in rules) {
       if (_check(rule.type, value, rule.argument) case final error?) return error;
@@ -201,6 +205,11 @@ abstract final class FormValidation {
         return text == null || text.length <= max
             ? null
             : FormValidationError(FormValidationErrorCode.maxLength, max.floor());
+      case 'pattern':
+        final matcher = argument is OpenUIString ? PatternMatcher.compile(argument.value) : null;
+        return text == null || matcher == null || matcher.hasMatch(text)
+            ? null
+            : const FormValidationError(FormValidationErrorCode.pattern);
       default:
         return null;
     }
