@@ -4,6 +4,10 @@
 
 - `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`: remove them from your `AITranslations` implementation and implement `A2UITranslations` instead.
 
+✅ Added
+
+- `AIUILinks`, the link schemes generated UI may hand to the host's `open`: `http`, `https`, `mailto` and `tel`.
+
 🔄 Changed
 
 - Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.

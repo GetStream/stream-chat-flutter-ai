@@ -84,15 +84,15 @@ final class OpenUIEngine extends AIUIEngine {
     _received.remove(messageId);
     final reply = (_replies[messageId] ??= _OpenUIReply(this, messageId))..update(document);
     final runtime = reply.runtime;
-    // A written reply with queries gets its view without a root, as the root
-    // can depend on their results and draws once they land: the host keeps
-    // the view it got for a document.
-    if (runtime.root.value == null && (document.isStreaming || !runtime.hasQueries)) {
-      // A reply written without a root or queries shows its text: its
-      // runtime goes, after the problems it found are given.
+    // A written reply whose root can come from its queries' results gets its
+    // view without a root, which draws once they land: the host keeps the
+    // view it got for a document.
+    if (runtime.root.value == null && (document.isStreaming || !runtime.rootMayFollowQueries)) {
+      // A reply written without a root that can still come shows its text:
+      // its runtime goes, after the problems it found are given.
       if (!document.isStreaming) {
         _whenNotBuilding(() {
-          if (_shows(reply) && runtime.root.value == null && !runtime.hasQueries) remove(messageId);
+          if (_shows(reply) && runtime.root.value == null && !runtime.rootMayFollowQueries) remove(messageId);
         });
       }
       return null;
