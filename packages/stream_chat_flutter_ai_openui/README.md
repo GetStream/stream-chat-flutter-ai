@@ -41,7 +41,7 @@ payload holds, when there are any, the action's `context`, its other `params`, t
 it differs from the label, and, in a form, the form's name under `form` and its values under `values`. A password is
 never sent.
 
-A web, email or phone link the program opens (`AIUILinks`) goes to the host's `open`, which decides whether it opens,
+A web, email or phone link the program opens (`AIUILinkSchemes`) goes to the host's `open`, which decides whether it opens,
 never to `send`; a link to another app or a file is dropped. The program's queries and mutations run as the host's
 `tools`: a query only with a read-only tool, a mutation from the person's tap. A reply's queries run and refresh only
 while the reply is on screen and the app is in the foreground, so opening a long conversation runs only the queries of

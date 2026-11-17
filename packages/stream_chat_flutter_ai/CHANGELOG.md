@@ -6,7 +6,7 @@
 
 ✅ Added
 
-- `AIUILinks`, the link schemes generated UI may hand to the host's `open`: `http`, `https`, `mailto` and `tel`.
+- `AIUILinkSchemes`, the link schemes generated UI may hand to the host's `open`: `http`, `https`, `mailto` and `tel`.
 
 🔄 Changed
 
