@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart' show StateField;
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -104,4 +105,50 @@ abstract base class OpenUIComponentScope {
   /// It draws nothing when the builder wasn't replaced or this package
   /// doesn't draw this component's type.
   Widget buildDefault();
+
+  /// The state the prop [name] shows and writes: a prop the agent bound to a
+  /// `$variable` reads and writes that variable.
+  ///
+  /// A prop that isn't bound to a variable shows its own value.
+  ///
+  /// Internal to the package.
+  @internal
+  StateField stateField(String name);
+
+  /// The widget [builder] builds, built again each time a `$variable` or form
+  /// field of the reply changes.
+  ///
+  /// A component that shows a bound prop, such as a callout's `visible`, reads
+  /// it with [stateField] inside [builder].
+  ///
+  /// Internal to the package.
+  @internal
+  Widget watchState(WidgetBuilder builder);
+
+  /// The components in the prop [name], such as a card block's `items`: its
+  /// items that are components, or the one component it holds.
+  ///
+  /// Internal to the package.
+  @internal
+  List<ElementNode> elements(String name);
+
+  /// The component in the field [field] of the prop [name], an object such as
+  /// a composite card item's `footer`, or `null` when it holds none.
+  ///
+  /// Internal to the package.
+  @internal
+  ElementNode? elementField(String name, String field);
+
+  /// The scope of [node], a component of this one's props.
+  ///
+  /// Internal to the package.
+  @internal
+  OpenUIComponentScope scopeOf(ElementNode node);
+
+  /// The widget of [node], a component of this one's props, built with its
+  /// type's builder.
+  ///
+  /// Internal to the package.
+  @internal
+  Widget buildNode(ElementNode node);
 }

@@ -28,8 +28,10 @@ final class OpenUIResolvedTheme {
 
   final OpenUIThemeData _data;
 
-  /// This theme with [body] in place of its body style.
-  OpenUIResolvedTheme copyWith({required TextStyle body}) => OpenUIResolvedTheme._(_data.copyWith(body: body));
+  /// This theme with [body] in place of its body style and [text] in place of
+  /// its primary text color, each when given.
+  OpenUIResolvedTheme copyWith({TextStyle? body, Color? text}) =>
+      OpenUIResolvedTheme._(_data.copyWith(body: body, text: text));
 
   /// See [OpenUIThemeData.accent].
   Color get accent => _data.accent!;

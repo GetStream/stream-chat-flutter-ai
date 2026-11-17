@@ -2,8 +2,16 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_definition.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_callout.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_header.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_text.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_data_display.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_images.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_markdown_renderer.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_metrics.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_text_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_text_content.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 
@@ -45,12 +53,15 @@ final class OpenUILibrary {
   /// OpenUI's chat library, whose programs are a `Card` with the answer in
   /// it.
   ///
-  /// This package draws its `Card`, `CardHeader` and `TextContent`.
+  /// This package draws its `Card`, and the content, data display and card
+  /// block components, such as `TextContent`, `Callout`, `Image`, `Tag` and
+  /// `SnippetCardBlock`; layout, lists, tables, forms, buttons and charts are
+  /// not drawn yet.
   static final OpenUILibrary chat = OpenUILibrary._(LibraryDefinition.chat, const {}, _chatBuilders, _chatBuilders);
 
   /// OpenUI's standard library, whose programs are a `Stack` of components.
   ///
-  /// This package draws its `CardHeader` and `TextContent`.
+  /// This package draws the same components as [chat], other than `Card`.
   static final OpenUILibrary standard = OpenUILibrary._(
     LibraryDefinition.standard,
     const {},
@@ -62,11 +73,63 @@ final class OpenUILibrary {
     'Card': buildOpenUIChatCard,
     'CardHeader': buildOpenUICardHeader,
     'TextContent': buildOpenUITextContent,
+    'MarkDownRenderer': buildOpenUIMarkDownRenderer,
+    'Callout': buildOpenUICallout,
+    'TextCallout': buildOpenUITextCallout,
+    'Separator': buildOpenUISeparator,
+    'InlineHeader': buildOpenUIInlineHeader,
+    'Label': buildOpenUILabel,
+    'Image': buildOpenUIImage,
+    'ImageBlock': buildOpenUIImageBlock,
+    'ImageGallery': buildOpenUIImageGallery,
+    'CodeBlock': buildOpenUICodeBlock,
+    'Tag': buildOpenUITag,
+    'TagBlock': buildOpenUITagBlock,
+    'Icon': buildOpenUIIcon,
+    'EntityList': buildOpenUIEntityList,
+    'Text': buildOpenUIText,
+    'BoldText': buildOpenUIBoldText,
+    'IconText': buildOpenUIIconText,
+    'ImageText': buildOpenUIImageText,
+    'ImageTextLarge': buildOpenUIImageTextLarge,
+    'MetricIndicatorInline': buildOpenUIMetricIndicatorInline,
+    'MetricIndicatorWithStrikethrough': buildOpenUIMetricIndicatorWithStrikethrough,
+    'SnippetCardBlock': buildOpenUISnippetCardBlock,
+    'OverviewCardBlock': buildOpenUIOverviewCardBlock,
+    'ContextCardBlock': buildOpenUIContextCardBlock,
+    'CompositeCardBlock': buildOpenUICompositeCardBlock,
+    'VisualCardBlock': buildOpenUIVisualCardBlock,
   };
 
   static const Map<String, OpenUIComponentBuilder> _standardBuilders = {
     'CardHeader': buildOpenUICardHeader,
     'TextContent': buildOpenUITextContent,
+    'MarkDownRenderer': buildOpenUIMarkDownRenderer,
+    'Callout': buildOpenUICallout,
+    'TextCallout': buildOpenUITextCallout,
+    'Separator': buildOpenUISeparator,
+    'InlineHeader': buildOpenUIInlineHeader,
+    'Label': buildOpenUILabel,
+    'Image': buildOpenUIImage,
+    'ImageBlock': buildOpenUIImageBlock,
+    'ImageGallery': buildOpenUIImageGallery,
+    'CodeBlock': buildOpenUICodeBlock,
+    'Tag': buildOpenUITag,
+    'TagBlock': buildOpenUITagBlock,
+    'Icon': buildOpenUIIcon,
+    'EntityList': buildOpenUIEntityList,
+    'Text': buildOpenUIText,
+    'BoldText': buildOpenUIBoldText,
+    'IconText': buildOpenUIIconText,
+    'ImageText': buildOpenUIImageText,
+    'ImageTextLarge': buildOpenUIImageTextLarge,
+    'MetricIndicatorInline': buildOpenUIMetricIndicatorInline,
+    'MetricIndicatorWithStrikethrough': buildOpenUIMetricIndicatorWithStrikethrough,
+    'SnippetCardBlock': buildOpenUISnippetCardBlock,
+    'OverviewCardBlock': buildOpenUIOverviewCardBlock,
+    'ContextCardBlock': buildOpenUIContextCardBlock,
+    'CompositeCardBlock': buildOpenUICompositeCardBlock,
+    'VisualCardBlock': buildOpenUIVisualCardBlock,
   };
 
   // The library this one was made from, chat or standard.
