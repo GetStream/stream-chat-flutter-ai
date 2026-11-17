@@ -96,7 +96,49 @@ dependencies:
   stream_chat_flutter_ai: ^0.2.0
 ```
 
-It requires Dart 3.11 or later and Flutter 3.41 or later.
+### Using `material_ui`
+
+The components are built on the Material library in the Flutter SDK (`package:flutter/material.dart`)
+and need its `Material`, `Theme` and localizations above them. An app built on that library has nothing
+to add. An app on the [`material_ui`](https://pub.dev/packages/material_ui) package, which the
+`flutter create` template imports from Flutter 3.50, has to provide them, or the composer fails with "No
+Material widget found". Add them in `MaterialApp.builder`: `material_ui`'s
+`MaterialUiCompatibilityBridge` gives the components a theme and localizations, and a transparent
+`Material` from the SDK library gives them a `Material`:
+
+```dart
+import 'package:flutter/material.dart' as legacy;
+import 'package:material_ui/material_ui.dart';
+
+MaterialApp(
+  builder: (context, child) => MaterialUiCompatibilityBridge(
+    child: legacy.Material(type: legacy.MaterialType.transparency, child: child!),
+  ),
+  home: const HomeScreen(),
+)
+```
+
+`material_ui`'s `ThemeData` doesn't take a `StreamTheme` (see [Theming](#theming)). To customize it, add
+it to the legacy theme the bridge provides:
+
+```dart
+builder: (context, child) => MaterialUiCompatibilityBridge(
+  child: Builder(
+    builder: (context) {
+      final theme = legacy.Theme.of(context);
+      return legacy.Theme(
+        data: theme.copyWith(
+          extensions: [
+            ...theme.extensions.values,
+            StreamTheme(colorScheme: StreamColorScheme.fromSeed(brand: brandColor, brightness: theme.brightness)),
+          ],
+        ),
+        child: legacy.Material(type: legacy.MaterialType.transparency, child: child!),
+      );
+    },
+  ),
+),
+```
 
 ## ⚙️ Usage
 
@@ -1203,6 +1245,21 @@ share need text. With `AIConversationView.conversation`, they are there by defau
 A reply that arrives already finished with reasoning, such as when a conversation opens, shows its
 reasoning open for a moment and folds it before the answer types out. Tapping the header before it
 folds keeps it as the reader chose.
+
+A link in a reply's text or reasoning opens when tapped: a web link in the browser, and any other URL
+with the platform's default app. To open links your own way, such as in an in-app browser or only
+web and email links, pass `onTapLink`. Links in a reply's generated UI go to `AIUIHost`'s `open`
+instead:
+
+```dart
+AIConversationView(
+  messages: messages,
+  onTapLink: (text, href, title) {
+    final url = href == null ? null : Uri.tryParse(href);
+    if (url != null && const {'http', 'https', 'mailto'}.contains(url.scheme)) launchUrl(url);
+  },
+)
+```
 
 The conversation caches its rows: a row is built again only when what its message says changes, or
 the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
