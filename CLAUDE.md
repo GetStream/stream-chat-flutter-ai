@@ -72,15 +72,8 @@ added later:
    libraries and programs.
 2. **Conformance only in the `_conformance` package.** It holds the conformance suites, their data and their
    harness, and no other tests.
-3. **No test-only code in production classes.** Test-only code exists only to set up a test or to make an assertion: a
-   counter only assertions read, a debug constructor only tests call. It belongs in the test package; needing it
-   means the class under test isn't architected properly, so change its design instead. Code that is only *exercised*
-   by tests is not test-only: an API production doesn't call yet, a setting production leaves at its default, a
-   convenience factory, an injectable dependency (a timer, a logger) tests can swap. The one exception is the
-   package's `<package>_test_interface.dart`, the conformance package's way in. `@visibleForTesting` is fine on a
-   member production itself uses that is public only so tests can reach it.
-4. **No tests that count internal work**, such as how many times text is re-read or a node rebuilt. Such a test
-   belongs only in the PR that makes the optimisation.
+3. **The test interface is the conformance package's way in.** `<package>_test_interface.dart` is the one file in
+   `lib/` allowed to hold test-only code (see [Code style](#code-style)).
 
 The packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
 treat every `packages/*/` whose pubspec isn't `publish_to: none` as publishable.
@@ -188,6 +181,16 @@ workflows can't tag or publish a `+build` version.
 - Customers should `implement` `AITranslations` and `A2UITranslations`, not extend
   `DefaultAITranslations` or `DefaultA2UITranslations`, so a new string shows up as a compile error.
   Adding a string still isn't a breaking change: list it under `✅ Added`, not `💥 Breaking`.
+- **No test-only code in production classes.** Test-only code exists only to set up a test or to make an
+  assertion: a counter only assertions read, a debug constructor only tests call. It belongs in the test package;
+  needing it means the class under test isn't architected properly, so change its design instead. Code that is only
+  *exercised* by tests is not test-only: an API production doesn't call yet, a setting production leaves at its
+  default, a convenience factory, an injectable dependency (a timer, a logger) tests can swap. `@visibleForTesting`
+  is fine on a member production itself uses that is public only so tests can reach it. The one exception is a
+  generative UI package's `<package>_test_interface.dart`.
+- **Don't keep tests that count internal work**, such as how many times text is re-read or a node rebuilt. Such a
+  test can be written temporarily to verify an optimisation while it is being built, but it has no value outside
+  that PR, so it isn't committed.
 
 ## PR & commit conventions
 

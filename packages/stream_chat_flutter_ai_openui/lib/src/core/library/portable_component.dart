@@ -81,7 +81,6 @@ ComponentSchema portableComponentSchema(Map<String, Object?> definition) {
 
 /// The name a program calls the component `name` by: its words, split at
 /// `_`, `-` and spaces, each with its first letter in upper case and joined.
-@visibleForTesting
 String portableTypeName(String name) {
   return [
     for (final word in name.split(_separators))
@@ -99,7 +98,6 @@ String portableTypeName(String name) {
 /// type: `string`, `number` or `integer`, `boolean`, `array` of its `items`,
 /// and `object` with its `properties`, or a record of its
 /// `additionalProperties` when it has none. Anything else takes any value.
-@visibleForTesting
 PropType portablePropType(Object? schema) {
   if (schema is! Map<String, Object?>) return PropType.any;
   final values = schema['enum'];

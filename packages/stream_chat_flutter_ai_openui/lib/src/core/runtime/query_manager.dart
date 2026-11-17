@@ -104,7 +104,6 @@ final class QueryManager {
 
   /// The cache key of a query: its tool, its arguments and its
   /// dependencies, written as JSON with sorted keys.
-  @visibleForTesting
   static String cacheKey(String toolName, OpenUIValue? args, OpenUIValue? deps) {
     final depsKey = JS.isNullish(deps) ? '' : '::${stableJson(deps)}';
     return '$toolName::${stableJson(args)}$depsKey';
@@ -112,7 +111,6 @@ final class QueryManager {
 
   /// `value` as JSON with the keys of every object sorted, and `undefined`,
   /// `NaN` and the infinities written as named strings.
-  @visibleForTesting
   static String stableJson(OpenUIValue? value) {
     return switch (value) {
       null => '"__undefined__"',
@@ -209,7 +207,6 @@ final class QueryManager {
   /// The time between two refreshes of a query written to refresh every
   /// `seconds`: at least [minimumRefresh], and, like a browser's timers, at
   /// least a millisecond and at most 2^31 - 1 milliseconds.
-  @visibleForTesting
   Duration refreshPeriod(double seconds) {
     const longest = 2147483647;
     final shortest = minimumRefresh.inMicroseconds / 1000;
