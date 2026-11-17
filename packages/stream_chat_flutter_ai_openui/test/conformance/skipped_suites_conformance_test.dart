@@ -9,10 +9,6 @@ import 'openui_conformance_skips.dart';
 // The vendored fixtures this package doesn't run yet, each with the reason.
 void main() {
   skipConformanceSuite(
-    'parser streaming (`chunks`, `checkpoints`, `streamResults`, `completeResult` of parser-conformance.json)',
-    reason: 'Reading a program as it streams in is not part of the package yet.',
-  );
-  skipConformanceSuite(
     'evaluator-conformance.json',
     reason: 'Evaluating programs is not part of the package yet.',
   );

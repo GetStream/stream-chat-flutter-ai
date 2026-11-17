@@ -5,7 +5,7 @@
 // parser fixtures' `v1-spec/*` cases.
 
 /// The areas of the specification's fixtures this package runs.
-const specAreasRun = ['grammar', 'entry', 'errors'];
+const specAreasRun = ['grammar', 'entry', 'errors', 'streaming'];
 
 /// The areas of the specification's fixtures this package doesn't run yet,
 /// each with the reason.
@@ -13,7 +13,6 @@ const specAreasSkipped = {
   'actions': _needsRuntime,
   'state': _needsRuntime,
   'evaluation': 'Evaluating programs is not part of the package yet.',
-  'streaming': 'Reading a program as it streams in is not part of the package yet.',
   'editing': "Merging an edit into an earlier program isn't part of the package.",
 };
 
@@ -30,6 +29,8 @@ const _rootNeedsEvaluating = {
   'entry/006-ternary-root-multiline',
   'errors/002-unknown-function-null',
   'errors/014-function-literal-args',
+  'streaming/001-worked-example',
+  'streaming/003-multiline-ternary-across-chunks',
 };
 
 /// The names of the specification's cases whose rendered tree isn't compared

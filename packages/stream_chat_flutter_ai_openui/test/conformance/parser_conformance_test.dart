@@ -7,4 +7,5 @@ import 'openui_conformance.dart';
 
 void main() {
   runParserConformance();
+  runParserStreamingConformance();
 }
