@@ -36,7 +36,7 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// A tap on a control sends an [AIUIAction] named after the action, labeled
 /// with the control's label or [AITranslations.uiActionUntitled]; its payload
 /// carries the action's `context`, `params`, `message` and form values, never
-/// a password. A web, email or phone link ([AIUILinks]) goes to
+/// a password. A web, email or phone link ([AIUILinkSchemes]) goes to
 /// [AIUIHosting.open], which decides whether it opens. Queries, once the reply is written, and mutations
 /// run as the host's tools; a reply's queries run and refresh only while it
 /// is on screen and the app is in the foreground.

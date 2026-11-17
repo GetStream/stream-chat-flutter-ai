@@ -33,7 +33,7 @@ class OpenUIView extends StatelessWidget {
   ///
   /// Media loads from the URL [mediaUrl] gives for it; only web links load
   /// unless it is given another function. A web, email or phone link a person
-  /// taps ([AIUILinks]) goes to [onOpenLink], which decides whether it opens;
+  /// taps ([AIUILinkSchemes]) goes to [onOpenLink], which decides whether it opens;
   /// without it, no link opens. What a component's builder throws goes to
   /// [FlutterError.reportError], then to [onBuildError] when it is given.
   const OpenUIView({
