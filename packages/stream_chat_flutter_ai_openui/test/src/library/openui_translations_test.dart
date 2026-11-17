@@ -175,6 +175,20 @@ void main() {
     });
   }
 
+  // The texts of the errors the other tests don't read in English.
+  for (final (error, message) in [
+    (const FormValidationError(FormValidationErrorCode.requiredOption), 'At least one option is required'),
+    (const FormValidationError(FormValidationErrorCode.email), 'Please enter a valid email'),
+    (const FormValidationError(FormValidationErrorCode.url), 'Please enter a valid URL'),
+    (const FormValidationError(FormValidationErrorCode.numeric), 'Must be a number'),
+    (const FormValidationError(FormValidationErrorCode.maxLength, 4), 'Must be no more than 4 characters'),
+    (const FormValidationError(FormValidationErrorCode.pattern), 'Invalid format'),
+  ]) {
+    test('the English text of the ${error.code.name} error is "$message"', () {
+      expect(openUIValidationMessage(const DefaultOpenUITranslations(), error), message);
+    });
+  }
+
   testWidgets("a card item without a title runs its action with the translations' label", (tester) async {
     final events = await _pumpIn(
       tester,
@@ -187,6 +201,27 @@ void main() {
 
     expect(events.single.label, 'Karte 1');
   });
+
+  // Each block's item shows nothing its action's label could be named by.
+  for (final (kind, program) in [
+    ('Snippet', 'SnippetCardBlock([SnippetCardItem(null, Text("text", "42"))], null, null, {type: "pick"})'),
+    ('Overview', 'OverviewCardBlock([OverviewCardItem(null, Image("a"))], null, null, {type: "pick"})'),
+    ('Context', 'ContextCardBlock([ContextCardItem(null, "")], null, null, {type: "pick"})'),
+    (
+      'Composite',
+      'CompositeCardBlock([CompositeCardItem(null, null, [Text("text", "x")])], null, null, {type: "pick"})',
+    ),
+    ('Visual', 'VisualCardBlock([VisualCardItem(Image("a"), null)], null, null, {type: "pick"})'),
+  ]) {
+    testWidgets('a $kind card item that shows no title runs its action labeled in English', (tester) async {
+      final events = await _pumpIn(tester, 'root = Card([$program])', null);
+
+      await tester.tap(find.byType(OpenUIPressable));
+      await tester.pump();
+
+      expect(events.single.label, '$kind card 1');
+    });
+  }
 
   testWidgets("a trend's percentage reaches the translation as a number, which it formats", (tester) async {
     await _pumpIn(

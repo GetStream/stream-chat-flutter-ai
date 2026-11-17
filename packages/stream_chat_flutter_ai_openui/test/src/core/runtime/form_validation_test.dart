@@ -7,7 +7,27 @@ OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
 FormValidationError? _check(Object? value, Object? rules) =>
     FormValidation.validate(_v(value), FormValidation.parse(_v(rules)));
 
+// A new error each call, which `const FormValidationError(...)` with the same
+// arguments is not: those are one object.
+FormValidationError _error(FormValidationErrorCode code, [num? limit]) => FormValidationError(code, limit);
+
 void main() {
+  test('errors with the same code and limit compare equal', () {
+    expect(_error(FormValidationErrorCode.min, 3), _error(FormValidationErrorCode.min, 3));
+  });
+
+  test('errors with the same code and limit share a hashCode', () {
+    expect(_error(FormValidationErrorCode.min, 3).hashCode, _error(FormValidationErrorCode.min, 3).hashCode);
+  });
+
+  test('errors with another code differ', () {
+    expect(_error(FormValidationErrorCode.min, 3), isNot(_error(FormValidationErrorCode.max, 3)));
+  });
+
+  test('errors with another limit differ', () {
+    expect(_error(FormValidationErrorCode.min, 3), isNot(_error(FormValidationErrorCode.min, 4)));
+  });
+
   test('rules come as an object or a list of strings', () {
     expect(FormValidation.parse(_v({'required': true, 'email': false, 'minLength': 3, 'max': null})), [
       const ValidationRule('required'),
