@@ -68,6 +68,7 @@ Future<void> _pump(
   EdgeInsets padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
   bool settle = true,
   bool reduceMotion = true,
+  MarkdownTapLinkCallback? onTapLink,
 }) async {
   tester.view.physicalSize = const Size(400, 600);
   tester.view.devicePixelRatio = 1;
@@ -89,6 +90,7 @@ Future<void> _pump(
               footer: footer,
               emptyContent: empty,
               padding: padding,
+              onTapLink: onTapLink,
             ),
           ),
         ),
@@ -133,6 +135,40 @@ Future<void> _frames(WidgetTester tester, Duration step, int frames) async {
 
 void main() {
   group('AIConversationView', () {
+    testWidgets('hands a link tapped in a reply to onTapLink', (tester) async {
+      final taps = <String?>[];
+      await _pump(
+        tester,
+        [_user('u1'), _reply('a1', text: 'See [the docs](https://x.io/docs).')],
+        onTapLink: (text, href, title) => taps.add(href),
+      );
+
+      await tester.tapOnText(find.textRange.ofSubstring('the docs'));
+      await tester.pump();
+
+      expect(taps, ['https://x.io/docs']);
+    });
+
+    testWidgets('gives a custom reply builder onTapLink', (tester) async {
+      MarkdownTapLinkCallback? received;
+      void onTapLink(String text, String? href, String title) {}
+      await _pump(
+        tester,
+        [_user('u1'), _reply('a1')],
+        builders: StreamComponentBuilders(
+          extensions: streamAIComponentBuilders(
+            assistantMessage: (context, props) {
+              received = props.onTapLink;
+              return const Text('Custom reply');
+            },
+          ),
+        ),
+        onTapLink: onTapLink,
+      );
+
+      expect(received, onTapLink);
+    });
+
     testWidgets('shows its empty content while there are no messages', (tester) async {
       await _pump(tester, const [], empty: const Text('How can I help?'));
       expect(find.text('How can I help?'), findsOneWidget);

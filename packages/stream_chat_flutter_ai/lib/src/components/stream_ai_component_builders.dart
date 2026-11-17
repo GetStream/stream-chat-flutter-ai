@@ -254,7 +254,7 @@ final class AIMathProps {
 @immutable
 final class AIReasoningProps {
   /// Creates an [AIReasoningProps].
-  const AIReasoningProps({required this.reasoning, this.text, this.duration});
+  const AIReasoningProps({required this.reasoning, this.text, this.duration, this.onTapLink});
 
   /// The round of reasoning to show.
   final AIReasoningPart reasoning;
@@ -265,6 +265,10 @@ final class AIReasoningProps {
   /// How long it has thought, when the conversation timed it rather than the
   /// step, such as its first step taking over the thinking count.
   final Duration? duration;
+
+  /// Opens a link tapped in the reasoning: the app's own opener, or the
+  /// default one. Pass it on as [StreamingReasoningView.onTapLink].
+  final MarkdownTapLinkCallback? onTapLink;
 }
 
 /// What the `toolCall` builder of [streamAIComponentBuilders] gets.
@@ -391,7 +395,13 @@ final class AIAssistantMessageProps {
   /// Creates an [AIAssistantMessageProps].
   ///
   /// [text] defaults to the message's text.
-  const AIAssistantMessageProps({required this.message, this._text, this.approver, this.onAttachmentTap});
+  const AIAssistantMessageProps({
+    required this.message,
+    this._text,
+    this.approver,
+    this.onAttachmentTap,
+    this.onTapLink,
+  });
 
   /// The reply, which is one of the app's own messages: cast it to read what
   /// else it holds.
@@ -419,6 +429,9 @@ final class AIAssistantMessageProps {
 
   /// Opens one of the attachments.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+
+  /// Opens a link tapped in the reply's text or reasoning.
+  final MarkdownTapLinkCallback? onTapLink;
 }
 
 /// What the `replyActions` builder of [streamAIComponentBuilders] gets.
