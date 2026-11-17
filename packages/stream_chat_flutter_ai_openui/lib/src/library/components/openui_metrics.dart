@@ -87,6 +87,7 @@ class _TrendBadge extends StatelessWidget {
     final number = switch (raw) {
       num() => raw.toDouble(),
       String() => double.tryParse(raw.trim()) ?? 0.0,
+      bool() => raw ? 1.0 : 0.0,
       _ => 0.0,
     };
     return _TrendBadge(up: trend['direction'] == 'up', value: number.isFinite ? number.abs() : 0);
@@ -99,11 +100,12 @@ class _TrendBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
     final color = up ? theme.success : theme.error;
-    final number = value == value.truncateToDouble() ? value.toInt().toString() : value.toStringAsFixed(1);
+    final shown = '${_grouped(value, 2)}%';
+    final spoken = '${_grouped(value, 6)}%';
     final icons = context.streamIcons;
     return Semantics(
       container: true,
-      label: up ? OpenUIStrings.trendUp('$number%') : OpenUIStrings.trendDown('$number%'),
+      label: up ? OpenUIStrings.trendUp(spoken) : OpenUIStrings.trendDown(spoken),
       excludeSemantics: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -121,7 +123,7 @@ class _TrendBadge extends StatelessWidget {
                 child: Icon(icons.arrowUpRight, size: openUIScaled(context, 12), color: color),
               ),
               Text(
-                '$number%',
+                shown,
                 style: theme.caption.copyWith(
                   fontWeight: FontWeight.w600,
                   color: color,
@@ -134,4 +136,15 @@ class _TrendBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+// [value] with at most [decimals] decimals and its thousands grouped by commas,
+// such as `1,234.5`.
+String _grouped(double value, int decimals) {
+  final fixed = value.toStringAsFixed(decimals);
+  if (fixed.contains('e')) return fixed;
+  final parts = fixed.split('.');
+  final integer = parts.first.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+  final fraction = parts.length > 1 ? parts[1].replaceFirst(RegExp(r'0+$'), '') : '';
+  return fraction.isEmpty ? integer : '$integer.$fraction';
 }

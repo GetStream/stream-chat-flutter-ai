@@ -288,8 +288,11 @@ final class LibraryDefinition {
   /// They are also taken out of every prop that takes other types too, and a
   /// group left with no component is dropped. The [root] stays, and so does a
   /// component that is the only type a remaining prop takes, with the
-  /// components it needs in turn. The notes of the groups that remain, and
-  /// the examples and rules, stay as they are.
+  /// components it needs in turn.
+  ///
+  /// A note of a group that remains, or a rule of the default prompt options,
+  /// that mentions a removed component's name as a whole word is dropped, and
+  /// so is an example or tool example that calls one, as `Name(`.
   LibraryDefinition removing(Iterable<String> names) {
     var removed = {...names}..remove(root);
     while (true) {
@@ -302,6 +305,11 @@ final class LibraryDefinition {
       if (next.length == removed.length) break;
       removed = next;
     }
+    final gone = [
+      for (final component in components)
+        if (removed.contains(component.name)) component.name,
+    ];
+    final mention = PromptOptions.mentionOf(gone);
     return _copy(
       components: [
         for (final component in components)
@@ -310,8 +318,16 @@ final class LibraryDefinition {
       componentGroups: [
         for (final group in componentGroups)
           if (group.components.where((name) => !removed.contains(name)).toList() case final kept when kept.isNotEmpty)
-            ComponentGroup(group.name, components: kept, notes: group.notes),
+            ComponentGroup(
+              group.name,
+              components: kept,
+              notes: [
+                for (final note in group.notes)
+                  if (mention == null || !mention.hasMatch(note)) note,
+              ],
+            ),
       ],
+      defaultPromptOptions: defaultPromptOptions.withoutComponents(gone),
     );
   }
 
@@ -352,12 +368,16 @@ final class LibraryDefinition {
     );
   }
 
-  LibraryDefinition _copy({required List<ComponentSchema> components, required List<ComponentGroup> componentGroups}) {
+  LibraryDefinition _copy({
+    required List<ComponentSchema> components,
+    required List<ComponentGroup> componentGroups,
+    PromptOptions? defaultPromptOptions,
+  }) {
     return LibraryDefinition(
       root: root,
       components: components,
       componentGroups: componentGroups,
-      defaultPromptOptions: defaultPromptOptions,
+      defaultPromptOptions: defaultPromptOptions ?? this.defaultPromptOptions,
       functions: functions,
       actions: actions,
     );

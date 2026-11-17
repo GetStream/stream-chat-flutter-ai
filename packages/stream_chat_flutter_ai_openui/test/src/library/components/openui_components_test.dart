@@ -123,11 +123,20 @@ void main() {
       ('https://getstream.io', true),
       ('http://getstream.io', true),
       ('mailto:hi@getstream.io', true),
-      ('tel:123', false),
+      ('tel:+1555', true),
+      ('whatsapp://send?text=hi', false),
       ('javascript:alert(1)', false),
-      ('https://', false),
+      ('intent://scan#Intent;scheme=zxing;end', false),
+      ('file:///etc/hosts', false),
+      ('HTTPS://getstream.io', true),
+      ('getstream.io', false),
+      ('/docs', false),
+      ('1http://getstream.io', false),
+      ('-x://getstream.io', false),
     ]) {
-      testWidgets('a link to $href ${opens ? 'opens' : 'does not open'}', (tester) async {
+      testWidgets('a link to $href ${opens ? 'goes to the function that opens links' : 'does not open'}', (
+        tester,
+      ) async {
         final opened = <Uri>[];
         final runtime = testRuntime();
         addTearDown(runtime.dispose);

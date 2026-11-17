@@ -1,8 +1,10 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_core_flutter/core.dart';
 
-/// The icon of [name], or `null` when the design system has none for it.
+/// The icon of [name]: the design system's, or a generic circle when it has
+/// none for it, so a name never draws nothing.
 ///
 /// [name] is a Lucide icon name, in any case and with spaces around it. A
 /// name that isn't one is tried without its numeric parts and then with
@@ -13,13 +15,13 @@ import 'package:stream_core_flutter/core.dart';
 ///
 /// Internal to the package.
 @internal
-IconData? openUIIconOf(StreamIcons icons, String name, [String? category]) {
+IconData openUIIconOf(StreamIcons icons, String name, [String? category]) {
   final map = _maps[icons] ??= _map(icons);
   final key = name.trim().toLowerCase();
   final found = map[key] ?? _loose(key).map((candidate) => map[candidate]).nonNulls.firstOrNull;
   if (found != null) return found;
   final fallback = _categoryFallbacks[category?.trim().toLowerCase()];
-  return fallback == null ? null : map[fallback];
+  return (fallback == null ? null : map[fallback]) ?? Icons.circle_outlined;
 }
 
 /// What an icon is read as: [name] without its numeric parts, in lower case,
@@ -203,6 +205,19 @@ Map<String, IconData> _map(StreamIcons i) => {
   'play': i.playFill,
   'pause': i.pauseFill,
   'smile': i.emoji,
+  'paperclip': i.attachment,
+  'sun': i.lightMode,
+  'moon': i.darkMode,
+  'chart-line': i.statsFill,
+  'chart-pie': i.statsFill,
+  'accessibility': i.user,
+  'building': Icons.apartment_outlined,
+  'code': i.command,
+  'dollar-sign': Icons.attach_money,
+  'layout': i.gridFill,
+  'type': i.captionFill,
+  'smartphone': i.presentMobileFill,
+  'cloud': Icons.cloud_outlined,
   'terminal': i.command,
   'command': i.command,
 };

@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show SemanticsRole, Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -187,6 +187,7 @@ void main() {
           label: 'Two',
         ),
       );
+      expect(tester.getSemantics(find.text('Two')).getSemanticsData().role, SemanticsRole.tab);
     });
 
     for (final (name, stream) in [('light', StreamTheme.light()), ('dark', StreamTheme.dark())]) {
@@ -244,11 +245,13 @@ void main() {
         tester,
         'root = Stack([Accordion([AccordionItem("a", "One", [TextContent("First")]), AccordionItem("b", "Two", [TextContent("Second")])])])',
       );
-      expect(find.text('First'), findsNothing);
+      // The newest item is open at first.
+      expect(find.text('Second'), findsOneWidget);
 
       await tester.tap(find.text('One'));
       await tester.pump();
       expect(find.text('First'), findsOneWidget);
+      expect(find.text('Second'), findsNothing);
       expect(tester.getSemantics(find.text('One')).flagsCollection.isExpanded, Tristate.isTrue);
       // The state is announced once, by the semantics' own flag.
       expect(tester.getSemantics(find.text('One')).hint, isEmpty);
@@ -257,6 +260,35 @@ void main() {
       await tester.pump();
       expect(find.text('First'), findsNothing);
       expect(find.text('Second'), findsOneWidget);
+    });
+
+    testWidgets('opens the newest item of a reply that is not streaming', (tester) async {
+      await _pump(
+        tester,
+        'root = Stack([Accordion([AccordionItem("a", "One", [TextContent("First")]), AccordionItem("b", "Two", [TextContent("Second")])])])',
+      );
+
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Second'), findsOneWidget);
+    });
+
+    testWidgets('leaves a header tapped shut as it was when more items arrive', (tester) async {
+      final (runtime, _) = await _pump(
+        tester,
+        'root = Stack([Accordion([AccordionItem("a", "One", [TextContent("First")])])])',
+      );
+      await tester.tap(find.text('One'));
+      await tester.pump();
+      expect(find.text('First'), findsNothing);
+
+      await _update(
+        tester,
+        runtime,
+        'root = Stack([Accordion([AccordionItem("a", "One", [TextContent("First")]), AccordionItem("b", "Two", [TextContent("Second")])])])',
+      );
+
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Second'), findsNothing);
     });
 
     testWidgets('opens each item that arrives while streaming', (tester) async {

@@ -41,10 +41,11 @@ payload holds, when there are any, the action's `context`, its other `params`, t
 it differs from the label, and, in a form, the form's name under `form` and its values under `values`. A password is
 never sent.
 
-A web or email link the program opens goes to the host's `open`, never to `send`. The program's queries and mutations
-run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap. A reply's queries
-run and refresh only while the reply is on screen and the app is in the foreground, so opening a long conversation
-runs only the queries of the replies in view.
+A web, email or phone link the program opens (`AIUILinkSchemes`) goes to the host's `open`, which decides whether it opens,
+never to `send`; a link to another app or a file is dropped. The program's queries and mutations run as the host's
+`tools`: a query only with a read-only tool, a mutation from the person's tap. A reply's queries run and refresh only
+while the reply is on screen and the app is in the foreground, so opening a long conversation runs only the queries of
+the replies in view.
 
 Problems with a reply's program, such as a component the library doesn't have or a query whose tool failed, go to the
 renderer's `onError` with the reply's message id once the reply is written, so the app can send them back to the agent.
@@ -97,7 +98,7 @@ final renderer = OpenUIRenderer(library: library);
 ```
 
 Keep a library in a `final` or `static` field rather than making it again in a `build` method. A component taken out
-with `removing` isn't in what the agent is told, and shows nothing:
+with `removing` isn't in what the agent is told, nor are the notes and examples that name it, and it shows nothing:
 
 ```dart
 final renderer = OpenUIRenderer(library: OpenUILibrary.chat.removing(['ImageGallery']));
@@ -146,7 +147,9 @@ component builders an app registers with `StreamComponentFactory` (`button`, `ch
 `networkImage`, `loadingSpinner`, `sheetHeader`) draw them in OpenUI replies too. A password field is never given to
 the `textInput` builder.
 
-Images load only from web links, unless the renderer is given another `mediaUrl`.
+Images load only from web links contained in the program text or given by one of its tools, so an image can't send
+what the person types to a server. They load through the renderer's `mediaUrl`, which loads web links unless it is
+given another function.
 
 The [example](example) shows a conversation whose replies are OpenUI, one of them written line by line as an agent
 streams it, and a gallery of the programs the library's prompts teach the model with, one with every chart type. It

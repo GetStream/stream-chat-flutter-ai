@@ -238,29 +238,23 @@ root = Stack([Input("q", "", "text", null, $q), Button("Set", @Set($q, "there"))
     const checks = r'CheckBoxGroup("o", [CheckBoxItem("A", "", "a", true), CheckBoxItem("B", "", "b")], null, $o)';
     const slider = r'Slider("v", "continuous", 0, 100, null, [25], null, null, $v)';
 
-    testWidgets('a RadioGroup writes its default into an unset variable once the reply ends', (tester) async {
-      const program = 'root = Stack([$radio])';
-      final (runtime, _) = await _pump(tester, '\$plan = null\n$program', isStreaming: true);
-      expect(runtime.state.value[r'$plan'], OpenUINull.instance);
+    for (final (name, field, variable) in [
+      ('RadioGroup', radio, r'$plan'),
+      ('CheckBoxGroup', checks, r'$o'),
+      ('Slider', slider, r'$v'),
+    ]) {
+      testWidgets('a $name leaves an unset variable unset, and publishes nothing', (tester) async {
+        final runtime = testRuntime(library: _library);
+        addTearDown(runtime.dispose);
+        final updates = <Object?>[];
+        runtime.stateUpdates.listen(updates.add);
+        await pumpOpenUI(tester, runtime, program: '$variable = null\nroot = Stack([$field])', library: _library);
+        await tester.pump();
 
-      runtime.update('\$plan = null\n$program', isStreaming: false);
-      await pumpOpenUI(tester, runtime, library: _library);
-      await tester.pump();
-
-      expect(runtime.state.value[r'$plan'], const OpenUIString('pro'));
-    });
-
-    testWidgets('a CheckBoxGroup writes its defaults into an unset variable', (tester) async {
-      final (runtime, _) = await _pump(tester, '\$o = null\nroot = Stack([$checks])');
-
-      expect(runtime.state.value[r'$o'], OpenUIValue.fromJson(const {'a': true, 'b': false}));
-    });
-
-    testWidgets('a Slider writes its default into an unset variable', (tester) async {
-      final (runtime, _) = await _pump(tester, '\$v = null\nroot = Stack([$slider])');
-
-      expect(runtime.state.value[r'$v'], OpenUIValue.fromJson(const [25]));
-    });
+        expect(runtime.state.value[variable], OpenUINull.instance);
+        expect(updates, isEmpty);
+      });
+    }
 
     testWidgets('a variable that has a value keeps it', (tester) async {
       final (runtime, _) = await _pump(tester, '''
@@ -275,7 +269,7 @@ root = Stack([$radio, $checks, $slider])
       expect(runtime.state.value[r'$v'], OpenUIValue.fromJson(const [60]));
     });
 
-    testWidgets('a required bound RadioGroup submits with its default', (tester) async {
+    testWidgets('a required bound RadioGroup asks for a choice until the person makes one', (tester) async {
       final (_, events) = await _pump(tester, r'''
 $plan = null
 root = Stack([Form("f", Buttons([Button("Go", @ToAssistant("Go"))]), [FormControl("P", RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro", {required: true}, $plan))])])
@@ -283,9 +277,13 @@ root = Stack([Form("f", Buttons([Button("Go", @ToAssistant("Go"))]), [FormContro
 
       await tester.tap(find.text('Go'));
       await tester.pump();
+      expect(events, isEmpty);
+      expect(find.text('This field is required'), findsOneWidget);
 
+      await tester.tap(find.text('Pro'));
+      await tester.tap(find.text('Go'));
+      await tester.pump();
       expect(events, hasLength(1));
-      expect(find.text('This field is required'), findsNothing);
     });
   });
 
@@ -531,6 +529,9 @@ root = Stack([DatePicker("r", "range", null, {from: "2300-01-01"})])
 
     test('reads the day a string starts with, and no impossible day', () {
       expect(openUIParseDate('2026-02-03T10:00:00Z'), DateTime(2026, 2, 3));
+      expect(openUIParseDate('2026-02-03 10:00'), DateTime(2026, 2, 3));
+      expect(openUIParseDate('2026-02-03garbage'), isNull);
+      expect(openUIParseDate('2026-02-03-1'), isNull);
       expect(openUIParseDate('2026-02-30'), isNull);
       expect(openUIParseDate('0005-03-01'), isNull);
       expect(openUIParseDate('03/02/2026'), isNull);
@@ -652,16 +653,44 @@ root = Stack([Form("f", Buttons([Button("Go")]), [Tabs([TabItem("a", "A", [FormC
       expect(events, isEmpty);
     });
 
-    testWidgets('a field shows, checks and sends its own value', (tester) async {
-      final (_, events) = await _pump(tester, '''
+    const literalField = '''
 root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("N", Input("n", "", "text", {required: true}, "Ann"))])])
-''');
+''';
+
+    testWidgets('a field shows its literal value', (tester) async {
+      await _pump(tester, literalField);
+
+      expect(tester.widget<EditableText>(find.byType(EditableText)).controller.text, 'Ann');
+    });
+
+    testWidgets('a required field passes with its literal value, which the form does not send', (tester) async {
+      final (_, events) = await _pump(tester, literalField);
 
       await tester.tap(find.text('Go'));
       await tester.pump();
 
-      final form = events.single.formState['f']! as OpenUIObject;
-      expect((form.fields['n']! as OpenUIObject).fields['value'], const OpenUIString('Ann'));
+      final form = events.single.formState['f'];
+      expect(form is OpenUIObject ? form.fields['n'] : null, isNull);
+    });
+
+    testWidgets('a field with a literal value sends what the person edits it to', (tester) async {
+      final (_, events) = await _pump(tester, literalField);
+
+      await tester.enterText(find.byType(TextField), 'Bob');
+      await tester.tap(find.text('Go'));
+      await tester.pump();
+
+      final edited = events.single.formState['f']! as OpenUIObject;
+      expect((edited.fields['n']! as OpenUIObject).fields['value'], const OpenUIString('Bob'));
+    });
+
+    testWidgets('a literal value is not kept for a Select or a DatePicker until it is changed', (tester) async {
+      final (runtime, _) = await _pump(tester, '''
+root = Stack([Form("f", Buttons([Button("Go")]), [Select("s", [SelectItem("a", "A")], null, null, "a"), DatePicker("d", "single", null, "2026-02-03")])])
+''');
+
+      expect(runtime.fieldValue('f', 's'), isNull);
+      expect(runtime.fieldValue('f', 'd'), isNull);
     });
 
     testWidgets('a single choice with a default can be cleared', (tester) async {

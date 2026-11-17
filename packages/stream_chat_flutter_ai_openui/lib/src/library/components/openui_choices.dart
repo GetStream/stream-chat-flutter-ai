@@ -300,6 +300,8 @@ class _OpenUISelection extends StatelessWidget {
                 opacity: disabled ? 0.5 : 1,
                 child: OpenUIPressable(
                   selected: selected,
+                  checked: selected,
+                  inMutuallyExclusiveGroup: _single,
                   onTap: onTap,
                   child: cards ? _OptionCard(item: item, selected: selected) : _Chip(item: item, selected: selected),
                 ),
@@ -336,12 +338,7 @@ class _Chip extends StatelessWidget {
     final colors = theme;
     final color = selected ? colors.accent : colors.text;
     final icon = item.elements('icon').firstOrNull;
-    final iconData = icon == null
-        ? null
-        : openUIIconOf(context.streamIcons, JS.toStringOrEmpty(icon.props['name']), switch (icon.props['category']) {
-            OpenUIString(:final value) => value,
-            _ => null,
-          });
+    final iconData = icon == null ? null : _iconOf(context, icon);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.sunkenSurface,
@@ -375,6 +372,13 @@ class _Chip extends StatelessWidget {
   }
 }
 
+IconData? _iconOf(BuildContext context, ElementNode icon) {
+  return openUIIconOf(context.streamIcons, JS.toStringOrEmpty(icon.props['name']), switch (icon.props['category']) {
+    OpenUIString(:final value) => value,
+    _ => null,
+  });
+}
+
 class _OptionCard extends StatelessWidget {
   const _OptionCard({required this.item, required this.selected});
 
@@ -399,7 +403,7 @@ class _OptionCard extends StatelessWidget {
             child: OpenUIRemoteImage(source: source.value, alt: JS.toStringOrEmpty(top.props['alt'])),
           ),
         );
-      } else if (openUIIconOf(context.streamIcons, JS.toStringOrEmpty(top.props['name'])) case final icon?) {
+      } else if (_iconOf(context, top) case final icon?) {
         final side = openUIScaled(context, 32);
         topContent = Container(
           width: side,
@@ -469,15 +473,14 @@ class _TitleSubtitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 2,
       children: [
-        Text(
-          title,
-          style: theme.bodySmall.copyWith(
-            fontWeight: bold ? FontWeight.w600 : FontWeight.w500,
-            color: colors.text,
-          ),
+        OpenUIMarkdownText(
+          data: title,
+          style: theme.bodySmall.copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w500),
+          color: colors.text,
+          inline: true,
         ),
         if (subtitle case final subtitle? when subtitle.isNotEmpty)
-          Text(subtitle, style: theme.caption.copyWith(color: colors.secondaryText)),
+          OpenUIMarkdownText(data: subtitle, style: theme.caption, color: colors.secondaryText, inline: true),
       ],
     );
   }

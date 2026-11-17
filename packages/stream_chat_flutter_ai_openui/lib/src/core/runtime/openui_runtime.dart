@@ -87,6 +87,7 @@ final class OpenUIRuntime {
   final _errors = ValueNotifier<List<OpenUIError>>(const []);
   final _state = ValueNotifier<Map<String, OpenUIValue>>(const {});
   final _actions = StreamController<OpenUIActionEvent>.broadcast(sync: true);
+  final _stateUpdates = StreamController<Map<String, OpenUIValue>>.broadcast(sync: true);
 
   Map<String, OpenUIValue>? _initialState;
   String? _text;
@@ -119,7 +120,19 @@ final class OpenUIRuntime {
 
   /// The `$variables` and form fields, without the secret ones, to keep and
   /// give back as `initialState` or to [restore].
+  ///
+  /// It also changes as [update] reads declared defaults; [stateUpdates]
+  /// gives only what to keep.
   ValueListenable<Map<String, OpenUIValue>> get state => _state;
+
+  /// The [state] each time it changes after the reply's start, for the host
+  /// to keep: when the person or an action changes it, and when a form field
+  /// not bound to a `$variable` keeps the default it shows, once the reply is
+  /// written.
+  ///
+  /// Reading declared `$variable` defaults or applying kept state, in
+  /// [update], the constructor or [restore], adds nothing.
+  Stream<Map<String, OpenUIValue>> get stateUpdates => _stateUpdates.stream;
 
   /// The actions for the host: messages to the model, links to open, and
   /// the library's own actions.
@@ -131,6 +144,19 @@ final class OpenUIRuntime {
   /// [isStreaming], notifying when it changes, which a reply that ends with
   /// the text it already had does without changing [root].
   ValueListenable<bool> get streaming => _streaming;
+
+  /// Whether the [root] may still arrive from the results of the `Query`
+  /// statements in the text read so far: the text has queries and an entry
+  /// that is a known component or picks one when evaluated, such as
+  /// `root = data.items.length > 0 ? Card(...) : null`.
+  ///
+  /// Without an entry, or with one that calls a component the library
+  /// doesn't have, no result can give the reply a root.
+  bool get rootMayFollowQueries {
+    final result = _result;
+    if (result == null || result.queryStatements.isEmpty) return false;
+    return result.root != null || result.rootExpression != null;
+  }
 
   /// Reads the reply's whole text so far, `text`.
   ///
@@ -168,13 +194,14 @@ final class OpenUIRuntime {
   /// [pause] stopped.
   void resume() => _queries.resume();
 
-  /// Stops every timer and call, and closes [actions]; nothing changes
-  /// afterwards.
+  /// Stops every timer and call, and closes [actions] and [stateUpdates];
+  /// nothing changes afterwards.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     _queries.dispose();
     unawaited(_actions.close());
+    unawaited(_stateUpdates.close());
     _root.dispose();
     _streaming.dispose();
     _isQueryLoading.dispose();
@@ -221,7 +248,8 @@ final class OpenUIRuntime {
     } finally {
       _initializing = false;
     }
-    _publishState();
+    // Defaults and kept state are no change to keep, so the host isn't told.
+    _publishState(isUpdate: false);
   }
 
   // The saved `$variables`, handed to the store; the saved form fields are
@@ -244,10 +272,12 @@ final class OpenUIRuntime {
       if (!OpenUIStore.isSecret(value)) key: OpenUIStore.withoutSecrets(value),
   };
 
-  void _publishState() {
+  void _publishState({bool isUpdate = true}) {
     final next = _currentState();
-    // Only a change notifies: the host saves the state each time it does.
-    if (!mapEquals(next, _state.value)) _state.value = next;
+    // Only a change notifies.
+    if (mapEquals(next, _state.value)) return;
+    _state.value = next;
+    if (isUpdate) _stateUpdates.add(next);
   }
 
   void _runQueries() {
@@ -444,10 +474,39 @@ final class OpenUIRuntime {
     );
   }
 
+  /// Whether an image may load from `link`: only when the link is contained
+  /// in the text [update] last read, or is a text value in what a query or
+  /// mutation gave.
+  ///
+  /// A link built from what the person typed is neither, so an image can't
+  /// send it to a server as they type. An empty link is never allowed.
+  @internal
+  bool allowsImageLink(String link) {
+    if (link.isEmpty) return false;
+    if (_text?.contains(link) ?? false) return true;
+    // Only what tools answered: a query's defaults can be built from what
+    // the person types.
+    final pending = [..._queries.toolResults];
+    while (pending.isNotEmpty) {
+      switch (pending.removeLast()) {
+        case OpenUIString(:final value) when value == link:
+          return true;
+        case OpenUIArray(:final items):
+          pending.addAll(items);
+        case OpenUIObject(:final fields):
+          pending.addAll(fields.values);
+        case _:
+          break;
+      }
+    }
+    return false;
+  }
+
   /// The errors of the fields of the form `formName` that fail their rules,
   /// by field name; `rules` holds each field's rules as the program wrote
-  /// them, and `bindings` the value prop of each field bound to a
-  /// `$variable`, which is checked instead of the form's state.
+  /// them, and `bindings` the value prop of each field: one bound to a
+  /// `$variable` is checked with the variable, and one with a literal value
+  /// that the form's state has none for with that value.
   Map<String, String> validate(
     String? formName,
     Map<String, OpenUIValue?> rules, {
@@ -455,7 +514,10 @@ final class OpenUIRuntime {
   }) {
     OpenUIValue? valueOf(String name) => switch (ReactiveBinding.targetOf(bindings[name])) {
       final target? => _read(target),
-      null => fieldValue(formName, name),
+      null => switch (fieldValue(formName, name)) {
+        final stored? when !JS.isNullish(stored) => stored,
+        final stored => bindings[name] ?? stored,
+      },
     };
     return {
       for (final MapEntry(key: name, value: fieldRules) in rules.entries)

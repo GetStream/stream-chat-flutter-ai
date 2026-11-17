@@ -97,6 +97,26 @@ final class _PlaceCard extends AIUIComponent<_Place> {
   }
 }
 
+// An app component that shows the arguments it is given, as JSON.
+final class _Counter extends AIUIComponent<Map<String, Object?>> {
+  const _Counter();
+
+  @override
+  AIUIComponentDefinition get definition => const AIUIComponentDefinition(
+    name: 'counter',
+    description: 'A count.',
+    parameters: [AIUIParameter.required('count', AIUIParameterType.integer)],
+  );
+
+  @override
+  Map<String, Object?> readArguments(AIUIArguments arguments) => arguments.json;
+
+  @override
+  Widget build(BuildContext context, Map<String, Object?> arguments, AIUIComponentContext ui) {
+    return Text('count ${arguments['count']} ${arguments['count'].runtimeType}');
+  }
+}
+
 // An app component whose build throws.
 final class _Broken extends AIUIComponent<Object?> {
   const _Broken();
@@ -321,20 +341,25 @@ void main() {
       expect(host.sent.single.label, 'Doorgaan');
     });
 
-    testWidgets('a web link opens through the host, never as an action', (tester) async {
+    testWidgets('a web, email or phone link opens through the host, never as an action', (tester) async {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
       addTearDown(engine.dispose);
       await _pump(
         tester,
         engine,
-        _doc('root = Stack([Button("Web", @OpenUrl("https://getstream.io")), Button("Js", @OpenUrl("javascript:x"))])'),
+        _doc(
+          'root = Stack([Button("Web", @OpenUrl("https://getstream.io")), Button("Tel", @OpenUrl("tel:+1555")), '
+          'Button("Bad", @OpenUrl("getstream.io")), Button("App", @OpenUrl("intent://x#Intent;end"))])',
+        ),
       );
 
       await tester.tap(find.text('Web'));
-      await tester.tap(find.text('Js'));
+      await tester.tap(find.text('Tel'));
+      await tester.tap(find.text('Bad'));
+      await tester.tap(find.text('App'));
 
-      expect(host.opened, [Uri.parse('https://getstream.io')]);
+      expect(host.opened, [Uri.parse('https://getstream.io'), Uri.parse('tel:+1555')]);
       expect(host.sent, isEmpty);
     });
 
@@ -378,6 +403,23 @@ void main() {
       expect([for (final call in host.calls) (call.name, call.userInitiated)], [('list', false), ('save', true)]);
     });
 
+    testWidgets("a tool's arguments carry whole numbers as ints", (tester) async {
+      final host = _Host(tools: {'save': (_) => true});
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      const program =
+          'm = Mutation("save", {page: 2, size: 2.5})\n'
+          'root = Stack([Button("Save", Action([@Run(m)]))])';
+
+      await _pump(tester, engine, _doc(program));
+      await tester.tap(find.text('Save'));
+      await tester.pump(const Duration(seconds: 1));
+
+      final arguments = host.calls.single.arguments;
+      expect(arguments['page'], isA<int>());
+      expect(arguments['size'], 2.5);
+    });
+
     testWidgets("the reply's state is saved in the host and given back to a new engine", (tester) async {
       final host = _Host();
       final renderer = OpenUIRenderer(library: OpenUILibrary.standard);
@@ -403,13 +445,48 @@ void main() {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
       addTearDown(engine.dispose);
-      final document = _doc('\$n = "a"\nroot = Stack([TextContent("Body")])');
+      // A field saves its default as it builds, once the reply is written.
+      final document = _doc(
+        'root = Stack([RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro")])',
+      );
 
       await tester.pumpWidget(testApp(Builder(builder: (_) => engine.view(document, 'r1') ?? const SizedBox.shrink())));
       await tester.pump();
 
-      expect(host.states['r1'], containsPair(r'$n', 'a'));
+      expect(host.states['r1'], containsPair('plan', containsPair('value', 'pro')));
       expect(host.statePhases, everyElement(isNot(SchedulerPhase.persistentCallbacks)));
+    });
+
+    testWidgets("a tool's output that isn't JSON reads as JSON, with other values as their text", (tester) async {
+      final host = _Host(
+        tools: {
+          'list': (_) => {
+            1: {'when', Uri.parse('https://a.dev')},
+          },
+        },
+      );
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      const program =
+          'q = Query("list", {}, {})\n'
+          'root = Stack([TextContent("" + @Count(q["1"])), TextContent(q["1"][1])])';
+
+      await _pump(tester, engine, _doc(program));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('https://a.dev'), findsOneWidget);
+    });
+
+    testWidgets("declared defaults and kept state aren't given to the host as new state", (tester) async {
+      final host = _Host()..states['r1'] = {r'$m': 'kept'};
+      final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
+      addTearDown(engine.dispose);
+      host.statePhases.clear();
+
+      await _pump(tester, engine, _doc('\$n = "a"\n\$m = "b"\nroot = Stack([TextContent("Body")])'));
+
+      expect(host.statePhases, isEmpty);
     });
 
     testWidgets('state kept as a map of any key type is given back', (tester) async {
@@ -451,16 +528,58 @@ void main() {
     engine.dispose();
   });
 
-  testWidgets('a reply written without a root stops its queries', (tester) async {
-    final host = _Host(tools: {'list': (_) => <Object?>[]});
+  testWidgets('a written reply without a root or queries is dropped, so showing it again starts fresh', (tester) async {
+    final errors = <OpenUIErrorCode>[];
+    final engine = OpenUIRenderer(onError: (error, _) => errors.add(error.code)).createEngine(_Host());
+    addTearDown(engine.dispose);
+    final document = _doc('x = Nope("a")');
+
+    expect(await _pump(tester, engine, document), isFalse);
+    final first = [...errors];
+    expect(first, isNotEmpty);
+
+    expect(await _pump(tester, engine, document), isFalse);
+    expect(errors, [...first, ...first]);
+  });
+
+  testWidgets('a written reply whose root waits on a query draws it once the result lands', (tester) async {
+    final host = _Host(
+      tools: {
+        'search': (_) => {
+          'items': ['a'],
+        },
+      },
+    );
+    // Before the result lands the root picks no component, which is reported.
     final engine = OpenUIRenderer(onError: (_, _) {}).createEngine(host);
     addTearDown(engine.dispose);
+    const program =
+        'data = Query("search", {}, {items: []})\n'
+        'root = data.items.length > 0 ? Card([TextContent("Found")]) : null';
 
-    expect(engine.view(_doc('q = Query("list", {}, [], 10)\nSorry.'), 'r1'), isNull);
-    await tester.pump(const Duration(seconds: 30));
+    // The host keeps the one view it got for the written reply.
+    final view = engine.view(_doc(program), 'r1');
+    expect(view, isNotNull);
+    await tester.pumpWidget(testApp(view!));
+    // The queries run once the view has shown for a frame, then land.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
-    expect(host.calls, isEmpty);
+    expect(find.text('Found'), findsOneWidget);
+    expect(host.calls.map((call) => call.name), ['search']);
   });
+
+  for (final (name, program) in [
+    ('no entry', 'data = Query("search", {}, {items: []})\ntext = TextContent("hi")'),
+    ('a root the library does not have', 'data = Query("search", {}, {items: []})\nroot = Nope("x")'),
+  ]) {
+    testWidgets('a written reply with queries and $name shows its text', (tester) async {
+      final engine = OpenUIRenderer(onError: (_, _) {}).createEngine(_Host());
+      addTearDown(engine.dispose);
+
+      expect(engine.view(_doc(program), 'r1'), isNull);
+    });
+  }
 
   group('errors', () {
     testWidgets("the program's problems reach onError once, after the reply is written", (tester) async {
@@ -563,6 +682,15 @@ void main() {
           payload: {'title': 'Ohrid', 'component': 'place_card'},
         ),
       );
+    });
+
+    testWidgets('get a whole number as an int', (tester) async {
+      final engine = OpenUIRenderer().createEngine(_Host(components: const [_Counter()]));
+      addTearDown(engine.dispose);
+
+      await _pump(tester, engine, _doc('root = Card([Counter(2)])'));
+
+      expect(find.text('count 2 int'), findsOneWidget);
     });
 
     testWidgets('draw nothing while their values are still arriving', (tester) async {

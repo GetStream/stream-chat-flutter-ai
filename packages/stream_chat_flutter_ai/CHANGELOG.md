@@ -8,6 +8,7 @@
 
 - `onTapLink` on `AIConversationView` and `AIAssistantMessageView`, and in `AIAssistantMessageProps` and
   `AIReasoningProps`, opens links tapped in a reply's text or reasoning your own way.
+- `AIUILinkSchemes`, the link schemes generated UI may hand to the host's `open`: `http`, `https`, `mailto` and `tel`.
 
 🔄 Changed
 

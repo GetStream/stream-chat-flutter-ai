@@ -8,7 +8,6 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
@@ -55,14 +54,12 @@ void saveOpenUIDefault(BuildContext context, String name, String componentType, 
   runtime.setFieldValue(formName, name, value, componentType: componentType);
 }
 
-/// Keeps [value], what the field [scope] draws shows by default, as its value.
+/// Keeps [value], what the field [scope] draws shows by default, as its value,
+/// as [saveOpenUIDefault] does.
 ///
-/// A field that isn't bound keeps it as [saveOpenUIDefault] does. A field
-/// bound to a `$variable` shows its default without writing it in OpenUI; here
-/// it is written, through the binding, once the reply ends and only when the
-/// variable has no value, so what the field shows is what its actions, its
-/// required check and the form's state read. That differs from OpenUI, which
-/// leaves the variable unset until the person changes the field.
+/// A field bound to a `$variable` shows its default without writing it: the
+/// variable stays unset until the person changes the field, so its actions
+/// and its required check read the variable, not the default shown.
 ///
 /// Internal to the package.
 @internal
@@ -73,15 +70,8 @@ void saveOpenUIFieldDefault(
   OpenUIValue? value,
 ) {
   if (value == null) return;
-  final field = openUIFieldState(context, scope, componentType, listen: false);
-  if (!field.isBound) {
-    saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
-    return;
-  }
-  if (context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime.isStreaming || !JS.isNullish(field.value)) {
-    return;
-  }
-  field.set(value);
+  if (openUIFieldState(context, scope, componentType, listen: false).isBound) return;
+  saveOpenUIDefault(context, scope.text('name') ?? '', componentType, value);
 }
 
 /// Checks the field [scope] draws now, when it is in a form and has rules.
@@ -296,14 +286,12 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
       final rows? => rows.clamp(2, 100).toInt(),
       null => 3,
     };
-    final componentType = widget.multiline ? 'TextArea' : 'Input';
     return OpenUIFieldHost(
       name: _name,
       rules: scope.prop('rules'),
       // A password is never bound, so it is checked with what was typed.
       binding: _isPassword ? null : scope.prop('value'),
       isStreaming: scope.isStreaming,
-      saveDefault: () => saveOpenUIFieldDefault(context, scope, componentType, openUIFieldDefault(scope)),
       child: scope.watchState((context) {
         final value = _field(context).value;
         _show(JS.isNullish(value) ? '' : JS.stringOf(value));
@@ -410,7 +398,6 @@ Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
     rules: scope.prop('rules'),
     binding: scope.prop('value'),
     isStreaming: scope.isStreaming,
-    saveDefault: () => saveOpenUIFieldDefault(context, scope, 'Select', openUIFieldDefault(scope)),
     child: scope.watchState((context) {
       final field = openUIFieldState(context, scope, 'Select');
       final selected = JS.isNullish(field.value) ? null : JS.stringOf(field.value);
@@ -452,7 +439,6 @@ Widget buildOpenUIDatePicker(BuildContext context, OpenUIComponentScope scope) {
     rules: scope.prop('rules'),
     binding: scope.prop('value'),
     isStreaming: scope.isStreaming,
-    saveDefault: () => saveOpenUIFieldDefault(context, scope, 'DatePicker', openUIFieldDefault(scope)),
     child: scope.watchState((context) {
       final value = openUIFieldState(context, scope, 'DatePicker').value;
       void write(OpenUIValue next) {

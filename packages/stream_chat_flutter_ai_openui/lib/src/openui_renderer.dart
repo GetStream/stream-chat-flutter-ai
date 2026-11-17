@@ -27,16 +27,19 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// );
 /// ```
 ///
-/// A reply shows its text until its program has a root component, and keeps
-/// the values the person entered for as long as the host keeps the reply.
+/// A reply shows its text until its program has a root component, except a
+/// written reply whose root can come from its queries' results, such as
+/// `root = data.items.length > 0 ? Card(...) : null`: it shows nothing until
+/// the root arrives. A reply keeps the values the person
+/// entered for as long as the host keeps the reply.
 ///
 /// A tap on a control sends an [AIUIAction] named after the action, labeled
 /// with the control's label or [AITranslations.uiActionUntitled]; its payload
 /// carries the action's `context`, `params`, `message` and form values, never
-/// a password. A web or email link goes to [AIUIHosting.open]. Queries, once
-/// the reply is written, and mutations run as the host's tools; a reply's
-/// queries run and refresh only while it is on screen and the app is in the
-/// foreground.
+/// a password. A web, email or phone link ([AIUILinkSchemes]) goes to
+/// [AIUIHosting.open], which decides whether it opens. Queries, once the reply is written, and mutations
+/// run as the host's tools; a reply's queries run and refresh only while it
+/// is on screen and the app is in the foreground.
 ///
 /// The agent can also place the host's [AIUIHosting.components], by their
 /// name in PascalCase, such as `PlaceCard` for `place_card`. Their events are
@@ -86,6 +89,10 @@ final class OpenUIRenderer extends AIUIRenderer {
 
   /// The function that gives the URL each image loads from, or `null` to not
   /// load it. By default only web links load; see [webUrl].
+  ///
+  /// It is called only for a link contained in the reply's program text or
+  /// returned by one of its tools: a link built from what the person types
+  /// never loads, whatever this gives.
   final OpenUIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's OpenUI, with the
@@ -107,7 +114,8 @@ final class OpenUIRenderer extends AIUIRenderer {
   /// `null` for any other, such as a `file` URL.
   ///
   /// A reply's images load only from what this gives unless the renderer is
-  /// given another `mediaUrl`.
+  /// given another `mediaUrl`, and in either case only from links contained
+  /// in the program text or returned by its tools.
   static Uri? webUrl(Uri url) => openUIWebMediaUrl(url);
 
   /// OpenUI, the format of the replies this renderer shows.

@@ -83,12 +83,16 @@ final class OpenUIEngine extends AIUIEngine {
     // The document asked for now is the reply's latest.
     _received.remove(messageId);
     final reply = (_replies[messageId] ??= _OpenUIReply(this, messageId))..update(document);
-    if (reply.runtime.root.value == null) {
-      // A reply written without a root shows its text: its runtime goes,
-      // after the problems it found are given, so no query of it runs on.
+    final runtime = reply.runtime;
+    // A written reply whose root can come from its queries' results gets its
+    // view without a root, which draws once they land: the host keeps the
+    // view it got for a document.
+    if (runtime.root.value == null && (document.isStreaming || !runtime.rootMayFollowQueries)) {
+      // A reply written without a root that can still come shows its text:
+      // its runtime goes, after the problems it found are given.
       if (!document.isStreaming) {
         _whenNotBuilding(() {
-          if (_shows(reply) && reply.runtime.root.value == null) remove(messageId);
+          if (_shows(reply) && runtime.root.value == null && !runtime.rootMayFollowQueries) remove(messageId);
         });
       }
       return null;
@@ -166,7 +170,9 @@ final class OpenUIEngine extends AIUIEngine {
       if (reply == null || !_shows(reply)) return const SizedBox.shrink();
       final arguments = {
         for (final prop in schema.props)
-          if (scope.value(prop.name) case final value?) prop.name: value,
+          // As JSON the app reads: whole numbers as ints, components in their
+          // JSON shape.
+          if (openUIPlainJson(scope.prop(prop.name)) case final value?) prop.name: value,
       };
       final Object? read;
       try {
@@ -229,11 +235,11 @@ final class OpenUIEngine extends AIUIEngine {
           name: event.type,
           label: event.label.isEmpty ? reply.untitledLabel : event.label,
           payload: {
-            if (context != null) 'context': openUIJson(context),
-            if (params.isNotEmpty) 'params': openUIJsonObject(params),
+            if (context != null) 'context': openUIPlainJson(context),
+            if (params.isNotEmpty) 'params': openUIPlainJsonObject(params),
             if (message.isNotEmpty && message != event.label) 'message': message,
             if (event.formName case final form?) 'form': form,
-            if (values.isNotEmpty) 'values': openUIJsonObject(values),
+            if (values.isNotEmpty) 'values': openUIPlainJsonObject(values),
           },
         ),
       ),
@@ -349,7 +355,9 @@ final class _OpenUIReply {
     // Its queries wait until its view shows.
     runtime.pause();
     _actions = runtime.actions.listen((event) => _engine._handle(event, this));
-    runtime.state.addListener(_saveState);
+    // Declared defaults and the kept state the reply starts from aren't new
+    // state for the host.
+    _stateUpdates = runtime.stateUpdates.listen(_saveState);
     runtime.errors.addListener(_reportErrors);
   }
 
@@ -393,6 +401,7 @@ final class _OpenUIReply {
   /// the app where the reply's view last built.
   String untitledLabel = const DefaultAITranslations().uiActionUntitled;
   late final StreamSubscription<OpenUIActionEvent> _actions;
+  late final StreamSubscription<Map<String, OpenUIValue>> _stateUpdates;
   // The errors given to `onError` already, each given once while the agent
   // extends the reply's text.
   final Set<OpenUIError> reported = {};
@@ -422,8 +431,8 @@ final class _OpenUIReply {
   // its default, and the host may notify its listeners when it is set, so it
   // is given once the frame ends. What the reply held when it changed is what
   // the host gets, also when the reply is removed in between.
-  void _saveState() {
-    final state = openUIJsonObject(runtime.state.value);
+  void _saveState(Map<String, OpenUIValue> values) {
+    final state = openUIPlainJsonObject(values);
     _engine._whenNotBuilding(() {
       if (!_engine._disposed) _engine._host.setState(messageId, state);
     });
@@ -434,7 +443,7 @@ final class _OpenUIReply {
   void dispose() {
     _tools.isClosed = true;
     unawaited(_actions.cancel());
-    runtime.state.removeListener(_saveState);
+    unawaited(_stateUpdates.cancel());
     runtime.errors.removeListener(_reportErrors);
     runtime.dispose();
   }
@@ -458,12 +467,31 @@ final class _HostTools implements OpenUIToolProvider {
     if (isClosed) throw StateError("The reply is gone, so the tool $name doesn't run.");
     final Object? output;
     try {
-      output = await _host.runTool(name, arguments: openUIJsonObject(args), userInitiated: userInitiated);
+      output = await _host.runTool(name, arguments: openUIPlainJsonObject(args), userInitiated: userInitiated);
     } on AIUIToolException catch (error) {
       // The query's error reads the host's message, as on iOS and Android.
       throw _ToolFailure(error.message);
     }
-    return OpenUIValue.fromJson(output);
+    return OpenUIValue.fromJson(_plainOutput(output, 0));
+  }
+
+  // [output] as JSON: an iterable as a list, a map's keys as strings, and any
+  // other value that isn't JSON as its string, so an app's tool that returns
+  // one still answers the query.
+  static Object? _plainOutput(Object? output, int depth) {
+    // Bounds the recursion before reading, so a deep output fails the query
+    // with this message rather than a stack overflow.
+    if (depth > OpenUIValue.maxJsonDepth) {
+      throw const FormatException('A tool output nested more than ${OpenUIValue.maxJsonDepth} levels deep');
+    }
+    return switch (output) {
+      null || bool() || num() || String() => output,
+      Map<Object?, Object?>() => {
+        for (final MapEntry(:key, :value) in output.entries) '$key': _plainOutput(value, depth + 1),
+      },
+      Iterable<Object?>() => [for (final item in output) _plainOutput(item, depth + 1)],
+      _ => output.toString(),
+    };
   }
 }
 

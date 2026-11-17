@@ -68,12 +68,10 @@ Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
   final icon = scope.elements('icon').firstOrNull;
   final iconName = icon == null ? '' : JS.toStringOrEmpty(icon.props['name']);
   final variant = scope.string('variant') ?? 'secondary';
-  final iconData =
-      openUIIconOf(context.streamIcons, iconName, switch (icon?.props['category']) {
-        OpenUIString(:final value) => value,
-        _ => null,
-      }) ??
-      context.streamIcons.bolt;
+  final iconData = openUIIconOf(context.streamIcons, iconName, switch (icon?.props['category']) {
+    OpenUIString(:final value) => value,
+    _ => null,
+  });
   return Semantics(
     label: name.isNotEmpty ? name : openUIIconLabel(iconName),
     child: StreamButton.icon(

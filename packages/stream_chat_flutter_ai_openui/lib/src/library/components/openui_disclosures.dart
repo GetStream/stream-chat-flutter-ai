@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsRole;
+
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
@@ -26,15 +28,16 @@ Widget buildOpenUITabs(BuildContext context, OpenUIComponentScope scope) {
 /// Builds an `Accordion`: the `trigger` of each of its `items` as a header
 /// that shows or hides its `content`, one open at a time.
 ///
-/// While the reply streams, until a header is tapped, each item that arrives
-/// opens. An item without a `value` is left out.
+/// The newest item is open at first, whether the reply streams or not, and
+/// until a header is tapped each item that arrives opens. An item without a
+/// `value` is left out.
 ///
 /// Internal to the package.
 @internal
 Widget buildOpenUIAccordion(BuildContext context, OpenUIComponentScope scope) {
   final items = _ContainerItem.all(scope, 'items', requireValue: true);
   if (items.isEmpty) return const SizedBox.shrink();
-  return _OpenUIAccordion(node: scope.node, items: items, isStreaming: scope.isStreaming);
+  return _OpenUIAccordion(node: scope.node, items: items);
 }
 
 /// Builds a `SectionBlock`: its `sections`, each a heading (`trigger`) with
@@ -65,7 +68,7 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
           children: [
             Semantics(
               header: true,
-              child: OpenUIMarkdownText(data: section.trigger, style: theme.heading),
+              child: OpenUIMarkdownText(data: section.trigger, style: theme.heading, inline: true),
             ),
             section.scope.buildProp('content'),
           ],
@@ -128,6 +131,7 @@ Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
                             OpenUIMarkdownText(
                               data: item.text('title') ?? '',
                               style: theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                              inline: true,
                             ),
                             if (details case OpenUIString(:final value))
                               OpenUIMarkdownText(
@@ -296,6 +300,7 @@ class _OpenUITabsState extends State<_OpenUITabs> {
                     for (final item in items)
                       OpenUIPressable(
                         selected: item == active,
+                        role: SemanticsRole.tab,
                         onTap: () => setState(() {
                           _touched = true;
                           _selected = item.value;
@@ -331,11 +336,10 @@ class _OpenUITabsState extends State<_OpenUITabs> {
 }
 
 class _OpenUIAccordion extends StatefulWidget {
-  const _OpenUIAccordion({required this.node, required this.items, required this.isStreaming});
+  const _OpenUIAccordion({required this.node, required this.items});
 
   final ElementNode node;
   final List<_ContainerItem> items;
-  final bool isStreaming;
 
   @override
   State<_OpenUIAccordion> createState() => _OpenUIAccordionState();
@@ -367,11 +371,10 @@ class _OpenUIAccordionState extends State<_OpenUIAccordion> {
     _openNewest();
   }
 
-  // Opens the newest item as items arrive while the reply streams, until a
-  // header is tapped.
+  // Opens the newest item as items arrive, until a header is tapped.
   void _openNewest() {
     final count = widget.items.length;
-    if (!_touched && widget.isStreaming && count > _count) _open = widget.items.last.value;
+    if (!_touched && count > _count) _open = widget.items.last.value;
     _count = count;
   }
 
@@ -492,6 +495,7 @@ class _Disclosures extends StatelessWidget {
                             child: OpenUIMarkdownText(
                               data: item.trigger,
                               style: heading ? theme.heading : theme.bodySmall.copyWith(fontWeight: FontWeight.w600),
+                              inline: true,
                             ),
                           ),
                           ExcludeSemantics(

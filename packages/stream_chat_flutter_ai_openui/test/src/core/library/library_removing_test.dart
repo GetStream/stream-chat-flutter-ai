@@ -244,10 +244,16 @@ void main() {
     expect(library.componentGroups.last.components, ['Image']);
   });
 
-  test('removing keeps the notes of a group that has components left', () {
+  test('removing keeps the notes of a group that name no removed component', () {
     final library = _library().removing(['Button']);
 
-    expect(library.componentGroups.last.notes, ['Pick one.']);
+    expect(library.componentGroups.last.notes, contains('Pick one.'));
+  });
+
+  test('removing drops the notes of a group that name a removed component', () {
+    final library = _library().removing(['Button']);
+
+    expect(library.componentGroups.last.notes, isNot(contains('Button beats Image.')));
   });
 
   test('removing keeps the notes of a group when it keeps a component only because it is needed', () {
@@ -270,10 +276,61 @@ void main() {
     expect(_library().removing(['Missing']).componentGroups, _library().componentGroups);
   });
 
-  test('removing keeps the default prompt options with their examples and rules', () {
-    final library = _library().removing(['Button']);
+  test('removing keeps the default prompt options when it removes no component', () {
+    final library = _library().removing(['Missing']);
 
     expect(library.defaultPromptOptions, _library().defaultPromptOptions);
+  });
+
+  test('removing drops the examples that call a removed component', () {
+    final library = _library().removing(['Button']);
+
+    expect(library.defaultPromptOptions.examples, ['An example', 'Image("a")', 'ButtonRow()']);
+  });
+
+  test('removing drops the tool examples that call a removed component', () {
+    final library = _library().removing(['Button']);
+
+    expect(library.defaultPromptOptions.toolExamples, ['Card([Image("a")])']);
+  });
+
+  test('removing drops the rules that name a removed component', () {
+    final library = _library().removing(['Button']);
+
+    expect(library.defaultPromptOptions.additionalRules, ['A rule', 'Use Image for pictures.']);
+  });
+
+  test('removing keeps an example that calls a component whose name only starts with a removed name', () {
+    final library = _library().removing(['Button']);
+
+    expect(library.defaultPromptOptions.examples, contains('ButtonRow()'));
+  });
+
+  test('removing keeps the other options of the default prompt options', () {
+    final library = LibraryDefinition(
+      components: [_component('A'), _component('B')],
+      defaultPromptOptions: PromptOptions(preamble: 'Hi', editMode: true, examples: ['B()']),
+    ).removing(['B']);
+
+    expect(library.defaultPromptOptions, PromptOptions(preamble: 'Hi', editMode: true));
+  });
+
+  test('removing keeps the notes, rules and examples that name a component it keeps only because it is needed', () {
+    final library = LibraryDefinition(
+      components: [
+        _component('Host', [PropSchema('x', PropType.component('Item'))]),
+        _component('Item'),
+      ],
+      defaultPromptOptions: PromptOptions(examples: ['Item()'], additionalRules: ['Use Item.']),
+    ).removing(['Item']);
+
+    expect(library.defaultPromptOptions, PromptOptions(examples: ['Item()'], additionalRules: ['Use Item.']));
+  });
+
+  test('removing the table components of the chat library leaves no mention of them in its system prompt', () {
+    final prompt = LibraryDefinition.chat.removing(['Table', 'Col', 'EditableTable']).systemPrompt();
+
+    expect(prompt, isNot(matches(RegExp(r'\b(Table|Col|EditableTable)\b'))));
   });
 
   test('removing keeps the functions', () {
@@ -314,9 +371,13 @@ LibraryDefinition _library() {
     ],
     componentGroups: [
       ComponentGroup('Layout', components: ['Card', 'TextContent']),
-      ComponentGroup('Content', components: ['Button', 'Image'], notes: ['Pick one.']),
+      ComponentGroup('Content', components: ['Button', 'Image'], notes: ['Pick one.', 'Button beats Image.']),
     ],
-    defaultPromptOptions: PromptOptions(examples: ['An example'], additionalRules: ['A rule']),
+    defaultPromptOptions: PromptOptions(
+      examples: ['An example', 'Button("a")', 'Image("a")', 'ButtonRow()'],
+      toolExamples: ['Card([Button("a")])', 'Card([Image("a")])'],
+      additionalRules: ['A rule', 'Use Button for actions.', 'Use Image for pictures.'],
+    ),
   );
 }
 

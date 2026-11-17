@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
 
+import '../../core/runtime/fake_tools.dart';
 import '../../openui_test_app.dart';
 
 void main() {
@@ -112,6 +113,28 @@ void main() {
           .toList();
       expect(colors, containsAll([theme.sunkenSurface, theme.surface]));
       expect(tester.getSize(find.byType(AIMarkdownBody).first).width, lessThanOrEqualTo(360));
+    });
+
+    testWidgets('draws a card surface for a variant it does not know', (tester) async {
+      Future<int> surfaces(String variant) async {
+        await tester.pumpWidget(const SizedBox());
+        final runtime = testRuntime();
+        addTearDown(runtime.dispose);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          program:
+              '''
+\$variant = "$variant"
+root = Card([MarkDownRenderer("x", \$variant)])
+''',
+        );
+        return find.ancestor(of: find.byType(AIMarkdownBody), matching: find.byType(DecoratedBox)).evaluate().length;
+      }
+
+      final clear = await surfaces('clear');
+      expect(await surfaces('bogus'), clear + 1);
+      expect(await surfaces('card'), clear + 1);
     });
 
     testWidgets('links the citations of the card it is in', (tester) async {
@@ -305,7 +328,8 @@ void main() {
 
     for (final (name, url, canOpen, isLink) in [
       ('a web address', 'https://a.dev', true, true),
-      ('an address the view cannot open', 'ftp://a.dev', true, false),
+      ('a phone link, which the view passes on', 'tel:+1555', true, true),
+      ('an address that is not well formed', 'a.dev/x y', true, false),
       ('a web address when the view opens no links', 'https://a.dev', false, false),
     ]) {
       testWidgets('a source with $name ${isLink ? 'is' : 'is not'} announced as a link', (tester) async {
@@ -422,6 +446,48 @@ void main() {
       await tester.pump();
       expect(find.byType(StreamNetworkImage), findsNothing);
       expect(find.text('X'), findsOneWidget);
+    });
+
+    testWidgets('a web address built from what the person types loads nothing', (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: '\$q = "cat"\nroot = Card([ImageBlock("https://a.dev/x.png?q=" + \$q, "X")])',
+      );
+
+      expect(find.byType(StreamNetworkImage), findsNothing);
+      expect(find.text('X'), findsOneWidget);
+    });
+
+    testWidgets("a web address in a query's defaults loads nothing before its tool answers", (tester) async {
+      final runtime = testRuntime();
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program:
+            '\$q = "cat"\np = Query("pics", {}, {src: "https://a.dev/x.png?q=" + \$q})\n'
+            'root = Card([ImageBlock(p.src, "X")])',
+      );
+      await tester.pump();
+
+      expect(find.byType(StreamNetworkImage), findsNothing);
+    });
+
+    testWidgets('a web address a tool gives loads', (tester) async {
+      final tools = FakeTools()..results['pics'] = OpenUIValue.fromJson(const {'src': 'https://a.dev/q.png'});
+      final runtime = testRuntime(tools: tools);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        program: 'p = Query("pics", {}, {src: ""})\nroot = Card([ImageBlock(p.src, "X")])',
+      );
+      await tester.pump();
+
+      expect(find.byType(StreamNetworkImage), findsOneWidget);
     });
 
     const gallery =

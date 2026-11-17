@@ -5,6 +5,59 @@ import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support
 import '../../openui_test_app.dart';
 
 void main() {
+  group('openUIImagesAsLinks', () {
+    test('turns an image into a link of its alt text', () {
+      expect(openUIImagesAsLinks('See ![x](https://a.dev/x.png) now'), 'See [x](https://a.dev/x.png) now');
+    });
+
+    test('turns a reference image into a reference link', () {
+      expect(openUIImagesAsLinks('![x][r]\n\n[r]: https://a.dev/x.png'), '[x][r]\n\n[r]: https://a.dev/x.png');
+    });
+
+    test('leaves an escaped image marker', () {
+      expect(openUIImagesAsLinks(r'\![x](y)'), r'\![x](y)');
+    });
+
+    test('turns an image after an escaped backslash into a link', () {
+      expect(openUIImagesAsLinks(r'\\![x](y)'), r'\\[x](y)');
+    });
+
+    test('leaves an image marker in a code span', () {
+      expect(openUIImagesAsLinks('`![x](y)` and ``a ` ![x](y)``'), '`![x](y)` and ``a ` ![x](y)``');
+    });
+
+    test('leaves an image marker in a fenced code block', () {
+      const fenced = '```\n![x](y)\n```\n~~~md\n![x](y)\n~~~';
+      expect(openUIImagesAsLinks(fenced), fenced);
+      expect(openUIImagesAsLinks('$fenced\n![x](y)'), '$fenced\n[x](y)');
+    });
+
+    test('reads a backtick fence whose info string has a backtick as text', () {
+      expect(openUIImagesAsLinks('```a`\n![x](y)'), '```a`\n[x](y)');
+    });
+
+    test('turns images into links after a code span left open on its line, until a blank line', () {
+      expect(openUIImagesAsLinks('a `b\nc` ![x](y) `d`'), 'a `b\nc` [x](y) `d`');
+      expect(openUIImagesAsLinks('a `b\n\n`![x](y)`'), 'a `b\n\n`![x](y)`');
+    });
+
+    test('turns images into links on a line with a <, whatever its backticks', () {
+      expect(openUIImagesAsLinks('<a title="`">![x](y)<b title="`">'), '<a title="`">[x](y)<b title="`">');
+    });
+
+    test('escapes the markers before an image, so none of them starts one', () {
+      expect(openUIImagesAsLinks('!![x](y) and !!![x](y)'), r'\![x](y) and \!\![x](y)');
+    });
+
+    test('turns an image in a table cell into a link, whatever the backticks around it', () {
+      expect(openUIImagesAsLinks('| `x | ![i](u) | y` |'), '| `x | [i](u) | y` |');
+    });
+
+    test('leaves text without images alone', () {
+      expect(openUIImagesAsLinks('Wow! [link](u) `code`'), 'Wow! [link](u) `code`');
+    });
+  });
+
   group('openUIEscapeBlockMarkers', () {
     test('escapes the markers that start a block', () {
       expect(openUIEscapeBlockMarkers('# of orders'), r'\# of orders');
@@ -70,6 +123,23 @@ void main() {
       });
     }
 
+    for (final (component, program) in [
+      ('InlineHeader heading', 'InlineHeader("{}")'),
+      ('InlineHeader description', 'InlineHeader("Head", "{}")'),
+      ('TextCallout description', 'TextCallout("info", "Title", "{}")'),
+      ('ContextCardBlock body', 'ContextCardBlock([ContextCardItem("a", "T", "{}")])'),
+    ]) {
+      for (final text in ['# of orders', '1. Paris']) {
+        testWidgets('$component draws "$text" as text', (tester) async {
+          final runtime = testRuntime();
+          addTearDown(runtime.dispose);
+          await pumpOpenUI(tester, runtime, program: 'root = Card([${program.replaceFirst('{}', text)}])');
+
+          expect(_plainTexts(tester), contains(text));
+        });
+      }
+    }
+
     testWidgets('a metric value draws a leading # as text', (tester) async {
       final runtime = testRuntime();
       addTearDown(runtime.dispose);
@@ -93,6 +163,32 @@ void main() {
       );
       expect(_styles(span.text).any((s) => s.fontWeight == FontWeight.bold || s.fontWeight == FontWeight.w700), isTrue);
     });
+  });
+
+  testWidgets('an image in Markdown draws its alt text and loads nothing', (tester) async {
+    final runtime = testRuntime();
+    addTearDown(runtime.dispose);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      program: '\$q = "cat"\nroot = Card([TextContent("![A cat](https://a.dev/x.png?q=" + \$q + ")")])',
+    );
+
+    expect(find.byType(Image), findsNothing);
+    expect(_plainTexts(tester), contains('A cat'));
+  });
+
+  testWidgets('a reference image in Markdown loads nothing', (tester) async {
+    final runtime = testRuntime();
+    addTearDown(runtime.dispose);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      program: r'root = Card([TextContent("![A cat][c]\n\n[c]: https://a.dev/x.png")])',
+    );
+
+    expect(find.byType(Image), findsNothing);
+    expect(_plainTexts(tester), contains('A cat'));
   });
 }
 

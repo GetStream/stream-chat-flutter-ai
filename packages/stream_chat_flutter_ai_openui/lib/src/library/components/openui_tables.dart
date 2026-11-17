@@ -38,13 +38,13 @@ Widget buildOpenUITable(BuildContext context, OpenUIComponentScope scope) {
           declaredNumeric: column.string('type') == 'number',
         ),
   ];
-  if (columns.isEmpty) return const SizedBox.shrink();
   final runtime = OpenUIViewScope.of(context).runtime;
   return ValueListenableBuilder(
     valueListenable: runtime.isQueryLoading,
     builder: (context, loading, _) {
       final rows = columns.map((column) => column.data.length).fold(0, math.max);
       if (loading && rows == 0) return _TableSkeleton(columns: math.max(columns.length, 3));
+      if (columns.isEmpty) return const SizedBox.shrink();
       return _OpenUITable(columns: columns, rowCount: rows);
     },
   );
@@ -351,7 +351,8 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
   }
 
   // Reads the rows saved last, or the table's own, when they changed; the
-  // edits are counted from the rows as they are once the reply ends.
+  // edits are counted from the rows as they are once the reply ends, and from
+  // the new rows when some arrive after that.
   void _load() {
     final runtime = OpenUIViewScope.of(context).runtime;
     final keys = [for (final column in _EditableColumn.of(widget.scope)) column.key];
@@ -361,6 +362,7 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
       _source = source;
       _keys = keys;
       _rows = _rowsOf(source, keys);
+      _baseline = null;
     }
     if (_baseline == null && !widget.scope.isStreaming) {
       _baseline = [

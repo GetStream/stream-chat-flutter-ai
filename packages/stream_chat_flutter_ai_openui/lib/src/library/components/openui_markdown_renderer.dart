@@ -5,8 +5,8 @@ import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_citatio
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 
 /// Builds a `MarkDownRenderer`: its `textMarkdown` as Markdown, as wide as
-/// the space it is given, on the surface its `variant` names: `card`, `sunk`,
-/// or none for any other.
+/// the space it is given, on the surface its `variant` names: none for `clear`
+/// (the default), a sunken one for `sunk` and a card for any other.
 ///
 /// Links in it open through the view. A `[n]` in it that names one of the
 /// enclosing card's sources links to that source.

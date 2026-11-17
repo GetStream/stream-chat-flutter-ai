@@ -93,6 +93,15 @@ final class QueryManager {
   /// The queries' and mutations' current values, loading state and errors.
   QuerySnapshot get snapshot => _snapshot;
 
+  /// What the tools have answered: each query result held, and each
+  /// mutation's result, without the defaults a query shows before its tool
+  /// answers.
+  Iterable<OpenUIValue> get toolResults => [
+    for (final entry in _cache.values)
+      if (entry.data case final data?) data,
+    for (final mutation in _mutations.values) mutation.result,
+  ];
+
   /// The cache key of a query: its tool, its arguments and its
   /// dependencies, written as JSON with sorted keys.
   static String cacheKey(String toolName, OpenUIValue? args, OpenUIValue? deps) {
