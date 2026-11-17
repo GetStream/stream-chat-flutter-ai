@@ -133,6 +133,9 @@ void main() {
       expect(_values('@Sort(["zoe", "Émile", "eve", "Ana", "élan"], "")'), [
         ['Ana', 'élan', 'Émile', 'eve', 'zoe'],
       ]);
+    });
+
+    test('@Sort orders an accented letter after its base letter', () {
       expect(_values('@Sort(["f", "é", "e"], "")'), [
         ['e', 'é', 'f'],
       ]);
