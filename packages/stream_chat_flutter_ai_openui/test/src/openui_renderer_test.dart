@@ -341,7 +341,7 @@ void main() {
       expect(host.sent.single.label, 'Doorgaan');
     });
 
-    testWidgets('a well-formed link of any scheme opens through the host, never as an action', (tester) async {
+    testWidgets('a web, email or phone link opens through the host, never as an action', (tester) async {
       final host = _Host();
       final engine = OpenUIRenderer(library: OpenUILibrary.standard).createEngine(host);
       addTearDown(engine.dispose);
@@ -350,13 +350,14 @@ void main() {
         engine,
         _doc(
           'root = Stack([Button("Web", @OpenUrl("https://getstream.io")), Button("Tel", @OpenUrl("tel:+1555")), '
-          'Button("Bad", @OpenUrl("getstream.io"))])',
+          'Button("Bad", @OpenUrl("getstream.io")), Button("App", @OpenUrl("intent://x#Intent;end"))])',
         ),
       );
 
       await tester.tap(find.text('Web'));
       await tester.tap(find.text('Tel'));
       await tester.tap(find.text('Bad'));
+      await tester.tap(find.text('App'));
 
       expect(host.opened, [Uri.parse('https://getstream.io'), Uri.parse('tel:+1555')]);
       expect(host.sent, isEmpty);
@@ -567,6 +568,18 @@ void main() {
     expect(find.text('Found'), findsOneWidget);
     expect(host.calls.map((call) => call.name), ['search']);
   });
+
+  for (final (name, program) in [
+    ('no entry', 'data = Query("search", {}, {items: []})\ntext = TextContent("hi")'),
+    ('a root the library does not have', 'data = Query("search", {}, {items: []})\nroot = Nope("x")'),
+  ]) {
+    testWidgets('a written reply with queries and $name shows its text', (tester) async {
+      final engine = OpenUIRenderer(onError: (_, _) {}).createEngine(_Host());
+      addTearDown(engine.dispose);
+
+      expect(engine.view(_doc(program), 'r1'), isNull);
+    });
+  }
 
   group('errors', () {
     testWidgets("the program's problems reach onError once, after the reply is written", (tester) async {
