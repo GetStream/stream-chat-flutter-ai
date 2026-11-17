@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -586,6 +587,38 @@ root = Stack([Buttons([Button("A very long first button label here"), Button("A 
 
       expect(events.single.label, 'Refresh');
     });
+  });
+
+  group('IconButton shape', () {
+    OutlinedBorder? shapeOf(WidgetTester tester) =>
+        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).style!.shape!.resolve({});
+
+    testWidgets('circle draws a circle', (tester) async {
+      await _pump(
+        tester,
+        'root = Stack([IconButton("Refresh", Icon("refresh"), null, "secondary", "medium", "circle")])',
+      );
+
+      expect(shapeOf(tester), const CircleBorder());
+    });
+
+    for (final shape in ['', ', null, "secondary", "medium", "square"']) {
+      testWidgets('${shape.isEmpty ? 'no shape' : 'square'} draws a square with the theme small corner radius', (
+        tester,
+      ) async {
+        final runtime = testRuntime(library: _library);
+        addTearDown(runtime.dispose);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          program: 'root = Stack([IconButton("Refresh", Icon("refresh")$shape)])',
+          library: _library,
+          theme: OpenUIThemeData(smallCornerRadius: 3),
+        );
+
+        expect(shapeOf(tester), const RoundedSuperellipseBorder(borderRadius: BorderRadius.all(Radius.circular(3))));
+      });
+    }
   });
 
   testWidgets('an IconButton in a form never checks it', (tester) async {
