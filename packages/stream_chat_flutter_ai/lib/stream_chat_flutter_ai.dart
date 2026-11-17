@@ -72,7 +72,7 @@ export 'src/genui/ai_ui_document.dart';
 export 'src/genui/ai_ui_entrance.dart';
 export 'src/genui/ai_ui_format.dart';
 export 'src/genui/ai_ui_host.dart';
-export 'src/genui/ai_ui_links.dart';
+export 'src/genui/ai_ui_link_schemes.dart';
 export 'src/genui/ai_ui_parameter.dart';
 export 'src/genui/ai_ui_renderer.dart';
 export 'src/local_model/ai_conversation_turn.dart';
