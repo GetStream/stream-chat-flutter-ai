@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:stream_chat_flutter_ai/src/ai_markdown_body.dart';
 import 'package:stream_chat_flutter_ai/src/components/stream_ai_component_builders.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_assistant_message_view.dart';
 import 'package:stream_chat_flutter_ai/src/conversation/ai_conversation.dart';
@@ -58,7 +59,7 @@ import 'package:stream_core_flutter/core.dart';
 /// conversation. A builder that shows state of your own, such as a reply's
 /// rating, should therefore read it through a [Listenable] (a
 /// [ListenableBuilder] or [ValueListenableBuilder] in what it returns), and
-/// the builders, [onAttachmentTap] and [approver] should be created once
+/// the builders, [onAttachmentTap], [onTapLink] and [approver] should be created once
 /// rather than in `build`, since new ones rebuild every row.
 ///
 /// When given a [ui] host, replies that carry generated UI show that UI
@@ -77,6 +78,7 @@ class AIConversationView extends StatefulWidget {
     this.ui,
     this.loadOlderMessages,
     this.onAttachmentTap,
+    this.onTapLink,
     this.footer,
     this.emptyContent,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -124,6 +126,7 @@ class AIConversationView extends StatefulWidget {
     required AIConversation this._conversation,
     this.ui,
     this.onAttachmentTap,
+    this.onTapLink,
     this.footer,
     this.emptyContent,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -186,6 +189,13 @@ class AIConversationView extends StatefulWidget {
   /// attachment view documents, and an image does nothing. When set, it gets
   /// every attachment's tap.
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+
+  /// Opens a link tapped in a reply's text or reasoning.
+  ///
+  /// Without it, a web link opens in the browser and any other URL is handed
+  /// to the platform, as [AIAssistantMessageView] documents. Links in a reply's
+  /// generated UI go to the [ui] host's [AIUIHost.open] instead.
+  final MarkdownTapLinkCallback? onTapLink;
 
   /// A widget under the latest turn's messages, or under the [emptyContent]
   /// while there are none, such as what the agent is doing, or an error with a
@@ -463,6 +473,7 @@ class _AIConversationViewState extends State<AIConversationView> {
           conversation: _source.conversation,
           ui: widget.ui,
           onAttachmentTap: widget.onAttachmentTap,
+          onTapLink: widget.onTapLink,
           padding: EdgeInsets.only(left: padding.left, right: padding.right),
         );
 
@@ -654,6 +665,7 @@ class _TurnView extends StatelessWidget {
     required this.conversation,
     required this.ui,
     required this.onAttachmentTap,
+    required this.onTapLink,
     required this.padding,
   });
 
@@ -667,6 +679,7 @@ class _TurnView extends StatelessWidget {
   final AIConversation? conversation;
   final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+  final MarkdownTapLinkCallback? onTapLink;
   final EdgeInsets padding;
 
   @override
@@ -696,6 +709,7 @@ class _TurnView extends StatelessWidget {
                     conversation: conversation,
                     ui: ui,
                     onAttachmentTap: onAttachmentTap,
+                    onTapLink: onTapLink,
                   ),
                 if (isLatest && isThinking) const Align(alignment: Alignment.centerLeft, child: AIThinkingView()),
                 if (isLatest && footer != null) footer,
@@ -712,7 +726,7 @@ class _TurnView extends StatelessWidget {
 // its conversation offers to do with its message.
 @immutable
 class _Shown {
-  _Shown(ConversationEntry entry, this.approver, this.conversation, this.ui, this.onAttachmentTap)
+  _Shown(ConversationEntry entry, this.approver, this.conversation, this.ui, this.onAttachmentTap, this.onTapLink)
     : isPending = entry.message == null,
       role = entry.message?.role ?? AIMessageRole.user,
       text = entry.message?.text ?? entry.pending?.text ?? '',
@@ -758,6 +772,7 @@ class _Shown {
   final AIConversation? conversation;
   final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+  final MarkdownTapLinkCallback? onTapLink;
   final bool isLatestReply;
   final AIUIDocument? uiDocument;
   final AIMessageRating? rating;
@@ -778,6 +793,7 @@ class _Shown {
       identical(other.conversation, conversation) &&
       identical(other.ui, ui) &&
       other.onAttachmentTap == onAttachmentTap &&
+      other.onTapLink == onTapLink &&
       other.isLatestReply == isLatestReply &&
       other.uiDocument == uiDocument &&
       other.rating == rating &&
@@ -796,6 +812,7 @@ class _EntryView extends StatefulWidget {
     required this.conversation,
     required this.ui,
     required this.onAttachmentTap,
+    required this.onTapLink,
   });
 
   final ConversationEntry entry;
@@ -803,6 +820,7 @@ class _EntryView extends StatefulWidget {
   final AIConversation? conversation;
   final AIUIHost? ui;
   final ValueChanged<AIMessageAttachment>? onAttachmentTap;
+  final MarkdownTapLinkCallback? onTapLink;
 
   @override
   State<_EntryView> createState() => _EntryViewState();
@@ -857,7 +875,14 @@ class _EntryViewState extends State<_EntryView> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _Shown(widget.entry, widget.approver, widget.conversation, widget.ui, widget.onAttachmentTap);
+    final shown = _Shown(
+      widget.entry,
+      widget.approver,
+      widget.conversation,
+      widget.ui,
+      widget.onAttachmentTap,
+      widget.onTapLink,
+    );
     if (shown != _shown) {
       _shown = shown;
       _built = null;
@@ -923,6 +948,7 @@ class _EntryViewState extends State<_EntryView> {
       text: generated == null ? null : '',
       approver: widget.approver,
       onAttachmentTap: widget.onAttachmentTap,
+      onTapLink: widget.onTapLink,
     );
     final isWriting = _writing.value == true || (generated?.document.isStreaming ?? false);
     final hasAnswer = reply.text.isNotEmpty || reply.attachments.isNotEmpty || generated != null;
@@ -947,6 +973,7 @@ class _EntryViewState extends State<_EntryView> {
               approver: widget.approver,
               reasoningText: reply.reasoningText,
               onAttachmentTap: widget.onAttachmentTap,
+              onTapLink: widget.onTapLink,
             ),
         if (generated != null) Padding(padding: const EdgeInsets.only(top: 8), child: generated),
         AnimatedSwitcher(
