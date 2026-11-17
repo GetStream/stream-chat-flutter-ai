@@ -28,7 +28,7 @@ components (`StreamButton`, `StreamSheetHeader`, `StreamListTile`, `StreamLoadin
 (theme, tokens, factory types), not the whole of it. Its constraint must overlap the one `stream_chat_flutter`
 uses, so a core minor bump is released in step with chat.
 
-A second package, `stream_chat_flutter_ai_a2ui` (private until it is released), is the A2UI renderer
+A second package, `stream_chat_flutter_ai_a2ui`, is the A2UI renderer
 plugin for the core package's generative UI. It uses only the core package's public API, and hides
 `a2ui_core` (the A2UI protocol library) inside `lib/src/core/`: no other file imports it, and no
 `a2ui_core` type appears in its API, so the protocol library can be replaced. The same holds for
@@ -54,10 +54,11 @@ pubspec.yaml                                 # workspace root: `workspace:` memb
 analysis_options.yaml                        # lint + formatter config for every member
 packages/stream_chat_flutter_ai/             # the core published package
 packages/stream_chat_flutter_ai/example      # showcase app, publish_to: none
-packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin, publish_to: none until released
+packages/stream_chat_flutter_ai_a2ui/        # the A2UI renderer plugin
 packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_to: none
 packages/stream_chat_flutter_ai_a2ui_conformance/ # A2UI conformance suites (tests only), publish_to: none
-packages/stream_chat_flutter_ai_openui/             # the OpenUI renderer plugin, publish_to: none until released
+packages/stream_chat_flutter_ai_openui/      # the OpenUI renderer plugin, publish_to: none until released
+packages/stream_chat_flutter_ai_openui/example # OpenUI conversation and program gallery, publish_to: none
 ```
 
 The A2UI conformance suites live in their own private package so they don't ship with
@@ -65,7 +66,7 @@ The A2UI conformance suites live in their own private package so they don't ship
 `lib/src/core/a2ui_test_interface.dart`, the only test-only code in that package's `lib/`. Production
 classes never get test-only constructors, parameters or fields.
 
-The two packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
+The packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
 treat every `packages/*/` whose pubspec isn't `publish_to: none` as publishable.
 
 Consequences worth remembering:
@@ -130,22 +131,22 @@ sharing `.github/actions/package_analysis`), `pr_title` (conventional-commit enf
 ## Releasing
 
 Releases follow the same flow as `stream-chat-flutter` and `stream-feeds-flutter`. The published packages
-(`stream_chat_flutter_ai` and `stream_chat_flutter_ai_a2ui`) are released **in lockstep**: they always share
-one `version:`, one `v<version>` tag publishes both, and the A2UI package depends on
-`stream_chat_flutter_ai: ^<version>`, which lives in the root `melos.command.bootstrap` list like every other
-constraint and is copied into the package by `melos bootstrap`. Until its first
-release PR drops `publish_to: none`, the A2UI package is private and the release tooling skips it.
+(`stream_chat_flutter_ai` and `stream_chat_flutter_ai_a2ui`, and `stream_chat_flutter_ai_openui` once it is
+released) are released **in lockstep**: they always share one `version:`, one `v<version>` tag publishes all of them,
+and the OpenUI and A2UI packages depend on `stream_chat_flutter_ai: ^<version>`, which lives in the root
+`melos.command.bootstrap` list like every other constraint and is copied into the packages by `melos bootstrap`.
+Until its first release PR drops `publish_to: none`, a package is private and the release tooling skips it.
 
-1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps both versions and the lockstep
-   constraint, promotes `## Upcoming` to `## <version>` in both CHANGELOGs and opens a
+1. `/release-pr <version>` (`.claude/skills/release-pr/SKILL.md`) bumps every publishable package's version and the
+   lockstep constraint, promotes `## Upcoming` to `## <version>` in every publishable CHANGELOG and opens a
    `chore(repo): release v<version>` PR.
 2. The PR is **squash-merged**, so that title becomes the tip commit on `main`.
 3. `release_tag.yml` reads `v<version>` from that commit, checks it matches every publishable pubspec
    (`.github/workflows/scripts/verify-release-versions.sh`) and isn't tagged yet, and pushes the tag with
    a `stream-flutter-ci-bot` app token (a `GITHUB_TOKEN` push wouldn't trigger the next workflow).
 4. `release_publish.yml` runs on the tag in the `pub.dev` environment, which waits for a `flutter-developers`
-   approval, then publishes over pub.dev OIDC — core first, since the A2UI
-   upload needs core `<version>` on pub.dev — and creates the GitHub Release.
+   approval, then publishes over pub.dev OIDC — core first, since the OpenUI and
+   A2UI uploads need core `<version>` on pub.dev — and creates the GitHub Release.
 
 Nobody's pub.dev account publishes — pub.dev trusts this repo's tag pushes instead. That needs one-time
 setup outside git: automated publishing enabled on **each** package's pub.dev admin page (repository

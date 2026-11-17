@@ -7,8 +7,8 @@ replies, through the generative UI of [`stream_chat_flutter_ai`](../stream_chat_
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.1.0
-  stream_chat_flutter_ai_openui: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
+  stream_chat_flutter_ai_openui: ^0.2.0
 ```
 
 Both packages are released together, with the same version.
@@ -66,12 +66,25 @@ prompt, with its components, examples and rules, the app's components and the ho
 final renderer = OpenUIRenderer(instructions: 'Show places as cards, and plans as steps.');
 ```
 
+## Customization
+
+Each level overrides more than the one before, and the rest keeps its defaults:
+
+1. **The app's Stream theme.** Replies follow its colors, text styles and light and dark mode, with no setup.
+2. **`OpenUITheme` / `OpenUIThemeData`**: [the look](#the-look) of OpenUI replies alone.
+3. **`StreamComponentFactory` slots**: the design system's buttons, fields and sheets that OpenUI replies are drawn
+   with, replaced for the whole app.
+4. **`OpenUILibrary.replacing` and `removing`**: [draw a component another way, or take it out](#the-components).
+5. **The app's components**: [widgets of your own the agent can place](#the-apps-components).
+6. **The renderer's hooks**: `instructions`, `mediaUrl` and `onError`, in [showing replies](#showing-replies).
+
 ## The components
 
 `OpenUILibrary.chat`, the default, is OpenUI's chat library, whose programs are a `Card` with the answer in it, and
 `OpenUILibrary.standard` its standard library, whose programs are a `Stack`. Both draw their content, data display,
 card, layout, list, table, form, button and chart components. The charts are the core package's `ChartView`, drawn in
-the colors of `OpenUIColors.chartPalette`.
+the app's chart colors (the surrounding `ChartTheme`, then the AI package's default) unless
+`OpenUIThemeData.chartPalette` is set.
 
 To draw a component another way, replace its builder; the agent still writes the component as the library describes
 it. `buildDefault` draws what the package draws for it:
@@ -124,7 +137,7 @@ spacing, corner radii and text styles; the values it leaves unset still come fro
 
 ```dart
 final renderer = OpenUIRenderer(
-  theme: const OpenUIThemeData(colors: OpenUIColors(accent: Color(0xFFE65100))),
+  theme: OpenUIThemeData(accent: const Color(0xFFE65100)),
 );
 ```
 
@@ -144,3 +157,8 @@ lists each action the agent would get.
 The OpenUI Lang 1.0 conformance fixtures it is tested against are vendored, unchanged, under
 [`test/conformance/upstream`](test/conformance/upstream), with their license, and
 [`test/conformance/generated`](test/conformance/generated).
+
+## License
+
+OpenUI is MIT licensed. This package's language runtime, component library definitions, prompt text and components
+are derived from it; see [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
