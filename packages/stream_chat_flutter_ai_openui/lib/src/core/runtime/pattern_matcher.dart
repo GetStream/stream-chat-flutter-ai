@@ -10,8 +10,9 @@ import 'package:meta/meta.dart';
 /// A regular expression of a `pattern` rule, written as JavaScript writes
 /// one, matched in time linear in the input.
 ///
-/// The model writes these patterns and they are matched as a person types, so
-/// a backtracking matcher such as [RegExp], which can't be interrupted, would
+/// The model writes these patterns and they are matched when a field loses
+/// focus or its form is submitted, so a backtracking matcher such as [RegExp],
+/// which can't be interrupted, would
 /// freeze the app on a pattern such as `(a+)+$` or `x.*x.*y`. This one runs
 /// every way through the pattern at once, a Pike virtual machine, so matching
 /// costs at most the input's length times the pattern's size. A pattern is
@@ -78,23 +79,6 @@ final class PatternMatcher {
     return _required.every((program) => program.matches(runes, anchored: true)) &&
         !_forbidden.any((program) => program.matches(runes, anchored: true)) &&
         _program.matches(runes, anchored: false);
-  }
-
-  /// How many items [pattern] expands to once its counts are written out,
-  /// past [maxProgramSize] counted as one more, or `null` when it isn't
-  /// valid: 4 for `a{0,3}b`, 6 for `(?:ab){3}` and 2 for `a+`, which is `aa*`.
-  @visibleForTesting
-  static int? sizeOf(String pattern) {
-    try {
-      final parsed = _Parser(pattern.runes.toList()).parsePattern();
-      return [
-        parsed.rest,
-        ...parsed.required,
-        ...parsed.forbidden,
-      ].fold<int>(0, (sum, node) => _bounded(sum + node.size));
-    } on FormatException {
-      return null;
-    }
   }
 }
 
@@ -207,13 +191,15 @@ final class _Parser {
   _ParsedPattern parsePattern() {
     final required = <_Node>[];
     final forbidden = <_Node>[];
-    if (_at(0) == 0x5e) {
+    if (_at(0) == _caret) {
       var index = 1;
-      while (_at(index) == 0x28 && _at(index + 1) == 0x3f && (_at(index + 2) == 0x3d || _at(index + 2) == 0x21)) {
+      while (_at(index) == _openParen &&
+          _at(index + 1) == _question &&
+          (_at(index + 2) == _equals || _at(index + 2) == _exclamation)) {
         _index = index + 3;
         final body = _parseAlternation();
-        _expect(0x29);
-        (_at(index + 2) == 0x3d ? required : forbidden).add(body);
+        _expect(_closeParen);
+        (_at(index + 2) == _equals ? required : forbidden).add(body);
         index = _index;
       }
       if (required.isNotEmpty || forbidden.isNotEmpty) {
@@ -221,7 +207,7 @@ final class _Parser {
         // `^(?=a)b|c` checks the lookahead in the first option only, so an
         // alternation after the lookaheads isn't matched on its own.
         final rest = _parseSequence();
-        if (_current == 0x7c) throw const FormatException('Alternation after a lookahead');
+        if (_current == _pipe) throw const FormatException('Alternation after a lookahead');
         if (_index != _source.length) throw const FormatException('Unexpected )');
         return _ParsedPattern(
           _Sequence([const _Assert(_AssertKind.start), rest]),
@@ -247,7 +233,7 @@ final class _Parser {
 
   _Node _parseAlternation() {
     final options = [_parseSequence()];
-    while (_current == 0x7c) {
+    while (_current == _pipe) {
       _index++;
       options.add(_parseSequence());
     }
@@ -256,7 +242,7 @@ final class _Parser {
 
   _Node _parseSequence() {
     final items = <_Node>[];
-    while (_current != null && _current != 0x7c && _current != 0x29) {
+    while (_current != null && _current != _pipe && _current != _closeParen) {
       final atom = _parseAtom();
       items.add(_parseCount(atom));
     }
@@ -269,31 +255,32 @@ final class _Parser {
     int min;
     int? max;
     var plus = false;
-    if (rune == 0x2a /* * */ ) {
+    if (rune == _star) {
       (min, max) = (0, null);
       _index++;
-    } else if (rune == 0x2b) {
+    } else if (rune == _plus) {
       (min, max, plus) = (1, null, true);
       _index++;
-    } else if (rune == 0x3f) {
+    } else if (rune == _question) {
       (min, max) = (0, 1);
       _index++;
-    } else if (rune == 0x7b && _braceCount() != null) {
+    } else if (rune == _openBrace && _braceCount() != null) {
       final (low, high, end) = _braceCount()!;
       (min, max) = (low, high);
       _index = end;
     } else {
       return atom;
     }
-    if (atom is _Assert || atom is _Empty) throw const FormatException('Nothing to repeat');
+    if (atom is _Assert) throw const FormatException('Nothing to repeat');
     if (max != null && max < min) throw const FormatException('Numbers out of order');
     // Lazy and greedy counts match the same inputs.
-    if (_current == 0x3f) _index++;
+    if (_current == _question) _index++;
     final next = _current;
-    if (next == 0x2a || next == 0x2b || next == 0x3f || (next == 0x7b && _braceCount() != null)) {
+    if (next == _star || next == _plus || next == _question || (next == _openBrace && _braceCount() != null)) {
       throw const FormatException('Nothing to repeat');
     }
-    return _Repeat(atom, min, max, plus: plus);
+    // An empty group repeated matches only the empty string, as it does once.
+    return atom is _Empty ? atom : _Repeat(atom, min, max, plus: plus);
   }
 
   // `{n}`, `{n,}` or `{n,m}` at the current index, with the index after it;
@@ -304,7 +291,7 @@ final class _Parser {
       final start = index;
       var value = 0;
       while (_isDigit(_at(index) ?? 0)) {
-        if (value < _maxCount) value = value * 10 + _at(index)! - 0x30;
+        if (value < _maxCount) value = value * 10 + _at(index)! - _digit0;
         index++;
       }
       if (index == start) return null;
@@ -314,35 +301,35 @@ final class _Parser {
     final min = readNumber();
     if (min == null) return null;
     int? max = min;
-    if (_at(index) == 0x2c) {
+    if (_at(index) == _comma) {
       index++;
       max = readNumber();
     }
-    if (_at(index) != 0x7d) return null;
+    if (_at(index) != _closeBrace) return null;
     return (min, max, index + 1);
   }
 
   _Node _parseAtom() {
     final rune = _current!;
     switch (rune) {
-      case 0x5e: // ^
+      case _caret:
         _index++;
         return const _Assert(_AssertKind.start);
-      case 0x24: // $
+      case _dollar:
         _index++;
         return const _Assert(_AssertKind.end);
-      case 0x2e: // .
+      case _dot:
         _index++;
         return _Char((r) => !_isLineTerminator(r));
-      case 0x28: // (
+      case _openParen:
         return _parseGroup();
-      case 0x5b: // [
+      case _openBracket:
         return _parseClass();
-      case 0x5c: // \
+      case _backslash:
         return _parseEscape();
-      case 0x2a || 0x2b || 0x3f: // * + ?
+      case _star || _plus || _question:
         throw const FormatException('Nothing to repeat');
-      case 0x7b when _braceCount() != null: // {
+      case _openBrace when _braceCount() != null:
         throw const FormatException('Nothing to repeat');
       default:
         _index++;
@@ -352,13 +339,13 @@ final class _Parser {
 
   _Node _parseGroup() {
     _index++;
-    if (_current == 0x3f) {
+    if (_current == _question) {
       final kind = _at(_index + 1);
-      if (kind == 0x3a) {
+      if (kind == _colon) {
         _index += 2;
-      } else if (kind == 0x3c && _at(_index + 2) != 0x3d && _at(_index + 2) != 0x21) {
+      } else if (kind == _lessThan && _at(_index + 2) != _equals && _at(_index + 2) != _exclamation) {
         // A named group.
-        final close = _source.indexOf(0x3e, _index + 2);
+        final close = _source.indexOf(_greaterThan, _index + 2);
         if (close < 0 || !_groupName.hasMatch(String.fromCharCodes(_source.sublist(_index + 2, close)))) {
           throw const FormatException('Invalid group name');
         }
@@ -369,7 +356,7 @@ final class _Parser {
       }
     }
     final body = _parseAlternation();
-    _expect(0x29);
+    _expect(_closeParen);
     return body;
   }
 
@@ -378,10 +365,10 @@ final class _Parser {
     final rune = _current;
     if (rune == null) throw const FormatException(r'\ at end of pattern');
     switch (rune) {
-      case 0x62: // b
+      case _lowerB:
         _index++;
         return const _Assert(_AssertKind.wordBoundary);
-      case 0x42: // B
+      case _upperB:
         _index++;
         return const _Assert(_AssertKind.notWordBoundary);
       default:
@@ -395,12 +382,12 @@ final class _Parser {
   // another escape.
   bool Function(int)? _classEscape() {
     final test = switch (_current) {
-      0x64 => _isDigit,
-      0x44 => (int r) => !_isDigit(r),
-      0x77 => _isWord,
-      0x57 => (int r) => !_isWord(r),
-      0x73 => _isSpace,
-      0x53 => (int r) => !_isSpace(r),
+      _lowerD => _isDigit,
+      _upperD => (int r) => !_isDigit(r),
+      _lowerW => _isWord,
+      _upperW => (int r) => !_isWord(r),
+      _lowerS => _isSpace,
+      _upperS => (int r) => !_isSpace(r),
       _ => null,
     };
     if (test != null) _index++;
@@ -412,25 +399,25 @@ final class _Parser {
     final rune = _current!;
     _index++;
     switch (rune) {
-      case 0x74: // t
-        return 0x09;
-      case 0x6e: // n
-        return 0x0a;
-      case 0x76: // v
-        return 0x0b;
-      case 0x66: // f
-        return 0x0c;
-      case 0x72: // r
-        return 0x0d;
-      case 0x62 when inClass: // b, a backspace in a class
-        return 0x08;
-      case 0x30: // 0
+      case _lowerT:
+        return _tab;
+      case _lowerN:
+        return _lineFeed;
+      case _lowerV:
+        return _verticalTab;
+      case _lowerF:
+        return _formFeed;
+      case _lowerR:
+        return _carriageReturn;
+      case _lowerB when inClass: // A backspace in a class.
+        return _backspace;
+      case _digit0:
         // `\0` followed by a digit is a legacy octal escape.
         if (_isDigit(_current ?? 0)) throw const FormatException('Octal escape');
-        return 0x00;
-      case 0x63: // c
+        return _nul;
+      case _lowerC:
         final letter = _current;
-        if (letter != null && ((letter | 0x20) >= 0x61 && (letter | 0x20) <= 0x7a)) {
+        if (letter != null && ((letter | _lowercaseBit) >= _lowerA && (letter | _lowercaseBit) <= _lowerZ)) {
           _index++;
           return letter % 32;
         }
@@ -438,16 +425,16 @@ final class _Parser {
         // control escape in a class.
         if (inClass) throw const FormatException(r'Invalid \c escape');
         _index--;
-        return 0x5c;
-      case 0x78: // x
+        return _backslash;
+      case _lowerX:
         if (_hex(2) case final value?) return value;
-        return 0x78;
-      case 0x75: // u
-        if (_current == 0x7b) {
-          final close = _source.indexOf(0x7d, _index);
+        return _lowerX;
+      case _lowerU:
+        if (_current == _openBrace) {
+          final close = _source.indexOf(_closeBrace, _index);
           if (close > _index + 1 && close <= _index + 7) {
             final value = int.tryParse(String.fromCharCodes(_source.sublist(_index + 1, close)), radix: 16);
-            if (value != null && value <= 0x10ffff) {
+            if (value != null && value <= _maxCodePoint) {
               _index = close + 1;
               return value;
             }
@@ -455,13 +442,13 @@ final class _Parser {
           throw const FormatException(r'Invalid \u{} escape');
         }
         if (_hex(4) case final value?) return value;
-        return 0x75;
-      case 0x6b: // k, a named backreference
-      case 0x70 || 0x50: // p P, a Unicode property
+        return _lowerU;
+      case _lowerK: // A named backreference.
+      case _lowerP || _upperP: // A Unicode property.
         throw const FormatException('Unsupported escape');
       default:
         // A backreference, or a legacy octal escape in a class.
-        if (rune >= 0x31 && rune <= 0x39) throw const FormatException('Backreference');
+        if (rune >= _digit1 && rune <= _digit9) throw const FormatException('Backreference');
         // Any other escaped character stands for itself.
         return rune;
     }
@@ -478,7 +465,7 @@ final class _Parser {
   _Node _parseClass() {
     _index++;
     var negated = false;
-    if (_current == 0x5e) {
+    if (_current == _caret) {
       negated = true;
       _index++;
     }
@@ -486,7 +473,7 @@ final class _Parser {
     while (true) {
       final rune = _current;
       if (rune == null) throw const FormatException('Unterminated class');
-      if (rune == 0x5d) {
+      if (rune == _closeBracket) {
         _index++;
         break;
       }
@@ -495,13 +482,13 @@ final class _Parser {
         tests.add(lowTest);
         continue;
       }
-      if (_current == 0x2d && _at(_index + 1) != null && _at(_index + 1) != 0x5d) {
+      if (_current == _hyphen && _at(_index + 1) != null && _at(_index + 1) != _closeBracket) {
         _index++;
         final (highTest, high) = _classAtom();
         if (highTest != null) {
           // `[a-\d]` is `a`, `-` and the digits.
           tests
-            ..add((r) => r == low || r == 0x2d)
+            ..add((r) => r == low || r == _hyphen)
             ..add(highTest);
           continue;
         }
@@ -517,7 +504,7 @@ final class _Parser {
   // One class member: a class escape's test, or a character.
   (bool Function(int)?, int?) _classAtom() {
     final rune = _current!;
-    if (rune != 0x5c) {
+    if (rune != _backslash) {
       _index++;
       return (null, rune);
     }
@@ -529,17 +516,20 @@ final class _Parser {
   }
 }
 
-bool _isDigit(int rune) => rune >= 0x30 && rune <= 0x39;
+bool _isDigit(int rune) => rune >= _digit0 && rune <= _digit9;
 
 bool _isWord(int rune) =>
-    _isDigit(rune) || (rune >= 0x41 && rune <= 0x5a) || (rune >= 0x61 && rune <= 0x7a) || rune == 0x5f;
+    _isDigit(rune) ||
+    (rune >= _upperA && rune <= _upperZ) ||
+    (rune >= _lowerA && rune <= _lowerZ) ||
+    rune == _underscore;
 
-bool _isLineTerminator(int rune) => rune == 0x0a || rune == 0x0d || rune == 0x2028 || rune == 0x2029;
+bool _isLineTerminator(int rune) => rune == _lineFeed || rune == _carriageReturn || rune == 0x2028 || rune == 0x2029;
 
 // JavaScript's `\s`: its white space and line terminators.
 bool _isSpace(int rune) =>
-    (rune >= 0x09 && rune <= 0x0d) ||
-    rune == 0x20 ||
+    (rune >= _tab && rune <= _carriageReturn) ||
+    rune == _space ||
     rune == 0xa0 ||
     rune == 0x1680 ||
     (rune >= 0x2000 && rune <= 0x200a) ||
@@ -722,3 +712,67 @@ final class _Program {
     };
   }
 }
+
+// The characters a pattern is read by, and the escapes it writes.
+const _nul = 0x00;
+const _backspace = 0x08;
+const _tab = 0x09;
+const _lineFeed = 0x0a;
+const _verticalTab = 0x0b;
+const _formFeed = 0x0c;
+const _carriageReturn = 0x0d;
+const _space = 0x20;
+const _exclamation = 0x21;
+const _dollar = 0x24;
+const _openParen = 0x28;
+const _closeParen = 0x29;
+const _star = 0x2a;
+const _plus = 0x2b;
+const _comma = 0x2c;
+const _hyphen = 0x2d;
+const _dot = 0x2e;
+const _digit0 = 0x30;
+const _digit1 = 0x31;
+const _digit9 = 0x39;
+const _colon = 0x3a;
+const _lessThan = 0x3c;
+const _equals = 0x3d;
+const _greaterThan = 0x3e;
+const _question = 0x3f;
+const _upperA = 0x41;
+const _upperB = 0x42;
+const _upperD = 0x44;
+const _upperP = 0x50;
+const _upperS = 0x53;
+const _upperW = 0x57;
+const _upperZ = 0x5a;
+const _openBracket = 0x5b;
+const _backslash = 0x5c;
+const _closeBracket = 0x5d;
+const _caret = 0x5e;
+const _underscore = 0x5f;
+const _lowerA = 0x61;
+const _lowerB = 0x62;
+const _lowerC = 0x63;
+const _lowerD = 0x64;
+const _lowerF = 0x66;
+const _lowerK = 0x6b;
+const _lowerN = 0x6e;
+const _lowerP = 0x70;
+const _lowerR = 0x72;
+const _lowerS = 0x73;
+const _lowerT = 0x74;
+const _lowerU = 0x75;
+const _lowerV = 0x76;
+const _lowerW = 0x77;
+const _lowerX = 0x78;
+const _lowerZ = 0x7a;
+const _openBrace = 0x7b;
+const _pipe = 0x7c;
+const _closeBrace = 0x7d;
+
+// The bit that lowercases an ASCII letter.
+const _lowercaseBit = 0x20;
+
+// The highest Unicode code point.
+const _maxCodePoint = 0x10ffff;

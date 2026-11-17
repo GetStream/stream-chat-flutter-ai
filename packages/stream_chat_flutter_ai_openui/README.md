@@ -53,9 +53,10 @@ builder throws, which also always goes to `FlutterError.reportError`. Without `o
 builds only.
 
 A form field checks its `rules` before the form is submitted. A `pattern` is matched in time linear in the value, so a
-pattern the agent writes can't freeze the app: one longer than 1000 UTF-16 code units, or one that expands past 1000 items once
-its counts are written out, is ignored, as is one with a lookbehind, a backreference or a lookahead anywhere but right
-after a leading `^`. A value longer than 4096 UTF-16 code units fails it.
+pattern the agent writes can't freeze the app. A pattern that is very long or large, or uses a lookbehind, a
+backreference or a lookahead anywhere but right after a leading `^`, among others, is ignored. A value longer than
+4096 UTF-16 code units fails it. So a password pattern without the leading `^`, such as `(?=.*\d)(?=.*[A-Z]).{8,}`,
+isn't checked at all: write it as `^(?=.*\d)(?=.*[A-Z]).{8,}`.
 
 ## What the agent is told
 

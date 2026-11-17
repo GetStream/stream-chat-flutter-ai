@@ -37,6 +37,11 @@ void main() {
       ('^a.c', 'a\nc', false),
       ('^a.c', 'a\rc', false),
       ('^a.c', 'a\u2028c', false),
+      // An empty group repeated matches the empty string.
+      (r'^(?:)*a$', 'a', true),
+      (r'^()*a$', 'a', true),
+      (r'^(?:){3}a$', 'a', true),
+      (r'^(?:)+$', 'b', false),
       // Alternation and groups.
       (r'^(cat|dog)s?$', 'dogs', true),
       (r'^(cat|dog)s?$', 'cow', false),
@@ -150,14 +155,6 @@ void main() {
         expect(PatternMatcher.compile(pattern), isNotNull);
       });
     }
-  });
-
-  test('sizes a pattern as its counts written out', () {
-    expect(PatternMatcher.sizeOf('a{0,3}b'), 4);
-    expect(PatternMatcher.sizeOf('(?:ab){3}'), 6);
-    expect(PatternMatcher.sizeOf('a+'), 2);
-    expect(PatternMatcher.sizeOf('a*b?'), 2);
-    expect(PatternMatcher.sizeOf('a{2,}'), 3);
   });
 
   group('input', () {
