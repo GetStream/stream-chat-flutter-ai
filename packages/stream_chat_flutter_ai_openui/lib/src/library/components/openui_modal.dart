@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Material, MaterialLocalizations, MaterialType;
@@ -19,6 +20,12 @@ import 'package:stream_core_flutter/core.dart';
 /// is kept for the reply, so it stays closed when the modal is built again,
 /// such as after scrolling out of view and back, until the reply rewrites it. The sheet closes when
 /// the modal leaves the reply.
+///
+/// A `size` of `sm` opens the sheet at no more than half the room above the
+/// keyboard, its content scrolling within, and it can't be expanded; any other
+/// size lets it grow to fit its content. That stands in for sheet heights the
+/// person can drag between until the design system's sheet supports them.
+/// The sheet's content stays above the keyboard.
 ///
 /// Internal to the package.
 @internal
@@ -146,6 +153,9 @@ class _OpenUIModalState extends State<_OpenUIModal> {
   static bool _isTrue(OpenUIValue? value) => value == const OpenUIBool(true) || value == const OpenUIString('true');
 }
 
+// The least height a small sheet keeps, room for its header and some content.
+const _smallSheetFloor = 160.0;
+
 class _OpenUIModalSheet extends StatelessWidget {
   const _OpenUIModalSheet({required this.content, required this.scrollController});
 
@@ -162,22 +172,38 @@ class _OpenUIModalSheet extends StatelessWidget {
           Builder(
             builder: (context) {
               final theme = OpenUIViewScope.of(context).theme;
+              final small = scope.string('size') == 'sm';
               // The sheet is a route of the app's, which may have no Material.
               return Material(
                 type: MaterialType.transparency,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    StreamSheetHeader(title: Text(scope.text('title') ?? '')),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        controller: scrollController,
-                        padding: EdgeInsets.all(theme.lSpacing),
-                        child: scope.buildProp('children'),
+                // The sheet's route keeps the keyboard's inset, so its content
+                // moves up over it.
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => ConstrainedBox(
+                      constraints: BoxConstraints(
+                        // Half, but never so little that the header doesn't fit.
+                        maxHeight: small && constraints.hasBoundedHeight
+                            ? math.max(constraints.maxHeight / 2, math.min(constraints.maxHeight, _smallSheetFloor))
+                            : double.infinity,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          StreamSheetHeader(title: Text(scope.text('title') ?? '')),
+                          Flexible(
+                            child: SingleChildScrollView(
+                              controller: scrollController,
+                              padding: EdgeInsets.all(theme.lSpacing),
+                              child: scope.buildProp('children'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               );
             },
