@@ -1246,6 +1246,21 @@ A reply that arrives already finished with reasoning, such as when a conversatio
 reasoning open for a moment and folds it before the answer types out. Tapping the header before it
 folds keeps it as the reader chose.
 
+A link in a reply's text or reasoning opens when tapped: a web link in the browser, and any other URL
+with the platform's default app. To open links your own way, such as in an in-app browser or only
+web and email links, pass `onTapLink`. Links in a reply's generated UI go to `AIUIHost`'s `open`
+instead:
+
+```dart
+AIConversationView(
+  messages: messages,
+  onTapLink: (text, href, title) {
+    final url = href == null ? null : Uri.tryParse(href);
+    if (url != null && const {'http', 'https', 'mailto'}.contains(url.scheme)) launchUrl(url);
+  },
+)
+```
+
 The conversation caches its rows: a row is built again only when what its message says changes, or
 the builders do, so a streaming reply doesn't rebuild the rest. Two consequences for builders that
 show state of your own, such as a reply's rating:
