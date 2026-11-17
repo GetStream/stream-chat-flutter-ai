@@ -41,10 +41,11 @@ payload holds, when there are any, the action's `context`, its other `params`, t
 it differs from the label, and, in a form, the form's name under `form` and its values under `values`. A password is
 never sent.
 
-A link the program opens goes to the host's `open`, which decides which links open, never to `send`. The program's
-queries and mutations run as the host's `tools`: a query only with a read-only tool, a mutation from the person's tap.
-A reply's queries run and refresh only while the reply is on screen and the app is in the foreground, so opening a
-long conversation runs only the queries of the replies in view.
+A web, email or phone link the program opens (`AIUILinkSchemes`) goes to the host's `open`, which decides whether it opens,
+never to `send`; a link to another app or a file is dropped. The program's queries and mutations run as the host's
+`tools`: a query only with a read-only tool, a mutation from the person's tap. A reply's queries run and refresh only
+while the reply is on screen and the app is in the foreground, so opening a long conversation runs only the queries of
+the replies in view.
 
 Problems with a reply's program, such as a component the library doesn't have or a query whose tool failed, go to the
 renderer's `onError` with the reply's message id once the reply is written, so the app can send them back to the agent.
@@ -52,8 +53,11 @@ Each comes once while the reply is shown, and again when the agent writes the re
 builder throws, which also always goes to `FlutterError.reportError`. Without `onError`, problems are reported in debug
 builds only.
 
-A form field checks its `rules` before the form is submitted, all but `pattern`: a field with a `pattern` rule accepts
-any value for now.
+A form field checks its `rules` before the form is submitted. A `pattern` is matched in time linear in the value, so a
+pattern the agent writes can't freeze the app. A pattern that is very long or large, or uses a lookbehind, a
+backreference or a lookahead anywhere but right after a leading `^`, among others, is ignored. A value longer than
+4096 UTF-16 code units fails it. So a password pattern without the leading `^`, such as `(?=.*\d)(?=.*[A-Z]).{8,}`,
+isn't checked at all: write it as `^(?=.*\d)(?=.*[A-Z]).{8,}`.
 
 ## What the agent is told
 
@@ -146,9 +150,9 @@ component builders an app registers with `StreamComponentFactory` (`button`, `ch
 `networkImage`, `loadingSpinner`, `sheetHeader`) draw them in OpenUI replies too. A password field is never given to
 the `textInput` builder.
 
-Images load only from web links the program writes out or one of its tools gives, so an image can't send what the
-person types to a server. They load through the renderer's `mediaUrl`, which loads web links unless it is given
-another function.
+Images load only from web links contained in the program text or given by one of its tools, so an image can't send
+what the person types to a server. They load through the renderer's `mediaUrl`, which loads web links unless it is
+given another function.
 
 The [example](example) shows a conversation whose replies are OpenUI, one of them written line by line as an agent
 streams it, and a gallery of the programs the library's prompts teach the model with, one with every chart type. It

@@ -194,6 +194,9 @@ abstract class OpenUITranslations {
   /// The error of a field whose value is longer than its `maxLength` rule's
   /// [max] characters.
   String validationMaxLength(int max);
+
+  /// The error of a field whose value doesn't match its `pattern` rule.
+  String get validationPattern;
 }
 
 /// The English texts the OpenUI components ship, and what they draw when
@@ -322,6 +325,9 @@ class DefaultOpenUITranslations extends OpenUITranslations {
 
   @override
   String validationMaxLength(int max) => 'Must be no more than $max characters';
+
+  @override
+  String get validationPattern => 'Invalid format';
 }
 
 /// Pins [translations] for the OpenUI components below it, whatever the

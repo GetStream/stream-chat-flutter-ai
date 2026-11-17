@@ -327,5 +327,6 @@ String openUIValidationMessage(OpenUITranslations translations, FormValidationEr
     FormValidationErrorCode.max => translations.validationMax(limit),
     FormValidationErrorCode.minLength => translations.validationMinLength(limit.toInt()),
     FormValidationErrorCode.maxLength => translations.validationMaxLength(limit.toInt()),
+    FormValidationErrorCode.pattern => translations.validationPattern,
   };
 }

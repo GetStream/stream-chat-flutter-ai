@@ -1,5 +1,4 @@
 import 'package:alchemist/alchemist.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -595,10 +594,9 @@ void main() {
         expect(styled('Bold').style!.fontWeight, FontWeight.w600);
         expect(styled('italic').style!.fontStyle, FontStyle.italic);
         expect(styled('code').style!.fontFamily, 'monospace');
-        final link = styled('docs');
-        expect(link.style!.decoration, TextDecoration.underline);
+        expect(styled('docs').style!.decoration, TextDecoration.underline);
 
-        (link.recognizer! as TapGestureRecognizer).onTap!();
+        await tester.tapOnText(find.textRange.ofSubstring('docs'));
         expect(taps, ['https://example.com']);
       });
 
@@ -612,23 +610,23 @@ void main() {
             onTapLink: onTapLink,
           ),
         );
-        TextSpan link() => (_builtParagraphs(tester).values.single.textSpan! as TextSpan).children!
-            .whereType<TextSpan>()
-            .singleWhere((span) => span.toPlainText() == 'docs');
+        Future<void> tapLink() => tester.tapOnText(find.textRange.ofSubstring('docs'));
 
         await tester.pumpWidget(build(null));
-        expect(link().recognizer, isNull);
+        await tapLink();
+        expect(taps, isEmpty);
 
         await tester.pumpWidget(build((text, href, title) => taps.add('first $href')));
-        expect(link().recognizer, isNotNull);
+        await tapLink();
+        expect(taps, ['first https://example.com']);
         final paragraph = _builtParagraphs(tester).values.single;
 
         // A fresh closure each build: the paragraph isn't rebuilt, yet a tap
         // reaches the newest callback.
         await tester.pumpWidget(build((text, href, title) => taps.add('second $href')));
         expect(identical(_builtParagraphs(tester).values.single, paragraph), isTrue);
-        (link().recognizer! as TapGestureRecognizer).onTap!();
-        expect(taps, ['second https://example.com']);
+        await tapLink();
+        expect(taps, ['first https://example.com', 'second https://example.com']);
       });
 
       testWidgets('a long stream only rebuilds the paragraph being written', (tester) async {

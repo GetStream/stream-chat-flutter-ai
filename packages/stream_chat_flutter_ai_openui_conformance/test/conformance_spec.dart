@@ -132,7 +132,7 @@ void _registerSpecCase(
         : read()['root'];
 
     expect(firstDifference(canonicalTree(actual), expected['root']), isNull);
-  }, skip: specRootSkipReason(caseName));
+  });
 
   if (specRoundtripSkipReason(caseName) case final reason?) {
     test('$label: the serialized tree parses back', () {}, skip: reason);
@@ -300,6 +300,6 @@ void _registerValidationCases(String name, Directory directory) {
       final error = debugValidate(testCase['rules'], testCase['value']);
 
       expect(error == null, testCase['valid'], reason: error);
-    }, skip: specValidationSkipReason(testCase['rules']));
+    });
   }
 }

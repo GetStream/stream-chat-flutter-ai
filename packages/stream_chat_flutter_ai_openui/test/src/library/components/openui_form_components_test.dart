@@ -5,6 +5,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -238,29 +239,23 @@ root = Stack([Input("q", "", "text", null, $q), Button("Set", @Set($q, "there"))
     const checks = r'CheckBoxGroup("o", [CheckBoxItem("A", "", "a", true), CheckBoxItem("B", "", "b")], null, $o)';
     const slider = r'Slider("v", "continuous", 0, 100, null, [25], null, null, $v)';
 
-    testWidgets('a RadioGroup writes its default into an unset variable once the reply ends', (tester) async {
-      const program = 'root = Stack([$radio])';
-      final (runtime, _) = await _pump(tester, '\$plan = null\n$program', isStreaming: true);
-      expect(runtime.state.value[r'$plan'], OpenUINull.instance);
+    for (final (name, field, variable) in [
+      ('RadioGroup', radio, r'$plan'),
+      ('CheckBoxGroup', checks, r'$o'),
+      ('Slider', slider, r'$v'),
+    ]) {
+      testWidgets('a $name leaves an unset variable unset, and publishes nothing', (tester) async {
+        final runtime = testRuntime(library: _library);
+        addTearDown(runtime.dispose);
+        final updates = <Object?>[];
+        runtime.stateUpdates.listen(updates.add);
+        await pumpOpenUI(tester, runtime, program: '$variable = null\nroot = Stack([$field])', library: _library);
+        await tester.pump();
 
-      runtime.update('\$plan = null\n$program', isStreaming: false);
-      await pumpOpenUI(tester, runtime, library: _library);
-      await tester.pump();
-
-      expect(runtime.state.value[r'$plan'], const OpenUIString('pro'));
-    });
-
-    testWidgets('a CheckBoxGroup writes its defaults into an unset variable', (tester) async {
-      final (runtime, _) = await _pump(tester, '\$o = null\nroot = Stack([$checks])');
-
-      expect(runtime.state.value[r'$o'], OpenUIValue.fromJson(const {'a': true, 'b': false}));
-    });
-
-    testWidgets('a Slider writes its default into an unset variable', (tester) async {
-      final (runtime, _) = await _pump(tester, '\$v = null\nroot = Stack([$slider])');
-
-      expect(runtime.state.value[r'$v'], OpenUIValue.fromJson(const [25]));
-    });
+        expect(runtime.state.value[variable], OpenUINull.instance);
+        expect(updates, isEmpty);
+      });
+    }
 
     testWidgets('a variable that has a value keeps it', (tester) async {
       final (runtime, _) = await _pump(tester, '''
@@ -275,7 +270,7 @@ root = Stack([$radio, $checks, $slider])
       expect(runtime.state.value[r'$v'], OpenUIValue.fromJson(const [60]));
     });
 
-    testWidgets('a required bound RadioGroup submits with its default', (tester) async {
+    testWidgets('a required bound RadioGroup asks for a choice until the person makes one', (tester) async {
       final (_, events) = await _pump(tester, r'''
 $plan = null
 root = Stack([Form("f", Buttons([Button("Go", @ToAssistant("Go"))]), [FormControl("P", RadioGroup("plan", [RadioItem("Free", "", "free"), RadioItem("Pro", "", "pro")], "pro", {required: true}, $plan))])])
@@ -283,9 +278,13 @@ root = Stack([Form("f", Buttons([Button("Go", @ToAssistant("Go"))]), [FormContro
 
       await tester.tap(find.text('Go'));
       await tester.pump();
+      expect(events, isEmpty);
+      expect(find.text('This field is required'), findsOneWidget);
 
+      await tester.tap(find.text('Pro'));
+      await tester.tap(find.text('Go'));
+      await tester.pump();
       expect(events, hasLength(1));
-      expect(find.text('This field is required'), findsNothing);
     });
   });
 
@@ -588,6 +587,38 @@ root = Stack([Buttons([Button("A very long first button label here"), Button("A 
 
       expect(events.single.label, 'Refresh');
     });
+  });
+
+  group('IconButton shape', () {
+    OutlinedBorder? shapeOf(WidgetTester tester) =>
+        tester.widget<ElevatedButton>(find.byType(ElevatedButton)).style!.shape!.resolve({});
+
+    testWidgets('circle draws a circle', (tester) async {
+      await _pump(
+        tester,
+        'root = Stack([IconButton("Refresh", Icon("refresh"), null, "secondary", "medium", "circle")])',
+      );
+
+      expect(shapeOf(tester), const CircleBorder());
+    });
+
+    for (final shape in ['', ', null, "secondary", "medium", "square"']) {
+      testWidgets('${shape.isEmpty ? 'no shape' : 'square'} draws a square with the theme small corner radius', (
+        tester,
+      ) async {
+        final runtime = testRuntime(library: _library);
+        addTearDown(runtime.dispose);
+        await pumpOpenUI(
+          tester,
+          runtime,
+          program: 'root = Stack([IconButton("Refresh", Icon("refresh")$shape)])',
+          library: _library,
+          theme: OpenUIThemeData(smallCornerRadius: 3),
+        );
+
+        expect(shapeOf(tester), const RoundedSuperellipseBorder(borderRadius: BorderRadius.all(Radius.circular(3))));
+      });
+    }
   });
 
   testWidgets('an IconButton in a form never checks it', (tester) async {

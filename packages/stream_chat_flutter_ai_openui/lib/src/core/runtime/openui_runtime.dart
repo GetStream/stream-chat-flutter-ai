@@ -125,11 +125,13 @@ final class OpenUIRuntime {
   /// gives only what to keep.
   ValueListenable<Map<String, OpenUIValue>> get state => _state;
 
-  /// The [state] each time the person or an action changes it, for the host
-  /// to keep.
+  /// The [state] each time it changes after the reply's start, for the host
+  /// to keep: when the person or an action changes it, and when a form field
+  /// not bound to a `$variable` keeps the default it shows, once the reply is
+  /// written.
   ///
-  /// Reading declared defaults or applying kept state, in [update], the
-  /// constructor or [restore], adds nothing.
+  /// Reading declared `$variable` defaults or applying kept state, in
+  /// [update], the constructor or [restore], adds nothing.
   Stream<Map<String, OpenUIValue>> get stateUpdates => _stateUpdates.stream;
 
   /// The actions for the host: messages to the model, links to open, and
@@ -143,9 +145,18 @@ final class OpenUIRuntime {
   /// the text it already had does without changing [root].
   ValueListenable<bool> get streaming => _streaming;
 
-  /// Whether the text read so far has `Query` statements, whose results the
-  /// [root] can depend on.
-  bool get hasQueries => _result?.queryStatements.isNotEmpty ?? false;
+  /// Whether the [root] may still arrive from the results of the `Query`
+  /// statements in the text read so far: the text has queries and an entry
+  /// that is a known component or picks one when evaluated, such as
+  /// `root = data.items.length > 0 ? Card(...) : null`.
+  ///
+  /// Without an entry, or with one that calls a component the library
+  /// doesn't have, no result can give the reply a root.
+  bool get rootMayFollowQueries {
+    final result = _result;
+    if (result == null || result.queryStatements.isEmpty) return false;
+    return result.root != null || result.rootExpression != null;
+  }
 
   /// Reads the reply's whole text so far, `text`.
   ///
@@ -315,7 +326,7 @@ final class OpenUIRuntime {
         final (evaluated, errors) = PropEvaluator.evaluateRoot(_result, _context());
         _runtimeErrors = errors;
         final root = evaluated == null ? null : reuseUnchanged(evaluated, _root.value);
-        if (root != _root.value) _root.value = root;
+        if (!identical(root, _root.value)) _root.value = root;
         _isQueryLoading.value = _queries.snapshot.loading.isNotEmpty;
       } while (_recomputeAgain && passes < maxPasses);
     } finally {
@@ -463,9 +474,9 @@ final class OpenUIRuntime {
     );
   }
 
-  /// Whether an image may load from `link`: only when the link is written
-  /// out in the text [update] last read, or is a text value in what a query
-  /// or mutation gave.
+  /// Whether an image may load from `link`: only when the link is contained
+  /// in the text [update] last read, or is a text value in what a query or
+  /// mutation gave.
   ///
   /// A link built from what the person typed is neither, so an image can't
   /// send it to a server as they type. An empty link is never allowed.

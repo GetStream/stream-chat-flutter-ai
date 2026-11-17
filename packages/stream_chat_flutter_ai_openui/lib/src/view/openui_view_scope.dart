@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart' show AIUILinkSchemes;
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
@@ -51,15 +52,18 @@ void openOpenUILink(BuildContext context, String? href) {
 }
 
 /// The URL of [href] when it is well formed, a scheme then no whitespace or
-/// control characters, whatever the scheme, and `null` otherwise.
+/// control characters, and its scheme is one [AIUILinkSchemes] allows, and `null`
+/// otherwise.
 ///
-/// The view's link opener decides which schemes it opens.
+/// The agent writes every link, so a link to another app or a file never
+/// reaches the view's link opener, which decides which of the rest it opens.
 ///
 /// Internal to the package.
 @internal
 Uri? openableOpenUILink(String? href) {
   if (href == null || !_wellFormed.hasMatch(href)) return null;
-  return Uri.tryParse(href);
+  final url = Uri.tryParse(href);
+  return url != null && AIUILinkSchemes.allows(url) ? url : null;
 }
 
 // A scheme, then anything but whitespace and control characters.

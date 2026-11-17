@@ -42,6 +42,8 @@ dependencies:
   # Released in lockstep with this package: the release bumps both versions
   # and this constraint together.
   stream_chat_flutter_ai: ^0.2.0
+  # The sort key `@Sort` orders text by, folding case and accents.
+  stream_core: ^0.5.2
   # Stream's design system: the theme tokens and the components OpenUI
   # components are drawn with, so an app's component builders apply to them
   # too.

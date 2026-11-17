@@ -7,7 +7,27 @@ OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
 FormValidationError? _check(Object? value, Object? rules) =>
     FormValidation.validate(_v(value), FormValidation.parse(_v(rules)));
 
+// A new error each call, which `const FormValidationError(...)` with the same
+// arguments is not: those are one object.
+FormValidationError _error(FormValidationErrorCode code, [num? limit]) => FormValidationError(code, limit);
+
 void main() {
+  test('errors with the same code and limit compare equal', () {
+    expect(_error(FormValidationErrorCode.min, 3), _error(FormValidationErrorCode.min, 3));
+  });
+
+  test('errors with the same code and limit share a hashCode', () {
+    expect(_error(FormValidationErrorCode.min, 3).hashCode, _error(FormValidationErrorCode.min, 3).hashCode);
+  });
+
+  test('errors with another code differ', () {
+    expect(_error(FormValidationErrorCode.min, 3), isNot(_error(FormValidationErrorCode.max, 3)));
+  });
+
+  test('errors with another limit differ', () {
+    expect(_error(FormValidationErrorCode.min, 3), isNot(_error(FormValidationErrorCode.min, 4)));
+  });
+
   test('rules come as an object or a list of strings', () {
     expect(FormValidation.parse(_v({'required': true, 'email': false, 'minLength': 3, 'max': null})), [
       const ValidationRule('required'),
@@ -87,8 +107,52 @@ void main() {
     );
   });
 
-  test('a pattern rule is skipped for now', () {
-    expect(_check('ab123', {'pattern': r'^[A-Z]{2}\d{3}$'}), isNull);
+  group('pattern', () {
+    test('passes a value it finds a match in', () {
+      expect(_check('AB123', {'pattern': r'^[A-Z]{2}\d{3}$'}), isNull);
+    });
+
+    test('fails a value it finds no match in', () {
+      expect(
+        _check('ab123', {'pattern': r'^[A-Z]{2}\d{3}$'}),
+        const FormValidationError(FormValidationErrorCode.pattern),
+      );
+    });
+
+    test('finds a match anywhere in the value', () {
+      expect(_check('xx42yy', {'pattern': r'\d+'}), isNull);
+    });
+
+    test('comes as a string rule too', () {
+      expect(_check('ab123', [r'pattern:^[a-z]+\d+$']), isNull);
+    });
+
+    test('lets an empty value through', () {
+      expect(_check('', {'pattern': r'^\d+$'}), isNull);
+    });
+
+    for (final (pattern, why) in [
+      ('(a', 'invalid'),
+      (r'(a)\1', 'unsupported'),
+      ('a{0,600}b{0,600}x', 'too large'),
+      (5, 'not a string'),
+    ]) {
+      test('lets any value through when the pattern is $why', () {
+        expect(_check('ab', {'pattern': pattern}), isNull);
+      });
+    }
+
+    test('fails a value longer than the input cap', () {
+      expect(_check('a' * 4096, {'pattern': 'a'}), isNull);
+      expect(_check('a' * 4097, {'pattern': 'a'}), const FormValidationError(FormValidationErrorCode.pattern));
+    });
+
+    test('decides a pattern that backtracks', () {
+      expect(
+        _check('${'a' * 4000}b', {'pattern': r'^(a+)+$'}),
+        const FormValidationError(FormValidationErrorCode.pattern),
+      );
+    });
   });
 
   test('a form field is checked by its value', () {
