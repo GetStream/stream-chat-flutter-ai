@@ -1,0 +1,21 @@
+"{\"b\":1,\"a\":2,\"b\":3}" => OK {b:num 3; a:num 2}
+"12345678901234567890" => OK num 12345678901234567000
+"1e400" => OK num Infinity
+"-0" => OK num -0
+"-0.0" => OK num -0
+"1.0" => OK num 1
+"100" => OK num 100
+"0.1" => OK num 0.1
+"01" => ERR
+"[1,]" => ERR
+"{\"a\":1,}" => ERR
+"\"a\u0001b\"" => ERR
+"\"\\ud800\"" => OK str units=fffd
+"\"\\ud83d\\ude00\"" => OK str units=d83d,de00
+"\"\\ud800\\u0041\"" => OK str units=fffd,41
+"\"\\x\"" => ERR
+"   1" => ERR
+"\"\\u00e9\"" => OK str units=e9
+"NaN" => ERR
+"[1e-7, 1.5e300, 123e-20]" => OK [num 1e-7; num 1.5e+300; num 1.23e-18]
+"\"tab\there\"" => ERR

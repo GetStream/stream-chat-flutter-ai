@@ -1,0 +1,5 @@
+# The OpenUI conformance suites are tagged, so they can be run on their own:
+# `flutter test --tags conformance`.
+
+tags:
+  conformance:

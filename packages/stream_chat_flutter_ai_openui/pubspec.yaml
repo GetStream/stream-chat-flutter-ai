@@ -1,0 +1,40 @@
+name: stream_chat_flutter_ai_openui
+homepage: https://github.com/GetStream/stream-chat-flutter-ai
+description: OpenUI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in OpenUI Lang in its replies.
+repository: https://github.com/GetStream/stream-chat-flutter-ai
+issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
+# Not published yet: the package has no public API so far.
+publish_to: none
+
+# Note: The environment configuration and dependency versions are managed by Melos.
+#
+# Do not edit them manually.
+#
+# Steps to update dependencies:
+#   1. Modify the version in the root pubspec.yaml, under `melos.command.bootstrap`.
+#   2. Run `melos bootstrap` to apply changes.
+#
+# Steps to add a new dependency:
+#   1. Add the dependency to this list.
+#   2. Add it to the root pubspec.yaml for future updates.
+
+environment:
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
+
+# This package is a member of the pub workspace defined in the root pubspec.yaml.
+resolution: workspace
+
+dependencies:
+  # Deep equality for the package's value types that hold JSON.
+  collection: ^1.19.0
+  # A Flutter package from the start: the workspace runs `flutter test` only
+  # in packages that depend on Flutter, and the package draws widgets later.
+  flutter:
+    sdk: flutter
+  # `@internal` and `@immutable` on the package's own types.
+  meta: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
