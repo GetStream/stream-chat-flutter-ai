@@ -278,10 +278,13 @@ final class _FixtureTools implements OpenUIToolProvider {
   }
 }
 
-/// The error a field holding `value` gets from the validation `rules`, both
-/// plain JSON, or `null` when it passes them.
+/// The name of the error a field holding `value` gets from the validation
+/// `rules`, both plain JSON, or `null` when it passes them.
 ///
 /// Only the conformance tests use it.
 String? debugValidate(Object? rules, Object? value) {
-  return FormValidation.validate(OpenUIValue.fromJson(value), FormValidation.parse(OpenUIValue.fromJson(rules)));
+  return FormValidation.validate(
+    OpenUIValue.fromJson(value),
+    FormValidation.parse(OpenUIValue.fromJson(rules)),
+  )?.toString();
 }

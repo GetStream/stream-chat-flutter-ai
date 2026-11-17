@@ -158,6 +158,38 @@ The [example](example) shows a conversation whose replies are OpenUI, one of the
 streams it, and a gallery of the programs the library's prompts teach the model with, one with every chart type. It
 lists each action the agent would get.
 
+## Translations
+
+The texts the components draw or read out themselves, such as a table's page controls, a date picker's labels and the
+errors of a form's `rules`, come from `OpenUITranslations`, in English by default. An implementation for another
+language is registered per locale with `OpenUITranslationsDelegate`, or pinned over part of the tree with
+`OpenUITranslationsScope`. Numbers, such as a form rule's limit or a metric's trend, reach it as numbers, which a
+translation formats as its language needs, for example with `intl`:
+
+```dart
+class DutchOpenUITranslations implements OpenUITranslations {
+  const DutchOpenUITranslations();
+
+  @override
+  String validationMin(num min) => 'Minstens ${NumberFormat.decimalPattern('nl').format(min)}';
+
+  // ...and every other text.
+}
+
+MaterialApp(
+  localizationsDelegates: const [
+    OpenUITranslationsDelegate({'nl': DutchOpenUITranslations()}),
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ],
+  supportedLocales: const [Locale('en'), Locale('nl')],
+  home: ...,
+)
+```
+
+The texts of the components `stream_chat_flutter_ai` draws, such as a code block's copy button, come from its
+`AITranslations`.
+
 ## Tests
 
 The OpenUI Lang 1.0 conformance fixtures it is tested against are vendored, unchanged, under

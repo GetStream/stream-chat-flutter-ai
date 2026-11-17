@@ -44,6 +44,10 @@ const _expectedNames = {
   'OpenUILibrary',
   'OpenUITheme',
   'OpenUIThemeData',
+  'OpenUITranslations',
+  'DefaultOpenUITranslations',
+  'OpenUITranslationsScope',
+  'OpenUITranslationsDelegate',
 };
 
 String _barrel() => File('lib/stream_chat_flutter_ai_openui.dart').readAsStringSync();

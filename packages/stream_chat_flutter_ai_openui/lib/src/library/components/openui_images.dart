@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -78,9 +78,9 @@ class _GalleryImage {
 }
 
 // What a tile is called: its `alt`, or its place in the gallery when it has none.
-String _tileLabel(String? alt, int index, int count) {
+String _tileLabel(OpenUITranslations translations, String? alt, int index, int count) {
   if (alt != null && alt.isNotEmpty) return alt;
-  return 'Image ${index + 1} of $count';
+  return translations.galleryImage(index + 1, count);
 }
 
 class _Gallery extends StatelessWidget {
@@ -105,7 +105,7 @@ class _Gallery extends StatelessWidget {
               child: Semantics(
                 button: true,
                 // The tile is read by what it shows, and the image in it is not.
-                label: _tileLabel(image.alt, index, images.length),
+                label: _tileLabel(OpenUITranslations.of(context), image.alt, index, images.length),
                 excludeSemantics: true,
                 onTap: () => _preview(context, index),
                 child: GestureDetector(
@@ -130,7 +130,7 @@ class _Gallery extends StatelessWidget {
     showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: OpenUIStrings.done,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       pageBuilder: (dialogContext, _, _) => captured.wrap(
         OpenUIViewScope(
           runtime: view.runtime,
@@ -181,7 +181,7 @@ class _PreviewState extends State<_Preview> {
           type: .ghost,
           size: .small,
           icon: Icon(context.streamIcons.xmark),
-          tooltip: OpenUIStrings.done,
+          tooltip: OpenUITranslations.of(context).done,
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
