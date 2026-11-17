@@ -1,15 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:meta/meta.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
 
 /// Signature for the function a reply's media loads through: the URL to load
 /// for [url], or `null` to load nothing.
-///
-/// Internal to the package.
-@internal
 typedef OpenUIMediaUrl = Uri? Function(Uri url);
 
 /// Signature for the function that opens a link a person taps in a reply's
@@ -18,6 +15,12 @@ typedef OpenUIMediaUrl = Uri? Function(Uri url);
 /// Internal to the package.
 @internal
 typedef OpenUIOpenLink = void Function(Uri url);
+
+/// Signature for the function that gets what the builder of [node] threw.
+///
+/// Internal to the package.
+@internal
+typedef OpenUIBuildErrorHandler = void Function(ElementNode node, Object error, StackTrace stack);
 
 /// Loads [url] when it is a web link, `http` or `https`, and nothing
 /// otherwise.
@@ -71,6 +74,7 @@ class OpenUIViewScope extends InheritedTheme {
     required this.openLink,
     required this.isStreaming,
     required this.unknownTypes,
+    this.onBuildError,
     required super.child,
   });
 
@@ -97,6 +101,10 @@ class OpenUIViewScope extends InheritedTheme {
   /// reported in debug builds, each reported once.
   final Set<String> unknownTypes;
 
+  /// The function that gets what a component's builder threw, after it has
+  /// gone to [FlutterError.reportError], or `null`.
+  final OpenUIBuildErrorHandler? onBuildError;
+
   /// The scope around [context], or `null` outside a reply's OpenUI.
   static OpenUIViewScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<OpenUIViewScope>();
@@ -120,6 +128,7 @@ class OpenUIViewScope extends InheritedTheme {
       openLink: openLink,
       isStreaming: isStreaming,
       unknownTypes: unknownTypes,
+      onBuildError: onBuildError,
       child: child,
     );
   }
@@ -132,6 +141,7 @@ class OpenUIViewScope extends InheritedTheme {
         mediaUrl != oldWidget.mediaUrl ||
         openLink != oldWidget.openLink ||
         isStreaming != oldWidget.isStreaming ||
-        !identical(unknownTypes, oldWidget.unknownTypes);
+        !identical(unknownTypes, oldWidget.unknownTypes) ||
+        onBuildError != oldWidget.onBuildError;
   }
 }

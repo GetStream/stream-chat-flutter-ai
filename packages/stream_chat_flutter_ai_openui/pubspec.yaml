@@ -1,10 +1,17 @@
 name: stream_chat_flutter_ai_openui
+version: 0.1.0
+# Published from its first release on: the release PR drops this line.
+publish_to: none
 homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: OpenUI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in OpenUI Lang in its replies.
 repository: https://github.com/GetStream/stream-chat-flutter-ai
 issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
-# Not published yet: the package is in development.
-publish_to: none
+topics:
+  - ai
+  - chat
+  - generative-ui
+  - llm
+  - openui
 
 # Note: The environment configuration and dependency versions are managed by Melos.
 #

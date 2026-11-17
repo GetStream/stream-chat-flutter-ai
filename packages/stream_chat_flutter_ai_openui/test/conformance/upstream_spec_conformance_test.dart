@@ -19,7 +19,7 @@ void main() {
         if (entry is Directory) entry.uri.pathSegments.lastWhere((segment) => segment.isNotEmpty),
     ];
 
-    expect(areas, unorderedEquals([...specAreasRun, ...specAreasSkipped.keys]));
+    expect(areas, unorderedEquals(specAreasRun));
   });
 
   test('no streaming case of the specification lists error objects, which only a one-piece read checks', () {

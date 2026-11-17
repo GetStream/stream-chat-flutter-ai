@@ -67,11 +67,20 @@ const _drawn = [
   'Button',
   'Buttons',
   'IconButton',
+  'BarChart',
+  'LineChart',
+  'AreaChart',
+  'RadarChart',
+  'HorizontalBarChart',
+  'PieChart',
+  'RadialChart',
+  'SingleStackedBarChart',
+  'ScatterChart',
 ];
 
 void main() {
   group('built-in libraries', () {
-    test('chat has the chat library components and draws all but the charts', () {
+    test('chat has the chat library components and draws every component with a view', () {
       final chat = OpenUILibrary.chat;
 
       expect(chat.types, LibraryDefinition.chat.componentNames);
@@ -85,19 +94,22 @@ void main() {
       );
     });
 
-    test('standard has the standard library components and draws its Stack, Card and Modal and all but the charts', () {
-      final standard = OpenUILibrary.standard;
+    test(
+      'standard has the standard library components and draws its Stack, Card and Modal and every component with a view',
+      () {
+        final standard = OpenUILibrary.standard;
 
-      expect(standard.types, LibraryDefinition.standard.componentNames);
-      expect(standard['Card'], buildOpenUIStandardCard);
-      expect(
-        standard.types.where((type) => standard[type] != null),
-        unorderedEquals(['Stack', 'Card', 'Modal', ..._drawn]),
-      );
-    });
+        expect(standard.types, LibraryDefinition.standard.componentNames);
+        expect(standard['Card'], buildOpenUIStandardCard);
+        expect(
+          standard.types.where((type) => standard[type] != null),
+          unorderedEquals(['Stack', 'Card', 'Modal', ..._drawn]),
+        );
+      },
+    );
 
     test('a type with no builder gives null', () {
-      expect(OpenUILibrary.chat['BarChart'], isNull);
+      expect(OpenUILibrary.chat['Series'], isNull);
       expect(OpenUILibrary.chat['Nope'], isNull);
     });
   });
@@ -112,11 +124,11 @@ void main() {
       expect(library.replacedBuilderOf('CardHeader'), isNull);
     });
 
-    test('takes a type this package does not draw yet', () {
-      final library = OpenUILibrary.chat.replacing('BarChart', _brand);
+    test('takes a type this package does not draw', () {
+      final library = OpenUILibrary.chat.replacing('Series', _brand);
 
-      expect(library['BarChart'], _brand);
-      expect(library.replacedBuilderOf('BarChart'), isNull);
+      expect(library['Series'], _brand);
+      expect(library.replacedBuilderOf('Series'), isNull);
     });
 
     test('takes a component name constant', () {

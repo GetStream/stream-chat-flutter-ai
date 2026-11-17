@@ -11,6 +11,10 @@ import 'package:stream_core_flutter/core.dart';
 import '../core/runtime/fake_tools.dart';
 import '../openui_test_app.dart';
 
+// The chat library as a view draws it with the chart builders taken away, so
+// their types have none; its runtime still reads them.
+final _withoutCharts = OpenUILibrary.chat.removing(['BarChart', 'RadarChart']);
+
 const _card = 'root = Card([CardHeader("Title", "Sub"), TextContent("Body")])';
 
 void main() {
@@ -45,6 +49,7 @@ void main() {
       tester,
       runtime,
       program: 'root = Card([CardHeader("Title"), BarChart([], []), TextContent("Body")])',
+      library: _withoutCharts,
     );
 
     // The card, its header and its text; the chart has no builder.
@@ -109,6 +114,7 @@ void main() {
           tester,
           runtime,
           program: 'root = Card([BarChart([], []), BarChart([], []), RadarChart([], [])])',
+          library: _withoutCharts,
         );
         runtime.update('root = Card([BarChart([], []), RadarChart([], []), TextContent("x")])', isStreaming: false);
         await tester.pump();
@@ -119,7 +125,7 @@ void main() {
 
         final other = testRuntime();
         addTearDown(other.dispose);
-        await pumpOpenUI(tester, other, program: 'root = Card([BarChart([], [])])');
+        await pumpOpenUI(tester, other, program: 'root = Card([BarChart([], [])])', library: _withoutCharts);
         expect(logs.where((log) => log.contains("'BarChart'")), hasLength(2));
       } finally {
         // Restored before the test ends, where Flutter checks it.

@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_blocks.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_header.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_card_text.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_charts.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_choices.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_data_display.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_disclosures.dart';
@@ -57,21 +58,22 @@ typedef OpenUIComponentBuilder = Widget Function(BuildContext context, OpenUICom
 /// `static` field instead.
 @immutable
 final class OpenUILibrary {
-  OpenUILibrary._(this._base, this._removed, this._builders, this._defaults);
+  OpenUILibrary._(this._base, this._removed, this._builders, this._defaults, [this._added = const []]);
 
   /// OpenUI's chat library, whose programs are a `Card` with the answer in
   /// it.
   ///
-  /// This package draws its `Card` and every other component but the charts:
-  /// content, data display and card blocks, such as `TextContent`, `Callout`
-  /// and `SnippetCardBlock`; layout, such as `Tabs`, `Accordion` and
-  /// `SectionBlock`; lists, tables, forms, their fields, and buttons.
+  /// This package draws its `Card` and every other component: content, data
+  /// display and card blocks, such as `TextContent`, `Callout` and
+  /// `SnippetCardBlock`; layout, such as `Tabs`, `Accordion` and
+  /// `SectionBlock`; lists, tables, forms, their fields, and buttons; and the
+  /// charts.
   static final OpenUILibrary chat = OpenUILibrary._(LibraryDefinition.chat, const {}, _chatBuilders, _chatBuilders);
 
   /// OpenUI's standard library, whose programs are a `Stack` of components.
   ///
   /// This package draws its `Stack`, `Card` and `Modal`, and the same
-  /// components as [chat] otherwise; the charts are not drawn yet.
+  /// components as [chat] otherwise.
   static final OpenUILibrary standard = OpenUILibrary._(
     LibraryDefinition.standard,
     const {},
@@ -133,6 +135,15 @@ final class OpenUILibrary {
     'IconButton': buildOpenUIIconButton,
     'SectionBlock': buildOpenUISectionBlock,
     'FollowUpBlock': buildOpenUIFollowUpBlock,
+    'BarChart': buildOpenUIBarChart,
+    'LineChart': buildOpenUILineChart,
+    'AreaChart': buildOpenUIAreaChart,
+    'RadarChart': buildOpenUIRadarChart,
+    'HorizontalBarChart': buildOpenUIHorizontalBarChart,
+    'PieChart': buildOpenUIPieChart,
+    'RadialChart': buildOpenUIRadialChart,
+    'SingleStackedBarChart': buildOpenUISingleStackedBarChart,
+    'ScatterChart': buildOpenUIScatterChart,
   };
 
   static const Map<String, OpenUIComponentBuilder> _standardBuilders = {
@@ -189,6 +200,15 @@ final class OpenUILibrary {
     'Button': buildOpenUIButton,
     'Buttons': buildOpenUIButtons,
     'IconButton': buildOpenUIIconButton,
+    'BarChart': buildOpenUIBarChart,
+    'LineChart': buildOpenUILineChart,
+    'AreaChart': buildOpenUIAreaChart,
+    'RadarChart': buildOpenUIRadarChart,
+    'HorizontalBarChart': buildOpenUIHorizontalBarChart,
+    'PieChart': buildOpenUIPieChart,
+    'RadialChart': buildOpenUIRadialChart,
+    'SingleStackedBarChart': buildOpenUISingleStackedBarChart,
+    'ScatterChart': buildOpenUIScatterChart,
   };
 
   // The library this one was made from, chat or standard.
@@ -203,11 +223,14 @@ final class OpenUILibrary {
   // The builders of [_base]'s own components, before any were replaced.
   final Map<String, OpenUIComponentBuilder> _defaults;
 
+  // The app's components added as content, in order.
+  final List<ComponentSchema> _added;
+
   /// The components the agent writes with, as the model is taught them.
   ///
   /// Internal to the package.
   @internal
-  late final LibraryDefinition definition = _removed.isEmpty ? _base : _base.removing(_removed);
+  late final LibraryDefinition definition = (_removed.isEmpty ? _base : _base.removing(_removed)).addingContent(_added);
 
   /// The names of this library's components, in the order the library
   /// declares them.
@@ -242,7 +265,32 @@ final class OpenUILibrary {
     final has = types.contains(type);
     assert(has, "OpenUILibrary has no component '$type' to replace. It has ${types.join(', ')}.");
     if (!has) return this;
-    return OpenUILibrary._(_base, _removed, Map.unmodifiable({..._builders, type: builder}), _defaults);
+    return OpenUILibrary._(_base, _removed, Map.unmodifiable({..._builders, type: builder}), _defaults, _added);
+  }
+
+  /// A copy of this library with an app's [components] added wherever the
+  /// library's own content goes (see [LibraryDefinition.addingContent]), each
+  /// drawn by its builder.
+  ///
+  /// The components must be placeable, as `placeableComponents` gives them:
+  /// one whose name is taken is left out.
+  ///
+  /// Internal to the package.
+  @internal
+  OpenUILibrary addingAppComponents(List<(ComponentSchema, OpenUIComponentBuilder)> components) {
+    if (components.isEmpty) return this;
+    final taken = types.toSet();
+    final added = [
+      for (final component in components)
+        if (taken.add(component.$1.name)) component,
+    ];
+    return OpenUILibrary._(
+      _base,
+      _removed,
+      Map.unmodifiable({..._builders, for (final (schema, builder) in added) schema.name: builder}),
+      _defaults,
+      List.unmodifiable([..._added, for (final (schema, _) in added) schema]),
+    );
   }
 
   /// A copy of this library without the components named in [types], so the
@@ -263,14 +311,16 @@ final class OpenUILibrary {
     );
     final removed = Set<String>.unmodifiable({..._removed, ...removing.intersection(known)});
     final kept = _base.removing(removed).componentNames.toSet();
+    final appTypes = {for (final schema in _added) schema.name};
     return OpenUILibrary._(
       _base,
       removed,
       Map.unmodifiable({
         for (final MapEntry(:key, :value) in _builders.entries)
-          if (kept.contains(key)) key: value,
+          if (kept.contains(key) || appTypes.contains(key)) key: value,
       }),
       _defaults,
+      _added,
     );
   }
 
@@ -280,6 +330,7 @@ final class OpenUILibrary {
     return other is OpenUILibrary &&
         identical(other._base, _base) &&
         const SetEquality<String>().equals(other._removed, _removed) &&
+        const ListEquality<ComponentSchema>().equals(other._added, _added) &&
         const MapEquality<String, OpenUIComponentBuilder>().equals(other._builders, _builders);
   }
 
@@ -288,6 +339,7 @@ final class OpenUILibrary {
     return Object.hash(
       identityHashCode(_base),
       const SetEquality<String>().hash(_removed),
+      const ListEquality<ComponentSchema>().hash(_added),
       const MapEquality<String, OpenUIComponentBuilder>().hash(_builders),
     );
   }

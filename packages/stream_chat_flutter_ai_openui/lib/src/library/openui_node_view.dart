@@ -5,12 +5,14 @@ part of 'openui_component_scope.dart';
 /// kept apart from its neighbours for assistive technologies.
 ///
 /// It draws nothing when the component's type has no builder; in debug
-/// builds it reports each such type once per runtime with [debugPrint]. A builder that
-/// throws draws nothing either: the error goes to [FlutterError.reportError].
+/// builds it reports each such type once per runtime with [debugPrint]. A
+/// builder that throws draws nothing either: the error goes to
+/// [FlutterError.reportError] with its stack trace, then to the view's
+/// [OpenUIViewScope.onBuildError] when it has one.
 ///
 /// Internal to the package.
 @internal
-class OpenUINodeView extends StatelessWidget {
+class OpenUINodeView extends StatefulWidget {
   /// Creates the widget of [node].
   const OpenUINodeView({super.key, required this.node});
 
@@ -18,7 +20,32 @@ class OpenUINodeView extends StatelessWidget {
   final ElementNode node;
 
   @override
-  Widget build(BuildContext context) {
+  State<OpenUINodeView> createState() => _OpenUINodeViewState();
+}
+
+// Keeps what it built while the component and the view are the same, so a
+// reply that grows builds only the components that changed.
+class _OpenUINodeViewState extends State<OpenUINodeView> {
+  Widget? _built;
+
+  ElementNode get node => widget.node;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _built = null;
+  }
+
+  @override
+  void didUpdateWidget(OpenUINodeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.node != widget.node) _built = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => _built ??= _buildNode(context);
+
+  Widget _buildNode(BuildContext context) {
     final view = OpenUIViewScope.of(context);
     final builder = view.library[node.typeName];
     if (builder == null) {
@@ -46,6 +73,7 @@ class OpenUINodeView extends StatelessWidget {
           context: ErrorDescription("while building the OpenUI component '${node.typeName}'"),
         ),
       );
+      OpenUIViewScope.of(context).onBuildError?.call(node, error, stack);
       return const SizedBox.shrink();
     }
   }
@@ -126,7 +154,7 @@ final class _NodeScope extends OpenUIComponentScope {
   bool get isStreaming => _view.isStreaming;
 
   @override
-  Object? value(String name) => _json(_prop(name));
+  Object? value(String name) => openUIJson(_prop(name));
 
   @override
   OpenUIValue? prop(String name) => _prop(name);
@@ -211,18 +239,6 @@ final class _NodeScope extends OpenUIComponentScope {
     final builder = _view.library.replacedBuilderOf(type);
     if (builder == null) return const SizedBox.shrink();
     return Builder(builder: (context) => builder(context, this));
-  }
-
-  // [value] as JSON, with `null` for a component or an expression.
-  static Object? _json(OpenUIValue? value) {
-    return switch (value) {
-      OpenUIString(:final value) => value,
-      OpenUINumber(:final value) => value,
-      OpenUIBool(:final value) => value,
-      OpenUIArray(:final items) => [for (final item in items) _json(item)],
-      OpenUIObject(:final fields) => {for (final MapEntry(:key, :value) in fields.entries) key: _json(value)},
-      OpenUINull() || OpenUIElement() || OpenUIExpression() || null => null,
-    };
   }
 }
 

@@ -1,0 +1,162 @@
+import 'package:flutter/foundation.dart';
+import 'package:stream_chat_flutter_ai/stream_chat_flutter_ai.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_definition.dart';
+import 'package:stream_chat_flutter_ai_openui/src/engine/openui_engine.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
+import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
+
+/// Signature for the function that gets a problem with a reply's OpenUI, with
+/// the id of the reply it is in.
+typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
+
+/// Shows the replies an agent writes in [OpenUI](https://github.com/thesysdev/openui)
+/// Lang in a conversation's generative UI.
+///
+/// Added to the conversation's [AIUIHost], it shows a reply whose UI is
+/// OpenUI as the components the agent's program describes, instead of its
+/// text:
+///
+/// ```dart
+/// final ui = AIUIHost(
+///   renderers: [OpenUIRenderer()],
+///   send: (action) => channel.sendMessage(
+///     Message(text: action.label, extraData: action.toCustomData()),
+///   ),
+/// );
+/// ```
+///
+/// A reply shows its text until its program has a root component, and keeps
+/// the values the person entered for as long as the host keeps the reply.
+///
+/// A tap on a control sends an [AIUIAction] named after the action, labeled
+/// with the control's label or [AITranslations.uiActionUntitled]; its payload
+/// carries the action's `context`, `params`, `message` and form values, never
+/// a password. A web or email link goes to [AIUIHosting.open]. Queries, once
+/// the reply is written, and mutations run as the host's tools; a reply's
+/// queries run and refresh only while it is on screen and the app is in the
+/// foreground.
+///
+/// The agent can also place the host's [AIUIHosting.components], by their
+/// name in PascalCase, such as `PlaceCard` for `place_card`. Their events are
+/// sent as [AIUIAction]s with `component` added to the payload. A component
+/// whose name is taken is left out, and reported in debug builds.
+///
+/// See also:
+///
+///  * [OpenUILibrary], which draws each component.
+///  * [OpenUIThemeData], which overrides the look of every component.
+final class OpenUIRenderer extends AIUIRenderer {
+  /// Creates a renderer for OpenUI Lang.
+  ///
+  /// The agent writes with [library], which is [OpenUILibrary.chat] by
+  /// default.
+  ///
+  /// Not `const`: [OpenUILibrary.chat] is built once, when it is first used.
+  OpenUIRenderer({
+    OpenUILibrary? library,
+    this.instructions,
+    this.theme,
+    this.mediaUrl = webUrl,
+    this.onError,
+  }) : library = library ?? OpenUILibrary.chat;
+
+  /// The label of the fenced block an agent writes a reply's OpenUI in.
+  static const String fence = 'openui-lang';
+
+  /// The components the agent writes with, and the builders that draw them.
+  final OpenUILibrary library;
+
+  /// What the agent's model is told before OpenUI's own instructions, such as
+  /// which answers to write as UI and when to use the app's components, or
+  /// `null` for nothing; see [capabilities].
+  ///
+  /// OpenUI's own instructions ask the model to answer in OpenUI Lang only. For
+  /// replies written in text that draw their UI in a fenced block, say so here
+  /// and name the block's label, [fence].
+  final String? instructions;
+
+  /// Overrides for the look of every reply's components, layered over the
+  /// nearest [OpenUITheme], or `null` for none.
+  ///
+  /// What neither sets comes from the app's Stream theme when the reply is
+  /// built.
+  final OpenUIThemeData? theme;
+
+  /// The function that gives the URL each image loads from, or `null` to not
+  /// load it. By default only web links load; see [webUrl].
+  final OpenUIMediaUrl mediaUrl;
+
+  /// The function that gets the problems with a reply's OpenUI, with the
+  /// reply's message id, or `null` to report them in debug builds only.
+  ///
+  /// It gets the problems with the program once the reply is written, such as
+  /// a component the library doesn't have or a query whose tool failed, so
+  /// the app can send them back to the agent. It also gets what a
+  /// component's builder throws, as a [OpenUIErrorCode.renderError]; that
+  /// error always goes to [FlutterError.reportError] too, with its stack
+  /// trace.
+  ///
+  /// Each problem arrives once, after the frame being built, and again only
+  /// when the reply is removed and shown again or the agent rewrites it
+  /// rather than extends it.
+  final OpenUIErrorHandler? onError;
+
+  /// The `url` itself when it is a web link to a host, `http` or `https`, or
+  /// `null` for any other, such as a `file` URL.
+  ///
+  /// A reply's images load only from what this gives unless the renderer is
+  /// given another `mediaUrl`.
+  static Uri? webUrl(Uri url) => openUIWebMediaUrl(url);
+
+  /// OpenUI, the format of the replies this renderer shows.
+  @override
+  AIUIFormat get format => AIUIFormat.openUI;
+
+  /// The [fence], under `fence`, and the instructions the agent's model
+  /// needs, under `instructions`.
+  ///
+  /// The instructions are Markdown: the renderer's own [instructions] first,
+  /// when they aren't blank, then the system prompt of the [library], with
+  /// the app's [components] the agent can place and the app's [tools], each
+  /// saying whether a `Query()` may run it. A component taken out with
+  /// [OpenUILibrary.removing] isn't in it. The same arguments always give the
+  /// same instructions.
+  @override
+  Map<String, Object?> capabilities(List<AIUIComponent<Object?>> components, List<AIToolDefinition> tools) {
+    final definitions = <Map<String, Object?>>[];
+    for (final component in components) {
+      try {
+        definitions.add(component.definition.toJson());
+      } on Object {
+        // Left out, as the engine leaves it out.
+      }
+    }
+    final library = this.library.definition;
+    final prompt = openUIInstructions(
+      library,
+      appInstructions: instructions,
+      components: [for (final (_, schema) in placeableComponents(library, definitions)) schema],
+      tools: [
+        for (final tool in tools)
+          HostTool(
+            tool.name,
+            description: tool.description,
+            isReadOnly: tool.isReadOnly,
+            inputSchema: tool.parameters,
+          ),
+      ],
+    );
+    return {'fence': fence, 'instructions': prompt};
+  }
+
+  /// Creates the engine that shows the OpenUI replies of one conversation.
+  ///
+  /// The `host` owns the engine and disposes it.
+  @override
+  AIUIEngine createEngine(AIUIHosting host) => OpenUIEngine(this, host);
+
+  @override
+  String toString() => '${objectRuntimeType(this, 'OpenUIRenderer')}(library: $library)';
+}

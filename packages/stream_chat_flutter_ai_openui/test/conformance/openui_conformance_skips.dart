@@ -6,13 +6,7 @@
 // result needs the locale's collation.
 
 /// The areas of the specification's fixtures this package runs.
-const specAreasRun = ['grammar', 'entry', 'errors', 'streaming', 'evaluation', 'actions', 'state'];
-
-/// The areas of the specification's fixtures this package doesn't run yet,
-/// each with the reason.
-const specAreasSkipped = {
-  'editing': "Merging an edit into an earlier program isn't part of the package.",
-};
+const specAreasRun = ['grammar', 'entry', 'errors', 'streaming', 'evaluation', 'actions', 'state', 'editing'];
 
 const _needsPatternMatcher =
     "A `pattern` rule needs a regular expression matcher that can't freeze the app, which the package doesn't have yet.";

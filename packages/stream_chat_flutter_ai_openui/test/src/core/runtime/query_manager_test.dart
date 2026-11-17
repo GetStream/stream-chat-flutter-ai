@@ -212,6 +212,20 @@ void main() {
       await timers.elapse(const Duration(seconds: 5));
       expect(tools.calls, hasLength(2));
     });
+
+    test('a query that comes while paused shows as loading and fetches once resumed', () async {
+      tools.results['list'] = _v(1);
+      manager
+        ..pause()
+        ..updateQueries([_query({})]);
+      await pumpMicrotasks();
+
+      expect(tools.calls, isEmpty);
+      expect(manager.snapshot.loading, ['q']);
+      manager.resume();
+      await pumpMicrotasks();
+      expect(tools.calls, hasLength(1));
+    });
   });
 
   test('a failed fetch reports the error its kind gives', () async {
