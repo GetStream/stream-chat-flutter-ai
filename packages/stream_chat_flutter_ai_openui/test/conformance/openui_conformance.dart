@@ -145,3 +145,108 @@ List<Map<String, Object?>> _parserCases() {
   final json = jsonDecode(File('$_generated/parser-conformance.json').readAsStringSync()) as List<Object?>;
   return json.cast<Map<String, Object?>>();
 }
+
+/// Registers a test for each case of `evaluator-conformance.json`: the
+/// evaluated root, the queries and the runtime errors of each program, with
+/// the case's state and references.
+void runEvaluatorConformance() {
+  final cases = evaluatorCases();
+
+  test('the evaluator suite has its 190 cases', () {
+    expect(cases, hasLength(190));
+  });
+
+  test("an evaluated root differs from another program's expected root", () {
+    final first = cases.firstWhere((testCase) => testCase['evaluatedRoot'] != null);
+    final other = cases.firstWhere(
+      (testCase) =>
+          testCase['library'] == first['library'] &&
+          testCase['evaluatedRoot'] != null &&
+          testCase['input'] != first['input'],
+    );
+
+    expect(firstDifference(_evaluate(first)['evaluatedRoot'], other['evaluatedRoot']), isNotNull);
+  });
+
+  for (final testCase in cases) {
+    test('${testCase['name']} (${testCase['library']})', () {
+      final actual = _evaluate(testCase);
+
+      expect(firstDifference(actual['evaluatedRoot'], testCase['evaluatedRoot'], r'$.evaluatedRoot'), isNull);
+      expect(firstDifference(actual['queries'], testCase['queries'], r'$.queries'), isNull);
+      expect(firstDifference(actual['runtimeErrors'], testCase['runtimeErrors'], r'$.runtimeErrors'), isNull);
+    }, skip: evaluatorCaseSkipReason(testCase['name']! as String));
+  }
+}
+
+Map<String, Object?> _evaluate(Map<String, Object?> testCase) {
+  final library = testCase['library']! as String;
+  return debugEvaluate(
+    conformanceLibraries()[library]!,
+    testCase['input']! as String,
+    isBindable: conformanceBindables(library),
+    state: testCase['state']! as Map<String, Object?>,
+    refs: testCase['refs']! as Map<String, Object?>,
+    functions: library == 'spec' ? specFunctions : const {},
+  );
+}
+
+/// Registers a test for each case of `spec-interactions.json`: the events,
+/// state and tool calls of running each program through its interactions.
+void runSpecInteractionsConformance() {
+  final cases = (jsonDecode(File('$_generated/spec-interactions.json').readAsStringSync()) as List<Object?>)
+      .cast<Map<String, Object?>>();
+
+  test('the interactions suite has its 12 cases', () {
+    expect(cases, hasLength(12));
+  });
+
+  for (final testCase in cases) {
+    test(testCase['name']! as String, () async {
+      final expected = testCase['expected']! as Map<String, Object?>;
+      final actual = await debugInteract(
+        conformanceLibraries()['spec']!,
+        testCase['program']! as String,
+        (testCase['interactions']! as List<Object?>).cast<Map<String, Object?>>(),
+        isBindable: conformanceBindables('spec'),
+        functions: specFunctions,
+      );
+
+      expect(_interactionDifference(actual, expected), isNull);
+    });
+  }
+}
+
+// Where `actual` first differs from `expected`, which lists only the keys
+// it checks: each event's listed fields, the listed state keys, and the tool
+// calls in full.
+String? _interactionDifference(Map<String, Object?> actual, Map<String, Object?> expected) {
+  final events = actual['events']! as List<Object?>;
+  if (expected['events'] case final List<Object?> expectedEvents) {
+    if (events.length != expectedEvents.length) return 'events: ${jsonEncode(events)}';
+    for (final (index, event) in expectedEvents.cast<Map<String, Object?>>().indexed) {
+      final actualEvent = events[index]! as Map<String, Object?>;
+      for (final MapEntry(:key, :value) in event.entries) {
+        if (firstDifference(actualEvent[key], value, '\$.events[$index].$key') case final difference?) {
+          return difference;
+        }
+      }
+    }
+  }
+  if (expected['state'] case final Map<String, Object?> state) {
+    final actualState = actual['state']! as Map<String, Object?>;
+    for (final MapEntry(:key, :value) in state.entries) {
+      if (firstDifference(actualState[key], value, '\$.state.$key') case final difference?) return difference;
+    }
+  }
+  if (expected['toolCalls'] case final List<Object?> calls) {
+    return firstDifference(actual['toolCalls'], calls, r'$.toolCalls');
+  }
+  return null;
+}
+
+/// The cases of `evaluator-conformance.json`.
+List<Map<String, Object?>> evaluatorCases() {
+  return (jsonDecode(File('$_generated/evaluator-conformance.json').readAsStringSync()) as List<Object?>)
+      .cast<Map<String, Object?>>();
+}

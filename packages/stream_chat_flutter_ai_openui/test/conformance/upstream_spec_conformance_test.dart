@@ -34,13 +34,14 @@ void main() {
     expect(withErrorObjects, isEmpty);
   });
 
-  test('the cases whose tree is skipped are exactly those whose tree holds an expression', () {
+  test('the cases whose tree is evaluated before it is compared include those of the evaluation area', () {
     final needEvaluating = [
       for (final area in specAreasRun)
         for (final name in specCaseNames(area))
           if (specRootNeedsEvaluating(name)) name,
     ];
 
-    expect(needEvaluating, unorderedEquals(specRootSkips));
+    expect(needEvaluating, containsAll(['grammar/006-lex-minus-and-skip', 'entry/006-ternary-root-multiline']));
+    expect(needEvaluating.where((name) => name.startsWith('evaluation/')), isNotEmpty);
   });
 }
