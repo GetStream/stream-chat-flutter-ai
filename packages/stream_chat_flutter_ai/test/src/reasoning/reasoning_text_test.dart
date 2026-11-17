@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai/src/reasoning/reasoning_text.dart';
@@ -59,6 +60,31 @@ void main() {
       final span = spans.single as TextSpan;
       expect(span.style, link);
       expect(span.recognizer, isNull);
+    });
+
+    test("puts a link's recognizer on each span with text inside it", () {
+      final recognizer = TapGestureRecognizer();
+      addTearDown(recognizer.dispose);
+      final calls = <(String, String?)>[];
+      final spans = reasoningInlineSpans(
+        'See [**bold** and `code`](https://x.y) here.',
+        codeStyle: code,
+        linkStyle: link,
+        linkRecognizer: (text, href, title) {
+          calls.add((text, href));
+          return recognizer;
+        },
+      );
+
+      final texts = <String, GestureRecognizer?>{};
+      for (final span in spans) {
+        span.visitChildren((child) {
+          if (child is TextSpan && child.text != null) texts[child.text!] = child.recognizer;
+          return true;
+        });
+      }
+      expect(calls, [('bold and code', 'https://x.y')]);
+      expect(texts, {'See ': null, 'bold': recognizer, ' and ': recognizer, 'code': recognizer, ' here.': null});
     });
   });
 

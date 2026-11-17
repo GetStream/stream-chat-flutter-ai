@@ -96,7 +96,7 @@ List<InlineSpan> reasoningInlineSpans(
 
   try {
     final nodes = md.Document(encodeHtml: false, inlineSyntaxes: [md.StrikethroughSyntax()]).parseInline(source);
-    return [for (final node in nodes) _span(node, codeStyle, linkStyle, linkRecognizer)];
+    return [for (final node in nodes) _span(node, codeStyle, linkStyle, linkRecognizer, null)];
   } on Object catch (error, stack) {
     FlutterError.reportError(
       FlutterErrorDetails(
@@ -110,11 +110,20 @@ List<InlineSpan> reasoningInlineSpans(
   }
 }
 
-InlineSpan _span(md.Node node, TextStyle codeStyle, TextStyle linkStyle, ReasoningLinkRecognizer? linkRecognizer) {
-  if (node is! md.Element) return TextSpan(text: node.textContent);
+// A link's recognizer goes on each span with text inside it, as `recognizer`:
+// Flutter applies a span's recognizer to its own text only, not its children's.
+InlineSpan _span(
+  md.Node node,
+  TextStyle codeStyle,
+  TextStyle linkStyle,
+  ReasoningLinkRecognizer? linkRecognizer,
+  GestureRecognizer? recognizer,
+) {
+  if (node is! md.Element) return TextSpan(text: node.textContent, recognizer: recognizer);
 
-  List<InlineSpan> children() => [
-    for (final child in node.children ?? const <md.Node>[]) _span(child, codeStyle, linkStyle, linkRecognizer),
+  List<InlineSpan> children([GestureRecognizer? link]) => [
+    for (final child in node.children ?? const <md.Node>[])
+      _span(child, codeStyle, linkStyle, linkRecognizer, link ?? recognizer),
   ];
 
   return switch (node.tag) {
@@ -130,13 +139,14 @@ InlineSpan _span(md.Node node, TextStyle codeStyle, TextStyle linkStyle, Reasoni
       style: const TextStyle(decoration: TextDecoration.lineThrough),
       children: children(),
     ),
-    'code' => TextSpan(text: node.textContent, style: codeStyle),
-    'br' => const TextSpan(text: '\n'),
-    'img' => TextSpan(text: node.attributes['alt'] ?? ''),
+    'code' => TextSpan(text: node.textContent, style: codeStyle, recognizer: recognizer),
+    'br' => TextSpan(text: '\n', recognizer: recognizer),
+    'img' => TextSpan(text: node.attributes['alt'] ?? '', recognizer: recognizer),
     'a' => TextSpan(
       style: linkStyle,
-      recognizer: linkRecognizer?.call(node.textContent, node.attributes['href'], node.attributes['title']),
-      children: children(),
+      children: children(
+        linkRecognizer?.call(node.textContent, node.attributes['href'], node.attributes['title']),
+      ),
     ),
     _ => TextSpan(children: children()),
   };
