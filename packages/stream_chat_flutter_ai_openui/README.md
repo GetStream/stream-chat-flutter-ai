@@ -53,8 +53,11 @@ Each comes once while the reply is shown, and again when the agent writes the re
 builder throws, which also always goes to `FlutterError.reportError`. Without `onError`, problems are reported in debug
 builds only.
 
-A form field checks its `rules` before the form is submitted, all but `pattern`: a field with a `pattern` rule accepts
-any value for now.
+A form field checks its `rules` before the form is submitted. A `pattern` is matched in time linear in the value, so a
+pattern the agent writes can't freeze the app. A pattern that is very long or large, or uses a lookbehind, a
+backreference or a lookahead anywhere but right after a leading `^`, among others, is ignored. A value longer than
+4096 UTF-16 code units fails it. So a password pattern without the leading `^`, such as `(?=.*\d)(?=.*[A-Z]).{8,}`,
+isn't checked at all: write it as `^(?=.*\d)(?=.*[A-Z]).{8,}`.
 
 ## What the agent is told
 
