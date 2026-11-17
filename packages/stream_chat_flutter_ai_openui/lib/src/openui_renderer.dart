@@ -28,15 +28,16 @@ typedef OpenUIErrorHandler = void Function(OpenUIError error, String messageId);
 /// ```
 ///
 /// A reply shows its text until its program has a root component, except a
-/// written reply with queries, whose root can wait on their results: it shows
-/// nothing until the root arrives. A reply keeps the values the person
+/// written reply whose root can come from its queries' results, such as
+/// `root = data.items.length > 0 ? Card(...) : null`: it shows nothing until
+/// the root arrives. A reply keeps the values the person
 /// entered for as long as the host keeps the reply.
 ///
 /// A tap on a control sends an [AIUIAction] named after the action, labeled
 /// with the control's label or [AITranslations.uiActionUntitled]; its payload
 /// carries the action's `context`, `params`, `message` and form values, never
-/// a password. A link, of any scheme, goes to [AIUIHosting.open], which
-/// decides which it opens. Queries, once the reply is written, and mutations
+/// a password. A web, email or phone link ([AIUILinks]) goes to
+/// [AIUIHosting.open], which decides whether it opens. Queries, once the reply is written, and mutations
 /// run as the host's tools; a reply's queries run and refresh only while it
 /// is on screen and the app is in the foreground.
 ///
