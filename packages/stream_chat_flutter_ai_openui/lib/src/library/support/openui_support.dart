@@ -125,8 +125,9 @@ String openUIImagesAsLinks(String text) {
     }
     if (line.trim().isEmpty) spansUnclear = false;
     // A `<` may start an HTML tag or autolink, which a backtick in it doesn't
-    // open a code span in.
-    final spans = !spansUnclear && !line.contains('<');
+    // open a code span in, and a `|` may split a table row into cells before
+    // its code spans are read.
+    final spans = !spansUnclear && !line.contains('<') && !line.contains('|');
     var position = 0;
     while (position < line.length) {
       final char = line[position];
@@ -147,8 +148,16 @@ String openUIImagesAsLinks(String text) {
           out.write(line.substring(position, close));
           position = close;
         }
-      } else if (char == '!' && position + 1 < line.length && line[position + 1] == '[') {
-        position++;
+      } else if (char == '!') {
+        var end = position;
+        while (end < line.length && line[end] == '!') {
+          end++;
+        }
+        // The image's own `!` is dropped, and each one before it escaped, so
+        // none of them starts an image once that one is gone.
+        final image = end < line.length && line[end] == '[';
+        out.write(image ? r'\!' * (end - position - 1) : line.substring(position, end));
+        position = end;
       } else {
         out.write(char);
         position++;
