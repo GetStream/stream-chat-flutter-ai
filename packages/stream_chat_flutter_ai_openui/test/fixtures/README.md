@@ -31,3 +31,14 @@ with:
 ```bash
 node -e 'for (const s of require("./to_number_inputs.json")) { const n = Number(s); console.log(JSON.stringify(s), "=>", Object.is(n, -0) ? "-0" : String(n)) }'
 ```
+
+The system prompt of the Stream agent backend's trip assistant (GetStream/Vision-Agents `accelerate` @ `4ff3a65a45`,
+`examples/voice_agents/swift_assistant/openui/`, unchanged), which its generator writes from the chat library and the
+app's components above:
+
+- `vision_agents_prompt.json` — what the generator is given (`prompt.json`): the chat components to keep, the
+  preamble, the notes on the app's components, the extra rules and the examples. Its `components` path,
+  `../app/SwiftAssistant/UIComponents.json`, is the file vendored here as `ohrid_app_components.json`, which is the same
+  at both commits.
+- `vision_agents_instructions.md` — the prompt it wrote (`instructions.md`), which
+  `test/src/core/library/vision_agents_instructions_test.dart` generates again and compares.
