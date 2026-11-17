@@ -11,6 +11,9 @@ import 'package:stream_chat_flutter_ai/src/genui/ai_ui_host.dart';
 /// these schemes allow and decides which of them it opens.
 abstract final class AIUILinks {
   /// The schemes a link may have: `http`, `https`, `mailto` and `tel`.
+  ///
+  /// The set may grow in later versions, so an app that opens links itself
+  /// should still check the ones it gets.
   static const schemes = {'http', 'https', 'mailto', 'tel'};
 
   /// Whether generated UI may hand [url] to the host: whether its scheme is
