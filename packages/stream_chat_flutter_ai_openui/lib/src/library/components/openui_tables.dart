@@ -5,9 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 import 'package:stream_core_flutter/core.dart';
@@ -213,15 +213,15 @@ class _Pager extends StatelessWidget {
       children: [
         button(
           rtl ? context.streamIcons.chevronRight : context.streamIcons.chevronLeft,
-          OpenUIStrings.previousPage,
+          OpenUITranslations.of(context).previousPage,
           page > 0 ? page - 1 : null,
         ),
         Semantics(
           container: true,
-          label: OpenUIStrings.pagePositionLabel(page + 1, pages),
+          label: OpenUITranslations.of(context).pagePositionLabel(page + 1, pages),
           excludeSemantics: true,
           child: Text(
-            OpenUIStrings.pagePosition(page + 1, pages),
+            OpenUITranslations.of(context).pagePosition(page + 1, pages),
             style: theme.caption.copyWith(
               color: theme.secondaryText,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -230,7 +230,7 @@ class _Pager extends StatelessWidget {
         ),
         button(
           rtl ? context.streamIcons.chevronLeft : context.streamIcons.chevronRight,
-          OpenUIStrings.nextPage,
+          OpenUITranslations.of(context).nextPage,
           page < pages - 1 ? page + 1 : null,
         ),
       ],
@@ -247,7 +247,7 @@ class _TableSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
     return Semantics(
-      label: OpenUIStrings.loading,
+      label: OpenUITranslations.of(context).loading,
       child: Column(
         spacing: theme.sSpacing,
         children: [
@@ -418,7 +418,7 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
         }),
     ]);
     runtime.setFieldValue(_name, _name, data, componentType: 'EditableTable');
-    unawaited(runtime.trigger(label: OpenUIStrings.saveChanges, formName: _name));
+    unawaited(runtime.trigger(label: OpenUITranslations.of(context).saveChanges, formName: _name));
     setState(() {
       _source = runtime.fieldValue(_name, _name);
       _baseline = [
@@ -512,7 +512,7 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
             children: [
               Expanded(
                 child: Text(
-                  OpenUIStrings.changes(changes),
+                  OpenUITranslations.of(context).changes(changes),
                   style: styles.caption.copyWith(color: colors.secondaryText),
                 ),
               ),
@@ -527,12 +527,12 @@ class _OpenUIEditableTableState extends State<_OpenUIEditableTable> {
                         ],
                       )
                     : null,
-                child: const Text(OpenUIStrings.reset),
+                child: Text(OpenUITranslations.of(context).reset),
               ),
               StreamButton(
                 size: StreamButtonSize.small,
                 onPressed: enabled ? _save : null,
-                child: const Text(OpenUIStrings.saveChanges),
+                child: Text(OpenUITranslations.of(context).saveChanges),
               ),
             ],
           ),

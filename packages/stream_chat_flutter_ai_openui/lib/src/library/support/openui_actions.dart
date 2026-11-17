@@ -8,6 +8,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_resolved_theme.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
@@ -53,7 +54,7 @@ class OpenUIFormValidation extends ChangeNotifier {
   final _fields = <String, (OpenUIValue?, OpenUIValue?, Object)>{};
   List<OpenUIFormField> _tree = const [];
   List<OpenUIRevealStep> _reveal = const [];
-  Map<String, String> _errors = const {};
+  Map<String, FormValidationError> _errors = const {};
 
   /// The fields of the form as the reply's component tree has them, which the
   /// form checks whether or not they are on screen, until a field that is on
@@ -64,7 +65,7 @@ class OpenUIFormValidation extends ChangeNotifier {
   void setFields(List<OpenUIFormField> fields) => _tree = fields;
 
   /// The error of the field [name], or `null` when it has none.
-  String? errorOf(String name) => _errors[name];
+  FormValidationError? errorOf(String name) => _errors[name];
 
   /// Checks the field [name] with [rules] when the form is checked; [binding]
   /// is its `value` prop, so a field bound to a `$variable` is checked with
@@ -83,7 +84,8 @@ class OpenUIFormValidation extends ChangeNotifier {
   /// whether it passes.
   bool validateField(String name, OpenUIValue? rules, OpenUIValue? binding) {
     final error = runtime.validate(formName, {name: rules}, bindings: {name: binding})[name];
-    _setErrors({..._errors}..update(name, (_) => error ?? '', ifAbsent: () => error ?? ''));
+    final errors = {..._errors}..remove(name);
+    _setErrors(error == null ? errors : (errors..[name] = error));
     return error == null;
   }
 
@@ -138,8 +140,7 @@ class OpenUIFormValidation extends ChangeNotifier {
     if (_errors.containsKey(name)) _setErrors({..._errors}..remove(name));
   }
 
-  void _setErrors(Map<String, String> errors) {
-    errors.removeWhere((_, error) => error.isEmpty);
+  void _setErrors(Map<String, FormValidationError> errors) {
     if (mapEquals(errors, _errors)) return;
     _errors = Map.unmodifiable(errors);
     notifyListeners();
@@ -305,4 +306,27 @@ class _OpenUIPressableState extends State<OpenUIPressable> {
       ),
     );
   }
+}
+
+/// What [error] says, in [translations].
+///
+/// The limit of a `min`, `max`, `minLength` or `maxLength` error is written
+/// with [translations]'s separators.
+///
+/// Internal to the package.
+@internal
+String openUIValidationMessage(OpenUITranslations translations, FormValidationError error) {
+  final limit = error.limit ?? 0;
+  return switch (error.code) {
+    FormValidationErrorCode.required => translations.validationRequired,
+    FormValidationErrorCode.requiredOption => translations.validationRequiredOption,
+    FormValidationErrorCode.email => translations.validationEmail,
+    FormValidationErrorCode.url => translations.validationUrl,
+    FormValidationErrorCode.numeric => translations.validationNumeric,
+    FormValidationErrorCode.min => translations.validationMin(limit),
+    FormValidationErrorCode.max => translations.validationMax(limit),
+    FormValidationErrorCode.minLength => translations.validationMinLength(limit.toInt()),
+    FormValidationErrorCode.maxLength => translations.validationMaxLength(limit.toInt()),
+    FormValidationErrorCode.pattern => translations.validationPattern,
+  };
 }

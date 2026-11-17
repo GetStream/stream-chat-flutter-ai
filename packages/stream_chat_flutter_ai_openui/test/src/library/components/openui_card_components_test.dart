@@ -127,7 +127,7 @@ void main() {
         expect(value.style!.color, theme.text);
         expect(find.text('5%'), findsOneWidget);
         expect(tester.widget<Text>(find.text('5%')).style!.color, theme.success);
-        expect(find.bySemanticsLabel('Up 5%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 5 percent'), findsOneWidget);
       });
 
       testWidgets('a trend that goes down is red, and one without a direction draws no badge', (tester) async {
@@ -137,25 +137,25 @@ void main() {
         );
 
         expect(tester.widget<Text>(find.text('2.5%')).style!.color, theme.error);
-        expect(find.bySemanticsLabel('Down 2.5%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Down 2.5 percent'), findsOneWidget);
         expect(find.text('5%'), findsNothing);
       });
 
-      testWidgets('a trend value shows up to 2 decimals with its thousands grouped', (tester) async {
+      testWidgets('a trend value shows up to 2 decimals', (tester) async {
         await draw(
           tester,
           'MetricIndicatorInline("1", "", {direction: "up", value: 1234.567}), '
           'MetricIndicatorInline("2", "", {direction: "up", value: 12.5})',
         );
 
-        expect(find.text('1,234.57%'), findsOneWidget);
+        expect(find.text('1234.57%'), findsOneWidget);
         expect(find.text('12.5%'), findsOneWidget);
       });
 
-      testWidgets('a trend value is read out with up to 6 decimals', (tester) async {
+      testWidgets('a trend value is read out with up to 2 decimals', (tester) async {
         await draw(tester, 'MetricIndicatorInline("1", "", {direction: "up", value: 1234.567})');
 
-        expect(find.bySemanticsLabel('Up 1,234.567%'), findsOneWidget);
+        expect(find.bySemanticsLabel('Up 1234.57 percent'), findsOneWidget);
       });
 
       testWidgets('a trend value that is a boolean reads as 1', (tester) async {

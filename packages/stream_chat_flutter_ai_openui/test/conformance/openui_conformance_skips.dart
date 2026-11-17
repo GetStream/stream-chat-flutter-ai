@@ -7,13 +7,6 @@
 /// The areas of the specification's fixtures this package runs.
 const specAreasRun = ['grammar', 'entry', 'errors', 'streaming', 'evaluation', 'actions', 'state', 'editing'];
 
-const _needsPatternMatcher =
-    "A `pattern` rule needs a regular expression matcher that can't freeze the app, which the package doesn't have yet.";
-
-/// Why the validation case with [rules] isn't run, or `null` when it is.
-String? specValidationSkipReason(Object? rules) =>
-    rules is Map<String, Object?> && rules.containsKey('pattern') ? _needsPatternMatcher : null;
-
 /// Why the second half of the specification's case [name], serializing the
 /// tree and reading it back, isn't run, or `null` when the case has none.
 String? specRoundtripSkipReason(String name) {

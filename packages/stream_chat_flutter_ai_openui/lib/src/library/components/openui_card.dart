@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_citations.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_strings.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
@@ -77,7 +77,7 @@ class _Sources extends StatelessWidget {
           child: ColoredBox(color: theme.border),
         ),
         Text(
-          OpenUIStrings.sourcesTitle,
+          OpenUITranslations.of(context).sourcesTitle,
           style: theme.caption.copyWith(fontWeight: FontWeight.w600, color: theme.secondaryText),
         ),
         SingleChildScrollView(
@@ -107,7 +107,9 @@ class _Source extends StatelessWidget {
     final url = source['url'] is String ? source['url']! as String : '';
     // Only a link the view can open is announced as one.
     final openable = OpenUIViewScope.of(context).openLink != null && openableOpenUILink(url) != null;
-    final title = source['title'] is String ? source['title']! as String : OpenUIStrings.untitledSource;
+    final title = source['title'] is String
+        ? source['title']! as String
+        : OpenUITranslations.of(context).untitledSource;
     final name = source['sourceName'] is String ? source['sourceName']! as String : '';
     final badge = openUIScaled(context, 18);
     return Semantics(
