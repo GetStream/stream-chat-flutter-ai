@@ -8,8 +8,8 @@
 - `OpenUILibrary.chat` and `OpenUILibrary.standard` with OpenUI's chat and standard components, drawing their content,
   data display, card, layout, list, table, form, button and chart components. Replace or remove components with
   `OpenUILibrary.replacing` and `removing`, and build your own with `OpenUIComponentBuilder`.
-- Images load only from links the agent writes out or the app's tools return, and any link the UI opens goes to the
-  host's `open`, which decides which links open.
+- Images load only from links contained in the agent's program or returned by the app's tools, and any link the UI
+  opens goes to the host's `open`, which decides which links open.
 - `OpenUITheme` and `OpenUIThemeData`, which default to the app's Stream theme and follow light and dark mode.
 - `OpenUIError`, `OpenUIErrorSource` and `OpenUIErrorCode`, given to the renderer's `onError`.
 - `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.

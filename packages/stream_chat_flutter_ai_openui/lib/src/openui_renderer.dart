@@ -89,9 +89,9 @@ final class OpenUIRenderer extends AIUIRenderer {
   /// The function that gives the URL each image loads from, or `null` to not
   /// load it. By default only web links load; see [webUrl].
   ///
-  /// It is called only for a link the reply's program writes out or one of
-  /// its tools returns: a link built from what the person types never loads,
-  /// whatever this gives.
+  /// It is called only for a link contained in the reply's program text or
+  /// returned by one of its tools: a link built from what the person types
+  /// never loads, whatever this gives.
   final OpenUIMediaUrl mediaUrl;
 
   /// The function that gets the problems with a reply's OpenUI, with the
@@ -113,8 +113,8 @@ final class OpenUIRenderer extends AIUIRenderer {
   /// `null` for any other, such as a `file` URL.
   ///
   /// A reply's images load only from what this gives unless the renderer is
-  /// given another `mediaUrl`, and in either case only from links the
-  /// program writes out or its tools return.
+  /// given another `mediaUrl`, and in either case only from links contained
+  /// in the program text or returned by its tools.
   static Uri? webUrl(Uri url) => openUIWebMediaUrl(url);
 
   /// OpenUI, the format of the replies this renderer shows.
