@@ -1,3 +1,4 @@
+// coverage:ignore-file
 /// The test interface: the tests' way into the OpenUI Lang core.
 ///
 /// Every public function here is `@internal` and `@visibleForTesting`. The

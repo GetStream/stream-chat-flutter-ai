@@ -93,54 +93,42 @@ void main() {
   });
 
   test('an invalid library action does nothing', () {
-    final action = _parse('root = Card("T", @Copy())').root!.props['subtitle']! as OpenUIExpression;
-
-    expect(action.node, AstCall('Action', [AstArray(const [])]));
+    expect(_expression('root = Card("T", @Copy())', 'subtitle'), AstCall('Action', [AstArray(const [])]));
   });
 
   test('a library action with an argument of the wrong type does nothing', () {
-    final action = _parse('root = Card("T", @Copy(3))').root!.props['subtitle']! as OpenUIExpression;
-
-    expect(action.node, AstCall('Action', [AstArray(const [])]));
+    expect(_expression('root = Card("T", @Copy(3))', 'subtitle'), AstCall('Action', [AstArray(const [])]));
   });
 
   test('a library action with an optional argument of the wrong type does nothing', () {
-    final action = _parse('root = Card("T", @Share("a", 3))').root!.props['subtitle']! as OpenUIExpression;
-
-    expect(action.node, AstCall('Action', [AstArray(const [])]));
+    expect(_expression('root = Card("T", @Share("a", 3))', 'subtitle'), AstCall('Action', [AstArray(const [])]));
   });
 
   test('a library function with an optional argument of the wrong type drops that argument', () {
-    final call = (_parse('root = Card(@Join("a", 3))').root!.props['title']! as OpenUIExpression).node as AstCall;
-
-    expect(call.mappedProps, {'text': const AstString('a')});
+    expect(_call('root = Card(@Join("a", 3))', 'title').mappedProps, {'text': const AstString('a')});
   });
 
   test('a library action with an extra argument still runs, the extra argument dropped', () {
-    final action = _parse('root = Card("T", @Copy("a", "b"))').root!.props['subtitle']! as OpenUIExpression;
-
-    expect((action.node as AstCall).mappedProps, {'text': const AstString('a')});
+    expect(_call('root = Card("T", @Copy("a", "b"))', 'subtitle').mappedProps, {'text': const AstString('a')});
   });
 
   test("a built-in's arguments are named but not checked", () {
-    final call =
-        (_parse('root = Card(@Count("not an array"))').root!.props['title']! as OpenUIExpression).node as AstCall;
-
-    expect(call.mappedProps, {'array': const AstString('not an array')});
+    expect(_call('root = Card(@Count("not an array"))', 'title').mappedProps, {
+      'array': const AstString('not an array'),
+    });
   });
 
   test("a named argument is the argument's own node", () {
-    final call =
-        (_parse('root = Card(@Count(items))\nitems = [1]').root!.props['title']! as OpenUIExpression).node as AstCall;
+    final call = _call('root = Card(@Count(items))\nitems = [1]', 'title');
 
     expect(call.mappedProps!['array'], same(call.args.single));
   });
 
   test("@Each's loop variable stays a reference in its template", () {
-    final call =
-        (_parse('root = Card(@Each(rows, "row", row.name))').root!.props['title']! as OpenUIExpression).node as AstCall;
-
-    expect(call.args.last, const AstMember(AstRef('row'), 'name'));
+    expect(
+      _call('root = Card(@Each(rows, "row", row.name))', 'title').args.last,
+      const AstMember(AstRef('row'), 'name'),
+    );
   });
 
   test("@Each's loop variable is not reported unresolved", () {
@@ -207,6 +195,146 @@ void main() {
     expect(children.items.single, OpenUIObject(const {'a': OpenUINumber(2)}));
   });
 
+  test('a reference inside a negation in a prop is replaced by its value', () {
+    expect(_expression('root = Card(!flag)\nflag = true', 'title'), const AstUnary('!', AstBool(true)));
+  });
+
+  test('a reference inside a ternary in a prop is replaced by its value', () {
+    expect(
+      _expression('root = Card(flag ? "a" : "b")\nflag = true', 'title'),
+      const AstTernary(AstBool(true), AstString('a'), AstString('b')),
+    );
+  });
+
+  test('a reference inside a field read in a prop is replaced by its value', () {
+    expect(
+      _expression('root = Card(user.name)\nuser = {name: "x"}', 'title'),
+      AstMember(AstObject(const [('name', AstString('x'))]), 'name'),
+    );
+  });
+
+  test('a reference inside an index read in a prop is replaced by its value', () {
+    expect(
+      _expression('root = Card(rows[0])\nrows = [1]', 'title'),
+      AstIndex(AstArray(const [AstNumber(1)]), const AstNumber(0)),
+    );
+  });
+
+  test('a reference inside an assignment in a prop is replaced by its value', () {
+    expect(_expression('root = Card(\$p = flag)\nflag = true', 'title'), const AstAssign(r'$p', AstBool(true)));
+  });
+
+  test("a reference inside a library call's negated argument is replaced by its value", () {
+    expect(
+      _call('root = Card(@Upper(!flag))\nflag = true', 'title').args.single,
+      const AstUnary('!', AstBool(true)),
+    );
+  });
+
+  test("a reference inside a library call's ternary argument is replaced by its value", () {
+    expect(
+      _call('root = Card(@Upper(flag ? "a" : "b"))\nflag = true', 'title').args.single,
+      const AstTernary(AstBool(true), AstString('a'), AstString('b')),
+    );
+  });
+
+  test("a reference inside a library call's field read argument is replaced by its value", () {
+    expect(
+      _call('root = Card(@Upper(user.name))\nuser = {name: "x"}', 'title').args.single,
+      AstMember(AstObject(const [('name', AstString('x'))]), 'name'),
+    );
+  });
+
+  test("a reference inside a library call's index read argument is replaced by its value", () {
+    expect(
+      _call('root = Card(@Upper(rows[0]))\nrows = [1]', 'title').args.single,
+      AstIndex(AstArray(const [AstNumber(1)]), const AstNumber(0)),
+    );
+  });
+
+  test("a reference inside a library call's assignment argument is replaced by its value", () {
+    expect(
+      _call('root = Card(@Upper(\$p = flag))\nflag = true', 'title').args.single,
+      const AstAssign(r'$p', AstBool(true)),
+    );
+  });
+
+  test('an unknown component in a ternary branch is reported', () {
+    expect(
+      _parse(r'root = Stack([$c ? Card("T") : Chart(1)])').meta.errors.single.code,
+      OpenUIErrorCode.unknownComponent,
+    );
+  });
+
+  test('an unknown component in a ternary branch is reported with the components available', () {
+    expect(
+      _parse(r'root = Stack([$c ? Card("T") : Chart(1)])').meta.errors.single.message,
+      'Unknown component "Chart" — not found in catalog or builtins. Available components: Stack, Card, Badge',
+    );
+  });
+
+  test('a library function missing a required argument is reported as missing-required', () {
+    expect(_parse('root = Card(@Upper())').meta.errors.single.code, OpenUIErrorCode.missingRequired);
+  });
+
+  test('a library function missing a required argument is reported with its signature', () {
+    expect(
+      _parse('root = Card(@Upper())').meta.errors.single.message,
+      'missing required field "/text" — signature: Upper(text*: string)',
+    );
+  });
+
+  test('a library function with a null required argument is reported as null-required', () {
+    expect(_parse('root = Card(@Upper(null))').meta.errors.single.code, OpenUIErrorCode.nullRequired);
+  });
+
+  for (final (kind, literal) in [('boolean', 'true'), ('object', '{a: 1}'), ('array', '[1]')]) {
+    test('a library function with $kind where it expects text is reported as a type mismatch', () {
+      expect(
+        _parse('root = Card(@Upper($literal))').meta.errors.single.message,
+        'field "/text" expects string but got $kind',
+      );
+    });
+  }
+
+  test('a library function drops the items of a list argument that do not match', () {
+    expect(_call('root = Card(@Total(5, ["a", 1]))', 'title').mappedProps!['tags'], AstArray(const [AstString('a')]));
+  });
+
+  test('a library function drops the fields of an object argument that do not match', () {
+    expect(_call('root = Card(@Total(5, ["a"], {a: 1}))', 'title').mappedProps!['opts'], AstObject(const []));
+  });
+
+  test('a call inside a negation in query arguments gets its arguments named', () {
+    final negation = _queryArgument('!@Count(rows)') as AstUnary;
+
+    expect((negation.operand as AstCall).mappedProps, {'array': const AstRef('rows')});
+  });
+
+  test('a call inside a ternary in query arguments gets its arguments named', () {
+    final ternary = _queryArgument('flag ? @Count(rows) : 0') as AstTernary;
+
+    expect((ternary.then as AstCall).mappedProps, {'array': const AstRef('rows')});
+  });
+
+  test('a call inside a field read in query arguments gets its arguments named', () {
+    final read = _queryArgument('@First(rows).name') as AstMember;
+
+    expect((read.object as AstCall).mappedProps, {'array': const AstRef('rows')});
+  });
+
+  test('a call inside an index read in query arguments gets its arguments named', () {
+    final read = _queryArgument('@First(rows)[0]') as AstIndex;
+
+    expect((read.object as AstCall).mappedProps, {'array': const AstRef('rows')});
+  });
+
+  test('a call inside an assignment in query arguments gets its arguments named', () {
+    final assignment = _queryArgument(r'$p = @Count(rows)') as AstAssign;
+
+    expect((assignment.value as AstCall).mappedProps, {'array': const AstRef('rows')});
+  });
+
   test('calls inside query arguments get their arguments named', () {
     final args = _parse('q = Query("t", {n: @Count(rows)}, {})\nroot = Card("T")').queryStatements.single.args!;
     final call = (args as AstObject).entries.single.$2 as AstCall;
@@ -245,6 +373,24 @@ final _schema = OpenUILibrarySchema.fromJsonSchema(const {
           'separator': {'type': 'string'},
         },
         'required': ['text'],
+      },
+    },
+    'Total': {
+      'params': {
+        'properties': {
+          'count': {'type': 'number'},
+          'tags': {
+            'type': 'array',
+            'items': {'type': 'string'},
+          },
+          'opts': {
+            'type': 'object',
+            'properties': {
+              'a': {'type': 'string'},
+            },
+          },
+        },
+        'required': ['count'],
       },
     },
     'Pad': {
@@ -286,3 +432,16 @@ final _schema = OpenUILibrarySchema.fromJsonSchema(const {
 }, root: 'Stack');
 
 ParseResult _parse(String text) => OpenUILangParser(_schema).parse(text);
+
+// The expression the prop `prop` of the root of `text` holds.
+AstNode _expression(String text, String prop) => (_parse(text).root!.props[prop]! as OpenUIExpression).node;
+
+// The expression `value` becomes as the one field of a query's arguments.
+AstNode _queryArgument(String value) {
+  final args = _parse('q = Query("t", {a: $value}, {})\nroot = Card("T")').queryStatements.single.args!;
+
+  return (args as AstObject).entries.single.$2;
+}
+
+// The call the prop `prop` of the root of `text` holds.
+AstCall _call(String text, String prop) => _expression(text, prop) as AstCall;

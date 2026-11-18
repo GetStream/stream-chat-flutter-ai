@@ -28,42 +28,97 @@ void main() {
     expect(_error(FormValidationErrorCode.min, 3), isNot(_error(FormValidationErrorCode.min, 4)));
   });
 
-  test('rules come as an object or a list of strings', () {
+  test('an error without a limit prints as its code', () {
+    expect(_error(FormValidationErrorCode.required).toString(), 'required');
+  });
+
+  test('an error with a limit prints it after its code', () {
+    expect(_error(FormValidationErrorCode.min, 3).toString(), 'min(3)');
+  });
+
+  test('rules with the same type and argument share a hashCode', () {
+    expect(
+      const ValidationRule('min', OpenUINumber(3)).hashCode,
+      const ValidationRule('min', OpenUINumber(3)).hashCode,
+    );
+  });
+
+  test('rules written as an object keep the ones that are on', () {
     expect(FormValidation.parse(_v({'required': true, 'email': false, 'minLength': 3, 'max': null})), [
       const ValidationRule('required'),
       const ValidationRule('minLength', OpenUINumber(3)),
     ]);
-    expect(FormValidation.parse(_v(['required', 'min:8', 'pattern:^a:b', 5])), [
+  });
+
+  test('rules written as a list of strings keep their arguments', () {
+    expect(FormValidation.parse(_v(['required', 'min:8', 'pattern:^a:b'])), [
       const ValidationRule('required'),
       const ValidationRule('min', OpenUINumber(8)),
       const ValidationRule('pattern', OpenUIString('^a:b')),
     ]);
   });
 
-  test('each rule gives its message', () {
-    expect(_check('', {'required': true}), const FormValidationError(FormValidationErrorCode.required));
-    expect(_check({'a': false}, {'required': true}), const FormValidationError(FormValidationErrorCode.requiredOption));
-    expect(_check('a b@c.d', {'email': true}), const FormValidationError(FormValidationErrorCode.email));
-    expect(_check('openui.com', {'url': true}), const FormValidationError(FormValidationErrorCode.url));
-    expect(_check('abc', {'numeric': true}), const FormValidationError(FormValidationErrorCode.numeric));
-    expect(_check('3', {'min': 5}), const FormValidationError(FormValidationErrorCode.min, 5));
-    expect(_check(9, {'max': 5}), const FormValidationError(FormValidationErrorCode.max, 5));
-    expect(_check('ab', {'minLength': 3}), const FormValidationError(FormValidationErrorCode.minLength, 3));
-    expect(_check('abcd', {'maxLength': 3}), const FormValidationError(FormValidationErrorCode.maxLength, 3));
+  test('a rule in a list that is not text is skipped', () {
+    expect(FormValidation.parse(_v(['required', 5])), [const ValidationRule('required')]);
   });
 
-  test('values that pass', () {
-    expect(_check('a@b.co', {'email': true}), isNull);
-    expect(_check('https://openui.com/x', {'url': true}), isNull);
-    expect(_check('12abc', {'numeric': true}), isNull);
-    expect(_check({'a': true}, {'required': true}), isNull);
-    expect(_check('5', {'min': 5, 'max': 5}), isNull);
-  });
+  for (final (behavior, value, rules, expected) in [
+    ('required fails an empty value', '', {'required': true}, FormValidationErrorCode.required),
+    (
+      'required fails a group of checkboxes with none ticked',
+      {'a': false},
+      {'required': true},
+      FormValidationErrorCode.requiredOption,
+    ),
+    ('email fails text that is not an address', 'a b@c.d', {'email': true}, FormValidationErrorCode.email),
+    ('url fails text with no scheme', 'openui.com', {'url': true}, FormValidationErrorCode.url),
+    ('numeric fails text that is not a number', 'abc', {'numeric': true}, FormValidationErrorCode.numeric),
+  ]) {
+    test(behavior, () {
+      expect(_check(value, rules), FormValidationError(expected));
+    });
+  }
 
-  test('a URL needs a scheme, not a host', () {
-    for (final url in ['mailto:a@b.co', 'tel:+15550100', 'urn:isbn:0451450523', 'file:///tmp/a.txt']) {
-      expect(_check(url, {'url': true}), isNull, reason: url);
-    }
+  for (final (behavior, value, rules, expected) in [
+    ('min fails a value below its limit', '3', {'min': 5}, _error(FormValidationErrorCode.min, 5)),
+    ('max fails a value above its limit', 9, {'max': 5}, _error(FormValidationErrorCode.max, 5)),
+    (
+      'minLength fails text shorter than its limit',
+      'ab',
+      {'minLength': 3},
+      _error(FormValidationErrorCode.minLength, 3),
+    ),
+    (
+      'maxLength fails text longer than its limit',
+      'abcd',
+      {'maxLength': 3},
+      _error(FormValidationErrorCode.maxLength, 3),
+    ),
+  ]) {
+    test(behavior, () {
+      expect(_check(value, rules), expected);
+    });
+  }
+
+  for (final (behavior, value, rules) in [
+    ('email passes an address', 'a@b.co', {'email': true}),
+    ('url passes a web address', 'https://openui.com/x', {'url': true}),
+    ('numeric passes text that starts with a number', '12abc', {'numeric': true}),
+    ('required passes a group of checkboxes with one ticked', {'a': true}, {'required': true}),
+    ('min and max pass a value equal to their limits', '5', {'min': 5, 'max': 5}),
+  ]) {
+    test(behavior, () {
+      expect(_check(value, rules), isNull);
+    });
+  }
+
+  for (final url in ['mailto:a@b.co', 'tel:+15550100', 'urn:isbn:0451450523', 'file:///tmp/a.txt']) {
+    test('a URL needs a scheme, not a host ($url)', () {
+      expect(_check(url, {'url': true}), isNull);
+    });
+  }
+
+  test('a relative URL fails', () {
     expect(_check('/relative/path', {'url': true}), const FormValidationError(FormValidationErrorCode.url));
   });
 
@@ -71,18 +126,21 @@ void main() {
     expect(_check('note:hello world', {'url': true}), isNull);
   });
 
-  test('a web URL needs a host and no whitespace', () {
-    for (final url in ['https://', 'http://', 'HTTPS://', 'https://a b.com', 'wss://', 'ftp://']) {
-      expect(_check(url, {'url': true}), const FormValidationError(FormValidationErrorCode.url), reason: url);
-    }
+  for (final url in ['https://', 'http://', 'HTTPS://', 'https://a b.com', 'wss://', 'ftp://']) {
+    test('a web URL needs a host and no whitespace ($url)', () {
+      expect(_check(url, {'url': true}), const FormValidationError(FormValidationErrorCode.url));
+    });
+  }
+
+  test('a web URL with a host passes', () {
     expect(_check('https://a.com/x', {'url': true}), isNull);
   });
 
-  test('every rule but required lets an empty value pass', () {
-    for (final empty in [null, '', <Object?>[], <String, Object?>{}]) {
+  for (final empty in [null, '', <Object?>[], <String, Object?>{}]) {
+    test('every rule but required lets an empty value pass ($empty)', () {
       expect(_check(empty, {'email': true, 'minLength': 3, 'numeric': true}), isNull);
-    }
-  });
+    });
+  }
 
   test('a minLength with a fraction is rounded up, as the check counts it', () {
     expect(_check('ab', {'minLength': 2.5}), const FormValidationError(FormValidationErrorCode.minLength, 3));
@@ -100,63 +158,71 @@ void main() {
     expect(_check('ab', ['maxLength:-Infinity']), isNull);
   });
 
-  test('the first failing rule gives the error, and unknown rules are skipped', () {
+  test('the first failing rule gives the error', () {
     expect(
-      _check('a', {'shout': true, 'minLength': 2, 'email': true}),
+      _check('a', {'minLength': 2, 'email': true}),
       const FormValidationError(FormValidationErrorCode.minLength, 2),
     );
   });
 
-  group('pattern', () {
-    test('passes a value it finds a match in', () {
-      expect(_check('AB123', {'pattern': r'^[A-Z]{2}\d{3}$'}), isNull);
-    });
-
-    test('fails a value it finds no match in', () {
-      expect(
-        _check('ab123', {'pattern': r'^[A-Z]{2}\d{3}$'}),
-        const FormValidationError(FormValidationErrorCode.pattern),
-      );
-    });
-
-    test('finds a match anywhere in the value', () {
-      expect(_check('xx42yy', {'pattern': r'\d+'}), isNull);
-    });
-
-    test('comes as a string rule too', () {
-      expect(_check('ab123', [r'pattern:^[a-z]+\d+$']), isNull);
-    });
-
-    test('lets an empty value through', () {
-      expect(_check('', {'pattern': r'^\d+$'}), isNull);
-    });
-
-    for (final (pattern, why) in [
-      ('(a', 'invalid'),
-      (r'(a)\1', 'unsupported'),
-      ('a{0,600}b{0,600}x', 'too large'),
-      (5, 'not a string'),
-    ]) {
-      test('lets any value through when the pattern is $why', () {
-        expect(_check('ab', {'pattern': pattern}), isNull);
-      });
-    }
-
-    test('fails a value longer than the input cap', () {
-      expect(_check('a' * 4096, {'pattern': 'a'}), isNull);
-      expect(_check('a' * 4097, {'pattern': 'a'}), const FormValidationError(FormValidationErrorCode.pattern));
-    });
-
-    test('decides a pattern that backtracks', () {
-      expect(
-        _check('${'a' * 4000}b', {'pattern': r'^(a+)+$'}),
-        const FormValidationError(FormValidationErrorCode.pattern),
-      );
-    });
+  test('an unknown rule is skipped', () {
+    expect(_check('a', {'shout': true}), isNull);
   });
 
-  test('a form field is checked by its value', () {
+  test('a pattern rule passes a value it finds a match in', () {
+    expect(_check('AB123', {'pattern': r'^[A-Z]{2}\d{3}$'}), isNull);
+  });
+
+  test('a pattern rule fails a value it finds no match in', () {
+    expect(
+      _check('ab123', {'pattern': r'^[A-Z]{2}\d{3}$'}),
+      const FormValidationError(FormValidationErrorCode.pattern),
+    );
+  });
+
+  test('a pattern rule finds a match anywhere in the value', () {
+    expect(_check('xx42yy', {'pattern': r'\d+'}), isNull);
+  });
+
+  test('a pattern rule comes as a string rule too', () {
+    expect(_check('ab123', [r'pattern:^[a-z]+\d+$']), isNull);
+  });
+
+  test('a pattern rule lets an empty value through', () {
+    expect(_check('', {'pattern': r'^\d+$'}), isNull);
+  });
+
+  for (final (pattern, why) in [
+    ('(a', 'invalid'),
+    (r'(a)\1', 'unsupported'),
+    ('a{0,600}b{0,600}x', 'too large'),
+    (5, 'not a string'),
+  ]) {
+    test('a pattern rule lets any value through when the pattern is $why', () {
+      expect(_check('ab', {'pattern': pattern}), isNull);
+    });
+  }
+
+  test('a pattern rule passes a value at the input cap', () {
+    expect(_check('a' * 4096, {'pattern': 'a'}), isNull);
+  });
+
+  test('a pattern rule fails a value longer than the input cap', () {
+    expect(_check('a' * 4097, {'pattern': 'a'}), const FormValidationError(FormValidationErrorCode.pattern));
+  });
+
+  test('a pattern rule decides a pattern that backtracks', () {
+    expect(
+      _check('${'a' * 4000}b', {'pattern': r'^(a+)+$'}),
+      const FormValidationError(FormValidationErrorCode.pattern),
+    );
+  });
+
+  test('a form field with an empty value is empty', () {
     expect(FormValidation.isEmpty(_v({'value': '', 'componentType': 'input'})), isTrue);
+  });
+
+  test('a form field with a value is not empty', () {
     expect(FormValidation.isEmpty(_v({'value': 'x'})), isFalse);
   });
 }
