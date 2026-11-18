@@ -18,7 +18,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart'
 // `removing` doesn't, so they are put back from the full chat library.
 void main() {
   test('the instructions are the ones the agent backend generated', () {
-    final expected = File('test/fixtures/vision_agents_instructions.md').readAsStringSync();
+    final expected = File('test/fixtures/agents_instructions.md').readAsStringSync();
 
     // The generator prints the prompt with a line break after it.
     expect('${_library().systemPrompt(_options())}\n', expected);
@@ -68,7 +68,7 @@ List<ParseResult> _exampleResults() {
 }
 
 Map<String, Object?> _config() {
-  return jsonDecode(File('test/fixtures/vision_agents_prompt.json').readAsStringSync()) as Map<String, Object?>;
+  return jsonDecode(File('test/fixtures/agents_prompt.json').readAsStringSync()) as Map<String, Object?>;
 }
 
 LibraryDefinition _library() {

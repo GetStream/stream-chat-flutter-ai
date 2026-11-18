@@ -1,5 +1,5 @@
-/// Values, expressions and parse results in the JSON form OpenUI's own
-/// TypeScript implementation gives them.
+/// Values and expressions in the JSON form OpenUI's own TypeScript
+/// implementation gives them.
 ///
 /// A call's mapped prop is usually the same node as one of its arguments.
 /// Written in full, as the TypeScript implementation writes it, the JSON
@@ -112,60 +112,5 @@ Map<String, Object?> astJson(AstNode node, {bool expandSharedArgs = false}) {
     AstMember(:final object, :final field) => {'k': 'Member', 'obj': recurse(object), 'field': field},
     AstIndex(:final object, :final index) => {'k': 'Index', 'obj': recurse(object), 'index': recurse(index)},
     AstAssign(:final target, :final value) => {'k': 'Assign', 'target': target, 'value': recurse(value)},
-  };
-}
-
-/// `result` as OpenUI's own parser gives it: `root`, `rootExpression` when
-/// set, `meta`, `stateDeclarations`, `queryStatements` and
-/// `mutationStatements`, with shared arguments written in full.
-///
-/// Its size can double with each level of calls nested in calls, so only the
-/// conformance tests write it.
-Map<String, Object?> parseResultJson(ParseResult result) {
-  final meta = result.meta;
-  Object? optional(AstNode? node) => node == null ? null : astJson(node, expandSharedArgs: true);
-  return {
-    'root': switch (result.root) {
-      final root? => elementJson(root, expandSharedArgs: true),
-      null => null,
-    },
-    if (result.rootExpression case final expression?) 'rootExpression': astJson(expression, expandSharedArgs: true),
-    'meta': {
-      'incomplete': meta.incomplete,
-      'unresolved': meta.unresolved,
-      'orphaned': meta.orphaned,
-      'statementCount': meta.statementCount,
-      'errors': [
-        for (final error in meta.errors)
-          {
-            'code': error.code as String,
-            'component': error.component,
-            'path': error.path,
-            'message': error.message,
-            if (error.statementId case final id?) 'statementId': id,
-            if (error.isWarning) 'severity': 'warning',
-          },
-      ],
-    },
-    'stateDeclarations': {
-      for (final MapEntry(:key, :value) in result.stateDeclarations.entries)
-        key: plainJson(value, expandSharedArgs: true),
-    },
-    'queryStatements': [
-      for (final query in result.queryStatements)
-        {
-          'statementId': query.statementId,
-          'toolAST': optional(query.tool),
-          'argsAST': optional(query.args),
-          'defaultsAST': optional(query.defaults),
-          'refreshAST': optional(query.refresh),
-          if (query.deps case final deps?) 'deps': deps,
-          'complete': query.complete,
-        },
-    ],
-    'mutationStatements': [
-      for (final mutation in result.mutationStatements)
-        {'statementId': mutation.statementId, 'toolAST': optional(mutation.tool), 'argsAST': optional(mutation.args)},
-    ],
   };
 }

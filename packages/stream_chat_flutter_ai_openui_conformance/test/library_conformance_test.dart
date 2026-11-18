@@ -9,7 +9,7 @@ import 'package:stream_chat_flutter_ai_openui/src/core/library/library_definitio
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_lang_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
 
-import '../src/core/library/spec_library.dart';
+import 'spec_library.dart';
 
 // The chat and standard libraries are the ones OpenUI's own implementation
 // defines: each component's signature and description, the groups, the JSON
@@ -200,7 +200,7 @@ ParseResult _parseExample(LibraryDefinition library, String example) {
 }
 
 Map<String, Object?> _spec(String file) {
-  return jsonDecode(File('test/conformance/generated/$file').readAsStringSync()) as Map<String, Object?>;
+  return jsonDecode(File('test/generated/$file').readAsStringSync()) as Map<String, Object?>;
 }
 
 Map<String, Object?> _defs(Object? schema) => (schema! as Map<String, Object?>)[r'$defs']! as Map<String, Object?>;

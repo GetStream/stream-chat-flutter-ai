@@ -6,8 +6,7 @@ specification. The component library definitions, their prompt examples and rule
 prompt text (lib/src/core/library) are derived from the @openuidev/react-ui and @openuidev/lang-core
 packages. The Flutter components (lib/src/library/components) follow the renderers of
 @openuidev/react-ui. The icon table maps lucide icon names (https://lucide.dev, ISC license)
-to the icons of the Stream design system; no lucide artwork is included. The conformance fixtures
-in test/conformance/upstream come from the OpenUI repository.
+to the icons of the Stream design system; no lucide artwork is included.
 OpenUI is distributed under the following license:
 
 --------------------------------------------------------------------------------

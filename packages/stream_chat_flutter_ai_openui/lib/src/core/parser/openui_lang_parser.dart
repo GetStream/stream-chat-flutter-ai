@@ -210,7 +210,6 @@ final class OpenUILangParser {
         stateDeclarations.putIfAbsent(name, () => OpenUINull.instance);
       }
     }
-    if (cache != null) cache.debugResolvedNodes += context.debugResolvedNodes;
 
     context.currentStatementId = entry?.id;
     final component = schema.root ?? '';

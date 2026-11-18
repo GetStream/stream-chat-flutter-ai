@@ -1,12 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/library/library_definition.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_action_event.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_error.dart';
 
-import '../../../conformance/openui_conformance.dart';
 import 'fake_timers.dart';
 import 'fake_tools.dart';
+import 'spec_runtime.dart';
 
 void main() {
   late FakeTools tools;
@@ -18,8 +19,8 @@ void main() {
     tools = FakeTools();
     timers = FakeTimers();
     runtime = OpenUIRuntime(
-      schema: conformanceLibraries()['spec']!,
-      isBindable: conformanceBindables('spec'),
+      schema: specSchema,
+      isBindable: specBindable,
       tools: tools,
       timer: timers.call,
     );
@@ -391,8 +392,8 @@ void main() {
         '\nroot = Stack([Input("n", "N", \$name)])';
 
     OpenUIRuntime restored(Map<String, Object?> initialState) => OpenUIRuntime(
-      schema: conformanceLibraries()['spec']!,
-      isBindable: conformanceBindables('spec'),
+      schema: specSchema,
+      isBindable: specBindable,
       initialState: initialState,
     );
 
@@ -432,8 +433,8 @@ void main() {
     test(r'restore() runs the queries that read a restored $variable', () async {
       final rebuilt =
           OpenUIRuntime(
-            schema: conformanceLibraries()['spec']!,
-            isBindable: conformanceBindables('spec'),
+            schema: specSchema,
+            isBindable: specBindable,
             tools: tools,
             timer: timers.call,
           )..update(
@@ -515,7 +516,7 @@ void main() {
       var calls = 0;
       final counting =
           OpenUIRuntime(
-            schema: conformanceLibraries()['spec']!,
+            schema: specSchema,
             functions: {
               'Upper': OpenUIFunction((args) {
                 calls += 1;
@@ -575,7 +576,7 @@ void main() {
     late OpenUIRuntime looping;
     var calls = 0;
     looping = OpenUIRuntime(
-      schema: conformanceLibraries()['spec']!,
+      schema: specSchema,
       functions: {
         'Upper': OpenUIFunction((args) {
           calls += 1;
@@ -608,6 +609,12 @@ void main() {
     expect(child(3), same(before[3]));
   });
 
+  test(r'an @Each template reads a $variable in a prop that takes no binding', () {
+    runtime.update('\$label = "hi"\nroot = Stack(@Each([1, 2], "x", Text(\$label)))', isStreaming: false);
+
+    expect([child(0).props['text'], child(1).props['text']], const [OpenUIString('hi'), OpenUIString('hi')]);
+  });
+
   test('children that are reordered, added or removed keep the identity of the statements they came from', () {
     runtime.update('a = Text("a")\nb = Text("b")\nc = Text("c")\nroot = Stack([a, b, c])', isStreaming: false);
     final [a, b, c] = [child(0), child(1), child(2)];
@@ -625,14 +632,20 @@ void main() {
   });
 
   test('evaluating any cut of a program never throws', () {
+    // The example programs of the built-in libraries, each read against its
+    // own library, cut at every twentieth of its length.
     final programs = [
-      for (final testCase in evaluatorCases()) testCase['input']! as String,
+      for (final library in [LibraryDefinition.chat, LibraryDefinition.standard])
+        for (final example in library.defaultPromptOptions.examples)
+          (library: library, program: example.split('\n').skip(1).join('\n').trim()),
     ];
-    for (final (index, program) in programs.indexed) {
-      final cut = program.substring(0, (program.length * ((index * 37) % 100) / 100).floor());
-      final fuzzed = OpenUIRuntime(schema: conformanceLibraries()['spec']!, isBindable: conformanceBindables('spec'));
-      expect(() => fuzzed.update(cut, isStreaming: index.isEven), returnsNormally, reason: cut);
-      fuzzed.dispose();
+    for (final (:library, :program) in programs) {
+      for (var step = 0; step <= 20; step += 1) {
+        final cut = program.substring(0, program.length * step ~/ 20);
+        final fuzzed = OpenUIRuntime(schema: library.schema, isBindable: library.isBindable);
+        expect(() => fuzzed.update(cut, isStreaming: step.isEven), returnsNormally, reason: cut);
+        fuzzed.dispose();
+      }
     }
   });
 

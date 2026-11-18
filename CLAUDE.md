@@ -59,12 +59,21 @@ packages/stream_chat_flutter_ai_a2ui/example # A2UI component gallery, publish_t
 packages/stream_chat_flutter_ai_a2ui_conformance/ # A2UI conformance suites (tests only), publish_to: none
 packages/stream_chat_flutter_ai_openui/      # the OpenUI renderer plugin, publish_to: none until released
 packages/stream_chat_flutter_ai_openui/example # OpenUI conversation and program gallery, publish_to: none
+packages/stream_chat_flutter_ai_openui_conformance/ # OpenUI conformance suites (tests only), publish_to: none
 ```
 
-The A2UI conformance suites live in their own private package so they don't ship with
-`stream_chat_flutter_ai_a2ui`. They reach the adapter through its test interface in
-`lib/src/core/a2ui_test_interface.dart`, the only test-only code in that package's `lib/`. Production
-classes never get test-only constructors, parameters or fields.
+Each generative UI package keeps its conformance suites in a private `<package>_conformance` package, so they
+don't ship to pub.dev: A2UI's reach the adapter through `lib/src/core/a2ui_test_interface.dart`, OpenUI's reach
+the core through `lib/src/core/openui_test_interface.dart`. These rules hold for both, and for any AI UI package
+added later:
+
+1. **No conformance in the production package.** Its `test/` holds no conformance data, cases or inputs (vendored
+   specs, fixtures, generated reference outputs) and no conformance harness; unit tests use the package's own
+   libraries and programs.
+2. **Conformance only in the `_conformance` package.** It holds the conformance suites, their data and their
+   harness, and no other tests.
+3. **The test interface is the conformance package's way in.** `<package>_test_interface.dart` is the one file in
+   `lib/` allowed to hold test-only code (see [Code style](#code-style)).
 
 The packages are versioned in lockstep — see [Releasing](#releasing). The CI and release tooling
 treat every `packages/*/` whose pubspec isn't `publish_to: none` as publishable.
@@ -174,6 +183,16 @@ workflows can't tag or publish a `+build` version.
 - Customers should `implement` `AITranslations` and `A2UITranslations`, not extend
   `DefaultAITranslations` or `DefaultA2UITranslations`, so a new string shows up as a compile error.
   Adding a string still isn't a breaking change: list it under `✅ Added`, not `💥 Breaking`.
+- **No test-only code in production classes.** Test-only code exists only to set up a test or to make an
+  assertion: a counter only assertions read, a debug constructor only tests call. It belongs in the test package;
+  needing it means the class under test isn't architected properly, so change its design instead. Code that is only
+  *exercised* by tests is not test-only: an API production doesn't call yet, a setting production leaves at its
+  default, a convenience factory, an injectable dependency (a timer, a logger) tests can swap. `@visibleForTesting`
+  is fine on a member production itself uses that is public only so tests can reach it. The one exception is a
+  generative UI package's `<package>_test_interface.dart`.
+- **Don't keep tests that count internal work**, such as how many times text is re-read or a node rebuilt. Such a
+  test can be written temporarily to verify an optimisation while it is being built, but it has no value outside
+  that PR, so it isn't committed.
 
 ## PR & commit conventions
 

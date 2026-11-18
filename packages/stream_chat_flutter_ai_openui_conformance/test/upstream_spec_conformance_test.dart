@@ -15,7 +15,7 @@ void main() {
 
   test('every area of the specification is run or skipped', () {
     final areas = [
-      for (final entry in Directory('test/conformance/upstream/spec/fixtures/1.0').listSync())
+      for (final entry in Directory('test/upstream/spec/fixtures/1.0').listSync())
         if (entry is Directory) entry.uri.pathSegments.lastWhere((segment) => segment.isNotEmpty),
     ];
 
@@ -26,7 +26,7 @@ void main() {
     final withErrorObjects = [
       for (final name in specCaseNames('streaming'))
         if (File(
-          'test/conformance/upstream/spec/fixtures/1.0/$name/expected.json',
+          'test/upstream/spec/fixtures/1.0/$name/expected.json',
         ).readAsStringSync().contains('"errorObjects"'))
           name,
     ];

@@ -48,11 +48,6 @@ final class MaterializationCache {
   /// from.
   final Map<String, ({int version, List<String> names})> stateReferences = {};
 
-  /// How many nodes were resolved afresh, not reused, over all passes.
-  ///
-  /// Only the tests read it.
-  int debugResolvedNodes = 0;
-
   /// Whether every statement in `reads` still has the version it was read
   /// with.
   bool isCurrent(List<StatementRead> reads) {

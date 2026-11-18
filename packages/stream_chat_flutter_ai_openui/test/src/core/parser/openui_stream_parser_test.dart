@@ -2,12 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_test_interface.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/ast.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_lang_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_stream_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/parser/upstream_shape.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 
 void main() {
   test('a statement whose line has not ended renders, closed', () {
@@ -123,17 +122,6 @@ void main() {
     });
   }
 
-  test('set with text that continues the previous text reads only what was added', () {
-    final parser = _parser();
-    const program = 'root = Stack([t])\nt = Text("a")\n';
-    parser.set(program);
-    final before = parser.debugPreparedCodeUnits;
-    parser.set('${program}u = Text("b")\n');
-
-    // Taking out fences and taking out comments each read it once.
-    expect(parser.debugPreparedCodeUnits - before, lessThanOrEqualTo(2 * 'u = Text("b")\n'.length));
-  });
-
   test('set with text that replaces the previous text starts over', () {
     final parser = _parser()..set('root = Stack([Text("a")])\nx = Text("q")\n');
     final result = parser.set('root = Stack([Text("b")])\n');
@@ -158,12 +146,11 @@ void main() {
     expect(pushed.result(), _parser().set(chunks.join()));
   });
 
-  test('result reads nothing new', () {
-    final parser = _parser()..set('root = Stack([Text("a")])\nt = Text("b")');
-    final read = (parser.debugPreparedCodeUnits, parser.debugScannedCodeUnits, parser.debugResolvedNodes);
-    parser.result();
+  test('result returns what set gave when nothing was added', () {
+    final parser = _parser();
+    final read = parser.set('root = Stack([Text("a")])\nt = Text("b")');
 
-    expect((parser.debugPreparedCodeUnits, parser.debugScannedCodeUnits, parser.debugResolvedNodes), read);
+    expect(parser.result(), same(read));
   });
 
   test(r'result at the end of the stream declares a `$name` ending the text', () {

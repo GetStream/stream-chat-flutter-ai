@@ -15,6 +15,7 @@ workspace:
   - packages/stream_chat_flutter_ai_a2ui_conformance
   - packages/stream_chat_flutter_ai_openui
   - packages/stream_chat_flutter_ai_openui/example
+  - packages/stream_chat_flutter_ai_openui_conformance
 
 dev_dependencies:
   melos: ^8.10.1

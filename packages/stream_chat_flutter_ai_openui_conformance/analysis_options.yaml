@@ -1,0 +1,16 @@
+# `dart analyze` resolves the whole pub workspace in one pass, so this package
+# is analyzed alongside the others. It holds tests only, not a published API.
+include: ../../analysis_options.yaml
+
+analyzer:
+  errors:
+    # The suites run the core's `@internal` types and the test interface of
+    # `stream_chat_flutter_ai_openui`, as that package's own tests do.
+    invalid_use_of_internal_member: ignore
+
+linter:
+  rules:
+    public_member_api_docs: false
+    # The suites import the core from `stream_chat_flutter_ai_openui`'s
+    # `lib/src/`.
+    implementation_imports: false

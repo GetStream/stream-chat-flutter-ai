@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/statement_merger.dart';
 
 // The cases of iOS's and Android's own merge tests, and of what the merge's
-// doc says; the specification's editing fixtures run in the conformance suite.
+// doc says; the specification's editing fixtures run in the OpenUI conformance package.
 const _original = '''
 root = Stack([header, tbl])
 header = CardHeader("Tickets")

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_conformance_seams.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_test_interface.dart';
 
 import 'openui_conformance_skips.dart';
 
@@ -12,7 +12,7 @@ part 'conformance_matching.dart';
 part 'conformance_spec.dart';
 
 // Runs the OpenUI Lang conformance fixtures against this package's core,
-// through the seams of `openui_conformance_seams.dart` only, so a replacement
+// through the test interface, `openui_test_interface.dart`, only, so a replacement
 // core passes the same suites.
 //
 // A case passes when what the core gives is what OpenUI's own implementation
@@ -133,7 +133,7 @@ void runParserStreamingConformance() {
   }
 }
 
-const _generated = 'test/conformance/generated';
+const _generated = 'test/generated';
 
 List<Map<String, Object?>> _parserCases() {
   final json = jsonDecode(File('$_generated/parser-conformance.json').readAsStringSync()) as List<Object?>;

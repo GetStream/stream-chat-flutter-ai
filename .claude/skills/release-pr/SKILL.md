@@ -204,8 +204,8 @@ Don't write fresh bullets from `git log`. An unreleased user-facing change that 
 is a gap to raise with the user, not one for this step to fill in.
 
 **A package's first release:** while a package that is meant to ship still has `publish_to: none` (and the
-comment above it) in its pubspec — today only `packages/stream_chat_flutter_ai_openui/pubspec.yaml`; the A2UI
-conformance package and the examples stay private — delete both lines in this same PR. Until then the package is
+comment above it) in its pubspec — today only `packages/stream_chat_flutter_ai_openui/pubspec.yaml`; the A2UI and
+OpenUI conformance packages and the examples stay private — delete both lines in this same PR. Until then the package is
 private, so `lint:pub`, `release:pub` and the release workflows skip it; from this release on it is published with
 the other packages. pub.dev can't create a package through automated publishing, so tell the user that
 `release_publish.yml` fails at the first newly public package, after core is published: a publisher member

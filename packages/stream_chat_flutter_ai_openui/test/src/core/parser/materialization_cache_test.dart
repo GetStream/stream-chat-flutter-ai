@@ -1,32 +1,18 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_library_schema.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_test_interface.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/materializer.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_lang_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/openui_stream_parser.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/parser/upstream_shape.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 
 // A stream parser reuses what statements resolved to between chunks. Each
 // test streams a program and checks that every step reads as a parser that
 // has read nothing before reads the same text, and that the end of the stream
 // reads as the whole text read at once, by a parser that keeps nothing.
 void main() {
-  test('reused statements read as fresh ones at every step of every parser fixture', () {
-    final cases = (jsonDecode(File(_parserFixtures).readAsStringSync()) as List<Object?>).cast<Map<String, Object?>>();
-    final differing = <String>[];
-    for (final testCase in cases) {
-      final schema = _libraries[testCase['library']]!;
-      final chunks = (testCase['chunks']! as List<Object?>).cast<String>();
-      if (_firstDifferingStep(schema, chunks) case final step?) differing.add('${testCase['name']} @ $step');
-    }
-
-    expect(differing, isEmpty);
-  });
-
   test('a statement edited while it arrives is resolved again', () {
     expect(_firstDifferingStep(_schema, _lines('root = Stack([t])\nt = Text("a', 'b")\n')), isNull);
   });
@@ -156,7 +142,6 @@ void main() {
   });
 }
 
-const _parserFixtures = 'test/conformance/generated/parser-conformance.json';
 const _budgetLevels = 13;
 const _budgetChunk = 40;
 const _chainLength = 200;
@@ -210,31 +195,6 @@ final _schema = OpenUILibrarySchema.fromJsonSchema(const {
     },
   },
 }, root: 'Stack');
-
-final _libraries = <String, OpenUILibrarySchema>{
-  // Two components, no root, as the parser fixtures' minimal library.
-  'mini': OpenUILibrarySchema.fromJsonSchema(const {
-    r'$defs': {
-      'Stack': {
-        'properties': {'children': <String, Object?>{}},
-        'required': ['children'],
-      },
-      'Title': {
-        'properties': {
-          'text': {'type': 'string'},
-        },
-        'required': ['text'],
-      },
-    },
-  }),
-  'chat': _spec('test/conformance/generated/upstream-chat-library.spec.json'),
-  'playground': _spec('test/conformance/generated/upstream-playground-library.spec.json'),
-  'spec': _spec('test/conformance/generated/spec-library.json'),
-};
-
-OpenUILibrarySchema _spec(String path) {
-  return OpenUILibrarySchema.fromSpec(jsonDecode(File(path).readAsStringSync()) as Map<String, Object?>);
-}
 
 // The first step at which streaming `chunks` reads differently from a parser
 // that has read nothing before, or the end of the stream from the whole text

@@ -159,7 +159,7 @@ List<String> specCaseNames(String area) {
   ];
 }
 
-const _specRoot = 'test/conformance/upstream/spec/fixtures/1.0';
+const _specRoot = 'test/upstream/spec/fixtures/1.0';
 
 // The program of a case: its `input.oui`, with its `patch.oui`, an edit-mode
 // answer, applied when it has one.

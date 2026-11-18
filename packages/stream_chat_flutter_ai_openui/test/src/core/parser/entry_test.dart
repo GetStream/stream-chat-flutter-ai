@@ -59,6 +59,10 @@ void main() {
     expect(_parse('\$dark = false\nroot = \$dark ? a : b\na = Text("a")\nb = Text("b")').rootExpression, isNotNull);
   });
 
+  test('a root expression that never gives a component is not kept as an expression', () {
+    expect(_parse(r'root = $x + 1').rootExpression, isNull);
+  });
+
   test('a root picked when evaluated reports no no-root', () {
     expect(_parse('\$dark = false\nroot = \$dark ? a : b\na = Text("a")\nb = Text("b")').meta.errors, isEmpty);
   });

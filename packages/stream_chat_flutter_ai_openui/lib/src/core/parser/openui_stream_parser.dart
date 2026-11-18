@@ -131,8 +131,6 @@ final class OpenUIStreamParser {
   // that later text can still drop are read again.
   var _scan = _ScanState(0);
 
-  var _debugScannedCodeUnits = 0;
-
   // The result at the end of the stream for the text read so far, kept until
   // more text arrives.
   ParseResult? _completeResult;
@@ -146,24 +144,6 @@ final class OpenUIStreamParser {
   // long it was, and its result. A statement finishing moves where the next
   // one starts, so a kept read never outlives its statement.
   ({int start, int length, ParseResult result})? _lastPendingRead;
-
-  /// How many code units preparing the text has read since this parser last
-  /// started over as if it had read nothing.
-  ///
-  /// Only the tests read it.
-  int get debugPreparedCodeUnits => _prepared.debugReadCodeUnits;
-
-  /// How many code units the search for finished statements has read since
-  /// the text they came from was last dropped.
-  ///
-  /// Only the tests read it.
-  int get debugScannedCodeUnits => _debugScannedCodeUnits;
-
-  /// How many nodes have been resolved afresh, rather than reused, since the
-  /// text the finished statements came from was last dropped.
-  ///
-  /// Only the tests read it.
-  int get debugResolvedNodes => _cache.debugResolvedNodes;
 
   /// Reads `fullText`, the whole program so far, and returns what it renders.
   ///
@@ -315,7 +295,6 @@ final class OpenUIStreamParser {
     _completedVersions.clear();
     _cache = MaterializationCache();
     _scan = _ScanState(0);
-    _debugScannedCodeUnits = 0;
   }
 
   // Prepares `text` from `start` on. The finished statements are read again
@@ -347,7 +326,6 @@ final class OpenUIStreamParser {
     while (position < end) {
       if (position == stable) resumeAt = state.copy()..position = position;
       final unit = text[position];
-      _debugScannedCodeUnits += 1;
       if (state.escaped) {
         state.escaped = false;
       } else if (unit == _backslash && state.quote != null) {

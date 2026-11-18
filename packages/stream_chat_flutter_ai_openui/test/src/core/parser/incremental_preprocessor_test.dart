@@ -93,16 +93,6 @@ void main() {
     expect(preprocessor.codeUnits.sublist(0, stable.length), stable);
   });
 
-  test('a long run of white space appended one code unit at a time is read a bounded number of times', () {
-    final preprocessor = IncrementalPreprocessor()..append('a = 1');
-    for (var index = 0; index < _lines * 20; index += 1) {
-      preprocessor.append(' ');
-    }
-
-    // Taking out fences and taking out comments each read a space once.
-    expect(preprocessor.debugReadCodeUnits, lessThanOrEqualTo(2 * ('a = 1'.length + _lines * 20)));
-  });
-
   test('an append that leaves the prepared text unchanged keeps its revision', () {
     final preprocessor = IncrementalPreprocessor()..append('a = 1');
     final revision = preprocessor.revision;
@@ -142,19 +132,6 @@ void main() {
 
     expect(preprocessor.revision, isNot(revision));
   });
-
-  test('preparing a text one code unit at a time reads each unit a bounded number of times', () {
-    final text = List.generate(_lines, (index) => 'line$index = Text("value $index") # note').join('\n');
-    final preprocessor = IncrementalPreprocessor();
-    for (final unit in text.codeUnits) {
-      preprocessor.append(String.fromCharCode(unit));
-    }
-
-    // Each unit is read by both stages, and its line again on every append
-    // that lands on it: the longest line bounds that.
-    final longestLine = text.split('\n').map((line) => line.length).reduce(max);
-    expect(preprocessor.debugReadCodeUnits, lessThanOrEqualTo(text.length * (2 + longestLine)));
-  });
 }
 
 // The pieces random texts are built from: fences and partial fences, quotes,
@@ -169,7 +146,6 @@ const _pieces = [
 const _seed = 0x9e3779b9;
 const _runs = 2000;
 const _maxPieces = 31;
-const _lines = 200;
 
 String _prepared(IncrementalPreprocessor preprocessor) {
   return String.fromCharCodes(preprocessor.codeUnits, 0, preprocessor.length);

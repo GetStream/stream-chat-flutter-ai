@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 
-import '../../../conformance/openui_conformance.dart';
 import 'fake_timers.dart';
 import 'fake_tools.dart';
+import 'spec_runtime.dart';
 
 OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
 
@@ -15,10 +15,10 @@ void main() {
   setUp(() {
     tools = FakeTools();
     runtime = OpenUIRuntime(
-      schema: conformanceLibraries()['spec']!,
-      isBindable: conformanceBindables('spec'),
-      tools: tools,
+      schema: specSchema,
+      isBindable: specBindable,
       timer: FakeTimers().call,
+      tools: tools,
     );
   });
 
