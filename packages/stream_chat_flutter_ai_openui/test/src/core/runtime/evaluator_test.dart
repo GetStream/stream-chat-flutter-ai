@@ -8,85 +8,6 @@ import 'package:stream_chat_flutter_ai_openui/src/core/runtime/evaluator.dart';
 
 import 'spec_runtime.dart';
 
-final _spec = specSchema;
-
-// Evaluates `program` with the spec library, its `Upper` function and its
-// bindable props.
-Map<String, Object?> _run(
-  String program, {
-  Map<String, Object?> state = const {},
-  Map<String, Object?> refs = const {},
-  OpenUILibrarySchema? schema,
-  Map<String, OpenUIFunction>? functions,
-}) {
-  return debugEvaluate(
-    schema ?? _spec,
-    program,
-    isBindable: specBindable,
-    state: state,
-    refs: refs,
-    functions: functions ?? specFunctions,
-  );
-}
-
-Map<String, Object?> _root(Map<String, Object?> result) => result['evaluatedRoot']! as Map<String, Object?>;
-
-Object? _prop(Map<String, Object?> element, List<Object> path) {
-  Object? current = element;
-  for (final step in path) {
-    current = switch ((current, step)) {
-      (final Map<String, Object?> map, final String key) => (map['props']! as Map<String, Object?>)[key],
-      (final List<Object?> list, final int index) => list[index],
-      _ => throw StateError('no $step in $current'),
-    };
-  }
-  return current;
-}
-
-// The values of `exprs`, a comma-separated list, as a column's data.
-List<Object?> _values(String exprs, {Map<String, Object?> state = const {}, Map<String, Object?> refs = const {}}) {
-  // Each ref is a query's result, so the program declares the query.
-  final queries = [for (final name in refs.keys) '$name = Query("tool", {}, null)'].join('\n');
-  final result = _run('root = Stack([Table([Col("v", [$exprs])])])\n$queries', state: state, refs: refs);
-  expect(result['runtimeErrors'], isEmpty);
-  return _prop(_root(result), ['children', 0, 'columns', 0, 'data'])! as List<Object?>;
-}
-
-// The value of the single expression `expr`.
-Object? _value(String expr, {Map<String, Object?> state = const {}, Map<String, Object?> refs = const {}}) {
-  return _values(expr, state: state, refs: refs).single;
-}
-
-// The setter expression the binding `$x = template` gets from the one item of
-// `items`, which `template` reads as `n`.
-Object? _setter(String template, {String items = '[3]', Map<String, Object?> refs = const {}}) {
-  final bindings = _value('@Each($items, "n", \$x = $template)', refs: refs)! as List<Object?>;
-  return (bindings.single! as Map<String, Object?>)['expr'];
-}
-
-// The runtime errors of a program whose loops build more than its budget allows.
-List<Object?> _overBudgetErrors() {
-  final result = _run(
-    'root = Stack([Table([Col("v", @Each(@Each([$_ten], "a", a), "b", '
-    '@Each([$_ten], "c", @Each([$_ten], "d", '
-    '@Each([$_ten], "e", @Each([$_ten], "f", f))))))])])',
-  );
-
-  return result['runtimeErrors']! as List<Object?>;
-}
-
-// Ten items to make a loop long, written as a list's contents.
-const _ten = '1, 2, 3, 4, 5, 6, 7, 8, 9, 10';
-
-// The input of a program that binds its value to `$p`, which holds 'hi'.
-Map<String, Object?> _boundInput() {
-  final root = _root(_run(r'root = Stack([Input("n", $p, $p)])', state: {r'$p': 'hi'}));
-  return _prop(root, ['children', 0])! as Map<String, Object?>;
-}
-
-// A binding of `$p` whose setter adds 1 to what was entered.
-OpenUIValue _marker() => ReactiveBinding.marker(r'$p', const AstBinary('+', AstStateRef(r'$value'), AstNumber(1)));
-
 void main() {
   test('dividing by zero gives 0', () {
     expect(_value('7 / 0'), 0);
@@ -726,3 +647,82 @@ void main() {
     expect(ReactiveBinding.targetOf(const OpenUIString('x')), isNull);
   });
 }
+
+final _spec = specSchema;
+
+// Evaluates `program` with the spec library, its `Upper` function and its
+// bindable props.
+Map<String, Object?> _run(
+  String program, {
+  Map<String, Object?> state = const {},
+  Map<String, Object?> refs = const {},
+  OpenUILibrarySchema? schema,
+  Map<String, OpenUIFunction>? functions,
+}) {
+  return debugEvaluate(
+    schema ?? _spec,
+    program,
+    isBindable: specBindable,
+    state: state,
+    refs: refs,
+    functions: functions ?? specFunctions,
+  );
+}
+
+Map<String, Object?> _root(Map<String, Object?> result) => result['evaluatedRoot']! as Map<String, Object?>;
+
+Object? _prop(Map<String, Object?> element, List<Object> path) {
+  Object? current = element;
+  for (final step in path) {
+    current = switch ((current, step)) {
+      (final Map<String, Object?> map, final String key) => (map['props']! as Map<String, Object?>)[key],
+      (final List<Object?> list, final int index) => list[index],
+      _ => throw StateError('no $step in $current'),
+    };
+  }
+  return current;
+}
+
+// The values of `exprs`, a comma-separated list, as a column's data.
+List<Object?> _values(String exprs, {Map<String, Object?> state = const {}, Map<String, Object?> refs = const {}}) {
+  // Each ref is a query's result, so the program declares the query.
+  final queries = [for (final name in refs.keys) '$name = Query("tool", {}, null)'].join('\n');
+  final result = _run('root = Stack([Table([Col("v", [$exprs])])])\n$queries', state: state, refs: refs);
+  expect(result['runtimeErrors'], isEmpty);
+  return _prop(_root(result), ['children', 0, 'columns', 0, 'data'])! as List<Object?>;
+}
+
+// The value of the single expression `expr`.
+Object? _value(String expr, {Map<String, Object?> state = const {}, Map<String, Object?> refs = const {}}) {
+  return _values(expr, state: state, refs: refs).single;
+}
+
+// The setter expression the binding `$x = template` gets from the one item of
+// `items`, which `template` reads as `n`.
+Object? _setter(String template, {String items = '[3]', Map<String, Object?> refs = const {}}) {
+  final bindings = _value('@Each($items, "n", \$x = $template)', refs: refs)! as List<Object?>;
+  return (bindings.single! as Map<String, Object?>)['expr'];
+}
+
+// The runtime errors of a program whose loops build more than its budget allows.
+List<Object?> _overBudgetErrors() {
+  final result = _run(
+    'root = Stack([Table([Col("v", @Each(@Each([$_ten], "a", a), "b", '
+    '@Each([$_ten], "c", @Each([$_ten], "d", '
+    '@Each([$_ten], "e", @Each([$_ten], "f", f))))))])])',
+  );
+
+  return result['runtimeErrors']! as List<Object?>;
+}
+
+// Ten items to make a loop long, written as a list's contents.
+const _ten = '1, 2, 3, 4, 5, 6, 7, 8, 9, 10';
+
+// The input of a program that binds its value to `$p`, which holds 'hi'.
+Map<String, Object?> _boundInput() {
+  final root = _root(_run(r'root = Stack([Input("n", $p, $p)])', state: {r'$p': 'hi'}));
+  return _prop(root, ['children', 0])! as Map<String, Object?>;
+}
+
+// A binding of `$p` whose setter adds 1 to what was entered.
+OpenUIValue _marker() => ReactiveBinding.marker(r'$p', const AstBinary('+', AstStateRef(r'$value'), AstNumber(1)));

@@ -17,6 +17,16 @@ definitions and the specification's interaction fixtures.
 The suites go through the core in `stream_chat_flutter_ai_openui`'s `lib/src/core/`, and, for the cases an app never
 reaches on its own, through its test interface in `lib/src/core/openui_test_interface.dart`.
 
+A case or area that isn't run is listed, with its reason, in
+[`test/openui_conformance_skips.dart`](test/openui_conformance_skips.dart); `upstream_spec_conformance_test.dart`
+fails if an area of the vendored specification is neither run nor skipped there.
+
+## Why the OpenUI package keeps its conformance tests
+
+The core is a port of `@openuidev/lang-core`, so these suites are its regression net: any change to the parser,
+evaluator or prompts is checked against what OpenUI's own implementation gives, and a replacement core has to pass
+the same suites.
+
 ## What is vendored
 
 - [`test/upstream`](test/upstream) — the OpenUI Lang 1.0 specification and its fixtures, unchanged, with their

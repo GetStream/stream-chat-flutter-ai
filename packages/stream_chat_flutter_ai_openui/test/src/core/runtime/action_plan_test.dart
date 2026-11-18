@@ -3,8 +3,6 @@ import 'package:stream_chat_flutter_ai_openui/src/core/parser/parse_result.dart'
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/action_plan.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 
-OpenUIObject _step(String type) => OpenUIObject({'type': OpenUIString(type)});
-
 void main() {
   test('flattening plans gives their steps in order', () {
     final first = ActionPlan.plan([_step('set')]);
@@ -35,3 +33,5 @@ void main() {
     expect(ActionPlan.stepsOf(ActionPlan.flatten([const OpenUIString('x'), const OpenUINumber(1)])), isEmpty);
   });
 }
+
+OpenUIObject _step(String type) => OpenUIObject({'type': OpenUIString(type)});

@@ -2,15 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/runtime/form_validation.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/values/openui_value.dart';
 
-OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
-
-FormValidationError? _check(Object? value, Object? rules) =>
-    FormValidation.validate(_v(value), FormValidation.parse(_v(rules)));
-
-// A new error each call, which `const FormValidationError(...)` with the same
-// arguments is not: those are one object.
-FormValidationError _error(FormValidationErrorCode code, [num? limit]) => FormValidationError(code, limit);
-
 void main() {
   test('errors with the same code and limit compare equal', () {
     expect(_error(FormValidationErrorCode.min, 3), _error(FormValidationErrorCode.min, 3));
@@ -226,3 +217,12 @@ void main() {
     expect(FormValidation.isEmpty(_v({'value': 'x'})), isFalse);
   });
 }
+
+OpenUIValue _v(Object? json) => OpenUIValue.fromJson(json);
+
+FormValidationError? _check(Object? value, Object? rules) =>
+    FormValidation.validate(_v(value), FormValidation.parse(_v(rules)));
+
+// A new error each call, which `const FormValidationError(...)` with the same
+// arguments is not: those are one object.
+FormValidationError _error(FormValidationErrorCode code, [num? limit]) => FormValidationError(code, limit);
