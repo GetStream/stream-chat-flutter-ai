@@ -1,4 +1,9 @@
+// This file is test-only code, used by the conformance suites in the private
+// `stream_chat_flutter_ai_openui_conformance` package. Coverage is measured for
+// each package alone and those suites don't count for this one, so the file
+// stays out of the coverage report.
 // coverage:ignore-file
+
 /// The test interface: the tests' way into the OpenUI Lang core.
 ///
 /// Every public function here is `@internal` and `@visibleForTesting`. The
