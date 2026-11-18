@@ -1,5 +1,7 @@
 part of 'a2ui_adapter.dart';
 
+// coverage:ignore-file
+
 // The test interface: the tests' way into the adapter and the A2UI core. It is
 // test-only, and the only test-only code in `lib/`; every public type and
 // function here is `@internal` and `@visibleForTesting`. The A2UI conformance
