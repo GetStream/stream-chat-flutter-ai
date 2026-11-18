@@ -1,5 +1,9 @@
 part of 'a2ui_adapter.dart';
 
+// This file is test-only code, used by the conformance suites in the private
+// `stream_chat_flutter_ai_a2ui_conformance` package. Coverage is measured for
+// each package alone and those suites don't count for this one, so the file
+// stays out of the coverage report.
 // coverage:ignore-file
 
 // The test interface: the tests' way into the adapter and the A2UI core. It is
