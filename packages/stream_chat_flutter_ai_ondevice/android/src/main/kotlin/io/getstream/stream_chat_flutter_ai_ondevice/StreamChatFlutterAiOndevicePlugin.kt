@@ -173,7 +173,9 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
                     val event = when (status) {
                         is DownloadStatus.DownloadStarted -> DownloadStarted(bytesToDownload = status.bytesToDownload)
                         is DownloadStatus.DownloadProgress -> DownloadProgress(bytesDownloaded = status.totalBytesDownloaded)
-                        is DownloadStatus.DownloadCompleted -> DownloadCompleted(done = true)
+                        // ML Kit reports a download completed even where AICore can't run the model,
+                        // such as on an emulator, so the status decides.
+                        is DownloadStatus.DownloadCompleted -> downloadEnded()
                         is DownloadStatus.DownloadFailed -> downloadFailed(status.e)
                         else -> null
                     }
