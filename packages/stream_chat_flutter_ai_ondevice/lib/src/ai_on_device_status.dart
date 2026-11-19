@@ -8,9 +8,15 @@ import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_model.dart';
 extension type const AIOnDeviceStatus._(String _) implements String {
   /// A device that can't run the model.
   ///
-  /// The device isn't supported, the system's AI is switched off, or the
-  /// platform has no on-device model.
+  /// The device isn't supported or the platform has no on-device model.
   static const unavailable = AIOnDeviceStatus._('unavailable');
+
+  /// A device that can run the model once the person turns the system's AI
+  /// on: Apple Intelligence, in Settings, on iOS and macOS.
+  ///
+  /// The status changes while the app is in the background, so check it
+  /// again when the app resumes.
+  static const notEnabled = AIOnDeviceStatus._('notEnabled');
 
   /// A model the device can run once it is downloaded.
   ///
@@ -27,5 +33,5 @@ extension type const AIOnDeviceStatus._(String _) implements String {
   static const available = AIOnDeviceStatus._('available');
 
   /// The statuses this version reports.
-  static const values = [unavailable, downloadable, downloading, available];
+  static const values = [unavailable, notEnabled, downloadable, downloading, available];
 }

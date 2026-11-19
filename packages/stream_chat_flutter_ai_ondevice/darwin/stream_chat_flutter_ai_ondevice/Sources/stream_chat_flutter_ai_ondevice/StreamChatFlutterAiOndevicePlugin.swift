@@ -151,6 +151,9 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
       case .unavailable(.modelNotReady):
         // The system is still getting the model ready, such as downloading it.
         return .downloading
+      case .unavailable(.appleIntelligenceNotEnabled):
+        // The person can turn it on in Settings.
+        return .notEnabled
       default:
         return .unavailable
       }

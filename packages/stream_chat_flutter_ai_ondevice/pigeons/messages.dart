@@ -9,8 +9,9 @@ import 'package:pigeon/pigeon.dart';
     dartPackageName: 'stream_chat_flutter_ai_ondevice',
   ),
 )
-/// Where the model is on this device.
-enum ModelStatusMessage { unavailable, downloadable, downloading, available }
+/// Where the model is on this device. New values go last: the channel sends
+/// the index.
+enum ModelStatusMessage { unavailable, downloadable, downloading, available, notEnabled }
 
 /// Who said a turn.
 enum TurnRoleMessage { user, assistant }

@@ -235,6 +235,7 @@ class MethodChannelAIOnDeviceModel extends AIOnDeviceModelPlatform {
     wire.ModelStatusMessage.downloadable => AIOnDeviceStatus.downloadable,
     wire.ModelStatusMessage.downloading => AIOnDeviceStatus.downloading,
     wire.ModelStatusMessage.available => AIOnDeviceStatus.available,
+    wire.ModelStatusMessage.notEnabled => AIOnDeviceStatus.notEnabled,
   };
 
   static wire.TurnRoleMessage _role(AIConversationRole role) => switch (role) {

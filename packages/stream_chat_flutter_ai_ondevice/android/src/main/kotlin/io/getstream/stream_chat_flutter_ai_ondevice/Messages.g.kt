@@ -192,12 +192,16 @@ class FlutterError (
   val details: Any? = null
 ) : RuntimeException()
 
-/** Where the model is on this device. */
+/**
+ * Where the model is on this device. New values go last: the channel sends
+ * the index.
+ */
 enum class ModelStatusMessage(val raw: Int) {
   UNAVAILABLE(0),
   DOWNLOADABLE(1),
   DOWNLOADING(2),
-  AVAILABLE(3);
+  AVAILABLE(3),
+  NOT_ENABLED(4);
 
   companion object {
     fun ofRaw(raw: Int): ModelStatusMessage? {

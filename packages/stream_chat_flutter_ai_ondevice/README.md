@@ -112,6 +112,8 @@ switch (await model.status()) {
     });
   case AIOnDeviceStatus.downloading:
     // This can take hours: the system may wait until the device is idle and on Wi-Fi.
+  case AIOnDeviceStatus.notEnabled:
+    // Apple Intelligence is off: the person can turn it on in Settings.
   default:
     // Unavailable: this device can't answer. New statuses may be added, so a switch needs a default.
 }

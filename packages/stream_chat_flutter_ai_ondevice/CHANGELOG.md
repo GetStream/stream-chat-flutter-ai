@@ -6,7 +6,7 @@
   Android through ML Kit's GenAI Prompt API, and Apple's Foundation Models on iOS 26 and macOS 26.
   It fits the conversation to the model's context, streams the whole answer so far and stops when
   the subscription is cancelled.
-- `AIOnDeviceModel.status()` and `AIOnDeviceStatus` (`unavailable`, `downloadable`, `downloading`,
+- `AIOnDeviceModel.status()` and `AIOnDeviceStatus` (`unavailable`, `notEnabled`, `downloadable`, `downloading`,
   `available`) — where the model is on this device.
 - `AIOnDeviceModel.download()` and `AIOnDeviceDownload` (`AIOnDeviceDownloadStarted`,
   `AIOnDeviceDownloadProgress`, `AIOnDeviceDownloadCompleted`, `AIOnDeviceDownloadFailed`) — download

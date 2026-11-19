@@ -184,12 +184,14 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 }
 
 
-/// Where the model is on this device.
+/// Where the model is on this device. New values go last: the channel sends
+/// the index.
 enum ModelStatusMessage: Int, CaseIterable {
   case unavailable = 0
   case downloadable = 1
   case downloading = 2
   case available = 3
+  case notEnabled = 4
 }
 
 /// Who said a turn.

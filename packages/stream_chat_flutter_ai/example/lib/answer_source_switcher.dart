@@ -9,7 +9,8 @@ import 'package:stream_core_flutter/core.dart';
 /// model on this device.
 ///
 /// The device button shows where the model is, as a badge: ready, downloadable,
-/// downloading (a ring that fills) or not on this device (disabled). Tapping it
+/// downloading (a ring that fills), turned off in Settings, or not on this
+/// device (disabled). Tapping it
 /// switches to the device when the model is ready, and offers to download it
 /// when it can be.
 class AnswerSourceSwitcher extends StatefulWidget {
@@ -124,6 +125,8 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
         unawaited(_confirmDownload());
       case AIOnDeviceStatus.downloading:
         _show('The on-device model is still downloading. The system may wait until the device is idle and on Wi-Fi.');
+      case AIOnDeviceStatus.notEnabled:
+        _show('Turn on Apple Intelligence in Settings to answer on this device.');
       default:
         break;
     }
@@ -143,6 +146,10 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
       AIOnDeviceStatus.available => ('Answer on this device', (colors.accentSuccess, icons.checkmark)),
       AIOnDeviceStatus.downloadable => ('Download the on-device model', (colors.accentPrimary, icons.arrowDown)),
       AIOnDeviceStatus.downloading => ('Downloading the on-device model', null),
+      AIOnDeviceStatus.notEnabled => (
+        'Turn on Apple Intelligence to answer on this device',
+        (colors.accentWarning, icons.exclamationMarkFill),
+      ),
       null => ('Checking for an on-device model', null),
       _ => (
         'No on-device model: it needs Gemini Nano (a recent flagship Android phone) or Apple Intelligence '
@@ -153,7 +160,8 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
     final enabled =
         status == AIOnDeviceStatus.available ||
         status == AIOnDeviceStatus.downloadable ||
-        status == AIOnDeviceStatus.downloading;
+        status == AIOnDeviceStatus.downloading ||
+        status == AIOnDeviceStatus.notEnabled;
 
     Widget device = Icon(deviceIcon);
     if (status == AIOnDeviceStatus.downloading) {

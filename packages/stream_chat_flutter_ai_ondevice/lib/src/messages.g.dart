@@ -94,12 +94,14 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-/// Where the model is on this device.
+/// Where the model is on this device. New values go last: the channel sends
+/// the index.
 enum ModelStatusMessage {
   unavailable,
   downloadable,
   downloading,
   available,
+  notEnabled,
 }
 
 /// Who said a turn.

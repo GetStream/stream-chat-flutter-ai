@@ -32,6 +32,12 @@ void main() {
     );
   });
 
+  test('modelInfo reports Apple Intelligence turned off as notEnabled', () async {
+    final channels = methodChannelPlatform();
+    channels.hostApi.info = wire.ModelInfoMessage(status: wire.ModelStatusMessage.notEnabled, contextSize: 4096);
+    expect((await channels.platform.modelInfo()).status, AIOnDeviceStatus.notEnabled);
+  });
+
   test('modelInfo on a platform without the plugin is unavailable', () async {
     final channels = methodChannelPlatform(isSupported: false);
     expect((await channels.platform.modelInfo()).status, AIOnDeviceStatus.unavailable);
