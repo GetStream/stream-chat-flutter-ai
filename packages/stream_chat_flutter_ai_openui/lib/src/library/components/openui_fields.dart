@@ -9,6 +9,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/components/openui_form
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_pickers.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -82,7 +83,7 @@ void validateOpenUIField(BuildContext context, OpenUIComponentScope scope) {
   final rules = scope.prop('rules');
   if (rules == null || rules is OpenUINull) return;
   // A password is never bound, so it is checked with what was typed.
-  final password = scope.type == 'Input' && scope.string('type') == 'password';
+  final password = openUIIsPasswordInput(scope.node);
   context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation.validateField(
     scope.text('name') ?? '',
     rules,
@@ -186,7 +187,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
   final _focus = FocusNode();
   bool _syncScheduled = false;
 
-  bool get _isPassword => !widget.multiline && widget.scope.string('type') == 'password';
+  bool get _isPassword => openUIIsPasswordInput(widget.scope.node);
 
   String get _name => widget.scope.text('name') ?? '';
 

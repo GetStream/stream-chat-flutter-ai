@@ -7,6 +7,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart'
     show OpenUIFormScope, OpenUIFormValidation, openUIActionChecksForm;
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart' show openUIIsPasswordInput;
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_json.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 

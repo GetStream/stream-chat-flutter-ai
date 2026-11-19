@@ -255,7 +255,7 @@ final class _NodeScope extends OpenUIComponentScope {
       binding: _prop(bindingProp ?? name),
       formName: _form?.formName,
       componentType: type,
-      isSecret: type == 'Input' && string('type') == 'password',
+      isSecret: openUIIsPasswordInput(_node),
     );
     return OpenUIStateField._(field);
   }

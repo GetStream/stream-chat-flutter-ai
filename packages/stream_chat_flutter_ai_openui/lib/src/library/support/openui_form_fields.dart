@@ -145,7 +145,7 @@ class _Collector {
         final value => JS.stringOf(value),
       };
       if (name.isEmpty) return;
-      final password = type == 'Input' && node.props['type'] == const OpenUIString('password');
+      final password = openUIIsPasswordInput(node);
       fields.add(
         OpenUIFormField(
           node: node,
@@ -205,4 +205,15 @@ OpenUIValue? openUIFieldDefault(OpenUIComponentScope scope) {
       return OpenUIArray([for (final value in values) OpenUIString(value)]);
   }
   return null;
+}
+
+/// Whether [node] is a password `Input`, one whose `type` is `password`.
+///
+/// Its value is kept secret: never bound to a `$variable`, left out of the
+/// form state an action sends, and checked with what was typed.
+///
+/// Internal to the package.
+@internal
+bool openUIIsPasswordInput(ElementNode node) {
+  return node.typeName == 'Input' && node.props['type'] == const OpenUIString('password');
 }
