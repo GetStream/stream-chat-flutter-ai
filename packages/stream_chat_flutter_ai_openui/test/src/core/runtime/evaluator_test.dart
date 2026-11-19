@@ -729,6 +729,26 @@ void main() {
     expect(Evaluator.evaluate(loop, other), OpenUIArray(const [OpenUINumber(2), OpenUINumber(2)]));
   });
 
+  test('items that hold the same list write it into their templates as one literal', () {
+    final list = OpenUIArray(const [OpenUINumber(1), OpenUINumber(2)]);
+    final rows = OpenUIArray([
+      OpenUIObject({'l': list}),
+      OpenUIObject({'l': list}),
+    ]);
+    final loop = AstCall('Each', const [
+      AstStateRef(r'$rows'),
+      AstString('x'),
+      AstAssign(r'$t', AstMember(AstRef('x'), 'l')),
+    ]);
+    final context = EvaluationContext(getState: (name) => name == r'$rows' ? rows : null, resolveRef: (_) => null);
+
+    final bindings = Evaluator.evaluate(loop, context)! as OpenUIArray;
+    final [first, second] = [for (final binding in bindings.items) ReactiveBinding.expressionOf(binding)];
+
+    expect(first, isA<AstArray>());
+    expect(second, same(first));
+  });
+
   test('a count of the rows past a computed threshold, read in each of 4,000 rows, renders every row', () {
     final result = _run(
       r'root = Stack(@Each($rows, "r", Text(r.v + " of " + @Count(@Filter($rows, "v", ">", 1 + 1)))))',
