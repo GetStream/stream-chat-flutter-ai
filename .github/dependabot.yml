@@ -43,7 +43,8 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     ignore:
-      # Pigeon 27.3.1 and later need a newer `meta` than Flutter 3.41, the
-      # oldest Flutter supported, pins. Lift this when that minimum moves.
+      # A new Pigeon major changes the generated Kotlin and Swift signatures
+      # (28 makes `@async` methods suspend/async), so it is bumped by hand with
+      # the on-device plugin's hosts.
       - dependency-name: "pigeon"
-        versions: [">=27.3.1"]
+        update-types: ["version-update:semver-major"]
