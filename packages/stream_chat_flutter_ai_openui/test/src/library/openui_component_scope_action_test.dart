@@ -55,6 +55,15 @@ void main() {
     });
   });
 
+  testWidgets('triggerAction without inForm runs outside the form the component is in', (tester) async {
+    final (_, events) = await _pump(tester, 'root = Stack([Form("f", Buttons([Button("Go")]), [])])', inForm: false);
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(events.single.formName, isNull);
+  });
+
   testWidgets('triggerAction runs nothing while the reply streams', (tester) async {
     final (_, events) = await _pump(tester, 'root = Stack([Button("Hello")])', isStreaming: true);
 
@@ -271,19 +280,21 @@ const _formWithRequiredField =
 
 // Pumps [program] with the standard library's `Button` drawn as its label,
 // which runs its action when tapped, checking the form first when [validate]
-// is `true`, with [tools] running its queries and mutations; gives the
-// runtime and the actions it sent.
+// is `true` and outside its form when [inForm] is `false`, with [tools]
+// running its queries and mutations; gives the runtime and the actions it
+// sent.
 Future<(OpenUIRuntime, List<OpenUIActionEvent>)> _pump(
   WidgetTester tester,
   String program, {
   bool isStreaming = false,
   bool validate = false,
+  bool inForm = true,
   FakeTools? tools,
 }) async {
   final library = OpenUILibrary.standard.replacing('Button', (context, scope) {
     final label = scope.text('label') ?? '';
     return GestureDetector(
-      onTap: () => scope.triggerAction(label, validate: validate),
+      onTap: () => scope.triggerAction(label, validate: validate, inForm: inForm),
       child: Text(label),
     );
   });

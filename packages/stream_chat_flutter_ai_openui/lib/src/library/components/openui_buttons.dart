@@ -77,9 +77,7 @@ Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
                 borderRadius: BorderRadius.circular(OpenUIViewScope.of(context).theme.smallCornerRadius),
               ),
       ),
-      onPressed: scope.isStreaming
-          ? null
-          : () => triggerOpenUIAction(context, scope, label: name, action: scope.prop('action')),
+      onPressed: scope.isStreaming ? null : () => unawaited(scope.triggerAction(name)),
     ),
   );
 }

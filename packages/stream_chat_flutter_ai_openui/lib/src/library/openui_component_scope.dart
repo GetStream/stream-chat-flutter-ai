@@ -17,7 +17,10 @@ part 'openui_node_view.dart';
 ///
 /// The props are evaluated: a prop the agent wrote as an expression, such as
 /// one reading the reply's state, reads its current value, and the component
-/// is built again when that value changes.
+/// is built again when that value changes. A prop the agent bound to a
+/// `$variable`, such as a field's `value`, reads as `null` with [value] and
+/// the other readers of a prop's value; it is read and written with
+/// [stateField].
 ///
 /// A component placed in a prop, such as each of a card's `children`, is
 /// reached with [children] and [child], and drawn with [build]. A component a
@@ -58,8 +61,8 @@ abstract base class OpenUIComponentScope {
   /// `null`. A component placed in the prop, such as each of a card's
   /// `children`, reads as `null`; reach it with [children] or [child], or
   /// draw the whole prop with [buildProp]. A prop the agent bound to a
-  /// `$variable`, such as a field's `value`, is read and written with
-  /// [stateField].
+  /// `$variable`, such as a field's `value`, reads as `null`; read and write
+  /// it with [stateField].
   Object? value(String name);
 
   /// The prop [name] as the program gives it, expressions and components
@@ -198,18 +201,20 @@ abstract base class OpenUIComponentScope {
   /// sending a message. A prop that holds no action continues the
   /// conversation with [label], as a button without an action does. The
   /// action runs with, and sends, the state of the form this component is
-  /// in, if any.
+  /// in, if any, unless [inForm] is `false`, as for a list's rows, which
+  /// don't belong to the form around them.
   ///
   /// With [validate], the form this component is in is checked first, as the
   /// package's primary `Button` checks it, and nothing runs while a field
-  /// fails; the fields show their errors. Nothing is checked outside a form,
+  /// fails; the fields show their errors. Nothing is checked outside a form
+  /// or without [inForm],
   /// once the form has left the tree, or for an action whose steps neither
   /// send a message to the assistant nor run a mutation, such as `@Set`
   /// steps alone.
   ///
   /// Nothing runs while the reply is still streaming; see [isStreaming].
   /// Completes once the action has run, or at once when nothing runs.
-  Future<void> triggerAction(String label, {String name = 'action', bool validate = false});
+  Future<void> triggerAction(String label, {String name = 'action', bool validate = false, bool inForm = true});
 
   /// The component this scope is of.
   ///
@@ -236,13 +241,9 @@ abstract base class OpenUIComponentScope {
 /// the same across such changes; see [key].
 @immutable
 final class OpenUIChild {
-  const OpenUIChild._(this.node, this.key);
+  const OpenUIChild._(this._node, this.key);
 
-  /// The component.
-  ///
-  /// Internal to the package.
-  @internal
-  final ElementNode node;
+  final ElementNode _node;
 
   /// A string that tells this child apart from the other children of the
   /// same prop, such as for a widget's `ValueKey(child.key)`.
@@ -257,20 +258,26 @@ final class OpenUIChild {
   final String key;
 
   /// The type of the component, such as `CardHeader`.
-  String get type => node.typeName;
+  String get type => _node.typeName;
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is OpenUIChild && identical(other.node, node) && other.key == key;
+    return other is OpenUIChild && identical(other._node, _node) && other.key == key;
   }
 
   @override
-  int get hashCode => Object.hash(identityHashCode(node), key);
+  int get hashCode => Object.hash(identityHashCode(_node), key);
 
   @override
   String toString() => '${objectRuntimeType(this, 'OpenUIChild')}(type: $type, key: $key)';
 }
+
+/// The component [child] is.
+///
+/// Internal to the package.
+@internal
+ElementNode openUINodeOf(OpenUIChild child) => child._node;
 
 /// A state field a component shows and writes; see
 /// [OpenUIComponentScope.stateField].

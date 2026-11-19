@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
@@ -108,13 +110,9 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
       ),
     );
     if (!hasAction) return content;
-    return Builder(
-      builder: (context) => OpenUIPressable(
-        onTap: scope.isStreaming
-            ? null
-            : () => triggerOpenUIAction(context, scope, label: title, action: action, inForm: false),
-        child: content,
-      ),
+    return OpenUIPressable(
+      onTap: scope.isStreaming ? null : () => unawaited(item.triggerAction(title, inForm: false)),
+      child: content,
     );
   }
 
@@ -154,9 +152,10 @@ Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope
           ),
         Builder(
           builder: (context) {
-            final text = scope.scopeOf(node).text('text') ?? '';
+            final item = scope.scopeOf(node);
+            final text = item.text('text') ?? '';
             return OpenUIPressable(
-              onTap: scope.isStreaming ? null : () => triggerOpenUIAction(context, scope, label: text, inForm: false),
+              onTap: scope.isStreaming ? null : () => unawaited(item.triggerAction(text, inForm: false)),
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: theme.sSpacing + 2),
                 child: Row(

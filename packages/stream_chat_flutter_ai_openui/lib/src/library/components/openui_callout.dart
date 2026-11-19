@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -26,13 +27,12 @@ Widget buildOpenUICallout(BuildContext context, OpenUIComponentScope scope) {
             _ => false,
           }
         : scope.boolean('visible') != false;
-    final binding = scope.value('visible');
     return _Callout(
       field: field,
       visible: visible,
       // The variable the callout is bound to, so another one starts its own 3
       // seconds.
-      target: binding is Map ? binding['target'] : null,
+      target: ReactiveBinding.targetOf(scope.prop('visible')),
       variant: scope.string('variant') ?? 'info',
       title: scope.text('title') ?? '',
       description: scope.text('description') ?? '',

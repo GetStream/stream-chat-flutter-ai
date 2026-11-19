@@ -35,8 +35,7 @@ bool _stepChecksForm(OpenUIValue step) {
 /// Runs [action], the action of the control labelled [label] that [scope]
 /// draws, unless the reply is still streaming.
 ///
-/// The action runs in the form the control is in, if any, unless [inForm] is
-/// `false`.
+/// The action runs in the form the control is in, if any.
 ///
 /// Internal to the package.
 @internal
@@ -45,11 +44,10 @@ void triggerOpenUIAction(
   OpenUIComponentScope scope, {
   required String label,
   OpenUIValue? action,
-  bool inForm = true,
 }) {
   if (scope.isStreaming) return;
   final runtime = context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime;
-  final formName = inForm ? context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName : null;
+  final formName = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName;
   unawaited(runtime.trigger(label: label, formName: formName, action: action));
 }
 

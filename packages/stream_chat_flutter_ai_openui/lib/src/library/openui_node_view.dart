@@ -154,6 +154,13 @@ final class _NodeScope extends OpenUIComponentScope {
 
   OpenUIValue? _prop(String name) => _node.props[name];
 
+  // The prop [name] as its readers read it: one bound to a `$variable` reads
+  // as `null`, as [stateField] reads and writes it.
+  OpenUIValue? _read(String name) {
+    final value = _prop(name);
+    return ReactiveBinding.targetOf(value) == null ? value : null;
+  }
+
   @override
   ElementNode get node => _node;
 
@@ -164,26 +171,26 @@ final class _NodeScope extends OpenUIComponentScope {
   bool get isStreaming => _view.isStreaming;
 
   @override
-  Object? value(String name) => openUIJson(_prop(name));
+  Object? value(String name) => openUIJson(_read(name));
 
   @override
   OpenUIValue? prop(String name) => _prop(name);
 
   @override
-  String? string(String name) => switch (_prop(name)) {
+  String? string(String name) => switch (_read(name)) {
     OpenUIString(:final value) => value,
     _ => null,
   };
 
   @override
   String? text(String name) {
-    final value = _prop(name);
+    final value = _read(name);
     return JS.isNullish(value) ? null : JS.stringOf(value);
   }
 
   @override
   double? number(String name) {
-    final number = switch (_prop(name)) {
+    final number = switch (_read(name)) {
       OpenUINumber(:final value) => value,
       // An empty string is no number, though JavaScript reads it as 0.
       OpenUIString(:final value) when JS.trim(value).isNotEmpty => JS.stringToNumber(value),
@@ -193,7 +200,7 @@ final class _NodeScope extends OpenUIComponentScope {
   }
 
   @override
-  bool? boolean(String name) => switch (_prop(name)) {
+  bool? boolean(String name) => switch (_read(name)) {
     OpenUIBool(:final value) => value,
     OpenUIString(value: 'true') => true,
     OpenUIString(value: 'false') => false,
@@ -207,7 +214,7 @@ final class _NodeScope extends OpenUIComponentScope {
   List<double> numberList(String name) => [for (final item in _items(name)) JS.toNumber(item)];
 
   // The prop [name] as a list: see [stringList].
-  List<OpenUIValue> _items(String name) => switch (_prop(name)) {
+  List<OpenUIValue> _items(String name) => switch (_read(name)) {
     OpenUIArray(:final items) => items,
     null || OpenUINull() => const [],
     final value => [value],
@@ -232,14 +239,14 @@ final class _NodeScope extends OpenUIComponentScope {
         if (value is OpenUIElement) key,
     ];
     final child = openUIChildrenOf(fields.values)[names.indexOf(field)];
-    return child.node.statementId == null ? OpenUIChild._(child.node, field) : child;
+    return child._node.statementId == null ? OpenUIChild._(child._node, field) : child;
   }
 
   @override
-  Widget build(OpenUIChild child) => OpenUINodeView(node: child.node);
+  Widget build(OpenUIChild child) => OpenUINodeView(node: child._node);
 
   @override
-  OpenUIComponentScope scopeOf(OpenUIChild child) => _NodeScope(child.node, _view, _form);
+  OpenUIComponentScope scopeOf(OpenUIChild child) => _NodeScope(child._node, _view, _form);
 
   @override
   OpenUIStateField stateField(String name, {String? bindingProp}) {
@@ -259,10 +266,15 @@ final class _NodeScope extends OpenUIComponentScope {
   }
 
   @override
-  Future<void> triggerAction(String label, {String name = 'action', bool validate = false}) async {
+  Future<void> triggerAction(
+    String label, {
+    String name = 'action',
+    bool validate = false,
+    bool inForm = true,
+  }) async {
     if (isStreaming) return;
     final action = _prop(name);
-    final form = _form;
+    final form = inForm ? _form : null;
     if (validate && !_mayRun(form, action)) return;
     await _view.runtime.trigger(label: label, formName: form?.formName, action: action);
   }

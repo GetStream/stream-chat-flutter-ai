@@ -130,6 +130,24 @@ void main() {
     expect(find.text('pw: null unbound'), findsOneWidget);
   });
 
+  testWidgets('value reads a prop bound to a variable as null', (tester) async {
+    final scope = await _scopeOfBoundInput(tester);
+
+    expect(scope.value('value'), isNull);
+  });
+
+  testWidgets('text reads a prop bound to a variable as null', (tester) async {
+    final scope = await _scopeOfBoundInput(tester);
+
+    expect(scope.text('value'), isNull);
+  });
+
+  testWidgets('stringList reads a prop bound to a variable as an empty list', (tester) async {
+    final scope = await _scopeOfBoundInput(tester);
+
+    expect(scope.stringList('value'), isEmpty);
+  });
+
   testWidgets('OpenUIStateField.set writes JSON', (tester) async {
     late OpenUIStateField field;
     final library = OpenUILibrary.standard.replacing('Input', (context, scope) {
@@ -193,4 +211,15 @@ Future<OpenUIRuntime> _pump(WidgetTester tester, String program, {OpenUILibrary?
   addTearDown(runtime.dispose);
   await pumpOpenUI(tester, runtime, library: drawn, program: program);
   return runtime;
+}
+
+// The scope of an `Input` whose `value` is bound to `$q`, which holds `hi`.
+Future<OpenUIComponentScope> _scopeOfBoundInput(WidgetTester tester) async {
+  late OpenUIComponentScope captured;
+  final library = OpenUILibrary.standard.replacing('Input', (context, scope) {
+    captured = scope;
+    return const SizedBox();
+  });
+  await _pump(tester, '\$q = "hi"\nroot = Stack([Input("n", "", "text", null, \$q)])', library: library);
+  return captured;
 }

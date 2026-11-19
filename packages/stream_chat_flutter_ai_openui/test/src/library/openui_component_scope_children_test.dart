@@ -155,6 +155,16 @@ void main() {
     expect(second.map((child) => child.hashCode), first.map((child) => child.hashCode));
   });
 
+  testWidgets("a child's toString gives its type and key", (tester) async {
+    late OpenUIChild child;
+    await _pumpCard(tester, 'root = Card([b])\nb = TextContent("B")', (context, scope) {
+      child = scope.child('children')!;
+      return const SizedBox();
+    });
+
+    expect(child.toString(), r'OpenUIChild(type: TextContent, key: $b)');
+  });
+
   testWidgets('child gives the first component of a prop', (tester) async {
     late OpenUIChild? child;
     await _pumpCard(tester, 'root = Card([CardHeader("A"), TextContent("B")])', (context, scope) {

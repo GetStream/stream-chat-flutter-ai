@@ -225,8 +225,8 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
     (context, item) {
       final spacing = OpenUIViewScope.of(context).theme.mSpacing;
       final header = item.element('header');
-      final footerPrice = item.scope.child('footer', field: 'price')?.node;
-      final footerButton = item.scope.child('footer', field: 'button')?.node;
+      final footerPrice = _nodeOf(item.scope.child('footer', field: 'price'));
+      final footerButton = _nodeOf(item.scope.child('footer', field: 'button'));
       final hasFooter = item.scope.value('footer') is Map;
       return _Surface(
         child: Column(
@@ -235,7 +235,7 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
           children: [
             if (header != null) item.scope.buildNode(header),
             for (final child in item.scope.children('body'))
-              item.scope.buildNode(normalizeOpenUICompositeProps(child.node, footer: false)),
+              item.scope.buildNode(normalizeOpenUICompositeProps(openUINodeOf(child), footer: false)),
             const Spacer(),
             if (hasFooter)
               Row(
@@ -400,7 +400,7 @@ class _Item {
 
   final OpenUIComponentScope scope;
 
-  ElementNode? element(String name) => scope.child(name)?.node;
+  ElementNode? element(String name) => _nodeOf(scope.child(name));
 
   // The prop [field] of the component in the prop [name].
   OpenUIValue? sub(String name, String field) => element(name)?.props[field];
@@ -533,7 +533,7 @@ Widget _block(
       Builder(
         builder: (context) {
           final item = _Item(scope.scopeOf(child));
-          final card = _guarded(child.node, () => build(context, item));
+          final card = _guarded(openUINodeOf(child), () => build(context, item));
           if (!tappable) return card;
           return OpenUIPressable(
             onTap: scope.isStreaming
@@ -614,3 +614,6 @@ class _Surface extends StatelessWidget {
     );
   }
 }
+
+// The component [child] is, or `null` without one.
+ElementNode? _nodeOf(OpenUIChild? child) => child == null ? null : openUINodeOf(child);
