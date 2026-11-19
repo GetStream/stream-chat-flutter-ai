@@ -46,7 +46,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
   final spacing = OpenUIViewScope.of(context).theme.sSpacing;
-  final buttons = openUIChildWidgets(context, scope, scope.elements('buttons'));
+  final buttons = openUIChildWidgets(context, scope, scope.children('buttons'));
   if (buttons.isEmpty) return const SizedBox.shrink();
   if (scope.string('direction') == 'column') {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: spacing, children: buttons);
@@ -66,13 +66,11 @@ Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
   final name = scope.text('name') ?? '';
-  final icon = scope.elements('icon').firstOrNull;
-  final iconName = icon == null ? '' : JS.toStringOrEmpty(icon.props['name']);
+  final icon = scope.child('icon');
+  final iconScope = icon == null ? null : scope.scopeOf(icon);
+  final iconName = iconScope?.text('name') ?? '';
   final variant = scope.string('variant') ?? 'secondary';
-  final iconData = openUIIconOf(context.streamIcons, iconName, switch (icon?.props['category']) {
-    OpenUIString(:final value) => value,
-    _ => null,
-  });
+  final iconData = openUIIconOf(context.streamIcons, iconName, iconScope?.string('category'));
   return Semantics(
     label: name.isNotEmpty ? name : openUIIconLabel(iconName),
     child: StreamButton.icon(

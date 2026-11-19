@@ -225,8 +225,8 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
     (context, item) {
       final spacing = OpenUIViewScope.of(context).theme.mSpacing;
       final header = item.element('header');
-      final footerPrice = item.scope.elementField('footer', 'price');
-      final footerButton = item.scope.elementField('footer', 'button');
+      final footerPrice = item.scope.child('footer', field: 'price')?.node;
+      final footerButton = item.scope.child('footer', field: 'button')?.node;
       final hasFooter = item.scope.value('footer') is Map;
       return _Surface(
         child: Column(
@@ -234,8 +234,8 @@ Widget buildOpenUICompositeCardBlock(BuildContext context, OpenUIComponentScope 
           spacing: spacing,
           children: [
             if (header != null) item.scope.buildNode(header),
-            for (final node in item.scope.elements('body'))
-              item.scope.buildNode(normalizeOpenUICompositeProps(node, footer: false)),
+            for (final child in item.scope.children('body'))
+              item.scope.buildNode(normalizeOpenUICompositeProps(child.node, footer: false)),
             const Spacer(),
             if (hasFooter)
               Row(
@@ -274,8 +274,8 @@ Widget buildOpenUIVisualCardBlock(BuildContext context, OpenUIComponentScope sco
     equalHeight: true,
     (context, item) {
       final theme = OpenUIViewScope.of(context).theme;
-      final bodyNode = item.element('body');
-      final bodyScope = bodyNode == null ? null : item.scope.scopeOf(bodyNode);
+      final body = item.scope.child('body');
+      final bodyScope = body == null ? null : item.scope.scopeOf(body);
       final tag = item.element('tag');
       final scheme = context.streamColorScheme;
       final white = scheme.textOnAccent;
@@ -400,7 +400,7 @@ class _Item {
 
   final OpenUIComponentScope scope;
 
-  ElementNode? element(String name) => scope.elements(name).firstOrNull;
+  ElementNode? element(String name) => scope.child(name)?.node;
 
   // The prop [field] of the component in the prop [name].
   OpenUIValue? sub(String name, String field) => element(name)?.props[field];
@@ -529,11 +529,11 @@ Widget _block(
   final action = scope.prop('action');
   final tappable = action != null && action is! OpenUINull;
   final items = [
-    for (final (index, node) in scope.elements('items').indexed)
+    for (final (index, child) in scope.children('items').indexed)
       Builder(
         builder: (context) {
-          final item = _Item(scope.scopeOf(node));
-          final card = _guarded(node, () => build(context, item));
+          final item = _Item(scope.scopeOf(child));
+          final card = _guarded(child.node, () => build(context, item));
           if (!tappable) return card;
           return OpenUIPressable(
             onTap: scope.isStreaming

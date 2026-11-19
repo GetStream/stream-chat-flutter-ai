@@ -1,5 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_action_event.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 
@@ -170,5 +173,329 @@ void main() {
 
     expect(tester.takeException(), isA<StateError>());
     expect(find.text('ok', findRichText: true), findsOneWidget);
+  });
+
+  group('children', () {
+    // Pumps [program] with the chat `Card` replaced by [buildCard].
+    Future<void> pumpCard(WidgetTester tester, String program, OpenUIComponentBuilder buildCard) async {
+      final library = OpenUILibrary.chat.replacing('Card', buildCard);
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, library: library, program: program);
+    }
+
+    testWidgets('children gives the components of a list prop in order, leaving out other items', (tester) async {
+      late List<OpenUIChild> children;
+      await pumpCard(tester, 'root = Card([CardHeader("A"), "text", TextContent("B")])', (context, scope) {
+        children = scope.children('children');
+        return const SizedBox();
+      });
+
+      expect([for (final child in children) child.type], ['CardHeader', 'TextContent']);
+    });
+
+    testWidgets('children gives the one component a prop holds', (tester) async {
+      late List<OpenUIChild> children;
+      final library = OpenUILibrary.chat.replacing('IconButton', (context, scope) {
+        children = scope.children('icon');
+        return const SizedBox();
+      });
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, library: library, program: 'root = Card([IconButton("Star", Icon("star"))])');
+
+      expect([for (final child in children) child.type], ['Icon']);
+    });
+
+    testWidgets('children gives an empty list for a prop without components', (tester) async {
+      late List<OpenUIChild> children;
+      await pumpCard(tester, 'root = Card([CardHeader("A")])', (context, scope) {
+        children = scope.children('missing');
+        return const SizedBox();
+      });
+
+      expect(children, isEmpty);
+    });
+
+    testWidgets('children gives components whose type has no builder, to read with scopeOf', (tester) async {
+      late List<String?> titles;
+      final library = OpenUILibrary.chat.replacing('Tabs', (context, scope) {
+        titles = [for (final tab in scope.children('items')) scope.scopeOf(tab).text('trigger')];
+        return const SizedBox();
+      });
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        library: library,
+        program: 'root = Card([Tabs([TabItem("a", "First", [TextContent("1")]), TabItem("b", "Second", [])])])',
+      );
+
+      expect(titles, ['First', 'Second']);
+    });
+
+    testWidgets("build draws a child with its type's builder", (tester) async {
+      await pumpCard(tester, 'root = Card([CardHeader("A"), TextContent("B")])', (context, scope) {
+        final children = scope.children('children');
+        return Column(children: [for (final child in children.reversed) scope.build(child)]);
+      });
+
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('B', findRichText: true), findsOneWidget);
+      expect(tester.getTopLeft(find.text('B', findRichText: true)).dy, lessThan(tester.getTopLeft(find.text('A')).dy));
+    });
+
+    testWidgets('a child defined by a statement keeps its key when a sibling arrives before it', (tester) async {
+      final keys = <List<String>>[];
+      final library = OpenUILibrary.chat.replacing('Card', (context, scope) {
+        keys.add([for (final child in scope.children('children')) child.key]);
+        return const SizedBox();
+      });
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        library: library,
+        program: 'root = Card([a, b])\nb = TextContent("B")',
+        isStreaming: true,
+      );
+      runtime.update('root = Card([a, b])\nb = TextContent("B")\na = TextContent("A")', isStreaming: false);
+      await tester.pump();
+
+      expect(keys.first, hasLength(1));
+      expect(keys.last, hasLength(2));
+      expect(keys.last.last, keys.first.single);
+    });
+
+    testWidgets('a statement placed twice gives children with different keys', (tester) async {
+      late List<OpenUIChild> children;
+      await pumpCard(tester, 'root = Card([a, a])\na = TextContent("A")', (context, scope) {
+        children = scope.children('children');
+        return const SizedBox();
+      });
+
+      expect(children, hasLength(2));
+      expect(children.first.key, isNot(children.last.key));
+      expect(children.first, isNot(children.last));
+    });
+
+    testWidgets('children read twice are equal', (tester) async {
+      late List<OpenUIChild> first;
+      late List<OpenUIChild> second;
+      await pumpCard(tester, 'root = Card([CardHeader("A"), TextContent("B")])', (context, scope) {
+        first = scope.children('children');
+        second = scope.children('children');
+        return const SizedBox();
+      });
+
+      expect(second, first);
+      expect(second.map((child) => child.hashCode), first.map((child) => child.hashCode));
+    });
+
+    testWidgets('child gives the first component of a prop, or null without one', (tester) async {
+      late OpenUIChild? first;
+      late OpenUIChild? missing;
+      await pumpCard(tester, 'root = Card([CardHeader("A"), TextContent("B")])', (context, scope) {
+        first = scope.child('children');
+        missing = scope.child('missing');
+        return const SizedBox();
+      });
+
+      expect(first?.type, 'CardHeader');
+      expect(missing, isNull);
+    });
+
+    testWidgets('child with a field gives the component in that field of an object prop', (tester) async {
+      late OpenUIChild? price;
+      late OpenUIChild? missing;
+      final library = columns((context, scope) {
+        price = scope.child('data', field: 'price');
+        missing = scope.child('data', field: 'label');
+        return const SizedBox();
+      });
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(
+        tester,
+        runtime,
+        library: library,
+        program: 'root = Card([Table([Col("L", {price: CardHeader("9"), label: "x"})])])',
+      );
+
+      expect(price?.type, 'CardHeader');
+      expect(missing, isNull);
+    });
+
+    testWidgets('scopeOf reads the props of a child', (tester) async {
+      late OpenUIComponentScope child;
+      await pumpCard(tester, 'root = Card([CardHeader("Title", "Subtitle")])', (context, scope) {
+        child = scope.scopeOf(scope.child('children')!);
+        return const SizedBox();
+      });
+
+      expect(child.type, 'CardHeader');
+      expect(child.text('title'), 'Title');
+      expect(child.text('subtitle'), 'Subtitle');
+    });
+  });
+
+  group('state', () {
+    // The standard library with an `Input` that shows its field and writes
+    // `typed` to it when tapped.
+    final library = OpenUILibrary.standard.replacing('Input', (context, scope) {
+      return scope.watchState((context) {
+        final field = scope.stateField(scope.text('name') ?? '', bindingProp: 'value');
+        return GestureDetector(
+          onTap: () => field.set('typed'),
+          child: Text('${scope.text('name')}: ${field.value} ${field.isBound ? 'bound' : 'unbound'}'),
+        );
+      });
+    });
+
+    Future<OpenUIRuntime> pump(WidgetTester tester, String program) async {
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, library: library, program: program);
+      return runtime;
+    }
+
+    testWidgets('a bound field writes its variable, which every component bound to it shows', (tester) async {
+      await pump(tester, r'root = Stack([Input("a", "", "text", null, $q), Input("b", "", "text", null, $q)])');
+      expect(find.text('b: null bound'), findsOneWidget);
+
+      await tester.tap(find.text('a: null bound'));
+      await tester.pump();
+
+      expect(find.text('a: typed bound'), findsOneWidget);
+      expect(find.text('b: typed bound'), findsOneWidget);
+    });
+
+    testWidgets('an unbound field shows its prop until written', (tester) async {
+      await pump(tester, 'root = Stack([Input("n", "", "text", null, "start")])');
+      expect(find.text('n: start unbound'), findsOneWidget);
+
+      await tester.tap(find.text('n: start unbound'));
+      await tester.pump();
+
+      expect(find.text('n: typed unbound'), findsOneWidget);
+    });
+
+    testWidgets('an unbound field in a form is kept in the form', (tester) async {
+      final runtime = await pump(tester, 'root = Stack([Form("f", Buttons([Button("Go")]), [Input("n")])])');
+
+      await tester.tap(find.text('n: null unbound'));
+      await tester.pump();
+
+      expect(runtime.fieldValue('f', 'n'), const OpenUIString('typed'));
+      expect(runtime.fieldValue(null, 'n'), isNull);
+    });
+
+    testWidgets("an unbound field outside a form is kept in the reply's state", (tester) async {
+      final runtime = await pump(tester, 'root = Stack([Input("n")])');
+
+      await tester.tap(find.text('n: null unbound'));
+      await tester.pump();
+
+      expect(runtime.fieldValue(null, 'n'), const OpenUIString('typed'));
+    });
+
+    testWidgets('set writes JSON and rejects a value that is not JSON', (tester) async {
+      late OpenUIStateField field;
+      final library = OpenUILibrary.standard.replacing('Input', (context, scope) {
+        field = scope.stateField('n');
+        return const SizedBox();
+      });
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      await pumpOpenUI(tester, runtime, library: library, program: 'root = Stack([Input("n")])');
+
+      field.set({
+        'a': [1, true, null],
+      });
+
+      expect(
+        runtime.fieldValue(null, 'n'),
+        OpenUIObject({
+          'a': OpenUIValue.fromJson(const [1, true, null]),
+        }),
+      );
+      expect(() => field.set(DateTime(2026)), throwsArgumentError);
+    });
+  });
+
+  group('triggerAction', () {
+    // The standard library with a `Button` that runs its action when tapped.
+    final library = OpenUILibrary.standard.replacing('Button', (context, scope) {
+      final label = scope.text('label') ?? '';
+      return GestureDetector(onTap: () => scope.triggerAction(label), child: Text(label));
+    });
+
+    Future<(OpenUIRuntime, List<OpenUIActionEvent>)> pump(
+      WidgetTester tester,
+      String program, {
+      bool isStreaming = false,
+    }) async {
+      final runtime = testRuntime(library: library);
+      addTearDown(runtime.dispose);
+      final events = <OpenUIActionEvent>[];
+      runtime.actions.listen(events.add);
+      await pumpOpenUI(tester, runtime, library: library, program: program, isStreaming: isStreaming);
+      return (runtime, events);
+    }
+
+    testWidgets('runs the steps of the action', (tester) async {
+      final (_, events) = await pump(tester, 'root = Stack([Button("Ask", @ToAssistant("Tell me more"))])');
+
+      await tester.tap(find.text('Ask'));
+      await tester.pump();
+
+      expect(events.map((event) => (event.type, event.message)), [
+        (OpenUIActionEvent.continueConversation, 'Tell me more'),
+      ]);
+    });
+
+    testWidgets('writes a variable with a @Set step', (tester) async {
+      final (runtime, _) = await pump(tester, r'root = Stack([Button("Set", @Set($q, "there"))])');
+
+      await tester.tap(find.text('Set'));
+      await tester.pump();
+
+      expect(runtime.state.value[r'$q'], const OpenUIString('there'));
+    });
+
+    testWidgets('continues the conversation with the label when there is no action', (tester) async {
+      final (_, events) = await pump(tester, 'root = Stack([Button("Hello")])');
+
+      await tester.tap(find.text('Hello'));
+      await tester.pump();
+
+      expect(events.map((event) => (event.type, event.label)), [(OpenUIActionEvent.continueConversation, 'Hello')]);
+    });
+
+    testWidgets('runs with the state of the form the component is in', (tester) async {
+      final (runtime, events) = await pump(tester, 'root = Stack([Form("f", Buttons([Button("Go")]), [])])');
+      runtime.setFieldValue('f', 'n', const OpenUIString('v'));
+
+      await tester.tap(find.text('Go'));
+      await tester.pump();
+
+      expect(events.single.formName, 'f');
+      expect(plainJson(OpenUIObject(events.single.formState)), {
+        'f': {
+          'n': {'value': 'v'},
+        },
+      });
+    });
+
+    testWidgets('runs nothing while the reply streams', (tester) async {
+      final (_, events) = await pump(tester, 'root = Stack([Button("Hello")])', isStreaming: true);
+
+      await tester.tap(find.text('Hello'));
+      await tester.pump();
+
+      expect(events, isEmpty);
+    });
   });
 }

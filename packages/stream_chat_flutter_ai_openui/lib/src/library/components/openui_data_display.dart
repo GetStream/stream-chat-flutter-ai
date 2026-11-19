@@ -157,7 +157,7 @@ class _EntityRow extends StatelessWidget {
 
 // The icon of the `Icon` component in the prop `icon`, or `null`.
 IconData? _iconOf(BuildContext context, OpenUIComponentScope scope) {
-  final icon = scope.elements('icon').firstOrNull;
+  final icon = scope.child('icon');
   if (icon == null) return null;
   final iconScope = scope.scopeOf(icon);
   return openUIIconOf(context.streamIcons, iconScope.string('name') ?? '', iconScope.string('category'));

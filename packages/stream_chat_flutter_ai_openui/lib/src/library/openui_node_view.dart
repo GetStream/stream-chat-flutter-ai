@@ -55,7 +55,7 @@ class _OpenUINodeViewState extends State<OpenUINodeView> {
     return AIUIEntrance(
       child: Semantics(
         container: true,
-        child: Builder(builder: (context) => _build(context, builder, _NodeScope(node, view))),
+        child: Builder(builder: (context) => _build(context, builder, _NodeScope(node, view, context))),
       ),
     );
   }
@@ -137,10 +137,19 @@ class _OpenUIValueView extends StatelessWidget {
 }
 
 final class _NodeScope extends OpenUIComponentScope {
-  const _NodeScope(this._node, this._view) : super._();
+  const _NodeScope(this._node, this._view, this._context) : super._();
 
   final ElementNode _node;
   final OpenUIViewScope _view;
+
+  // Where the component is built, to find the form it is in when a field is
+  // read or an action runs.
+  final BuildContext _context;
+
+  String? get _formName {
+    if (!_context.mounted) return null;
+    return _context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName;
+  }
 
   OpenUIValue? _prop(String name) => _node.props[name];
 
@@ -204,7 +213,33 @@ final class _NodeScope extends OpenUIComponentScope {
   };
 
   @override
-  StateField stateField(String name) => _view.runtime.stateField(name, binding: _prop(name));
+  List<OpenUIChild> children(String name) => openUIChildrenOf(_items(name));
+
+  @override
+  OpenUIChild? child(String name, {String? field}) {
+    if (field == null) return children(name).firstOrNull;
+    if (_prop(name) case OpenUIObject(:final fields)) {
+      if (fields[field] case OpenUIElement(:final node)) return OpenUIChild._(node, node.statementId ?? field);
+    }
+    return null;
+  }
+
+  @override
+  Widget build(OpenUIChild child) => OpenUINodeView(node: child.node);
+
+  @override
+  OpenUIComponentScope scopeOf(OpenUIChild child) => _NodeScope(child.node, _view, _context);
+
+  @override
+  OpenUIStateField stateField(String name, {String? bindingProp}) {
+    final field = _view.runtime.stateField(
+      name,
+      binding: _prop(bindingProp ?? name),
+      formName: _formName,
+      componentType: type,
+    );
+    return OpenUIStateField._(field);
+  }
 
   @override
   Widget watchState(WidgetBuilder builder) {
@@ -212,21 +247,10 @@ final class _NodeScope extends OpenUIComponentScope {
   }
 
   @override
-  List<ElementNode> elements(String name) => [
-    for (final item in _items(name))
-      if (item case OpenUIElement(:final node)) node,
-  ];
-
-  @override
-  ElementNode? elementField(String name, String field) {
-    if (_prop(name) case OpenUIObject(:final fields) when fields[field] is OpenUIElement) {
-      return (fields[field]! as OpenUIElement).node;
-    }
-    return null;
+  Future<void> triggerAction(String label, {String name = 'action'}) async {
+    if (isStreaming) return;
+    await _view.runtime.trigger(label: label, formName: _formName, action: _prop(name));
   }
-
-  @override
-  OpenUIComponentScope scopeOf(ElementNode node) => _NodeScope(node, _view);
 
   @override
   Widget buildNode(ElementNode node) => OpenUINodeView(node: node);
@@ -240,6 +264,32 @@ final class _NodeScope extends OpenUIComponentScope {
     if (builder == null) return const SizedBox.shrink();
     return Builder(builder: (context) => builder(context, this));
   }
+}
+
+/// The components of [items], each as a child keyed by its place among
+/// them: see [OpenUIChild.key].
+///
+/// Internal to the package.
+@internal
+List<OpenUIChild> openUIChildrenOf(Iterable<OpenUIValue> items) {
+  final children = <OpenUIChild>[];
+  // How many items of each statement came before, as the same statement can
+  // be placed more than once.
+  final placed = <String, int>{};
+  for (final (index, item) in items.indexed) {
+    if (item case OpenUIElement(:final node)) {
+      final statementId = node.statementId;
+      final String key;
+      if (statementId == null) {
+        key = '$index';
+      } else {
+        final count = placed[statementId] = (placed[statementId] ?? -1) + 1;
+        key = count == 0 ? '\$$statementId' : '\$$statementId#$count';
+      }
+      children.add(OpenUIChild._(node, key));
+    }
+  }
+  return children;
 }
 
 // Reports in debug builds, once per runtime, that the library has no builder

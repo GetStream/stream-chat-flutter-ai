@@ -184,7 +184,7 @@ OpenUIValue? openUIFieldDefault(OpenUIComponentScope scope) {
   switch (scope.type) {
     case 'CheckBoxGroup' || 'SwitchGroup':
       final checked = <String, OpenUIValue>{
-        for (final item in scope.elements('items').map(scope.scopeOf))
+        for (final item in scope.children('items').map(scope.scopeOf))
           if (item.text('name') case final name?) name: OpenUIBool(item.boolean('defaultChecked') ?? false),
       };
       return checked.isEmpty ? null : OpenUIObject(checked);
@@ -192,7 +192,7 @@ OpenUIValue? openUIFieldDefault(OpenUIComponentScope scope) {
       final value = scope.prop('defaultValue');
       if (JS.isNullish(value)) return null;
       final current = JS.stringOf(value);
-      final values = [for (final item in scope.elements('items')) scope.scopeOf(item).text('value') ?? ''];
+      final values = [for (final item in scope.children('items')) scope.scopeOf(item).text('value') ?? ''];
       return values.contains(current) ? OpenUIString(current) : null;
     case 'Slider':
       final bounds = openUISliderBounds(scope.number('min'), scope.number('max'));

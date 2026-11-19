@@ -100,6 +100,44 @@ final library = OpenUILibrary.chat.replacing('Callout', (context, scope) {
 final renderer = OpenUIRenderer(library: library);
 ```
 
+A builder reaches everything the package's own builders do. `children` and `child` give the components placed in a
+prop, such as a card's `children`, to draw one by one with `build` or read with `scopeOf`. `stateField` reads and
+writes what a component keeps, such as what a field holds: the `$variable` its prop is bound to, or else a value kept
+under its name in the form it is in. `watchState` builds again when the reply's state changes, and `triggerAction` runs
+a component's `action` as the person's own act:
+
+```dart
+final library = OpenUILibrary.chat
+    // Each of the card's children on a tile of its own.
+    .replacing('Card', (context, scope) {
+      return Column(
+        children: [
+          for (final child in scope.children('children'))
+            BrandTile(key: ValueKey(child.key), child: scope.build(child)),
+        ],
+      );
+    })
+    // A text field that keeps what is typed where the built-in one would.
+    .replacing('Input', (context, scope) {
+      return scope.watchState((context) {
+        final field = scope.stateField(scope.text('name') ?? '', bindingProp: 'value');
+        return BrandTextField(
+          text: '${field.value ?? ''}',
+          enabled: !scope.isStreaming,
+          onChanged: field.set,
+        );
+      });
+    })
+    // A button that runs its action, or continues the conversation with its label.
+    .replacing('Button', (context, scope) {
+      final label = scope.text('label') ?? '';
+      return BrandButton(
+        label: label,
+        onPressed: scope.isStreaming ? null : () => scope.triggerAction(label),
+      );
+    });
+```
+
 Keep a library in a `final` or `static` field rather than making it again in a `build` method. A component taken out
 with `removing` isn't in what the agent is told, nor are the notes and examples that name it, and it shows nothing:
 

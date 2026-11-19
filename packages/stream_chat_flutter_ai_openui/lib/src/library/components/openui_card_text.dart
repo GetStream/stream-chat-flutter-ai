@@ -110,7 +110,7 @@ class OpenUITitleSubtitle extends StatelessWidget {
 /// Internal to the package.
 @internal
 Widget buildOpenUIIconText(BuildContext context, OpenUIComponentScope scope) {
-  final icon = scope.elements('icon').firstOrNull;
+  final icon = scope.child('icon');
   final iconScope = icon == null ? null : scope.scopeOf(icon);
   final badge = _IconBadge(
     icon: iconScope == null

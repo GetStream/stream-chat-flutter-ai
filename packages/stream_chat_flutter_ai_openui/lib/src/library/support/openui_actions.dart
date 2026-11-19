@@ -187,38 +187,19 @@ double openUIGap(OpenUIResolvedTheme theme, Object? value) {
   };
 }
 
-/// The widgets of [nodes], components of [scope]'s props, leaving out those
-/// whose type the library doesn't draw.
+/// The widgets of [children], components of [scope]'s props, leaving out
+/// those whose type the library doesn't draw.
 ///
 /// A component defined by a statement keeps its widgets when one before it
 /// arrives later.
 ///
 /// Internal to the package.
 @internal
-List<Widget> openUIChildWidgets(BuildContext context, OpenUIComponentScope scope, List<ElementNode> nodes) {
-  return [
-    for (final (node, key) in openUIDrawnNodes(context, nodes)) KeyedSubtree(key: key, child: scope.buildNode(node)),
-  ];
-}
-
-/// The components of [nodes] the library draws, each with its key: see
-/// [openUIChildWidgets].
-///
-/// Internal to the package.
-@internal
-List<(ElementNode, Key)> openUIDrawnNodes(BuildContext context, List<ElementNode> nodes) {
+List<Widget> openUIChildWidgets(BuildContext context, OpenUIComponentScope scope, List<OpenUIChild> children) {
   final library = OpenUIViewScope.of(context).library;
-  final seen = <String, int>{};
   return [
-    for (final (index, node) in nodes.indexed)
-      if (library[node.typeName] != null)
-        (
-          node,
-          switch (node.statementId) {
-            final id? => ValueKey((id, seen[id] = (seen[id] ?? -1) + 1)),
-            null => ValueKey(index),
-          },
-        ),
+    for (final child in children)
+      if (library[child.type] != null) KeyedSubtree(key: ValueKey(child.key), child: scope.build(child)),
   ];
 }
 

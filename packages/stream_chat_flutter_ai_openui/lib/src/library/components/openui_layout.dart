@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_grid.dart';
@@ -17,14 +16,14 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 /// Internal to the package.
 @internal
 Widget buildOpenUIStack(BuildContext context, OpenUIComponentScope scope) {
-  final nodes = scope.elements('children');
+  final children = scope.children('children');
   final wrap = scope.boolean('wrap') ?? false;
   final justify = scope.string('justify');
   return _OpenUIFlex(
     scope: scope,
-    nodes: nodes,
+    items: children,
     justify: wrap && justify == 'between' ? 'start' : justify,
-    flexible: nodes.isNotEmpty && nodes.every((node) => _flexibleTypes.contains(node.typeName)),
+    flexible: children.isNotEmpty && children.every((child) => _flexibleTypes.contains(child.type)),
   );
 }
 
@@ -42,7 +41,7 @@ Widget buildOpenUIStandardCard(BuildContext context, OpenUIComponentScope scope)
   final spacing = theme.lSpacing;
   final content = _OpenUIFlex(
     scope: scope,
-    nodes: scope.elements('children'),
+    items: scope.children('children'),
     justify: scope.string('justify'),
     flexible: true,
   );
@@ -69,10 +68,10 @@ Widget buildOpenUIStandardCard(BuildContext context, OpenUIComponentScope scope)
 const _flexibleTypes = {'Card', 'Stack', 'MarkDownRenderer', 'Callout', 'TextCallout', 'Form', 'Table'};
 
 class _OpenUIFlex extends StatelessWidget {
-  const _OpenUIFlex({required this.scope, required this.nodes, required this.justify, required this.flexible});
+  const _OpenUIFlex({required this.scope, required this.items, required this.justify, required this.flexible});
 
   final OpenUIComponentScope scope;
-  final List<ElementNode> nodes;
+  final List<OpenUIChild> items;
   final String? justify;
   final bool flexible;
 
@@ -81,7 +80,7 @@ class _OpenUIFlex extends StatelessWidget {
     final theme = OpenUIViewScope.of(context).theme;
     final gap = openUIGap(theme, scope.value('gap'));
     final align = scope.string('align');
-    final children = openUIChildWidgets(context, scope, nodes);
+    final children = openUIChildWidgets(context, scope, items);
     if (children.isEmpty) return const SizedBox.shrink();
     if (scope.string('direction') != 'row') {
       return Column(

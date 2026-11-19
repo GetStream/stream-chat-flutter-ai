@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart' show StateField;
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_support.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
@@ -23,8 +21,8 @@ Widget buildOpenUICallout(BuildContext context, OpenUIComponentScope scope) {
     final field = scope.stateField('visible');
     final visible = field.isBound
         ? switch (field.value) {
-            OpenUIBool(:final value) => value,
-            OpenUIString(value: 'true') => true,
+            final bool value => value,
+            'true' => true,
             _ => false,
           }
         : scope.boolean('visible') != false;
@@ -55,7 +53,7 @@ class _Callout extends StatefulWidget {
     required this.description,
   });
 
-  final StateField field;
+  final OpenUIStateField field;
   final bool visible;
   final Object? target;
   final String variant;
@@ -103,7 +101,7 @@ class _CalloutState extends State<_Callout> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || generation != _generation) return;
       _timer = Timer(_dismissAfter, () {
-        if (mounted && generation == _generation) widget.field.set(const OpenUIBool(false));
+        if (mounted && generation == _generation) widget.field.set(false);
       });
     });
   }

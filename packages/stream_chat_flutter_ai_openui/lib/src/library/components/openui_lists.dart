@@ -21,7 +21,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
   final styles = theme;
-  final items = scope.elements('items');
+  final items = scope.children('items');
   final small = scope.string('size') == 'small';
   final images = scope.string('variant') == 'image';
   final hasSubtitle = items.any((item) => scope.scopeOf(item).text('subtitle') != null);
@@ -142,7 +142,7 @@ Widget buildOpenUIListBlock(BuildContext context, OpenUIComponentScope scope) {
 Widget buildOpenUIFollowUpBlock(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
-  final items = scope.elements('items');
+  final items = scope.children('items');
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [

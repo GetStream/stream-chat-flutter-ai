@@ -388,7 +388,7 @@ class _OpenUITextFieldState extends State<_OpenUITextField> {
 @internal
 Widget buildOpenUISelect(BuildContext context, OpenUIComponentScope scope) {
   final options = [
-    for (final node in scope.elements('items'))
+    for (final node in scope.children('items'))
       if (scope.scopeOf(node) case final item)
         if (item.text('value') case final value? when value.isNotEmpty) (value, item.text('label') ?? value),
   ];
