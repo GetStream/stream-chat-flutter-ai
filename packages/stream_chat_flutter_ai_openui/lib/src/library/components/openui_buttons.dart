@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
@@ -25,16 +26,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
     style: _style(variant, destructive: scope.string('type') == 'destructive'),
     type: _type(variant),
     size: _size(scope.string('size')),
-    onPressed: scope.isStreaming
-        ? null
-        : () {
-            final action = scope.prop('action');
-            final validation = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
-            if (variant == 'primary' && validation != null && _needsValidation(action) && !validation.validateForm()) {
-              return;
-            }
-            triggerOpenUIAction(context, scope, label: label, action: action);
-          },
+    onPressed: scope.isStreaming ? null : () => unawaited(scope.triggerAction(label, validate: variant == 'primary')),
     child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
   );
 }
@@ -113,19 +105,4 @@ StreamButtonSize _size(String? size) {
     'large' => StreamButtonSize.large,
     _ => StreamButtonSize.medium,
   };
-}
-
-// Whether [action] checks the form first: any but a plan whose steps neither
-// talk to the assistant nor run a mutation.
-bool _needsValidation(OpenUIValue? action) {
-  if (action case OpenUIObject(:final fields) when fields['steps'] is OpenUIArray) {
-    return (fields['steps']! as OpenUIArray).items.any(
-      (step) =>
-          step is OpenUIObject &&
-          (step.fields['type'] == const OpenUIString(ActionStepType.continueConversation) ||
-              (step.fields['type'] == const OpenUIString(ActionStepType.run) &&
-                  step.fields['refType'] == const OpenUIString('mutation'))),
-    );
-  }
-  return true;
 }

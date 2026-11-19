@@ -5,7 +5,8 @@ import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart' show StateField;
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
-import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart' show OpenUIFormScope;
+import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart'
+    show OpenUIFormScope, OpenUIFormValidation, openUIActionChecksForm;
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_json.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
@@ -125,12 +126,12 @@ abstract base class OpenUIComponentScope {
 
   /// The components the prop [name] holds, in order, such as a card's
   /// `children`: its items that are components, or the one component it
-  /// holds. A prop that holds none gives an empty list.
+  /// holds.
   ///
-  /// Every component is given, whether or not the library has a builder for
+  /// A prop that holds none gives an empty list. Every component is given, whether or not the library has a builder for
   /// its type: some, such as a `Tabs`'s `TabItem`s, only hold data for the
   /// component they are in, which reads them with [scopeOf]. Draw one with
-  /// [build].
+  /// [build], which draws nothing for a type without a builder.
   List<OpenUIChild> children(String name);
 
   /// The component the prop [name] holds, such as a button's `icon`, or the
@@ -144,6 +145,9 @@ abstract base class OpenUIComponentScope {
 
   /// The widget of [child], built with its type's builder, as [buildProp]
   /// builds a component.
+  ///
+  /// It draws nothing when the library has no builder for the child's type,
+  /// such as a `TabItem`, whose data the component it is in reads instead.
   ///
   /// The [child] is one this scope gave, from [children] or [child].
   Widget build(OpenUIChild child);
@@ -163,6 +167,10 @@ abstract base class OpenUIComponentScope {
   /// its actions, or in the reply's state outside a form, and shows the
   /// prop's own value until it is written.
   ///
+  /// The field of a password `Input`, one whose `type` is `password`, is
+  /// kept secret, as the package's own `Input` keeps it: never bound to a
+  /// `$variable`, and left out of the form state an action sends.
+  ///
   /// The field is read as it is now: read it in [watchState] to show it, so
   /// the widget is built again when it changes.
   OpenUIStateField stateField(String name, {String? bindingProp});
@@ -174,7 +182,7 @@ abstract base class OpenUIComponentScope {
   Widget watchState(WidgetBuilder builder);
 
   /// Runs the action the prop [name] holds, such as a button's `action`, as
-  /// the person's own act, such as when they tap the component.
+  /// the person's own act, for example a tap on the component.
   ///
   /// An action the agent wrote as steps runs them, such as `@Set` writing a
   /// `$variable`, `@Run` running a query or mutation, and `@ToAssistant`
@@ -182,9 +190,15 @@ abstract base class OpenUIComponentScope {
   /// conversation with [label], as a button without an action does. The
   /// action runs with the state of the form this component is in, if any.
   ///
+  /// With [validate], the form this component is in is checked first, as the
+  /// package's primary `Button` checks it, and nothing runs while a field
+  /// fails; the fields show their errors. An action whose steps neither send
+  /// a message to the assistant nor run a mutation, such as `@Set` steps
+  /// alone, runs without the check.
+  ///
   /// Nothing runs while the reply is still streaming; see [isStreaming].
-  /// Completes once the action has run.
-  Future<void> triggerAction(String label, {String name = 'action'});
+  /// Completes once the action has run, or at once when nothing runs.
+  Future<void> triggerAction(String label, {String name = 'action', bool validate = false});
 
   /// The component this scope is of.
   ///
@@ -206,7 +220,9 @@ abstract base class OpenUIComponentScope {
 ///
 /// Obtained from [OpenUIComponentScope.children] and
 /// [OpenUIComponentScope.child]. Two children are equal when they are the
-/// same component in the same place.
+/// same component in the same place of the same evaluation of the reply: the
+/// child of a component the reply evaluates again while it streams is a new
+/// one. Use [key] to tell a child apart across evaluations.
 @immutable
 final class OpenUIChild {
   const OpenUIChild._(this.node, this.key);

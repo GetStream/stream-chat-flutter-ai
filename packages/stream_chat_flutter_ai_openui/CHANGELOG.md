@@ -18,7 +18,5 @@
 - `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
   the texts the components draw and read out themselves, including a form's errors.
 - `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.
-- A builder that replaces a component reaches what the package's own builders do: `OpenUIComponentScope.children`,
-  `child`, `build` and `scopeOf` give the components placed in its props one by one as `OpenUIChild`ren, `stateField`
-  reads and writes the `$variable` a prop is bound to, or the value kept in the form it is in, as an
-  `OpenUIStateField`, `watchState` builds again when the reply's state changes, and `triggerAction` runs its action.
+- A builder that replaces a component can reach its child components, the state it keeps and its action, through
+  `OpenUIComponentScope`, `OpenUIChild` and `OpenUIStateField`.

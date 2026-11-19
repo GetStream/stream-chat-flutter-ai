@@ -12,6 +12,25 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.da
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
+/// Whether [action] checks the form it runs in first, as a primary button's
+/// does: any but a plan whose steps neither talk to the assistant nor run a
+/// mutation.
+///
+/// Internal to the package.
+@internal
+bool openUIActionChecksForm(OpenUIValue? action) {
+  if (action case OpenUIObject(:final fields) when fields['steps'] is OpenUIArray) {
+    return (fields['steps']! as OpenUIArray).items.any(
+      (step) =>
+          step is OpenUIObject &&
+          (step.fields['type'] == const OpenUIString(ActionStepType.continueConversation) ||
+              (step.fields['type'] == const OpenUIString(ActionStepType.run) &&
+                  step.fields['refType'] == const OpenUIString('mutation'))),
+    );
+  }
+  return true;
+}
+
 /// Runs [action], the action of the control labelled [label] that [scope]
 /// draws, unless the reply is still streaming.
 ///

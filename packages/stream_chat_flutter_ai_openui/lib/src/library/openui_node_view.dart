@@ -55,7 +55,14 @@ class _OpenUINodeViewState extends State<OpenUINodeView> {
     return AIUIEntrance(
       child: Semantics(
         container: true,
-        child: Builder(builder: (context) => _build(context, builder, _NodeScope(node, view, context))),
+        child: Builder(
+          builder: (context) {
+            // The form the component is in, read now so a field or action
+            // used after the component left the tree still reaches it.
+            final form = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
+            return _build(context, builder, _NodeScope(node, view, form));
+          },
+        ),
       ),
     );
   }
@@ -137,19 +144,13 @@ class _OpenUIValueView extends StatelessWidget {
 }
 
 final class _NodeScope extends OpenUIComponentScope {
-  const _NodeScope(this._node, this._view, this._context) : super._();
+  const _NodeScope(this._node, this._view, this._form) : super._();
 
   final ElementNode _node;
   final OpenUIViewScope _view;
 
-  // Where the component is built, to find the form it is in when a field is
-  // read or an action runs.
-  final BuildContext _context;
-
-  String? get _formName {
-    if (!_context.mounted) return null;
-    return _context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName;
-  }
+  // The form the component is in, or `null` outside one.
+  final OpenUIFormValidation? _form;
 
   OpenUIValue? _prop(String name) => _node.props[name];
 
@@ -219,7 +220,10 @@ final class _NodeScope extends OpenUIComponentScope {
   OpenUIChild? child(String name, {String? field}) {
     if (field == null) return children(name).firstOrNull;
     if (_prop(name) case OpenUIObject(:final fields)) {
-      if (fields[field] case OpenUIElement(:final node)) return OpenUIChild._(node, node.statementId ?? field);
+      if (fields[field] case OpenUIElement(:final node)) {
+        final statementId = node.statementId;
+        return OpenUIChild._(node, statementId == null ? field : '\$$statementId');
+      }
     }
     return null;
   }
@@ -228,15 +232,16 @@ final class _NodeScope extends OpenUIComponentScope {
   Widget build(OpenUIChild child) => OpenUINodeView(node: child.node);
 
   @override
-  OpenUIComponentScope scopeOf(OpenUIChild child) => _NodeScope(child.node, _view, _context);
+  OpenUIComponentScope scopeOf(OpenUIChild child) => _NodeScope(child.node, _view, _form);
 
   @override
   OpenUIStateField stateField(String name, {String? bindingProp}) {
     final field = _view.runtime.stateField(
       name,
       binding: _prop(bindingProp ?? name),
-      formName: _formName,
+      formName: _form?.formName,
       componentType: type,
+      isSecret: type == 'Input' && string('type') == 'password',
     );
     return OpenUIStateField._(field);
   }
@@ -247,9 +252,12 @@ final class _NodeScope extends OpenUIComponentScope {
   }
 
   @override
-  Future<void> triggerAction(String label, {String name = 'action'}) async {
+  Future<void> triggerAction(String label, {String name = 'action', bool validate = false}) async {
     if (isStreaming) return;
-    await _view.runtime.trigger(label: label, formName: _formName, action: _prop(name));
+    final action = _prop(name);
+    final form = _form;
+    if (validate && form != null && openUIActionChecksForm(action) && !form.validateForm()) return;
+    await _view.runtime.trigger(label: label, formName: form?.formName, action: action);
   }
 
   @override

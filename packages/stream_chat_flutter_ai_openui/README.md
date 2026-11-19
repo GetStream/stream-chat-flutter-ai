@@ -100,11 +100,11 @@ final library = OpenUILibrary.chat.replacing('Callout', (context, scope) {
 final renderer = OpenUIRenderer(library: library);
 ```
 
-A builder reaches everything the package's own builders do. `children` and `child` give the components placed in a
-prop, such as a card's `children`, to draw one by one with `build` or read with `scopeOf`. `stateField` reads and
-writes what a component keeps, such as what a field holds: the `$variable` its prop is bound to, or else a value kept
-under its name in the form it is in. `watchState` builds again when the reply's state changes, and `triggerAction` runs
-a component's `action` as the person's own act:
+A builder can also reach the parts of a component, its state and its action. `children` and `child` give the
+components placed in a prop, such as a card's `children`, to draw one by one with `build` or read with `scopeOf`.
+`stateField` reads and writes what a component keeps, such as what a field holds: the `$variable` its prop is bound
+to, or else a value kept under its name in the form it is in. `watchState` builds again when the reply's state changes,
+and `triggerAction` runs a component's `action` as the person's own act, checking the form first with `validate`:
 
 ```dart
 final library = OpenUILibrary.chat
@@ -128,12 +128,13 @@ final library = OpenUILibrary.chat
         );
       });
     })
-    // A button that runs its action, or continues the conversation with its label.
+    // A button that checks its form, then runs its action or continues the
+    // conversation with its label.
     .replacing('Button', (context, scope) {
       final label = scope.text('label') ?? '';
       return BrandButton(
         label: label,
-        onPressed: scope.isStreaming ? null : () => scope.triggerAction(label),
+        onPressed: scope.isStreaming ? null : () => scope.triggerAction(label, validate: true),
       );
     });
 ```
