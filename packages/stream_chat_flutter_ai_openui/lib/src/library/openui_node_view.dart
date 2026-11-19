@@ -219,14 +219,20 @@ final class _NodeScope extends OpenUIComponentScope {
   @override
   OpenUIChild? child(String name, {String? field}) {
     if (field == null) return children(name).firstOrNull;
-    final value = switch (_prop(name)) {
-      OpenUIObject(:final fields) => fields[field],
-      _ => null,
+    final fields = switch (_prop(name)) {
+      OpenUIObject(:final fields) => fields,
+      _ => const <String, OpenUIValue>{},
     };
-    if (value is! OpenUIElement) return null;
-    final node = value.node;
-    final statementId = node.statementId;
-    return OpenUIChild._(node, statementId == null ? field : '\$$statementId');
+    if (fields[field] is! OpenUIElement) return null;
+    // Keyed as [children] keys the fields' components, so a statement held
+    // by two fields gives two keys; one written in place is keyed by its
+    // field.
+    final names = [
+      for (final MapEntry(:key, :value) in fields.entries)
+        if (value is OpenUIElement) key,
+    ];
+    final child = openUIChildrenOf(fields.values)[names.indexOf(field)];
+    return child.node.statementId == null ? OpenUIChild._(child.node, field) : child;
   }
 
   @override
@@ -257,10 +263,17 @@ final class _NodeScope extends OpenUIComponentScope {
     if (isStreaming) return;
     final action = _prop(name);
     final form = _form;
-    // A form that left the tree has no fields on screen to check.
-    final checksForm = validate && form != null && !form.isDisposed && openUIActionChecksForm(action);
-    if (checksForm && !form.validateForm()) return;
+    if (validate && !_mayRun(form, action)) return;
     await _view.runtime.trigger(label: label, formName: form?.formName, action: action);
+  }
+
+  // Whether [action] may run in [form]: outside a form, once the form left
+  // the tree (it has no fields on screen to check), for an action that
+  // doesn't check the form, or when the form's fields pass.
+  static bool _mayRun(OpenUIFormValidation? form, OpenUIValue? action) {
+    if (form == null || form.isDisposed) return true;
+    if (!openUIActionChecksForm(action)) return true;
+    return form.validateForm();
   }
 
   @override

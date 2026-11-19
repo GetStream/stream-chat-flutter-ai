@@ -25,8 +25,8 @@ import 'package:stream_core_flutter/core.dart';
 @internal
 Widget buildOpenUITable(BuildContext context, OpenUIComponentScope scope) {
   final columns = [
-    for (final node in scope.children('columns'))
-      if (scope.scopeOf(node) case final column)
+    for (final child in scope.children('columns'))
+      if (scope.scopeOf(child) case final column)
         _Column(
           column.text('label') ?? '',
           switch (column.prop('data')) {

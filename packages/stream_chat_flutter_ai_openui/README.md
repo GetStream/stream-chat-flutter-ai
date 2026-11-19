@@ -107,7 +107,8 @@ A builder can also reach the parts of a component, its state and its action:
 - `stateField` reads and writes what a component keeps, such as what a field holds. That is the `$variable` its prop is
   bound to, or else a value kept under its name in the form it is in.
 - `watchState` builds again when the reply's state changes.
-- `triggerAction` runs a component's `action` as the person's own act. With `validate`, it checks the form first.
+- `triggerAction` runs a component's `action` as the person's own act, with the state of the form it is in. With
+  `validate`, it checks that form first, as the built-in primary `Button` does.
 
 ```dart
 final library = OpenUILibrary.chat
@@ -137,7 +138,7 @@ final library = OpenUILibrary.chat
       final label = scope.text('label') ?? '';
       return BrandButton(
         label: label,
-        onPressed: scope.isStreaming ? null : () => scope.triggerAction(label, validate: true),
+        onPressed: scope.isStreaming ? null : () => unawaited(scope.triggerAction(label, validate: true)),
       );
     });
 ```

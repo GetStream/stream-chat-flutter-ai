@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
@@ -89,7 +90,7 @@ void main() {
       return const SizedBox();
     });
 
-    expect(children.first.key, isNot(children.last.key));
+    expect([for (final child in children) child.key], ['0', '1']);
   });
 
   testWidgets('a child defined by a statement keeps its key when a sibling arrives before it', (tester) async {
@@ -110,14 +111,14 @@ void main() {
     expect(keys.last.last, keys.first.single);
   });
 
-  testWidgets('the children of a statement placed twice have different keys', (tester) async {
+  testWidgets('the children of a statement placed again are keyed by how often it was placed before', (tester) async {
     late List<OpenUIChild> children;
-    await _pumpCard(tester, 'root = Card([a, a])\na = TextContent("A")', (context, scope) {
+    await _pumpCard(tester, 'root = Card([a, a, a])\na = TextContent("A")', (context, scope) {
       children = scope.children('children');
       return const SizedBox();
     });
 
-    expect(children.first.key, isNot(children.last.key));
+    expect([for (final child in children) child.key], [r'$a', r'$a#1', r'$a#2']);
   });
 
   testWidgets('the children of a statement placed twice are not equal', (tester) async {
@@ -213,6 +214,34 @@ void main() {
     expect(keys.last, keys.first);
   });
 
+  testWidgets('child with a field keys a child no statement defines by its field', (tester) async {
+    late OpenUIChild? child;
+    await _pumpColumns(tester, 'root = Card([Table([Col("L", {price: CardHeader("9"), label: "x"})])])', (
+      context,
+      scope,
+    ) {
+      child = scope.child('data', field: 'price');
+      return const SizedBox();
+    });
+
+    expect(child?.key, 'price');
+  });
+
+  testWidgets('child with a field gives a statement held by two fields of a prop a key for each', (tester) async {
+    final keys = <String?>[];
+    await _pumpColumns(tester, 'root = Card([Table([Col("L", {price: p, label: p})])])\np = CardHeader("9")', (
+      context,
+      scope,
+    ) {
+      keys
+        ..add(scope.child('data', field: 'price')?.key)
+        ..add(scope.child('data', field: 'label')?.key);
+      return const SizedBox();
+    });
+
+    expect(keys.toSet(), hasLength(2));
+  });
+
   testWidgets('scopeOf reads the props of a child', (tester) async {
     late OpenUIComponentScope child;
     await _pumpCard(tester, 'root = Card([CardHeader("Title", "Subtitle")])', (context, scope) {
@@ -221,6 +250,22 @@ void main() {
     });
 
     expect(child.text('subtitle'), 'Subtitle');
+  });
+
+  testWidgets('scopeOf gives a child whose stateField is kept in the form this component is in', (tester) async {
+    late OpenUIComponentScope input;
+    final runtime = await _pump(
+      tester,
+      OpenUILibrary.standard.replacing('FormControl', (context, scope) {
+        input = scope.scopeOf(scope.child('input')!);
+        return const SizedBox();
+      }),
+      'root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("Name", Input("n"))])])',
+    );
+
+    input.stateField('n').set('v');
+
+    expect(runtime.fieldValue('f', 'n'), const OpenUIString('v'));
   });
 }
 

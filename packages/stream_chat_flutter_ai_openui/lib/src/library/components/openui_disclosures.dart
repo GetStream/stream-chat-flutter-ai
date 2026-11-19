@@ -192,8 +192,8 @@ class _ContainerItem {
   static List<_ContainerItem> all(OpenUIComponentScope scope, String name, {required bool requireValue}) {
     final seen = <String>{};
     return [
-      for (final (index, node) in scope.children(name).indexed)
-        if (scope.scopeOf(node) case final item)
+      for (final (index, child) in scope.children(name).indexed)
+        if (scope.scopeOf(child) case final item)
           if (item.text('value') ?? (requireValue ? null : '$index') case final value? when seen.add(value))
             _ContainerItem(value, item.text('trigger') ?? '', item),
     ];

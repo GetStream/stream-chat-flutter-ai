@@ -128,10 +128,11 @@ abstract base class OpenUIComponentScope {
   /// `children`: its items that are components, or the one component it
   /// holds.
   ///
-  /// A prop that holds none gives an empty list. Every component is given, whether or not the library has a builder for
-  /// its type: some, such as a `Tabs`'s `TabItem`s, only hold data for the
-  /// component they are in, which reads them with [scopeOf]. Draw one with
-  /// [build], which draws nothing for a type without a builder.
+  /// A prop that holds none gives an empty list. Every component is given,
+  /// whether or not the library has a builder for its type: some, such as a
+  /// `Tabs`'s `TabItem`s, only hold data for the component they are in,
+  /// which reads them with [scopeOf]. Draw one with [build], which draws
+  /// nothing for a type without a builder.
   List<OpenUIChild> children(String name);
 
   /// The component the prop [name] holds, such as a button's `icon`, or the
@@ -155,9 +156,9 @@ abstract base class OpenUIComponentScope {
   /// The scope of [child], to read its props.
   ///
   /// The [child] is one this scope gave, from [children] or [child]. Its
-  /// [stateField] and [triggerAction] use the form this component is in, not
-  /// the one the child may be drawn in: a child's state and action are those
-  /// of the scope its own builder is given.
+  /// [stateField] and [triggerAction] use the form this component is in,
+  /// which may differ from the form the child's own builder is in when
+  /// [build] draws it.
   OpenUIComponentScope scopeOf(OpenUIChild child);
 
   /// The state field [name] this component shows and writes.
@@ -165,14 +166,15 @@ abstract base class OpenUIComponentScope {
   /// An input keeps what the person enters in its field, and a modal whether
   /// it is open.
   ///
-  /// When the agent bound the prop [bindingProp], [name] when not given, to a
-  /// `$variable`, the field reads and writes that variable, so every
-  /// component that reads it shows what is written. Otherwise the field is
-  /// kept under [name] in the form this component is in, which sends it with
-  /// its actions, or in the reply's state outside a form, and shows the
-  /// prop's own value until it is written. Only a prop the library lets the
-  /// agent bind, such as a field's `value`, is bound: a `$variable` in any
-  /// other prop reads as its value.
+  /// When the agent bound the prop [bindingProp] to a `$variable`, or the
+  /// prop [name] when [bindingProp] is omitted, the field reads and writes
+  /// that variable, so every component that reads it shows what is written.
+  /// Otherwise the field is kept under [name] in the form this component is
+  /// in, which sends it with its actions, or in the reply's state outside a
+  /// form, and shows the prop's own value while it holds nothing, such as
+  /// before it is written or after `null` is. Only a prop the library lets
+  /// the agent bind, such as a field's `value`, is bound: a `$variable` in
+  /// any other prop reads as its value.
   ///
   /// The field of a password `Input`, one whose `type` is `password`, is
   /// kept secret, as the package's own `Input` keeps it: never bound to a
@@ -195,13 +197,15 @@ abstract base class OpenUIComponentScope {
   /// `$variable`, `@Run` running a query or mutation, and `@ToAssistant`
   /// sending a message. A prop that holds no action continues the
   /// conversation with [label], as a button without an action does. The
-  /// action runs with the state of the form this component is in, if any.
+  /// action runs with, and sends, the state of the form this component is
+  /// in, if any.
   ///
   /// With [validate], the form this component is in is checked first, as the
   /// package's primary `Button` checks it, and nothing runs while a field
-  /// fails; the fields show their errors. An action whose steps neither send
-  /// a message to the assistant nor run a mutation, such as `@Set` steps
-  /// alone, runs without the check.
+  /// fails; the fields show their errors. Nothing is checked outside a form,
+  /// once the form has left the tree, or for an action whose steps neither
+  /// send a message to the assistant nor run a mutation, such as `@Set`
+  /// steps alone.
   ///
   /// Nothing runs while the reply is still streaming; see [isStreaming].
   /// Completes once the action has run, or at once when nothing runs.
@@ -227,9 +231,9 @@ abstract base class OpenUIComponentScope {
 ///
 /// Obtained from [OpenUIComponentScope.children] and
 /// [OpenUIComponentScope.child]. Two children are equal when they are the
-/// same component in the same place of the same evaluation of the reply: the
-/// child of a component the reply evaluates again while it streams is a new
-/// one. Its [key] tells it apart across evaluations.
+/// same component, as the reply evaluated it, in the same place: a component
+/// that changes while the reply streams gives a new child. Its [key] stays
+/// the same across such changes; see [key].
 @immutable
 final class OpenUIChild {
   const OpenUIChild._(this.node, this.key);
@@ -241,14 +245,15 @@ final class OpenUIChild {
   final ElementNode node;
 
   /// A string that tells this child apart from the other children of the
-  /// same prop and stays the same while the reply streams in, such as for a
-  /// widget's `ValueKey(child.key)`.
+  /// same prop, such as for a widget's `ValueKey(child.key)`.
+  ///
+  /// A component the agent defined in a statement of its own keeps its key
+  /// while the reply streams in, even when a sibling written before it
+  /// arrives later. One written in place is keyed by where it is: its field,
+  /// or its place in a list, which moves when a sibling before it arrives.
   ///
   /// Children of different props can share a key, so a widget that lays out
   /// the children of several props together keys each by its prop too.
-  ///
-  /// A component the agent defined in a statement of its own keeps its key
-  /// when a sibling written before it arrives later.
   final String key;
 
   /// The type of the component, such as `CardHeader`.
@@ -302,5 +307,5 @@ final class OpenUIStateField {
   }
 
   @override
-  String toString() => '${objectRuntimeType(this, 'OpenUIStateField')}(isBound: $isBound, value: $value)';
+  String toString() => '${objectRuntimeType(this, 'OpenUIStateField')}(isBound: $isBound)';
 }

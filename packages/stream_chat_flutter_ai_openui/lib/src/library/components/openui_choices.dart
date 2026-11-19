@@ -262,8 +262,8 @@ class _OpenUISelection extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = scope.text('name') ?? '';
     final items = [
-      for (final node in scope.children('items'))
-        if (scope.scopeOf(node) case final item when !JS.isNullish(item.prop('value'))) item,
+      for (final child in scope.children('items'))
+        if (scope.scopeOf(child) case final item when !JS.isNullish(item.prop('value'))) item,
     ];
     return scope.watchState((context) {
       final runtime = OpenUIViewScope.of(context).runtime;

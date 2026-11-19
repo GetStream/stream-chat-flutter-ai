@@ -73,6 +73,23 @@ void main() {
     expect(runtime.fieldValue(null, 'n'), const OpenUIString('typed'));
   });
 
+  testWidgets('stateField of a field in a form sends its value and component type with an action', (tester) async {
+    final events = <OpenUIActionEvent>[];
+    final runtime = await _pump(tester, 'root = Stack([Form("f", Buttons([Button("Go")]), [Input("n")])])');
+    runtime.actions.listen(events.add);
+
+    await tester.tap(find.text('n: null unbound'));
+    await tester.pump();
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(plainJson(OpenUIObject(events.single.formState)), {
+      'f': {
+        'n': {'value': 'typed', 'componentType': 'Input'},
+      },
+    });
+  });
+
   testWidgets('stateField keeps a field written after the component left the tree in its form', (tester) async {
     late OpenUIComponentScope captured;
     final library = OpenUILibrary.standard.replacing('Input', (context, scope) {
@@ -131,6 +148,18 @@ void main() {
         'a': OpenUIValue.fromJson(const [1, true, null]),
       }),
     );
+  });
+
+  testWidgets("OpenUIStateField's toString leaves out the value", (tester) async {
+    late OpenUIComponentScope input;
+    final library = OpenUILibrary.standard.replacing('Input', (context, scope) {
+      input = scope;
+      return const SizedBox();
+    });
+    await _pump(tester, 'root = Stack([Input("pw", "", "password")])', library: library);
+    input.stateField('pw').set('hunter2');
+
+    expect(input.stateField('pw').toString(), isNot(contains('hunter2')));
   });
 
   testWidgets("OpenUIStateField.set throws an ArgumentError for a value that isn't JSON", (tester) async {

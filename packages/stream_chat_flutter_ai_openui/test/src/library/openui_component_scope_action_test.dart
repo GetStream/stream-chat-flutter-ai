@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_action_event.dart';
@@ -96,6 +98,92 @@ void main() {
     expect(tools.calls, isEmpty);
   });
 
+  testWidgets('triggerAction with validate sends nothing to the assistant while a field of the form fails', (
+    tester,
+  ) async {
+    final (_, events) = await _pump(
+      tester,
+      'root = Stack([Form("f", Buttons([Button("Go", @ToAssistant("x"))]), [Input("email", "", "text", {required: true})])])',
+      validate: true,
+    );
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(events, isEmpty);
+  });
+
+  testWidgets('triggerAction with validate checks the form for a plan with a step that sends to the assistant', (
+    tester,
+  ) async {
+    final (runtime, _) = await _pump(
+      tester,
+      r'root = Stack([Form("f", Buttons([Button("Go", Action([@Set($q, "x"), @ToAssistant("y")]))]), [Input("email", "", "text", {required: true})])])',
+      validate: true,
+    );
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(runtime.state.value[r'$q'], OpenUINull.instance);
+  });
+
+  testWidgets('triggerAction with validate runs a query while a field of the form fails', (tester) async {
+    final tools = FakeTools()..results['list'] = const OpenUIString('ok');
+    await _pump(
+      tester,
+      'q = Query("list", {}, null)\n'
+      'root = Stack([Form("f", Buttons([Button("Go", @Run(q))]), [Input("email", "", "text", {required: true})])])',
+      validate: true,
+      tools: tools,
+    );
+    final before = tools.calls.length;
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(tools.calls.length, before + 1);
+  });
+
+  testWidgets('triggerAction with validate runs once the fields of the form pass', (tester) async {
+    final (runtime, events) = await _pump(tester, _formWithRequiredField, validate: true);
+    runtime.setFieldValue('f', 'email', const OpenUIString('a@b.c'));
+    await tester.pump();
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(events, hasLength(1));
+  });
+
+  testWidgets('triggerAction with validate shows the error of a field that fails', (tester) async {
+    await _pump(
+      tester,
+      'root = Stack([Form("f", Buttons([Button("Go")]), [FormControl("Email", Input("email", "", "text", {required: true}))])])',
+      validate: true,
+    );
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(find.text('This field is required'), findsOneWidget);
+  });
+
+  testWidgets('triggerAction with validate runs an action of @Set steps alone without checking the form', (
+    tester,
+  ) async {
+    final (runtime, _) = await _pump(
+      tester,
+      r'root = Stack([Form("f", Buttons([Button("Go", @Set($q, "x"))]), [Input("email", "", "text", {required: true})])])',
+      validate: true,
+    );
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(runtime.state.value[r'$q'], const OpenUIString('x'));
+  });
+
   testWidgets('triggerAction with validate runs outside a form', (tester) async {
     final (_, events) = await _pump(tester, 'root = Stack([Button("Hello")])', validate: true);
 
@@ -123,6 +211,32 @@ void main() {
     expect(events.single.formName, 'f');
   });
 
+  testWidgets('triggerAction completes once the action has run', (tester) async {
+    late OpenUIComponentScope captured;
+    final library = OpenUILibrary.standard.replacing('Button', (context, scope) {
+      captured = scope;
+      return const SizedBox();
+    });
+    final tools = FakeTools();
+    final runtime = testRuntime(library: library, tools: tools);
+    addTearDown(runtime.dispose);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      library: library,
+      program: 'm = Mutation("save", {})\nroot = Stack([Button("Go", @Run(m))])',
+    );
+    var completed = false;
+    unawaited(captured.triggerAction('Go').then((_) => completed = true));
+    await tester.pump();
+    final completedWhileRunning = completed;
+
+    tools.calls.single.answer.complete(const OpenUIString('ok'));
+    await tester.pump();
+
+    expect((completedWhileRunning, completed), (false, true));
+  });
+
   testWidgets('triggerAction runs the action the named prop holds', (tester) async {
     final events = <OpenUIActionEvent>[];
     final library = OpenUILibrary.chat.replacing('Table', (context, scope) => scope.buildProp('columns')).replacing(
@@ -148,21 +262,6 @@ void main() {
     await tester.pump();
 
     expect(events.single.message, 'from data');
-  });
-
-  testWidgets('triggerAction with validate runs an action of @Set steps alone without checking the form', (
-    tester,
-  ) async {
-    final (runtime, _) = await _pump(
-      tester,
-      r'root = Stack([Form("f", Buttons([Button("Go", @Set($q, "x"))]), [Input("email", "", "text", {required: true})])])',
-      validate: true,
-    );
-
-    await tester.tap(find.text('Go'));
-    await tester.pump();
-
-    expect(runtime.state.value[r'$q'], const OpenUIString('x'));
   });
 }
 
