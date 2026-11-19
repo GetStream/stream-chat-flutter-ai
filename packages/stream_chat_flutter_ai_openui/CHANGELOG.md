@@ -18,3 +18,6 @@
 - `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
   the texts the components draw and read out themselves, including a form's errors.
 - `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.
+- A builder that replaces a component can reach its child components, the state it keeps and its action, through
+  `OpenUIComponentScope.children`, `child`, `build` and `scopeOf` (with `OpenUIChild`), `stateField` (with
+  `OpenUIStateField`), `watchState` and `triggerAction`.

@@ -100,6 +100,49 @@ final library = OpenUILibrary.chat.replacing('Callout', (context, scope) {
 final renderer = OpenUIRenderer(library: library);
 ```
 
+A builder can also reach the parts of a component, its state and its action:
+
+- `children` and `child` give the components placed in a prop, such as a card's `children`. `build` draws one, and
+  `scopeOf` reads its props.
+- `stateField` reads and writes what a component keeps, such as what a field holds. That is the `$variable` its prop is
+  bound to, or else a value kept under its name in the form it is in.
+- `watchState` builds again when the reply's state changes.
+- `triggerAction` runs a component's `action` as the person's own act, with the state of the form it is in. With
+  `validate`, it checks that form first, as the built-in primary `Button` does.
+
+```dart
+final library = OpenUILibrary.chat
+    // Each of the card's children on a tile of its own.
+    .replacing('Card', (context, scope) {
+      return Column(
+        children: [
+          for (final child in scope.children('children'))
+            BrandTile(key: ValueKey(child.key), child: scope.build(child)),
+        ],
+      );
+    })
+    // A text field that keeps what is typed where the built-in one would.
+    .replacing('Input', (context, scope) {
+      return scope.watchState((context) {
+        final field = scope.stateField(scope.text('name') ?? '', bindingProp: 'value');
+        return BrandTextField(
+          text: '${field.value ?? ''}',
+          enabled: !scope.isStreaming,
+          onChanged: field.set,
+        );
+      });
+    })
+    // A button that checks its form, then runs its action or continues the
+    // conversation with its label.
+    .replacing('Button', (context, scope) {
+      final label = scope.text('label') ?? '';
+      return BrandButton(
+        label: label,
+        onPressed: scope.isStreaming ? null : () => unawaited(scope.triggerAction(label, validate: true)),
+      );
+    });
+```
+
 Keep a library in a `final` or `static` field rather than making it again in a `build` method. A component taken out
 with `removing` isn't in what the agent is told, nor are the notes and examples that name it, and it shows nothing:
 

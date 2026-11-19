@@ -85,7 +85,7 @@ Widget buildOpenUISectionBlock(BuildContext context, OpenUIComponentScope scope)
 Widget buildOpenUISteps(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
-  final items = scope.elements('items');
+  final items = scope.children('items');
   final marker = openUIScaled(context, 24);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -167,13 +167,10 @@ Widget buildOpenUICarousel(BuildContext context, OpenUIComponentScope scope) {
       OpenUIArray(:final items) => items,
       _ => const <OpenUIValue>[],
     })
-      [
-        for (final item in switch (slide) {
-          OpenUIArray(:final items) => items,
-          final value => [value],
-        })
-          if (item case OpenUIElement(:final node)) node,
-      ],
+      openUIChildrenOf(switch (slide) {
+        OpenUIArray(:final items) => items,
+        final value => [value],
+      }),
   ];
   if (slides.isEmpty) return const SizedBox.shrink();
   return _OpenUICarousel(scope: scope, slides: slides, variant: scope.string('variant') == 'sunk' ? 'sunk' : 'card');
@@ -195,8 +192,8 @@ class _ContainerItem {
   static List<_ContainerItem> all(OpenUIComponentScope scope, String name, {required bool requireValue}) {
     final seen = <String>{};
     return [
-      for (final (index, node) in scope.elements(name).indexed)
-        if (scope.scopeOf(node) case final item)
+      for (final (index, child) in scope.children(name).indexed)
+        if (scope.scopeOf(child) case final item)
           if (item.text('value') ?? (requireValue ? null : '$index') case final value? when seen.add(value))
             _ContainerItem(value, item.text('trigger') ?? '', item),
     ];
@@ -532,7 +529,7 @@ class _OpenUICarousel extends StatefulWidget {
   const _OpenUICarousel({required this.scope, required this.slides, required this.variant});
 
   final OpenUIComponentScope scope;
-  final List<List<ElementNode>> slides;
+  final List<List<OpenUIChild>> slides;
   final String variant;
 
   @override

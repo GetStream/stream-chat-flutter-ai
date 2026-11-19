@@ -35,7 +35,7 @@ Widget buildOpenUISwitchGroup(BuildContext context, OpenUIComponentScope scope) 
     _toggleGroup(context, scope, isSwitch: true);
 
 Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required bool isSwitch}) {
-  final items = scope.elements('items');
+  final items = scope.children('items');
   if (items.isEmpty) return const SizedBox.shrink();
   final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
@@ -113,7 +113,7 @@ Widget _toggleGroup(BuildContext context, OpenUIComponentScope scope, {required 
 /// Internal to the package.
 @internal
 Widget buildOpenUIRadioGroup(BuildContext context, OpenUIComponentScope scope) {
-  final items = scope.elements('items');
+  final items = scope.children('items');
   if (items.isEmpty) return const SizedBox.shrink();
   final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
@@ -262,8 +262,8 @@ class _OpenUISelection extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = scope.text('name') ?? '';
     final items = [
-      for (final node in scope.elements('items'))
-        if (scope.scopeOf(node) case final item when !JS.isNullish(item.prop('value'))) item,
+      for (final child in scope.children('items'))
+        if (scope.scopeOf(child) case final item when !JS.isNullish(item.prop('value'))) item,
     ];
     return scope.watchState((context) {
       final runtime = OpenUIViewScope.of(context).runtime;
@@ -337,8 +337,8 @@ class _Chip extends StatelessWidget {
     final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
     final color = selected ? colors.accent : colors.text;
-    final icon = item.elements('icon').firstOrNull;
-    final iconData = icon == null ? null : _iconOf(context, icon);
+    final icon = item.child('icon');
+    final iconData = icon == null ? null : _iconOf(context, item.scopeOf(icon));
     return DecoratedBox(
       decoration: BoxDecoration(
         color: selected ? colors.accent.withValues(alpha: openUIHighlightAlpha) : colors.sunkenSurface,
@@ -372,11 +372,8 @@ class _Chip extends StatelessWidget {
   }
 }
 
-IconData? _iconOf(BuildContext context, ElementNode icon) {
-  return openUIIconOf(context.streamIcons, JS.toStringOrEmpty(icon.props['name']), switch (icon.props['category']) {
-    OpenUIString(:final value) => value,
-    _ => null,
-  });
+IconData? _iconOf(BuildContext context, OpenUIComponentScope icon) {
+  return openUIIconOf(context.streamIcons, icon.text('name') ?? '', icon.string('category'));
 }
 
 class _OptionCard extends StatelessWidget {
@@ -389,18 +386,18 @@ class _OptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenUIViewScope.of(context).theme;
     final colors = theme;
-    final top = item.elements('topContent').firstOrNull;
+    final topChild = item.child('topContent');
+    final top = topChild == null ? null : item.scopeOf(topChild);
     final radius = BorderRadius.circular(theme.mediumCornerRadius);
     Widget? topContent;
     if (top != null) {
-      final source = top.props['src'];
-      if (source is OpenUIString) {
+      if (top.string('src') case final source?) {
         topContent = ClipRRect(
           borderRadius: BorderRadius.circular(theme.smallCornerRadius),
           child: SizedBox(
             height: 80,
             width: double.infinity,
-            child: OpenUIRemoteImage(source: source.value, alt: JS.toStringOrEmpty(top.props['alt'])),
+            child: OpenUIRemoteImage(source: source, alt: top.text('alt') ?? ''),
           ),
         );
       } else if (_iconOf(context, top) case final icon?) {

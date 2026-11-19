@@ -111,7 +111,7 @@ class _FormFieldDefaultsState extends State<_FormFieldDefaults> {
       _scheduled = false;
       if (!mounted || widget.scope.isStreaming) return;
       for (final field in widget.fields) {
-        final scope = widget.scope.scopeOf(field.node);
+        final scope = widget.scope.scopeOf(openUIChildrenOf([OpenUIElement(field.node)]).single);
         saveOpenUIFieldDefault(context, scope, field.node.typeName, openUIFieldDefault(scope));
       }
     });
@@ -130,16 +130,16 @@ class _FormFieldDefaultsState extends State<_FormFieldDefaults> {
 Widget buildOpenUIFormControl(BuildContext context, OpenUIComponentScope scope) {
   final theme = OpenUIViewScope.of(context).theme;
   final colors = theme;
-  final input = scope.elements('input').firstOrNull;
+  final input = scope.child('input');
   final name = input == null ? null : scope.scopeOf(input).text('name');
   final error = name == null ? null : OpenUIFormScope.maybeOf(context)?.validation.errorOf(name);
   final hint = scope.text('hint') ?? '';
   final label = theme.bodySmall.copyWith(fontWeight: FontWeight.w500);
-  final required = input != null && openUIIsRequired(input.props['rules']);
+  final required = input != null && openUIIsRequired(scope.scopeOf(input).prop('rules'));
   // A field that is a single text box, or a picker, is named by the label.
   final named =
       input != null &&
-      switch (input.typeName) {
+      switch (input.type) {
         'Input' || 'TextArea' || 'Select' => true,
         'DatePicker' => scope.scopeOf(input).string('mode') != 'range',
         _ => false,

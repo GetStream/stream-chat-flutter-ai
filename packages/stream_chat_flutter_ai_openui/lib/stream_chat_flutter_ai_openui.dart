@@ -11,7 +11,7 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_theme.dart';
 import 'package:stream_chat_flutter_ai_openui/src/openui_renderer.dart';
 
 export 'src/library/openui_component_name.dart' show OpenUIComponentName;
-export 'src/library/openui_component_scope.dart' show OpenUIComponentScope;
+export 'src/library/openui_component_scope.dart' show OpenUIChild, OpenUIComponentScope, OpenUIStateField;
 export 'src/library/openui_library.dart' show OpenUIComponentBuilder, OpenUILibrary;
 export 'src/library/openui_theme.dart' show OpenUITheme, OpenUIThemeData;
 export 'src/library/openui_translations.dart'
