@@ -43,8 +43,8 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     ignore:
-      # A new Pigeon major changes the generated Kotlin and Swift signatures
-      # (28 makes `@async` methods suspend/async), so it is bumped by hand with
-      # the on-device plugin's hosts.
+      # A Pigeon major can change the generated Kotlin and Swift signatures,
+      # so it is bumped by hand, regenerating the on-device plugin's channel
+      # and updating its hosts.
       - dependency-name: "pigeon"
         update-types: ["version-update:semver-major"]

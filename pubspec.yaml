@@ -105,10 +105,10 @@ melos:
         path_provider_platform_interface: ^2.1.0
         # Generates the on-device model's platform channel from
         # `packages/stream_chat_flutter_ai_ondevice/pigeons/messages.dart`;
-        # see the `generate:pigeon` script. Pinned to the newest 27.x: 28 turns
-        # `@async` methods into suspend/async ones, so a major bump comes with
-        # changes to the Kotlin and Swift hosts.
-        pigeon: 27.3.2
+        # see the `generate:pigeon` script. Pinned, because the generated files
+        # are committed: a bump re-runs that script, and a major one can change
+        # the Kotlin and Swift signatures the hosts implement.
+        pigeon: 30.0.4
         plugin_platform_interface: ^2.1.0
         # Direct because the reply actions tests substitute their own
         # `SharePlatform`; it arrives transitively via `share_plus`.

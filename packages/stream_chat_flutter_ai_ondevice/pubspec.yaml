@@ -40,7 +40,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  pigeon: 27.3.2
+  pigeon: 30.0.4
 
 flutter:
   plugin:

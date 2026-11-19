@@ -94,18 +94,8 @@ class StreamChatFlutterAiOndevicePlugin : FlutterPlugin, OnDeviceModelHostApi {
         return model ?: Generation.getClient().also { model = it }
     }
 
-    override fun modelInfo(callback: (Result<ModelInfoMessage>) -> Unit) {
-        scope.launch {
-            val info = try {
-                Result.success(currentModelInfo())
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
-                Result.failure(error)
-            }
-            callback(info)
-        }
-    }
+    // Pigeon runs it on the main thread and replies with any error it throws.
+    override suspend fun modelInfo(): ModelInfoMessage = currentModelInfo()
 
     private suspend fun currentModelInfo(): ModelInfoMessage {
         val status = status()

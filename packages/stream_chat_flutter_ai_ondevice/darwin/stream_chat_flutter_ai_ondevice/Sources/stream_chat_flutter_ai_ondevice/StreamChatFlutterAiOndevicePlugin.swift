@@ -43,8 +43,8 @@ public class StreamChatFlutterAiOndevicePlugin: NSObject, FlutterPlugin, OnDevic
     replies = [:]
   }
 
-  func modelInfo(completion: @escaping (Result<ModelInfoMessage, Error>) -> Void) {
-    completion(.success(currentModelInfo()))
+  func modelInfo() async throws -> ModelInfoMessage {
+    currentModelInfo()
   }
 
   private func currentModelInfo() -> ModelInfoMessage {
