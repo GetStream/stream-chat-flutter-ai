@@ -440,6 +440,285 @@ void main() {
     expect(_run(program)['runtimeErrors'], hasLength(1));
   });
 
+  for (final count in [500, 2000, 4000]) {
+    test('a share-of-total table of $count rows renders every row', () {
+      final result = _run(
+        r'root = Stack(@Each($rows, "r", Text("" + r.v / @Sum($rows.v))))',
+        state: {
+          r'$rows': [
+            for (var i = 0; i < count; i += 1) {'v': 1},
+          ],
+        },
+      );
+
+      expect(result['runtimeErrors'], isEmpty);
+      expect(_texts(result).last, '${1 / count}');
+    });
+  }
+
+  test('a share-of-total table whose total loops with the same name renders every row', () {
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text("" + r.v / @Sum(@Each($rows, "r", r.v)))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 2000; i += 1) {'v': 1},
+        ],
+      },
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result).last, '${1 / 2000}');
+  });
+
+  test('a total read in a nested loop is the total of its own group', () {
+    final result = _run(
+      r'root = Stack(@Each($groups, "g", Text("" + @Sum(g.v))))',
+      state: {
+        r'$groups': [
+          {
+            'v': [1, 2],
+          },
+          {
+            'v': [3, 4],
+          },
+        ],
+      },
+    );
+
+    expect(_texts(result), ['3', '7']);
+  });
+
+  test('a built-in that filters every row for each row runs out of steps', () {
+    // 1,000 rows filtered once per row walk 1,000,000 items, past
+    // EvaluationBudget.maxSteps.
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text("" + @Count(@Filter($rows, "v", "==", r.v)))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 1000; i += 1) {'v': i},
+        ],
+      },
+    );
+    final errors = (result['runtimeErrors']! as List<Object?>).cast<Map<String, Object?>>();
+
+    expect(errors.single['message'], contains(EvaluationBudget.exceededMessage));
+  });
+
+  test('a loop reading a large field of each item renders every row', () {
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text("" + @Count(r.data))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 60; i += 1) {'data': List.filled(3000, 0)},
+        ],
+      },
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result).last, '3000');
+  });
+
+  test('a sum of 210,000 items outside any loop renders', () {
+    // More items than EvaluationBudget.maxSteps, walked once.
+    final result = _run(
+      r'root = Stack([Text("" + @Sum($big))])',
+      state: {r'$big': List.filled(210000, 1)},
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result), ['210000']);
+  });
+
+  test('a sum of 210,000 items read in each row of a loop renders every row', () {
+    // Walked once, as the sum reads no row.
+    final result = _run(
+      r'root = Stack(@Each([1, 2], "r", Text("" + @Sum($big))))',
+      state: {r'$big': List.filled(210000, 1)},
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result), ['210000', '210000']);
+  });
+
+  test("a sum of each row's own list renders every row", () {
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text("" + @Sum(r.data))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 40; i += 1) {'data': List.filled(3500, 1)},
+        ],
+      },
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result).last, '3500');
+  });
+
+  test('four totals of the same 100,000-item list render', () {
+    // Each total walks the list once; walking it four times in all would pass
+    // EvaluationBudget.maxSteps if only the first walk were free.
+    final result = _run(
+      r'root = Stack([Text("" + @Sum($big) + @Avg($big) + @Max($big) + @Min($big))])',
+      state: {r'$big': List.filled(100000, 1)},
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result), ['100000111']);
+  });
+
+  test('a filter of every row for each row of a nested loop runs out of steps', () {
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Stack(@Each([1], "c", Text("" + @Count(@Filter($rows, "v", "==", r.v)))))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 1000; i += 1) {'v': i},
+        ],
+      },
+    );
+    final errors = (result['runtimeErrors']! as List<Object?>).cast<Map<String, Object?>>();
+
+    expect(errors.single['message'], contains(EvaluationBudget.exceededMessage));
+  });
+
+  test("a filter of every row's field for each row runs out of steps", () {
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text("" + @Count(@Filter($rows.v, "", "==", r.v)))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 1000; i += 1) {'v': i},
+        ],
+      },
+    );
+    final errors = (result['runtimeErrors']! as List<Object?>).cast<Map<String, Object?>>();
+
+    expect(errors.single['message'], contains(EvaluationBudget.exceededMessage));
+  });
+
+  test(r'a filter of a $variable read as a new list each time, for each row, runs out of steps', () {
+    // `@Each($rows, "r", @Count(@Filter($rows, "v", "==", r.v)))`, its state
+    // read as the runtime reads it, a new copy on each read.
+    final loop = AstCall('Each', [
+      const AstStateRef(r'$rows'),
+      const AstString('r'),
+      AstCall('Count', [
+        AstCall('Filter', const [
+          AstStateRef(r'$rows'),
+          AstString('v'),
+          AstString('=='),
+          AstMember(AstRef('r'), 'v'),
+        ]),
+      ]),
+    ]);
+    final reports = <String>[];
+    final context = EvaluationContext(
+      getState: (_) => OpenUIArray([
+        for (var i = 0; i < 1000; i += 1) OpenUIObject({'v': OpenUINumber(i.toDouble())}),
+      ]),
+      resolveRef: (_) => null,
+      reportError: reports.add,
+    );
+    Evaluator.evaluate(loop, context);
+
+    expect(reports, [EvaluationBudget.exceededMessage]);
+  });
+
+  test('a count of a 12,000-item list read in each of 1,000 rows renders every row', () {
+    // A count doesn't walk its list, so the 12,000,000 items it is given
+    // aren't charged.
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text("" + @Count(r.big ? $a : $b))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 1000; i += 1) {'big': i.isEven},
+        ],
+        r'$a': List.filled(12000, 0),
+        r'$b': List.filled(11000, 0),
+      },
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result).last, '11000');
+  });
+
+  test('a count of 2,000 rows for each of 10 categories renders every category', () {
+    final result = _run(
+      r'root = Stack(@Each($cats, "c", Text(c + ": " + @Count(@Filter($rows, "cat", "==", c)))))',
+      state: {
+        r'$cats': [for (var i = 0; i < 10; i += 1) 'c$i'],
+        r'$rows': [
+          for (var i = 0; i < 2000; i += 1) {'cat': 'c${i % 10}'},
+        ],
+      },
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result).last, 'c9: 200');
+  });
+
+  test('a loop variable hides a query of the same name inside the loop', () {
+    final result = _run(
+      'r = Query("tool", {}, [7, 8, 9, 10])\n'
+      'total = @Count(r)\n'
+      r'root = Stack(@Each($lists, "r", Text("" + total)))',
+      state: {
+        r'$lists': [
+          [1],
+          [1, 2],
+          [1, 2, 3],
+        ],
+      },
+    );
+
+    expect(_texts(result), ['1', '2', '3']);
+  });
+
+  test('a built-in call nested 40 deep in a loop evaluates', () {
+    final nested = '${'@Abs(' * 40}-1${')' * 40}';
+
+    final result = _run('root = Stack(@Each([1, 2, 3], "r", Text("" + $nested)))');
+
+    expect(_texts(result), ['1', '1', '1']);
+  });
+
+  test(r'a loop over a built-in reading $value gives the value of the scope it is evaluated in', () {
+    final loop = AstCall('Each', [
+      AstArray(const [AstNumber(1), AstNumber(2)]),
+      const AstString('x'),
+      AstCall('Count', const [AstStateRef(r'$value')]),
+    ]);
+    final context = EvaluationContext(
+      getState: (_) => null,
+      resolveRef: (_) => null,
+      extraScope: {
+        r'$value': OpenUIArray(const [OpenUINumber(1)]),
+      },
+    );
+    final other = context.copyWith(
+      extraScope: {
+        r'$value': OpenUIArray(const [OpenUINumber(1), OpenUINumber(2)]),
+      },
+    );
+    // The same loop, evaluated first in the pass with another `$value`.
+    final first = Evaluator.evaluate(loop, context);
+
+    expect(first, OpenUIArray(const [OpenUINumber(1), OpenUINumber(1)]));
+    expect(Evaluator.evaluate(loop, other), OpenUIArray(const [OpenUINumber(2), OpenUINumber(2)]));
+  });
+
+  test('a count of the rows past a computed threshold, read in each of 4,000 rows, renders every row', () {
+    final result = _run(
+      r'root = Stack(@Each($rows, "r", Text(r.v + " of " + @Count(@Filter($rows, "v", ">", 1 + 1)))))',
+      state: {
+        r'$rows': [
+          for (var i = 0; i < 4000; i += 1) {'v': i},
+        ],
+      },
+    );
+
+    expect(result['runtimeErrors'], isEmpty);
+    expect(_texts(result).last, '3999 of 3997');
+  });
+
   group('with a library of Box, Twice, Shared and Notify', () {
     final schema = OpenUILibrarySchema.fromJsonSchema(const {
       r'$defs': {
@@ -544,6 +823,12 @@ void main() {
 
     test('a library function that throws is reported by name', () {
       expect((errorsOf(box('@Twice(-1)')).single! as Map)['message'], contains('@Twice threw'));
+    });
+
+    test('a library function that throws inside a built-in in a loop is reported for every item', () {
+      final errors = errorsOf(box('@Each([1, 2, 3], "r", @Count([@Twice(-1)]))'));
+
+      expect(errors, hasLength(3));
     });
 
     test('a library function whose result does not match its returns gives null', () {
@@ -670,6 +955,12 @@ Map<String, Object?> _run(
 }
 
 Map<String, Object?> _root(Map<String, Object?> result) => result['evaluatedRoot']! as Map<String, Object?>;
+
+// The texts of the root's children, each a `Text`.
+List<Object?> _texts(Map<String, Object?> result) => [
+  for (final child in (_prop(_root(result), ['children'])! as List<Object?>).cast<Map<String, Object?>>())
+    _prop(child, ['text']),
+];
 
 Object? _prop(Map<String, Object?> element, List<Object> path) {
   Object? current = element;

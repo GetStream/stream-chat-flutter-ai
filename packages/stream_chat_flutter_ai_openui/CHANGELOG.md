@@ -18,3 +18,5 @@
 - `OpenUITranslations`, `DefaultOpenUITranslations`, `OpenUITranslationsScope` and `OpenUITranslationsDelegate` translate
   the texts the components draw and read out themselves, including a form's errors.
 - `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.
+- A loop that sorts or filters a whole list for every item is cut short with a `runtime-error` instead of freezing the
+  app, and a total read in a loop, such as `@Sum($rows.v)`, is worked out once rather than once per item.
