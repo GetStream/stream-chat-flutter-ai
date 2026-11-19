@@ -76,8 +76,9 @@ final class AIOnDeviceDownloadCompleted extends AIOnDeviceDownload {
 
 /// An event reporting that the download failed.
 ///
-/// The stream closes after it. The model is still downloadable, so the person
-/// can try again.
+/// The stream closes after it. On Android the model is usually still
+/// downloadable, so the person can try again; on iOS and macOS the system
+/// manages the download, and [error] says why the model isn't ready.
 final class AIOnDeviceDownloadFailed extends AIOnDeviceDownload {
   /// Creates an event for a download that failed with [error].
   const AIOnDeviceDownloadFailed(this.error) : super._();
