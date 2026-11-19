@@ -31,6 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ github.event_name == 'push' || (steps.filter.outputs.relevant == 'true' && github.event.pull_request.draft != true) }}
+      # The `apple` job's macOS runners cost about ten times as much, so it runs
+      # only for changes that can reach the on-device plugin's Swift.
+      apple_should_run: ${{ github.event_name == 'push' || (steps.filter.outputs.apple == 'true' && github.event.pull_request.draft != true) }}
     steps:
       - name: "Git Checkout"
         uses: actions/checkout@v7
@@ -43,6 +46,13 @@ jobs:
             relevant:
               - 'packages/**'
               - 'analysis_options.yaml'
+              - 'pubspec.yaml'
+              - '.github/workflows/stream_flutter_ai_workflow.yml'
+            apple:
+              - 'packages/stream_chat_flutter_ai_ondevice/**'
+              - 'packages/stream_chat_flutter_ai/example/ios/**'
+              - 'packages/stream_chat_flutter_ai/example/macos/**'
+              - 'packages/stream_chat_flutter_ai/example/pubspec.yaml'
               - 'pubspec.yaml'
               - '.github/workflows/stream_flutter_ai_workflow.yml'
 
@@ -181,7 +191,7 @@ jobs:
   apple:
     needs: gate
     runs-on: macos-26
-    if: needs.gate.outputs.should_run == 'true'
+    if: needs.gate.outputs.apple_should_run == 'true'
     timeout-minutes: 30
     steps:
       - name: "Git Checkout"
