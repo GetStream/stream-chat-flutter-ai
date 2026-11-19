@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter_ai_ondevice/stream_chat_flutter_ai_ondevice.dart';
+import 'package:stream_core_flutter/core.dart';
 
 /// An app bar switcher between answering in the cloud and answering with the
 /// model on this device.
 ///
-/// The device half shows where the model is, as a badge: ready, downloadable,
+/// The device button shows where the model is, as a badge: ready, downloadable,
 /// downloading (a ring that fills) or not on this device (disabled). Tapping it
 /// switches to the device when the model is ready, and offers to download it
 /// when it can be.
@@ -66,19 +67,10 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
   }
 
   Future<void> _confirmDownload() async {
-    final download = await showDialog<bool>(
+    final download = await showStreamSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Download the on-device model?'),
-        content: const Text(
-          'It answers without a connection. The download is large, and the system may wait until the '
-          'device is idle and on Wi-Fi, so it can take a while.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Download')),
-        ],
-      ),
+      isDismissible: true,
+      builder: (context, scrollController) => const _DownloadSheet(),
     );
     if (download != true || !mounted) return;
     _startDownload();
@@ -132,26 +124,30 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
         unawaited(_confirmDownload());
       case AIOnDeviceStatus.downloading:
         _show('The on-device model is still downloading. The system may wait until the device is idle and on Wi-Fi.');
+      default:
+        break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = context.streamColorScheme;
+    final icons = context.streamIcons;
     final status = _status;
+    // Core has no cloud, phone or laptop glyph.
     final deviceIcon = defaultTargetPlatform == TargetPlatform.macOS
         ? Icons.laptop_mac_outlined
         : Icons.smartphone_outlined;
 
     final (tooltip, badge) = switch (status) {
-      AIOnDeviceStatus.available => ('Answer on this device', _Badge.ready),
-      AIOnDeviceStatus.downloadable => ('Download the on-device model', _Badge.download),
+      AIOnDeviceStatus.available => ('Answer on this device', (colors.accentSuccess, icons.checkmark)),
+      AIOnDeviceStatus.downloadable => ('Download the on-device model', (colors.accentPrimary, icons.arrowDown)),
       AIOnDeviceStatus.downloading => ('Downloading the on-device model', null),
       null => ('Checking for an on-device model', null),
       _ => (
         'No on-device model: it needs Gemini Nano (a recent flagship Android phone) or Apple Intelligence '
             '(iOS or macOS 26)',
-        _Badge.unavailable,
+        (colors.accentNeutral, icons.xmark),
       ),
     };
     final enabled =
@@ -159,128 +155,116 @@ class _AnswerSourceSwitcherState extends State<AnswerSourceSwitcher> {
         status == AIOnDeviceStatus.downloadable ||
         status == AIOnDeviceStatus.downloading;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: colors.surfaceContainerHighest, borderRadius: BorderRadius.circular(22)),
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 2,
-            children: [
-              _Segment(
-                tooltip: 'Answer in the cloud',
-                selected: !widget.useDevice,
-                onPressed: () => widget.onChanged(false),
-                icon: Icons.cloud_outlined,
-              ),
-              _Segment(
-                tooltip: tooltip,
-                selected: widget.useDevice,
-                onPressed: enabled ? _handleDevicePressed : null,
-                icon: deviceIcon,
-                badge: badge,
-                progress: status == AIOnDeviceStatus.downloading ? (_progress ?? -1) : null,
-              ),
-            ],
+    Widget device = Icon(deviceIcon);
+    if (status == AIOnDeviceStatus.downloading) {
+      device = Stack(
+        alignment: Alignment.center,
+        children: [
+          StreamLoadingSpinner(value: _progress, size: .lg),
+          Icon(deviceIcon, size: 14),
+        ],
+      );
+    } else if (badge case (final color, final glyph)) {
+      device = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          device,
+          Positioned(
+            right: -3,
+            bottom: -3,
+            child: _BadgeDot(color: color, icon: glyph),
           ),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      spacing: context.streamSpacing.xxs,
+      children: [
+        StreamButton.icon(
+          style: .secondary,
+          type: .ghost,
+          tooltip: 'Answer in the cloud',
+          isSelected: !widget.useDevice,
+          icon: const Icon(Icons.cloud_outlined),
+          onPressed: () => widget.onChanged(false),
         ),
-      ),
+        StreamButton.icon(
+          style: .secondary,
+          type: .ghost,
+          tooltip: tooltip,
+          isSelected: widget.useDevice,
+          icon: device,
+          onPressed: enabled ? _handleDevicePressed : null,
+        ),
+      ],
     );
   }
 }
 
-enum _Badge { ready, download, unavailable }
-
-// One half of the switcher: an icon, raised when `selected`, with an optional
-// status `badge` or download `progress` (-1 while it is unknown).
-class _Segment extends StatelessWidget {
-  const _Segment({
-    required this.tooltip,
-    required this.selected,
-    required this.onPressed,
-    required this.icon,
-    this.badge,
-    this.progress,
-  });
-
-  final String tooltip;
-  final bool selected;
-  final VoidCallback? onPressed;
-  final IconData icon;
-  final _Badge? badge;
-  final double? progress;
+// Asks before downloading the model, and pops with whether to.
+class _DownloadSheet extends StatelessWidget {
+  const _DownloadSheet();
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final progress = this.progress;
-    final badge = this.badge;
-    final iconColor = onPressed == null
-        ? colors.onSurface.withValues(alpha: 0.38)
-        : selected
-        ? colors.primary
-        : colors.onSurfaceVariant;
-
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        selected: selected,
-        enabled: onPressed != null,
-        child: Material(
-          color: selected ? colors.surface : Colors.transparent,
-          elevation: selected ? 1 : 0,
-          shape: const StadiumBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: SizedBox(
-              width: 40,
-              height: 36,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (progress != null)
-                    SizedBox.square(
-                      dimension: 28,
-                      child: CircularProgressIndicator(value: progress < 0 ? null : progress, strokeWidth: 2),
-                    ),
-                  Icon(icon, size: progress != null ? 16 : 20, color: iconColor),
-                  if (badge != null) Positioned(right: 5, bottom: 4, child: _BadgeDot(badge)),
-                ],
-              ),
+    final spacing = context.streamSpacing;
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          StreamSheetHeader(title: const Text('Download the on-device model?')),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: spacing.md),
+            child: Text(
+              'It answers without a connection. The download is large, and the system may wait until the '
+              'device is idle and on Wi-Fi, so it can take a while.',
+              style: context.streamTextTheme.bodyDefault.copyWith(color: context.streamColorScheme.textSecondary),
             ),
           ),
-        ),
+          Padding(
+            padding: EdgeInsets.all(spacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              spacing: spacing.xs,
+              children: [
+                StreamButton(
+                  style: .secondary,
+                  type: .ghost,
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Not now'),
+                ),
+                StreamButton(onPressed: () => Navigator.pop(context, true), child: const Text('Download')),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
+// The status badge on the device button.
 class _BadgeDot extends StatelessWidget {
-  const _BadgeDot(this.badge);
+  const _BadgeDot({required this.color, required this.icon});
 
-  final _Badge badge;
+  final Color color;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final (color, icon) = switch (badge) {
-      _Badge.ready => (Colors.green.shade700, Icons.check),
-      _Badge.download => (colors.primary, Icons.arrow_downward),
-      _Badge.unavailable => (colors.outline, Icons.close),
-    };
+    final colors = context.streamColorScheme;
     return Container(
       width: 13,
       height: 13,
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: colors.surfaceContainerHighest, width: 1.5),
+        border: Border.all(color: colors.backgroundApp, width: 1.5),
       ),
-      child: Icon(icon, size: 8, color: Colors.white),
+      child: Icon(icon, size: 8, color: colors.textOnAccent),
     );
   }
 }
