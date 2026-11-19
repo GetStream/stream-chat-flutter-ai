@@ -76,6 +76,11 @@ final class EvaluationBudget {
   final _states = <String, OpenUIValue?>{};
   final _plucks = Map<OpenUIArray, Map<String, OpenUIArray>>.identity();
 
+  // The literal of each list, object or element an `@Each` item holds, and
+  // the plain value of each element, made once per pass.
+  final _literals = Map<OpenUIValue, AstNode>.identity();
+  final _plainValues = Map<OpenUIValue, OpenUIValue>.identity();
+
   // The call each copy of a list-walking call in a template was copied from,
   // and the lists each such call has walked.
   final _origins = Map<AstCall, AstCall>.identity();
@@ -165,16 +170,18 @@ final class EvaluationContext {
   // `resolveRef` resolves to their items.
   final Set<String> _loopVariables;
 
-  /// This context with `resolveRef`, `reportError` or `extraScope` replaced.
+  /// This context with `reportError` or `extraScope` replaced.
+  ///
+  /// The names references resolve to stay as they are: values evaluated once
+  /// per pass are reused on that basis.
   EvaluationContext copyWith({
-    OpenUIValue? Function(String name)? resolveRef,
     void Function(String message)? reportError,
     Map<String, OpenUIValue>? extraScope,
   }) {
     return EvaluationContext._(
       _loopVariables,
       getState: getState,
-      resolveRef: resolveRef ?? this.resolveRef,
+      resolveRef: resolveRef,
       schema: schema,
       isBindable: isBindable,
       functions: functions,
@@ -725,7 +732,8 @@ abstract final class Evaluator {
       // Each field the template reads, or the item itself, built once
       // however often it is read.
       final literals = <String, AstNode>{};
-      AstNode itemLiteral(List<String> fields) => literals[_pathKey(fields)] ??= _fieldLiteral(item, fields);
+      AstNode itemLiteral(List<String> fields) =>
+          literals[_pathKey(fields)] ??= _fieldLiteral(item, fields, context.budget);
 
       final substituted = _substitute(template, variable, itemLiteral, context);
       final itemContext = context._inLoop(
@@ -744,18 +752,34 @@ abstract final class Evaluator {
   }
 
   // The literal expression of `value`.
-  static AstNode _literalAst(OpenUIValue? value) {
-    return switch (value) {
-      null || OpenUINull() => AstNull.instance,
-      OpenUIString(:final value) => AstString(value),
-      OpenUINumber(:final value) => AstNumber(value),
-      OpenUIBool(:final value) => AstBool(value),
-      OpenUIArray(:final items) => AstArray([for (final item in items) _literalAst(item)]),
-      OpenUIObject(:final fields) => AstObject([
-        for (final MapEntry(:key, :value) in fields.entries) (key, _literalAst(value)),
-      ]),
-      OpenUIElement() || OpenUIExpression() => _literalAst(OpenUIValue.fromJson(plainJson(value))),
-    };
+  //
+  // A list, object or element is built once per pass however many items hold
+  // it, so building literals takes no longer than the values they copy.
+  static AstNode _literalAst(OpenUIValue? value, EvaluationBudget budget) {
+    switch (value) {
+      case null || OpenUINull():
+        return AstNull.instance;
+      case OpenUIString(:final value):
+        return AstString(value);
+      case OpenUINumber(:final value):
+        return AstNumber(value);
+      case OpenUIBool(:final value):
+        return AstBool(value);
+      case OpenUIArray(:final items):
+        return budget._literals[value] ??= AstArray([for (final item in items) _literalAst(item, budget)]);
+      case OpenUIObject(:final fields):
+        return budget._literals[value] ??= AstObject([
+          for (final MapEntry(:key, :value) in fields.entries) (key, _literalAst(value, budget)),
+        ]);
+      case OpenUIElement() || OpenUIExpression():
+        return budget._literals[value] ??= _literalAst(_plainValue(value, budget), budget);
+    }
+  }
+
+  // An element or expression as the plain value its literal holds, made once
+  // per pass.
+  static OpenUIValue _plainValue(OpenUIValue value, EvaluationBudget budget) {
+    return budget._plainValues[value] ??= OpenUIValue.fromJson(plainJson(value));
   }
 
   // A key for the field path `fields`: its length, then its fields, which
@@ -765,18 +789,18 @@ abstract final class Evaluator {
   // The literal of `item`'s field at the path `fields`. A field path stops at
   // a value that isn't an object, as `_substitute` reading it from the item's
   // literal would: the rest is read when it is evaluated.
-  static AstNode _fieldLiteral(OpenUIValue item, List<String> fields) {
+  static AstNode _fieldLiteral(OpenUIValue item, List<String> fields, EvaluationBudget budget) {
     var value = item;
     var read = 0;
     for (; read < fields.length; read += 1) {
-      if (value is OpenUIElement || value is OpenUIExpression) value = OpenUIValue.fromJson(plainJson(value));
+      if (value is OpenUIElement || value is OpenUIExpression) value = _plainValue(value, budget);
       if (value case OpenUIObject(fields: final entries) when entries.containsKey(fields[read])) {
         value = entries[fields[read]]!;
       } else {
         break;
       }
     }
-    var literal = _literalAst(value);
+    var literal = _literalAst(value, budget);
     for (final field in fields.skip(read)) {
       literal = AstMember(literal, field);
     }

@@ -655,6 +655,30 @@ void main() {
     expect(_texts(result).last, 'c9: 200');
   });
 
+  for (final (kind, expr, expected) in [
+    ('a ternary', '@Sum(true ? r : [])', ['1', '3', '6']),
+    ('an index', '@Sum([r, r][0])', ['1', '3', '6']),
+    ('a negation', '@Sum([-@Count(r)])', ['-1', '-2', '-3']),
+    ('an object', '@Sum({a: r}.a)', ['1', '3', '6']),
+  ]) {
+    test('a loop variable hides a query of the same name read through $kind', () {
+      final result = _run(
+        'r = Query("tool", {}, [7, 8, 9, 10])\n'
+        'total = $expr\n'
+        r'root = Stack(@Each($lists, "r", Text("" + total)))',
+        state: {
+          r'$lists': [
+            [1],
+            [1, 2],
+            [1, 2, 3],
+          ],
+        },
+      );
+
+      expect(_texts(result), expected);
+    });
+  }
+
   test('a loop variable hides a query of the same name inside the loop', () {
     final result = _run(
       'r = Query("tool", {}, [7, 8, 9, 10])\n'
