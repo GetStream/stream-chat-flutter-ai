@@ -154,31 +154,38 @@ abstract base class OpenUIComponentScope {
 
   /// The scope of [child], to read its props.
   ///
-  /// The [child] is one this scope gave, from [children] or [child].
+  /// The [child] is one this scope gave, from [children] or [child]. Its
+  /// [stateField] and [triggerAction] use the form this component is in, not
+  /// the one the child may be drawn in: a child's state and action are those
+  /// of the scope its own builder is given.
   OpenUIComponentScope scopeOf(OpenUIChild child);
 
-  /// The state field [name] this component shows and writes, as an input
-  /// keeps what the person enters, or a modal whether it is open.
+  /// The state field [name] this component shows and writes.
   ///
-  /// When the prop [bindingProp], [name] when not given, is bound to a
+  /// An input keeps what the person enters in its field, and a modal whether
+  /// it is open.
+  ///
+  /// When the agent bound the prop [bindingProp], [name] when not given, to a
   /// `$variable`, the field reads and writes that variable, so every
   /// component that reads it shows what is written. Otherwise the field is
   /// kept under [name] in the form this component is in, which sends it with
   /// its actions, or in the reply's state outside a form, and shows the
-  /// prop's own value until it is written.
+  /// prop's own value until it is written. Only a prop the library lets the
+  /// agent bind, such as a field's `value`, is bound: a `$variable` in any
+  /// other prop reads as its value.
   ///
   /// The field of a password `Input`, one whose `type` is `password`, is
   /// kept secret, as the package's own `Input` keeps it: never bound to a
   /// `$variable`, and left out of the form state an action sends.
   ///
-  /// The field is read as it is now: read it in [watchState] to show it, so
-  /// the widget is built again when it changes.
+  /// The field is read as it is now. A widget that reads it in [watchState]
+  /// is built again when it changes.
   OpenUIStateField stateField(String name, {String? bindingProp});
 
   /// The widget [builder] builds, built again each time a `$variable` or form
   /// field of the reply changes.
   ///
-  /// Read [stateField] inside [builder] to show a field's current value.
+  /// A field read with [stateField] inside [builder] shows its current value.
   Widget watchState(WidgetBuilder builder);
 
   /// Runs the action the prop [name] holds, such as a button's `action`, as
@@ -222,7 +229,7 @@ abstract base class OpenUIComponentScope {
 /// [OpenUIComponentScope.child]. Two children are equal when they are the
 /// same component in the same place of the same evaluation of the reply: the
 /// child of a component the reply evaluates again while it streams is a new
-/// one. Use [key] to tell a child apart across evaluations.
+/// one. Its [key] tells it apart across evaluations.
 @immutable
 final class OpenUIChild {
   const OpenUIChild._(this.node, this.key);
@@ -233,9 +240,12 @@ final class OpenUIChild {
   @internal
   final ElementNode node;
 
-  /// A string that tells this child apart from its siblings and stays the
-  /// same while the reply streams in, such as for a widget's
-  /// `ValueKey(child.key)`.
+  /// A string that tells this child apart from the other children of the
+  /// same prop and stays the same while the reply streams in, such as for a
+  /// widget's `ValueKey(child.key)`.
+  ///
+  /// Children of different props can share a key, so a widget that lays out
+  /// the children of several props together keys each by its prop too.
   ///
   /// A component the agent defined in a statement of its own keeps its key
   /// when a sibling written before it arrives later.
@@ -260,8 +270,11 @@ final class OpenUIChild {
 /// A state field a component shows and writes; see
 /// [OpenUIComponentScope.stateField].
 ///
-/// It holds the field's value when it was read; read it again to see a newer
-/// one.
+/// It holds the field's value when it was read; a field read again holds the
+/// newer one.
+///
+/// Obtained from [OpenUIComponentScope.stateField]. Not constructed directly.
+@immutable
 final class OpenUIStateField {
   const OpenUIStateField._(this._field);
 

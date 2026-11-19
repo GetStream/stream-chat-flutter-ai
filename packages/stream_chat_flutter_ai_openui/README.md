@@ -100,11 +100,14 @@ final library = OpenUILibrary.chat.replacing('Callout', (context, scope) {
 final renderer = OpenUIRenderer(library: library);
 ```
 
-A builder can also reach the parts of a component, its state and its action. `children` and `child` give the
-components placed in a prop, such as a card's `children`, to draw one by one with `build` or read with `scopeOf`.
-`stateField` reads and writes what a component keeps, such as what a field holds: the `$variable` its prop is bound
-to, or else a value kept under its name in the form it is in. `watchState` builds again when the reply's state changes,
-and `triggerAction` runs a component's `action` as the person's own act, checking the form first with `validate`:
+A builder can also reach the parts of a component, its state and its action:
+
+- `children` and `child` give the components placed in a prop, such as a card's `children`. `build` draws one, and
+  `scopeOf` reads its props.
+- `stateField` reads and writes what a component keeps, such as what a field holds. That is the `$variable` its prop is
+  bound to, or else a value kept under its name in the form it is in.
+- `watchState` builds again when the reply's state changes.
+- `triggerAction` runs a component's `action` as the person's own act. With `validate`, it checks the form first.
 
 ```dart
 final library = OpenUILibrary.chat

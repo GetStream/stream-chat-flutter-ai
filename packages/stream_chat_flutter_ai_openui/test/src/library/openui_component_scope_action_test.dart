@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_action_event.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/core/openui_runtime.dart';
+import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 
+import '../core/runtime/fake_tools.dart';
 import '../openui_test_app.dart';
 
 void main() {
@@ -60,7 +62,7 @@ void main() {
     expect(events, isEmpty);
   });
 
-  testWidgets('triggerAction runs while a field of the form fails', (tester) async {
+  testWidgets('triggerAction without validate runs while a field of the form fails', (tester) async {
     final (_, events) = await _pump(tester, _formWithRequiredField);
 
     await tester.tap(find.text('Go'));
@@ -76,6 +78,76 @@ void main() {
     await tester.pump();
 
     expect(events, isEmpty);
+  });
+
+  testWidgets('triggerAction with validate checks the form before a mutation', (tester) async {
+    final tools = FakeTools();
+    await _pump(
+      tester,
+      'm = Mutation("save", {})\n'
+      'root = Stack([Form("f", Buttons([Button("Go", @Run(m))]), [Input("email", "", "text", {required: true})])])',
+      validate: true,
+      tools: tools,
+    );
+
+    await tester.tap(find.text('Go'));
+    await tester.pump();
+
+    expect(tools.calls, isEmpty);
+  });
+
+  testWidgets('triggerAction with validate runs outside a form', (tester) async {
+    final (_, events) = await _pump(tester, 'root = Stack([Button("Hello")])', validate: true);
+
+    await tester.tap(find.text('Hello'));
+    await tester.pump();
+
+    expect(events, hasLength(1));
+  });
+
+  testWidgets('triggerAction with validate runs without checking a form that left the tree', (tester) async {
+    late OpenUIComponentScope captured;
+    final library = OpenUILibrary.standard.replacing('Button', (context, scope) {
+      captured = scope;
+      return const SizedBox();
+    });
+    final runtime = testRuntime(library: library);
+    addTearDown(runtime.dispose);
+    final events = <OpenUIActionEvent>[];
+    runtime.actions.listen(events.add);
+    await pumpOpenUI(tester, runtime, library: library, program: _formWithRequiredField);
+    await tester.pumpWidget(const SizedBox());
+
+    await captured.triggerAction('Go', validate: true);
+
+    expect(events.single.formName, 'f');
+  });
+
+  testWidgets('triggerAction runs the action the named prop holds', (tester) async {
+    final events = <OpenUIActionEvent>[];
+    final library = OpenUILibrary.chat.replacing('Table', (context, scope) => scope.buildProp('columns')).replacing(
+      'Col',
+      (context, scope) {
+        return GestureDetector(
+          onTap: () => scope.triggerAction('Col', name: 'data'),
+          child: Text(scope.text('label') ?? ''),
+        );
+      },
+    );
+    final runtime = testRuntime(library: library);
+    addTearDown(runtime.dispose);
+    runtime.actions.listen(events.add);
+    await pumpOpenUI(
+      tester,
+      runtime,
+      library: library,
+      program: 'root = Card([Table([Col("Ask", @ToAssistant("from data"))])])',
+    );
+
+    await tester.tap(find.text('Ask'));
+    await tester.pump();
+
+    expect(events.single.message, 'from data');
   });
 
   testWidgets('triggerAction with validate runs an action of @Set steps alone without checking the form', (
@@ -100,12 +172,14 @@ const _formWithRequiredField =
 
 // Pumps [program] with the standard library's `Button` drawn as its label,
 // which runs its action when tapped, checking the form first when [validate]
-// is `true`; gives the runtime and the actions it sent.
+// is `true`, with [tools] running its queries and mutations; gives the
+// runtime and the actions it sent.
 Future<(OpenUIRuntime, List<OpenUIActionEvent>)> _pump(
   WidgetTester tester,
   String program, {
   bool isStreaming = false,
   bool validate = false,
+  FakeTools? tools,
 }) async {
   final library = OpenUILibrary.standard.replacing('Button', (context, scope) {
     final label = scope.text('label') ?? '';
@@ -114,7 +188,7 @@ Future<(OpenUIRuntime, List<OpenUIActionEvent>)> _pump(
       child: Text(label),
     );
   });
-  final runtime = testRuntime(library: library);
+  final runtime = testRuntime(library: library, tools: tools);
   addTearDown(runtime.dispose);
   final events = <OpenUIActionEvent>[];
   runtime.actions.listen(events.add);

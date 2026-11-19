@@ -19,16 +19,17 @@ import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 /// Internal to the package.
 @internal
 bool openUIActionChecksForm(OpenUIValue? action) {
-  if (action case OpenUIObject(:final fields) when fields['steps'] is OpenUIArray) {
-    return (fields['steps']! as OpenUIArray).items.any(
-      (step) =>
-          step is OpenUIObject &&
-          (step.fields['type'] == const OpenUIString(ActionStepType.continueConversation) ||
-              (step.fields['type'] == const OpenUIString(ActionStepType.run) &&
-                  step.fields['refType'] == const OpenUIString('mutation'))),
-    );
-  }
+  if (action case OpenUIObject(fields: {'steps': OpenUIArray(:final items)})) return items.any(_stepChecksForm);
   return true;
+}
+
+// Whether [step] of a plan talks to the assistant or runs a mutation.
+bool _stepChecksForm(OpenUIValue step) {
+  if (step is! OpenUIObject) return false;
+  final type = step.fields['type'];
+  if (type == const OpenUIString(ActionStepType.continueConversation)) return true;
+  if (type != const OpenUIString(ActionStepType.run)) return false;
+  return step.fields['refType'] == const OpenUIString('mutation');
 }
 
 /// Runs [action], the action of the control labelled [label] that [scope]
@@ -69,6 +70,17 @@ class OpenUIFormValidation extends ChangeNotifier {
 
   /// The form's name, or `null` for a form without one.
   String? formName;
+
+  /// Whether the form has left the tree, so its fields can no longer be
+  /// checked.
+  bool get isDisposed => _isDisposed;
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   final _fields = <String, (OpenUIValue?, OpenUIValue?, Object)>{};
   List<OpenUIFormField> _tree = const [];

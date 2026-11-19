@@ -7,14 +7,24 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import '../openui_test_app.dart';
 
 void main() {
-  testWidgets('children gives the components of a list prop in order, leaving out its other items', (tester) async {
+  testWidgets('children gives the components of a list prop in order', (tester) async {
     late List<OpenUIChild> children;
-    await _pumpCard(tester, 'root = Card([CardHeader("A"), "text", TextContent("B")])', (context, scope) {
+    await _pumpCard(tester, 'root = Card([CardHeader("A"), TextContent("B")])', (context, scope) {
       children = scope.children('children');
       return const SizedBox();
     });
 
     expect([for (final child in children) child.type], ['CardHeader', 'TextContent']);
+  });
+
+  testWidgets("children leaves out the items of a list prop that aren't components", (tester) async {
+    late List<OpenUIChild> children;
+    await _pumpColumns(tester, 'root = Card([Table([Col("L", [CardHeader("A"), "text", 7])])])', (context, scope) {
+      children = scope.children('data');
+      return const SizedBox();
+    });
+
+    expect(children, hasLength(1));
   });
 
   testWidgets('children gives the one component a prop holds', (tester) async {

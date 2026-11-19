@@ -9,9 +9,16 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_library.dart';
 import '../openui_test_app.dart';
 
 void main() {
-  testWidgets('stateField writes the variable its binding prop is bound to, and every field bound to it shows it', (
-    tester,
-  ) async {
+  testWidgets('stateField writes the variable its binding prop is bound to', (tester) async {
+    final runtime = await _pump(tester, r'root = Stack([Input("a", "", "text", null, $q)])');
+
+    await tester.tap(find.text('a: null bound'));
+    await tester.pump();
+
+    expect(runtime.state.value[r'$q'], const OpenUIString('typed'));
+  });
+
+  testWidgets('a field bound to a variable shows what another field bound to it writes', (tester) async {
     await _pump(tester, r'root = Stack([Input("a", "", "text", null, $q), Input("b", "", "text", null, $q)])');
 
     await tester.tap(find.text('a: null bound'));

@@ -219,13 +219,14 @@ final class _NodeScope extends OpenUIComponentScope {
   @override
   OpenUIChild? child(String name, {String? field}) {
     if (field == null) return children(name).firstOrNull;
-    if (_prop(name) case OpenUIObject(:final fields)) {
-      if (fields[field] case OpenUIElement(:final node)) {
-        final statementId = node.statementId;
-        return OpenUIChild._(node, statementId == null ? field : '\$$statementId');
-      }
-    }
-    return null;
+    final value = switch (_prop(name)) {
+      OpenUIObject(:final fields) => fields[field],
+      _ => null,
+    };
+    if (value is! OpenUIElement) return null;
+    final node = value.node;
+    final statementId = node.statementId;
+    return OpenUIChild._(node, statementId == null ? field : '\$$statementId');
   }
 
   @override
@@ -256,7 +257,9 @@ final class _NodeScope extends OpenUIComponentScope {
     if (isStreaming) return;
     final action = _prop(name);
     final form = _form;
-    if (validate && form != null && openUIActionChecksForm(action) && !form.validateForm()) return;
+    // A form that left the tree has no fields on screen to check.
+    final checksForm = validate && form != null && !form.isDisposed && openUIActionChecksForm(action);
+    if (checksForm && !form.validateForm()) return;
     await _view.runtime.trigger(label: label, formName: form?.formName, action: action);
   }
 
