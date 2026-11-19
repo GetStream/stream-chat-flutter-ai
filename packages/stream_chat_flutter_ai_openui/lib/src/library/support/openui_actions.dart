@@ -12,11 +12,30 @@ import 'package:stream_chat_flutter_ai_openui/src/library/openui_translations.da
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_form_fields.dart';
 import 'package:stream_chat_flutter_ai_openui/src/view/openui_view_scope.dart';
 
+/// Whether [action] checks the form it runs in first, as a primary button's
+/// does: any but a plan whose steps neither talk to the assistant nor run a
+/// mutation.
+///
+/// Internal to the package.
+@internal
+bool openUIActionChecksForm(OpenUIValue? action) {
+  if (action case OpenUIObject(fields: {'steps': OpenUIArray(:final items)})) return items.any(_stepChecksForm);
+  return true;
+}
+
+// Whether [step] of a plan talks to the assistant or runs a mutation.
+bool _stepChecksForm(OpenUIValue step) {
+  if (step is! OpenUIObject) return false;
+  final type = step.fields['type'];
+  if (type == const OpenUIString(ActionStepType.continueConversation)) return true;
+  if (type != const OpenUIString(ActionStepType.run)) return false;
+  return step.fields['refType'] == const OpenUIString('mutation');
+}
+
 /// Runs [action], the action of the control labelled [label] that [scope]
 /// draws, unless the reply is still streaming.
 ///
-/// The action runs in the form the control is in, if any, unless [inForm] is
-/// `false`.
+/// The action runs in the form the control is in, if any.
 ///
 /// Internal to the package.
 @internal
@@ -25,11 +44,10 @@ void triggerOpenUIAction(
   OpenUIComponentScope scope, {
   required String label,
   OpenUIValue? action,
-  bool inForm = true,
 }) {
   if (scope.isStreaming) return;
   final runtime = context.getInheritedWidgetOfExactType<OpenUIViewScope>()!.runtime;
-  final formName = inForm ? context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName : null;
+  final formName = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.formName;
   unawaited(runtime.trigger(label: label, formName: formName, action: action));
 }
 
@@ -50,6 +68,17 @@ class OpenUIFormValidation extends ChangeNotifier {
 
   /// The form's name, or `null` for a form without one.
   String? formName;
+
+  /// Whether the form has left the tree, so its fields can no longer be
+  /// checked.
+  bool get isDisposed => _isDisposed;
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   final _fields = <String, (OpenUIValue?, OpenUIValue?, Object)>{};
   List<OpenUIFormField> _tree = const [];
@@ -187,38 +216,19 @@ double openUIGap(OpenUIResolvedTheme theme, Object? value) {
   };
 }
 
-/// The widgets of [nodes], components of [scope]'s props, leaving out those
-/// whose type the library doesn't draw.
+/// The widgets of [children], components of [scope]'s props, leaving out
+/// those whose type the library doesn't draw.
 ///
 /// A component defined by a statement keeps its widgets when one before it
 /// arrives later.
 ///
 /// Internal to the package.
 @internal
-List<Widget> openUIChildWidgets(BuildContext context, OpenUIComponentScope scope, List<ElementNode> nodes) {
-  return [
-    for (final (node, key) in openUIDrawnNodes(context, nodes)) KeyedSubtree(key: key, child: scope.buildNode(node)),
-  ];
-}
-
-/// The components of [nodes] the library draws, each with its key: see
-/// [openUIChildWidgets].
-///
-/// Internal to the package.
-@internal
-List<(ElementNode, Key)> openUIDrawnNodes(BuildContext context, List<ElementNode> nodes) {
+List<Widget> openUIChildWidgets(BuildContext context, OpenUIComponentScope scope, List<OpenUIChild> children) {
   final library = OpenUIViewScope.of(context).library;
-  final seen = <String, int>{};
   return [
-    for (final (index, node) in nodes.indexed)
-      if (library[node.typeName] != null)
-        (
-          node,
-          switch (node.statementId) {
-            final id? => ValueKey((id, seen[id] = (seen[id] ?? -1) + 1)),
-            null => ValueKey(index),
-          },
-        ),
+    for (final child in children)
+      if (library[child.type] != null) KeyedSubtree(key: ValueKey(child.key), child: scope.build(child)),
   ];
 }
 

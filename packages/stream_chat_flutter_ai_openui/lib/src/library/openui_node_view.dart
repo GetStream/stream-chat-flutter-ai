@@ -55,7 +55,14 @@ class _OpenUINodeViewState extends State<OpenUINodeView> {
     return AIUIEntrance(
       child: Semantics(
         container: true,
-        child: Builder(builder: (context) => _build(context, builder, _NodeScope(node, view))),
+        child: Builder(
+          builder: (context) {
+            // The form the component is in, read now so a field or action
+            // used after the component left the tree still reaches it.
+            final form = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
+            return _build(context, builder, _NodeScope(node, view, form));
+          },
+        ),
       ),
     );
   }
@@ -137,12 +144,22 @@ class _OpenUIValueView extends StatelessWidget {
 }
 
 final class _NodeScope extends OpenUIComponentScope {
-  const _NodeScope(this._node, this._view) : super._();
+  const _NodeScope(this._node, this._view, this._form) : super._();
 
   final ElementNode _node;
   final OpenUIViewScope _view;
 
+  // The form the component is in, or `null` outside one.
+  final OpenUIFormValidation? _form;
+
   OpenUIValue? _prop(String name) => _node.props[name];
+
+  // The prop [name] as its readers read it: one bound to a `$variable` reads
+  // as `null`, as [stateField] reads and writes it.
+  OpenUIValue? _read(String name) {
+    final value = _prop(name);
+    return ReactiveBinding.targetOf(value) == null ? value : null;
+  }
 
   @override
   ElementNode get node => _node;
@@ -154,26 +171,26 @@ final class _NodeScope extends OpenUIComponentScope {
   bool get isStreaming => _view.isStreaming;
 
   @override
-  Object? value(String name) => openUIJson(_prop(name));
+  Object? value(String name) => openUIJson(_read(name));
 
   @override
   OpenUIValue? prop(String name) => _prop(name);
 
   @override
-  String? string(String name) => switch (_prop(name)) {
+  String? string(String name) => switch (_read(name)) {
     OpenUIString(:final value) => value,
     _ => null,
   };
 
   @override
   String? text(String name) {
-    final value = _prop(name);
+    final value = _read(name);
     return JS.isNullish(value) ? null : JS.stringOf(value);
   }
 
   @override
   double? number(String name) {
-    final number = switch (_prop(name)) {
+    final number = switch (_read(name)) {
       OpenUINumber(:final value) => value,
       // An empty string is no number, though JavaScript reads it as 0.
       OpenUIString(:final value) when JS.trim(value).isNotEmpty => JS.stringToNumber(value),
@@ -183,7 +200,7 @@ final class _NodeScope extends OpenUIComponentScope {
   }
 
   @override
-  bool? boolean(String name) => switch (_prop(name)) {
+  bool? boolean(String name) => switch (_read(name)) {
     OpenUIBool(:final value) => value,
     OpenUIString(value: 'true') => true,
     OpenUIString(value: 'false') => false,
@@ -197,14 +214,51 @@ final class _NodeScope extends OpenUIComponentScope {
   List<double> numberList(String name) => [for (final item in _items(name)) JS.toNumber(item)];
 
   // The prop [name] as a list: see [stringList].
-  List<OpenUIValue> _items(String name) => switch (_prop(name)) {
+  List<OpenUIValue> _items(String name) => switch (_read(name)) {
     OpenUIArray(:final items) => items,
     null || OpenUINull() => const [],
     final value => [value],
   };
 
   @override
-  StateField stateField(String name) => _view.runtime.stateField(name, binding: _prop(name));
+  List<OpenUIChild> children(String name) => openUIChildrenOf(_items(name));
+
+  @override
+  OpenUIChild? child(String name, {String? field}) {
+    if (field == null) return children(name).firstOrNull;
+    final fields = switch (_prop(name)) {
+      OpenUIObject(:final fields) => fields,
+      _ => const <String, OpenUIValue>{},
+    };
+    if (fields[field] is! OpenUIElement) return null;
+    // Keyed as [children] keys the fields' components, so a statement held
+    // by two fields gives two keys; one written in place is keyed by its
+    // field.
+    final names = [
+      for (final MapEntry(:key, :value) in fields.entries)
+        if (value is OpenUIElement) key,
+    ];
+    final child = openUIChildrenOf(fields.values)[names.indexOf(field)];
+    return child._node.statementId == null ? OpenUIChild._(child._node, field) : child;
+  }
+
+  @override
+  Widget build(OpenUIChild child) => OpenUINodeView(node: child._node);
+
+  @override
+  OpenUIComponentScope scopeOf(OpenUIChild child) => _NodeScope(child._node, _view, _form);
+
+  @override
+  OpenUIStateField stateField(String name, {String? bindingProp}) {
+    final field = _view.runtime.stateField(
+      name,
+      binding: _prop(bindingProp ?? name),
+      formName: _form?.formName,
+      componentType: type,
+      isSecret: openUIIsPasswordInput(_node),
+    );
+    return OpenUIStateField._(field);
+  }
 
   @override
   Widget watchState(WidgetBuilder builder) {
@@ -212,21 +266,27 @@ final class _NodeScope extends OpenUIComponentScope {
   }
 
   @override
-  List<ElementNode> elements(String name) => [
-    for (final item in _items(name))
-      if (item case OpenUIElement(:final node)) node,
-  ];
-
-  @override
-  ElementNode? elementField(String name, String field) {
-    if (_prop(name) case OpenUIObject(:final fields) when fields[field] is OpenUIElement) {
-      return (fields[field]! as OpenUIElement).node;
-    }
-    return null;
+  Future<void> triggerAction(
+    String label, {
+    String name = 'action',
+    bool validate = false,
+    bool inForm = true,
+  }) async {
+    if (isStreaming) return;
+    final action = _prop(name);
+    final form = inForm ? _form : null;
+    if (validate && !_mayRun(form, action)) return;
+    await _view.runtime.trigger(label: label, formName: form?.formName, action: action);
   }
 
-  @override
-  OpenUIComponentScope scopeOf(ElementNode node) => _NodeScope(node, _view);
+  // Whether [action] may run in [form]: outside a form, once the form left
+  // the tree (it has no fields on screen to check), for an action that
+  // doesn't check the form, or when the form's fields pass.
+  static bool _mayRun(OpenUIFormValidation? form, OpenUIValue? action) {
+    if (form == null || form.isDisposed) return true;
+    if (!openUIActionChecksForm(action)) return true;
+    return form.validateForm();
+  }
 
   @override
   Widget buildNode(ElementNode node) => OpenUINodeView(node: node);
@@ -240,6 +300,32 @@ final class _NodeScope extends OpenUIComponentScope {
     if (builder == null) return const SizedBox.shrink();
     return Builder(builder: (context) => builder(context, this));
   }
+}
+
+/// The components of [items], each as a child keyed by its place among
+/// them: see [OpenUIChild.key].
+///
+/// Internal to the package.
+@internal
+List<OpenUIChild> openUIChildrenOf(Iterable<OpenUIValue> items) {
+  final children = <OpenUIChild>[];
+  // How many items of each statement came before, as the same statement can
+  // be placed more than once.
+  final placed = <String, int>{};
+  for (final (index, item) in items.indexed) {
+    if (item case OpenUIElement(:final node)) {
+      final statementId = node.statementId;
+      final String key;
+      if (statementId == null) {
+        key = '$index';
+      } else {
+        final count = placed[statementId] = (placed[statementId] ?? -1) + 1;
+        key = count == 0 ? '\$$statementId' : '\$$statementId#$count';
+      }
+      children.add(OpenUIChild._(node, key));
+    }
+  }
+  return children;
 }
 
 // Reports in debug builds, once per runtime, that the library has no builder

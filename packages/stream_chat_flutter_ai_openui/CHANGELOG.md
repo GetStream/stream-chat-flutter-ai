@@ -20,3 +20,6 @@
 - `@Sort` orders accented Latin letters next to their base letter, so `é` sorts with `e` rather than after `z`.
 - A loop that sorts or filters a whole list differently for every item is cut short with a `runtime-error` instead of
   freezing the app, and a total read in a loop, such as `@Sum($rows.v)`, is worked out once rather than once per item.
+- A builder that replaces a component can reach its child components, the state it keeps and its action, through
+  `OpenUIComponentScope.children`, `child`, `build` and `scopeOf` (with `OpenUIChild`), `stateField` (with
+  `OpenUIStateField`), `watchState` and `triggerAction`.

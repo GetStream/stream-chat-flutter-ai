@@ -116,7 +116,7 @@ class _OpenUIModalState extends State<_OpenUIModal> {
         _sheet = null;
         final field = widget.scope.stateField('open');
         if (field.isBound) {
-          field.set(const OpenUIBool(false));
+          field.set(false);
         } else {
           setState(() => _closedModals(OpenUIViewScope.of(context).runtime).add(_key));
         }
@@ -150,7 +150,7 @@ class _OpenUIModalState extends State<_OpenUIModal> {
 
   static Set<(String?, OpenUIObject)> _closedModals(OpenUIRuntime runtime) => _closed[runtime] ??= {};
 
-  static bool _isTrue(OpenUIValue? value) => value == const OpenUIBool(true) || value == const OpenUIString('true');
+  static bool _isTrue(Object? value) => value == true || value == 'true';
 }
 
 // The least height a small sheet keeps, room for its header and some content.

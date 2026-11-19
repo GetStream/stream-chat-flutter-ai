@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
-import 'package:stream_chat_flutter_ai_openui/src/core/openui_node.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/openui_component_scope.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_actions.dart';
 import 'package:stream_chat_flutter_ai_openui/src/library/support/openui_icon_map.dart';
@@ -25,16 +26,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
     style: _style(variant, destructive: scope.string('type') == 'destructive'),
     type: _type(variant),
     size: _size(scope.string('size')),
-    onPressed: scope.isStreaming
-        ? null
-        : () {
-            final action = scope.prop('action');
-            final validation = context.getInheritedWidgetOfExactType<OpenUIFormScope>()?.validation;
-            if (variant == 'primary' && validation != null && _needsValidation(action) && !validation.validateForm()) {
-              return;
-            }
-            triggerOpenUIAction(context, scope, label: label, action: action);
-          },
+    onPressed: scope.isStreaming ? null : () => unawaited(scope.triggerAction(label, validate: variant == 'primary')),
     child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
   );
 }
@@ -46,7 +38,7 @@ Widget buildOpenUIButton(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
   final spacing = OpenUIViewScope.of(context).theme.sSpacing;
-  final buttons = openUIChildWidgets(context, scope, scope.elements('buttons'));
+  final buttons = openUIChildWidgets(context, scope, scope.children('buttons'));
   if (buttons.isEmpty) return const SizedBox.shrink();
   if (scope.string('direction') == 'column') {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, spacing: spacing, children: buttons);
@@ -66,13 +58,11 @@ Widget buildOpenUIButtons(BuildContext context, OpenUIComponentScope scope) {
 @internal
 Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
   final name = scope.text('name') ?? '';
-  final icon = scope.elements('icon').firstOrNull;
-  final iconName = icon == null ? '' : JS.toStringOrEmpty(icon.props['name']);
+  final icon = scope.child('icon');
+  final iconScope = icon == null ? null : scope.scopeOf(icon);
+  final iconName = iconScope?.text('name') ?? '';
   final variant = scope.string('variant') ?? 'secondary';
-  final iconData = openUIIconOf(context.streamIcons, iconName, switch (icon?.props['category']) {
-    OpenUIString(:final value) => value,
-    _ => null,
-  });
+  final iconData = openUIIconOf(context.streamIcons, iconName, iconScope?.string('category'));
   return Semantics(
     label: name.isNotEmpty ? name : openUIIconLabel(iconName),
     child: StreamButton.icon(
@@ -87,9 +77,7 @@ Widget buildOpenUIIconButton(BuildContext context, OpenUIComponentScope scope) {
                 borderRadius: BorderRadius.circular(OpenUIViewScope.of(context).theme.smallCornerRadius),
               ),
       ),
-      onPressed: scope.isStreaming
-          ? null
-          : () => triggerOpenUIAction(context, scope, label: name, action: scope.prop('action')),
+      onPressed: scope.isStreaming ? null : () => unawaited(scope.triggerAction(name)),
     ),
   );
 }
@@ -115,19 +103,4 @@ StreamButtonSize _size(String? size) {
     'large' => StreamButtonSize.large,
     _ => StreamButtonSize.medium,
   };
-}
-
-// Whether [action] checks the form first: any but a plan whose steps neither
-// talk to the assistant nor run a mutation.
-bool _needsValidation(OpenUIValue? action) {
-  if (action case OpenUIObject(:final fields) when fields['steps'] is OpenUIArray) {
-    return (fields['steps']! as OpenUIArray).items.any(
-      (step) =>
-          step is OpenUIObject &&
-          (step.fields['type'] == const OpenUIString(ActionStepType.continueConversation) ||
-              (step.fields['type'] == const OpenUIString(ActionStepType.run) &&
-                  step.fields['refType'] == const OpenUIString('mutation'))),
-    );
-  }
-  return true;
 }
