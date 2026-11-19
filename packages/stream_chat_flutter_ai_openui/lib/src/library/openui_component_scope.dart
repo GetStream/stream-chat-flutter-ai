@@ -56,7 +56,9 @@ abstract base class OpenUIComponentScope {
   /// Values are JSON: maps, lists, strings, numbers as [double]s, booleans and
   /// `null`. A component placed in the prop, such as each of a card's
   /// `children`, reads as `null`; reach it with [children] or [child], or
-  /// draw the whole prop with [buildProp].
+  /// draw the whole prop with [buildProp]. A prop the agent bound to a
+  /// `$variable`, such as a field's `value`, is read and written with
+  /// [stateField].
   Object? value(String name);
 
   /// The prop [name] as the program gives it, expressions and components
