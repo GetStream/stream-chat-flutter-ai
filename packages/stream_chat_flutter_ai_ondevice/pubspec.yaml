@@ -3,7 +3,9 @@ homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: >-
   An on-device fallback model for stream_chat_flutter_ai: Gemini Nano on Android and Apple's
   Foundation Models on iOS and macOS, answering when your AI agent can't.
-version: 0.1.0
+version: 0.2.0
+# Published from its first release on: the release PR drops this line.
+publish_to: none
 repository: https://github.com/GetStream/stream-chat-flutter-ai
 issue_tracker: https://github.com/GetStream/stream-chat-flutter-ai/issues
 
@@ -30,10 +32,10 @@ dependencies:
   flutter:
     sdk: flutter
   # The generated platform channel (`lib/src/messages.g.dart`) imports it.
-  meta: ^1.15.0
+  meta: ^1.9.1
   plugin_platform_interface: ^2.1.0
   # Released in lockstep: this package's version always matches it.
-  stream_chat_flutter_ai: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
 
 dev_dependencies:
   flutter_test:

@@ -66,7 +66,7 @@ melos:
         # `@internal` and `@immutable` in the OpenUI package, and the on-device
         # model's generated platform channel. Already resolved transitively via
         # the Flutter SDK; declared because the packages import it directly.
-        meta: ^1.15.0
+        meta: ^1.9.1
         objective_c: ^9.3.0
         path_provider: ^2.1.5
         photo_manager: ^3.9.0

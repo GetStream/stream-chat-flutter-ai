@@ -23,8 +23,8 @@ answers and for working with what is in the conversation, and it has none of you
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.1.0
-  stream_chat_flutter_ai_ondevice: ^0.1.0
+  stream_chat_flutter_ai: ^0.2.0
+  stream_chat_flutter_ai_ondevice: ^0.2.0
 ```
 
 Both packages are released together, with the same version.
