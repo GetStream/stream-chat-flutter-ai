@@ -19,8 +19,8 @@ import 'package:stream_chat_flutter_ai_ondevice/src/ai_on_device_status.dart';
 ///   and later with Apple Intelligence turned on.
 /// - Elsewhere it is never available.
 ///
-/// It answers without a network connection, and the conversation never leaves
-/// the device. It is a small model, good for short answers and for working
+/// It answers without a network connection, and the conversation isn't sent
+/// anywhere. It is a small model, good for short answers and for working
 /// with what is in the conversation. Its context holds a few thousand tokens,
 /// so the oldest turns of a long conversation are left out. It has none of
 /// your agent's tools, so the instructions should say so.

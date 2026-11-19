@@ -6,9 +6,11 @@ an answer for when your AI agent can't give one, because the person is offline o
 its usage limit. Gemini Nano on Android, Apple's Foundation Models on iOS and macOS.
 
 This package is a companion to
-[`stream_chat_flutter_ai`](https://pub.dev/packages/stream_chat_flutter_ai). The conversation never
-leaves the device. It is a small model with a context of a few thousand tokens, good for short
-answers and for working with what is in the conversation, and it has none of your agent's tools.
+[`stream_chat_flutter_ai`](https://pub.dev/packages/stream_chat_flutter_ai). The model answers on
+the device, so the conversation isn't sent anywhere; the model is downloaded once, and on Android
+ML Kit may send Google usage metrics, never the conversation. It is a small model with a context
+of a few thousand tokens, good for short answers and for working with what is in the conversation,
+and it has none of your agent's tools.
 
 - [Installation](#installation)
 - [Quickstart](#quickstart)
