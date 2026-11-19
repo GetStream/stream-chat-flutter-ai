@@ -45,8 +45,16 @@ typedef BindablePropTest = bool Function(String component, String prop);
 ///
 /// Templates multiply: six nested `@Each` over ten items would build a
 /// million elements. Each node evaluated, each `@Each` item and each node a
-/// template is copied into costs a step; past [maxSteps] values evaluate to
-/// nothing and the pass reports one `runtime-error`.
+/// template is copied into costs a step. A built-in that walks a list,
+/// `@Sum`, `@Avg`, `@Min`, `@Max`, `@Sort` or `@Filter`, walks it for free the
+/// first time; the same call walking the same list again, such as a filter of
+/// every row for each row, costs a step more for each item. Past [maxSteps]
+/// values evaluate to nothing and the pass reports one `runtime-error`.
+///
+/// A built-in call in an `@Each` template that reads no loop variable gives
+/// the same value for every item, so it is evaluated once per pass: a
+/// share-of-total table, `@Each($rows, "r", Text("" + r.v / @Sum($rows.v)))`,
+/// doesn't sum its rows once per row.
 final class EvaluationBudget {
   /// The steps of one pass.
   static const maxSteps = 200000;
@@ -56,6 +64,32 @@ final class EvaluationBudget {
 
   int _remaining = maxSteps;
   bool _reported = false;
+
+  // The built-in calls `@Each` templates hold unchanged for their items, and
+  // the values of the ones that read no loop variable, with the `extraScope`
+  // they were evaluated in.
+  final _sharedCalls = Set<AstCall>.identity();
+  final _callValues = Map<AstCall, (Map<String, OpenUIValue>, OpenUIValue)>.identity();
+
+  // The `$variables` read in the pass, and the fields read from every item of
+  // a list, each read once, so a list read again is the same list.
+  final _states = <String, OpenUIValue?>{};
+  final _plucks = Map<OpenUIArray, Map<String, OpenUIArray>>.identity();
+
+  // The literal of each list, object or element an `@Each` item holds, and
+  // the plain value of each element, made once per pass.
+  final _literals = Map<OpenUIValue, AstNode>.identity();
+  final _plainValues = Map<OpenUIValue, OpenUIValue>.identity();
+
+  // The call each copy of a list-walking call in a template was copied from,
+  // and the lists each such call has walked.
+  final _origins = Map<AstCall, AstCall>.identity();
+  final _walked = Map<AstCall, Set<OpenUIArray>>.identity();
+
+  // The names each shared call reads from outside it. Null when the call can
+  // do more than call built-in functions, such as call a library function,
+  // which can report an error.
+  final _freeNames = Map<AstCall, Set<String>?>.identity();
 
   /// Whether the pass ran out of steps.
   bool get isExhausted => _remaining <= 0;
@@ -91,7 +125,20 @@ final class EvaluationContext {
     this.reportError,
     this.extraScope = const {},
     EvaluationBudget? budget,
-  }) : budget = budget ?? EvaluationBudget();
+  }) : budget = budget ?? EvaluationBudget(),
+       _loopVariables = const {};
+
+  EvaluationContext._(
+    this._loopVariables, {
+    required this.getState,
+    required this.resolveRef,
+    required this.schema,
+    required this.isBindable,
+    required this.functions,
+    required this.reportError,
+    required this.extraScope,
+    required this.budget,
+  });
 
   /// Reads a `$variable`; absent for one never set.
   final OpenUIValue? Function(String name) getState;
@@ -119,20 +166,43 @@ final class EvaluationContext {
   /// The steps left in this pass.
   final EvaluationBudget budget;
 
-  /// This context with `resolveRef`, `reportError` or `extraScope` replaced.
+  // The loop variables of the `@Each` calls this is evaluated in, which
+  // `resolveRef` resolves to their items.
+  final Set<String> _loopVariables;
+
+  /// This context with `reportError` or `extraScope` replaced.
+  ///
+  /// The names references resolve to stay as they are: values evaluated once
+  /// per pass are reused on that basis.
   EvaluationContext copyWith({
-    OpenUIValue? Function(String name)? resolveRef,
     void Function(String message)? reportError,
     Map<String, OpenUIValue>? extraScope,
   }) {
-    return EvaluationContext(
+    return EvaluationContext._(
+      _loopVariables,
       getState: getState,
-      resolveRef: resolveRef ?? this.resolveRef,
+      resolveRef: resolveRef,
       schema: schema,
       isBindable: isBindable,
       functions: functions,
       reportError: reportError ?? this.reportError,
       extraScope: extraScope ?? this.extraScope,
+      budget: budget,
+    );
+  }
+
+  // This context inside an `@Each` whose loop variables are `loopVariables`,
+  // resolving references with `resolveRef`.
+  EvaluationContext _inLoop(OpenUIValue? Function(String name) resolveRef, Set<String> loopVariables) {
+    return EvaluationContext._(
+      loopVariables,
+      getState: getState,
+      resolveRef: resolveRef,
+      schema: schema,
+      isBindable: isBindable,
+      functions: functions,
+      reportError: reportError,
+      extraScope: extraScope,
       budget: budget,
     );
   }
@@ -210,7 +280,9 @@ abstract final class Evaluator {
       case AstStateRef(:final name):
         final scoped = context.extraScope[name];
         if (!JS.isNullish(scoped)) return scoped;
-        return context.getState(name);
+        final states = context.budget._states;
+        if (states.containsKey(name)) return states[name];
+        return states[name] = context.getState(name);
       case AstRef(:final name) || AstRuntimeRef(:final name):
         return context.resolveRef(name);
       case AstArray(:final elements):
@@ -239,7 +311,10 @@ abstract final class Evaluator {
         if (value case OpenUIArray(:final items)) {
           // Reading a field of a list reads it from every item.
           if (field == 'length') return OpenUINumber(items.length.toDouble());
-          return OpenUIArray([for (final item in items) JS.property(item, field) ?? OpenUINull.instance]);
+          final plucks = context.budget._plucks.putIfAbsent(value, () => {});
+          return plucks[field] ??= OpenUIArray([
+            for (final item in items) JS.property(item, field) ?? OpenUINull.instance,
+          ]);
         }
         return JS.property(value, field);
       case AstIndex(:final object, :final index):
@@ -310,12 +385,28 @@ abstract final class Evaluator {
     final name = node.name;
     if (name == 'Each') return _evaluateEach(node.args, context, bindable);
     if (Builtins.functions[name] case final function?) {
+      final budget = context.budget;
+      final reusable = budget._sharedCalls.contains(node) && _readsNoLoopVariable(node, context);
+      if (budget._callValues[node] case (
+        final scope,
+        final value,
+      ) when reusable && identical(scope, context.extraScope)) {
+        return value;
+      }
       final params = BuiltinCalls.functionParams[name]!;
       final named = node.mappedProps ?? _nameArgs(node.args, params);
-      return function([
+      final args = [
         for (final param in params)
           if (named[param] case final arg?) evaluate(arg, context) else null,
-      ]);
+      ];
+      final list = args.firstOrNull;
+      if (list is OpenUIArray && _walksList.contains(name)) {
+        final walked = budget._walked.putIfAbsent(budget._origins[node] ?? node, Set<OpenUIArray>.identity);
+        if (!walked.add(list) && !budget.spend(context.reportError, list.items.length)) return null;
+      }
+      final result = function(args);
+      if (reusable) budget._callValues[node] = (context.extraScope, result);
+      return result;
     }
     if (name == BuiltinCalls.action || BuiltinCalls.stepParams.containsKey(name)) {
       return _evaluateStep(node, context);
@@ -330,6 +421,86 @@ abstract final class Evaluator {
     final mappedProps = node.mappedProps;
     if (mappedProps == null) return OpenUINull.instance;
     return OpenUIElement(_evaluateMappedComponent(name, mappedProps, context, bindable));
+  }
+
+  // The built-in functions that walk the list they are given first; the rest
+  // take the same time whatever its length.
+  static const _walksList = {'Sum', 'Avg', 'Min', 'Max', 'Sort', 'Filter'};
+
+  // Whether `call`, a built-in call, gives the same value wherever it is
+  // evaluated in the pass: it reads no loop variable of the `@Each` calls
+  // it is evaluated in, and calls only built-in functions, so it reports
+  // nothing. `$variables` and queries don't change during a pass.
+  static bool _readsNoLoopVariable(AstCall call, EvaluationContext context) {
+    final names = _freeNamesOf(call, context.budget._freeNames);
+    if (names == null) return false;
+    return !names.any(context._loopVariables.contains);
+  }
+
+  // The names `node` reads from outside it: references, which `resolveRef`
+  // resolves, less the loop variables of the `@Each` calls in it. Null when
+  // it calls more than built-in functions. Each call's names are kept in
+  // `known`, so nested calls are walked once.
+  static Set<String>? _freeNamesOf(AstNode node, Map<AstCall, Set<String>?> known) {
+    Set<String>? union(Iterable<AstNode> nodes) {
+      final names = <String>{};
+      for (final child in nodes) {
+        final childNames = _freeNamesOf(child, known);
+        if (childNames == null) return null;
+        names.addAll(childNames);
+      }
+      return names;
+    }
+
+    switch (node) {
+      case AstRef(:final name) || AstRuntimeRef(:final name):
+        return {name};
+      case AstCall():
+        if (known.containsKey(node)) return known[node];
+        return known[node] = _callFreeNames(node, known, union);
+      case AstMember(:final object):
+        return _freeNamesOf(object, known);
+      case AstIndex(:final object, :final index):
+        return union([object, index]);
+      case AstBinary(:final left, :final right):
+        return union([left, right]);
+      case AstUnary(:final operand):
+        return _freeNamesOf(operand, known);
+      case AstTernary(:final condition, :final then, :final otherwise):
+        return union([condition, then, otherwise]);
+      case AstArray(:final elements):
+        return union(elements);
+      case AstObject(:final entries):
+        return union([for (final (_, entry) in entries) entry]);
+      case AstAssign(:final value):
+        return _freeNamesOf(value, known);
+      case AstString() || AstNumber() || AstBool() || AstNull() || AstPlaceholder() || AstStateRef():
+        return const {};
+    }
+  }
+
+  // The free names of a call: of the nodes it evaluates, as
+  // `_evaluateCall` and `_evaluateEach` do.
+  static Set<String>? _callFreeNames(
+    AstCall call,
+    Map<AstCall, Set<String>?> known,
+    Set<String>? Function(Iterable<AstNode> nodes) union,
+  ) {
+    final args = call.args;
+    if (call.name == 'Each') {
+      if (args.length < 3) return const {};
+      final variable = switch (args[1]) {
+        AstRef(:final name) => name,
+        AstString(:final value) => value,
+        _ => '',
+      };
+      final items = _freeNamesOf(args[0], known);
+      final template = _freeNamesOf(args[2], known);
+      if (items == null || template == null) return null;
+      return {...items, ...template.where((name) => name != variable)};
+    }
+    if (!Builtins.functions.containsKey(call.name)) return null;
+    return union(call.mappedProps?.values ?? args);
   }
 
   static Map<String, AstNode> _nameArgs(List<AstNode> args, List<String> params) {
@@ -554,12 +725,20 @@ abstract final class Evaluator {
     };
     if (variable.isEmpty) return OpenUIArray(const []);
     final template = args[2];
+    final loopVariables = {...context._loopVariables, variable};
     final results = <OpenUIValue>[];
     for (final item in items.items) {
       if (!context.budget.spend(context.reportError)) break;
-      final substituted = _substitute(template, variable, item, context);
-      final itemContext = context.copyWith(
-        resolveRef: (name) => name == variable ? item : context.resolveRef(name),
+      // Each field the template reads, or the item itself, built once
+      // however often it is read.
+      final literals = <String, AstNode>{};
+      AstNode itemLiteral(List<String> fields) =>
+          literals[_pathKey(fields)] ??= _fieldLiteral(item, fields, context.budget);
+
+      final substituted = _substitute(template, variable, itemLiteral, context);
+      final itemContext = context._inLoop(
+        (name) => name == variable ? item : context.resolveRef(name),
+        loopVariables,
       );
       final result = evaluate(substituted, itemContext, bindable);
       results.add(switch (result) {
@@ -572,49 +751,124 @@ abstract final class Evaluator {
     return OpenUIArray(results);
   }
 
-  /// The literal expression of `value`.
-  static AstNode literalAst(OpenUIValue? value) {
-    return switch (value) {
-      null || OpenUINull() => AstNull.instance,
-      OpenUIString(:final value) => AstString(value),
-      OpenUINumber(:final value) => AstNumber(value),
-      OpenUIBool(:final value) => AstBool(value),
-      OpenUIArray(:final items) => AstArray([for (final item in items) literalAst(item)]),
-      OpenUIObject(:final fields) => AstObject([
-        for (final MapEntry(:key, :value) in fields.entries) (key, literalAst(value)),
-      ]),
-      OpenUIElement() || OpenUIExpression() => literalAst(OpenUIValue.fromJson(plainJson(value))),
-    };
+  // The literal expression of `value`.
+  //
+  // A list, object or element is built once per pass however many items hold
+  // it, so building literals takes no longer than the values they copy.
+  static AstNode _literalAst(OpenUIValue? value, EvaluationBudget budget) {
+    switch (value) {
+      case null || OpenUINull():
+        return AstNull.instance;
+      case OpenUIString(:final value):
+        return AstString(value);
+      case OpenUINumber(:final value):
+        return AstNumber(value);
+      case OpenUIBool(:final value):
+        return AstBool(value);
+      case OpenUIArray(:final items):
+        return budget._literals[value] ??= AstArray([for (final item in items) _literalAst(item, budget)]);
+      case OpenUIObject(:final fields):
+        return budget._literals[value] ??= AstObject([
+          for (final MapEntry(:key, :value) in fields.entries) (key, _literalAst(value, budget)),
+        ]);
+      case OpenUIElement() || OpenUIExpression():
+        return budget._literals[value] ??= _literalAst(_plainValue(value, budget), budget);
+    }
   }
 
-  // `node` with each `AstRef(variable)` replaced by the literal of `value`;
-  // each node copied costs a step.
-  static AstNode _substitute(AstNode node, String variable, OpenUIValue value, EvaluationContext context) {
+  // An element or expression as the plain value its literal holds, made once
+  // per pass.
+  static OpenUIValue _plainValue(OpenUIValue value, EvaluationBudget budget) {
+    return budget._plainValues[value] ??= OpenUIValue.fromJson(plainJson(value));
+  }
+
+  // A key for the field path `fields`: its length, then its fields, which
+  // can't hold a NUL, apart.
+  static String _pathKey(List<String> fields) => '${fields.length}\u0000${fields.join('\u0000')}';
+
+  // The literal of `item`'s field at the path `fields`. A field path stops at
+  // a value that isn't an object, as `_substitute` reading it from the item's
+  // literal would: the rest is read when it is evaluated.
+  static AstNode _fieldLiteral(OpenUIValue item, List<String> fields, EvaluationBudget budget) {
+    var value = item;
+    var read = 0;
+    for (; read < fields.length; read += 1) {
+      if (value is OpenUIElement || value is OpenUIExpression) value = _plainValue(value, budget);
+      if (value case OpenUIObject(fields: final entries) when entries.containsKey(fields[read])) {
+        value = entries[fields[read]]!;
+      } else {
+        break;
+      }
+    }
+    var literal = _literalAst(value, budget);
+    for (final field in fields.skip(read)) {
+      literal = AstMember(literal, field);
+    }
+    return literal;
+  }
+
+  // The fields `node` reads from the loop variable `variable`, outermost
+  // last, such as `[a, b]` for `r.a.b`; null when it doesn't read one.
+  static List<String>? _loopVariableFields(AstNode node, String variable) {
+    final fields = <String>[];
+    var current = node;
+    while (current is AstMember) {
+      fields.add(current.field);
+      current = current.object;
+    }
+    if (current case AstRef(:final name) when name == variable) return fields.reversed.toList();
+    return null;
+  }
+
+  // `node` with each `AstRef(variable)` replaced by the literal of the item,
+  // or of the field of it that node reads, from `literal`; each node copied
+  // costs a step. A node holding no such reference is kept as it is, the
+  // same node for every item, and a built-in call kept is marked shared.
+  static AstNode _substitute(
+    AstNode node,
+    String variable,
+    AstNode Function(List<String> fields) literal,
+    EvaluationContext context,
+  ) {
     if (!context.budget.spend(context.reportError)) return AstNull.instance;
-    AstNode recurse(AstNode child) => _substitute(child, variable, value, context);
+    AstNode recurse(AstNode child) => _substitute(child, variable, literal, context);
     switch (node) {
       case AstRef(:final name):
-        return name == variable ? literalAst(value) : node;
+        return name == variable ? literal(const []) : node;
       case AstMember(:final object, :final field):
+        if (_loopVariableFields(node, variable) case final fields?) return literal(fields);
         final substituted = recurse(object);
         if (substituted case AstObject(:final entries)) {
           for (final (key, entry) in entries) {
             if (key == field) return entry;
           }
         }
-        return AstMember(substituted, field);
+        return identical(substituted, object) ? node : AstMember(substituted, field);
       case AstIndex(:final object, :final index):
-        return AstIndex(recurse(object), recurse(index));
+        final (newObject, newIndex) = (recurse(object), recurse(index));
+        return identical(newObject, object) && identical(newIndex, index) ? node : AstIndex(newObject, newIndex);
       case AstBinary(:final operator, :final left, :final right):
-        return AstBinary(operator, recurse(left), recurse(right));
+        final (newLeft, newRight) = (recurse(left), recurse(right));
+        return identical(newLeft, left) && identical(newRight, right) ? node : AstBinary(operator, newLeft, newRight);
       case AstUnary(:final operator, :final operand):
-        return AstUnary(operator, recurse(operand));
+        final newOperand = recurse(operand);
+        return identical(newOperand, operand) ? node : AstUnary(operator, newOperand);
       case AstTernary(:final condition, :final then, :final otherwise):
-        return AstTernary(recurse(condition), recurse(then), recurse(otherwise));
+        final (newCondition, newThen, newOtherwise) = (recurse(condition), recurse(then), recurse(otherwise));
+        if (!identical(newCondition, condition) || !identical(newThen, then) || !identical(newOtherwise, otherwise)) {
+          return AstTernary(newCondition, newThen, newOtherwise);
+        }
+        return node;
       case AstArray(:final elements):
-        return AstArray([for (final element in elements) recurse(element)]);
+        final newElements = [for (final element in elements) recurse(element)];
+        return _allIdentical(newElements, elements) ? node : AstArray(newElements);
       case AstObject(:final entries):
-        return AstObject([for (final (key, entry) in entries) (key, recurse(entry))]);
+        final newEntries = [for (final (key, entry) in entries) (key, recurse(entry))];
+        var unchanged = true;
+        for (var i = 0; i < entries.length && unchanged; i += 1) {
+          unchanged = identical(newEntries[i].$2, entries[i].$2);
+        }
+        return unchanged ? node : AstObject(newEntries);
       case AstCall(:final name, :final args, :final mappedProps, :final isFunction):
         // An inner `@Each` with the same loop variable shadows this one in
         // its template.
@@ -623,25 +877,40 @@ abstract final class Evaluator {
         // A mapped prop is usually one of the args: substitute it once.
         final substituted = Map<AstNode, AstNode>.identity();
         AstNode once(AstNode child) => substituted[child] ??= recurse(child);
-        return AstCall(
-          name,
-          [
-            for (final (index, arg) in args.indexed)
-              if (shadows && index > 0) arg else once(arg),
-          ],
-          mappedProps: mappedProps == null
-              ? null
-              : {
-                  for (final MapEntry(:key, value: prop) in mappedProps.entries)
-                    key: shadows && node.argIndexOf(prop) != 0 ? prop : once(prop),
-                },
-          isFunction: isFunction,
-        );
+        final newArgs = [
+          for (final (index, arg) in args.indexed)
+            if (shadows && index > 0) arg else once(arg),
+        ];
+        final newProps = mappedProps == null
+            ? null
+            : {
+                for (final MapEntry(:key, value: prop) in mappedProps.entries)
+                  key: shadows && node.argIndexOf(prop) != 0 ? prop : once(prop),
+              };
+        final unchanged =
+            _allIdentical(newArgs, args) &&
+            (mappedProps == null || mappedProps.entries.every((prop) => identical(newProps![prop.key], prop.value)));
+        final budget = context.budget;
+        if (unchanged) {
+          if (Builtins.functions.containsKey(name)) budget._sharedCalls.add(node);
+          return node;
+        }
+        final copy = AstCall(name, newArgs, mappedProps: newProps, isFunction: isFunction);
+        if (_walksList.contains(name)) budget._origins[copy] = budget._origins[node] ?? node;
+        return copy;
       case AstAssign(:final target, value: final expression):
-        return AstAssign(target, recurse(expression));
+        final newExpression = recurse(expression);
+        return identical(newExpression, expression) ? node : AstAssign(target, newExpression);
       case AstString() || AstNumber() || AstBool() || AstNull() || AstPlaceholder() || AstStateRef() || AstRuntimeRef():
         return node;
     }
+  }
+
+  static bool _allIdentical(List<AstNode> a, List<AstNode> b) {
+    for (var i = 0; i < a.length; i += 1) {
+      if (!identical(a[i], b[i])) return false;
+    }
+    return true;
   }
 }
 
