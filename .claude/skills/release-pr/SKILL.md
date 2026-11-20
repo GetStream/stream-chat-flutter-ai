@@ -38,7 +38,7 @@ per [Choosing the version](#choosing-the-version).
 
 - **Every publishable package is released in lockstep:** every `packages/*/pubspec.yaml` that isn't
   `publish_to: none` — today `packages/stream_chat_flutter_ai` (core) and `packages/stream_chat_flutter_ai_a2ui`,
-  and `packages/stream_chat_flutter_ai_openui` once it is released.
+  and `packages/stream_chat_flutter_ai_openui` and `packages/stream_chat_flutter_ai_ondevice` once they are released.
   They always share one `version:`, and one `v<X.Y.Z>` tag publishes all of them — so every one is bumped even when
   only some have changes. The packages that depend on core use `stream_chat_flutter_ai: ^<version>`; that
   constraint lives in the root `melos.command.bootstrap.dependencies` list, and bootstrap copies it into every
@@ -204,7 +204,7 @@ Don't write fresh bullets from `git log`. An unreleased user-facing change that 
 is a gap to raise with the user, not one for this step to fill in.
 
 **A package's first release:** while a package that is meant to ship still has `publish_to: none` (and the
-comment above it) in its pubspec — today only `packages/stream_chat_flutter_ai_openui/pubspec.yaml`; the A2UI and
+comment above it) in its pubspec — today `packages/stream_chat_flutter_ai_openui/pubspec.yaml` and `packages/stream_chat_flutter_ai_ondevice/pubspec.yaml`; the A2UI and
 OpenUI conformance packages and the examples stay private — delete both lines in this same PR. Until then the package is
 private, so `lint:pub`, `release:pub` and the release workflows skip it; from this release on it is published with
 the other packages. pub.dev can't create a package through automated publishing, so tell the user that
@@ -250,8 +250,8 @@ melos run lint:pub
 
 This is the real publish gate, and it now covers every publishable package: `lint:pub` skips versions already on
 pub.dev, and `<version>` isn't. Confirm the output shows each of them (today `stream_chat_flutter_ai` and
-`stream_chat_flutter_ai_a2ui`, and `stream_chat_flutter_ai_openui` once public) being validated — if melos reports
-none, or fewer, a version bump (or dropping `publish_to: none`) didn't take. The A2UI and OpenUI dry runs resolve
+`stream_chat_flutter_ai_a2ui`, and `stream_chat_flutter_ai_openui` and `stream_chat_flutter_ai_ondevice` once public) being validated — if melos reports
+none, or fewer, a version bump (or dropping `publish_to: none`) didn't take. The dry runs of the packages that depend on core resolve
 core through the workspace, so they pass although core `<version>` isn't on pub.dev yet. Read failures carefully —
 pub reports two severities and only one blocks:
 
