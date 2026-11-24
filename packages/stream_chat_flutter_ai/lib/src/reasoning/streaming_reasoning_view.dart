@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownTapLinkCallback;
@@ -24,10 +25,6 @@ import 'package:stream_core_flutter/core.dart';
 /// revealed from its start; anything longer — a view built mid-stream — shows
 /// in full rather than replaying the whole trace.
 const _kRevealFromStartLimit = 2000;
-
-// The curve the reasoning opens and folds along, from wherever it is. It starts
-// quickly, so the panel moves as soon as the header changes or the reader taps.
-const _kFoldCurve = Curves.easeOutCubic;
 
 /// {@template streamingReasoningView}
 /// A model's reasoning (its "thinking"), shown alongside its reply.
@@ -121,14 +118,15 @@ class StreamingReasoningView extends StatefulWidget {
   /// first, rather than the two moving against each other.
   static const foldDuration = Duration(milliseconds: 450);
 
-  /// An ease-in-out curve the reasoning no longer opens or folds along.
+  /// How the reasoning folds and opens: a spring that starts moving at once
+  /// and settles in about [foldDuration].
   ///
-  /// The reasoning now opens and folds along a curve that starts quickly in
-  /// both directions. To move changes of your own with it, consider animating
-  /// them to their target with [AnimationController.animateTo] or
-  /// [AnimationController.animateBack] along [Curves.easeOutCubic], over
-  /// [foldDuration].
-  @Deprecated('Use Curves.easeOutCubic with AnimationController.animateTo and animateBack instead.')
+  /// Use it for changes of your own that should move with the reasoning, by
+  /// running a [SpringSimulation] built from it on your controller.
+  static final foldAnimation = SpringDescription.withDampingRatio(mass: 1, stiffness: 195, ratio: 0.95);
+
+  /// An ease-in-out curve the reasoning no longer opens or folds along.
+  @Deprecated('Use foldAnimation instead.')
   static const Curve foldCurve = Curves.easeInOutCubic;
 
   /// The reasoning so far. Blank lines separate paragraphs, and inline
@@ -353,9 +351,9 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
     if (_reduceMotion) {
       _fold.value = open ? 1 : 0;
     } else if (open) {
-      unawaited(_fold.animateTo(1, curve: _kFoldCurve));
+      unawaited(_fold.animateTo(1, curve: const _FoldCurve()));
     } else {
-      unawaited(_fold.animateBack(0, curve: _kFoldCurve));
+      unawaited(_fold.animateBack(0, curve: const _FoldCurve()));
     }
   }
 
@@ -521,6 +519,21 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       ],
     );
   }
+}
+
+// [StreamingReasoningView.foldAnimation] played over
+// [StreamingReasoningView.foldDuration], scaled to end exactly on its target.
+// The panel moves to its target from wherever it is along it, in both
+// directions, so it starts at once and always arrives on time.
+class _FoldCurve extends Curve {
+  const _FoldCurve();
+
+  static final _spring = SpringSimulation(StreamingReasoningView.foldAnimation, 0, 1, 0);
+  static final _seconds = StreamingReasoningView.foldDuration.inMicroseconds / Duration.microsecondsPerSecond;
+  static final _end = _spring.x(_seconds);
+
+  @override
+  double transformInternal(double t) => _spring.x(t * _seconds) / _end;
 }
 
 /// The icon, title, summary and chevron.
