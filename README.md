@@ -41,7 +41,7 @@ Add the package to your app:
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.2.0
+  stream_chat_flutter_ai: ^0.3.0
 ```
 
 Then render a streaming AI response:

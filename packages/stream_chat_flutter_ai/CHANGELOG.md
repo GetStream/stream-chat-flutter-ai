@@ -1,5 +1,12 @@
 ## Upcoming
 
+🐞 Fixed
+
+- `StreamingReasoningView` no longer shows a thinking time of thousands of minutes when it starts thinking before the
+  app's first frame.
+
+## 0.3.0
+
 💥 Breaking
 
 - `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`: remove them from your `AITranslations` implementation and implement `A2UITranslations` instead.
@@ -20,8 +27,6 @@
   a country, and a language-and-country entry to a locale that also has a script.
 - Links in an agent's reply and its reasoning now open when tapped.
 - A tapped link in `StreamingReasoningView` now reaches its `onTapLink`.
-- `StreamingReasoningView` no longer shows a thinking time of thousands of minutes when it starts thinking before the
-  app's first frame.
 
 ## 0.2.0
 
