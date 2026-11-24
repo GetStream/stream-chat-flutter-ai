@@ -15,7 +15,7 @@ jobs:
     # `chore(repo): release vX.Y.Z` PR opened by the `release-pr` skill.
     if: "${{ startsWith(github.event.head_commit.message, 'chore(repo): release v') }}"
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
     permissions:
       contents: read  # The tag is pushed with the CI bot's app token
 
