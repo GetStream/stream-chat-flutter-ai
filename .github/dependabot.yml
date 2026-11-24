@@ -31,6 +31,7 @@ updates:
       - "/packages/stream_chat_flutter_ai/example"
       - "/packages/stream_chat_flutter_ai_a2ui"
       - "/packages/stream_chat_flutter_ai_a2ui/example"
+      - "/packages/stream_chat_flutter_ai_ondevice"
       - "/packages/stream_chat_flutter_ai_openui"
       - "/packages/stream_chat_flutter_ai_openui/example"
     schedule:
@@ -41,3 +42,9 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # A Pigeon major can change the generated Kotlin and Swift signatures,
+      # so it is bumped by hand, regenerating the on-device plugin's channel
+      # and updating its hosts.
+      - dependency-name: "pigeon"
+        update-types: ["version-update:semver-major"]
