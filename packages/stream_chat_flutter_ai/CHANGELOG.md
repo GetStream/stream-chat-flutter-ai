@@ -13,6 +13,7 @@
 🔄 Changed
 
 - Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
+- `StreamingReasoningView.foldCurve` is now `Curves.easeOutCubic`, and the reasoning folds along its `flipped`.
 
 🐞 Fixed
 
@@ -20,6 +21,8 @@
   a country, and a language-and-country entry to a locale that also has a script.
 - Links in an agent's reply and its reasoning now open when tapped.
 - A tapped link in `StreamingReasoningView` now reaches its `onTapLink`.
+- `StreamingReasoningView` starts folding as soon as its header reads "Thought for", instead of staying open for a
+  moment first.
 
 ## 0.2.0
 

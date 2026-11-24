@@ -117,9 +117,13 @@ class StreamingReasoningView extends StatefulWidget {
   /// first, rather than the two moving against each other.
   static const foldDuration = Duration(milliseconds: 450);
 
-  /// The curve the reasoning folds and opens along. Use it, with
-  /// [foldDuration], for changes of your own that should move with it.
-  static const Curve foldCurve = Curves.easeInOutCubic;
+  /// The curve the reasoning opens along.
+  ///
+  /// It starts quickly, so the panel moves as soon as the header changes, then
+  /// settles. The reasoning folds along its [Curve.flipped]. Consider it, with
+  /// [foldDuration], for changes of your own that should move with the
+  /// reasoning.
+  static const Curve foldCurve = Curves.easeOutCubic;
 
   /// The reasoning so far. Blank lines separate paragraphs, and inline
   /// markdown (bold, italics, strikethrough, code and links) is rendered.
@@ -240,7 +244,13 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       duration: StreamingReasoningView.foldDuration,
       value: _open && !widget.isThinking ? 1 : 0,
     )..addStatusListener(_onFoldStatus);
-    _foldCurve = CurvedAnimation(parent: _fold, curve: StreamingReasoningView.foldCurve);
+    _foldCurve = CurvedAnimation(
+      parent: _fold,
+      curve: StreamingReasoningView.foldCurve,
+      // Folding runs the controller backwards; flipped, the curve still starts
+      // quickly.
+      reverseCurve: StreamingReasoningView.foldCurve.flipped,
+    );
     _revealFromStart = widget.isThinking;
     if (widget.isThinking) _startCount(widget.duration);
   }
