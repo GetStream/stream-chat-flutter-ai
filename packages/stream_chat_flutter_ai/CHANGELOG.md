@@ -13,7 +13,11 @@
 🔄 Changed
 
 - Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
-- `StreamingReasoningView.foldCurve` is now `Curves.easeOutCubic`, and the reasoning folds along its `flipped`.
+
+⚠️ Deprecated
+
+- `StreamingReasoningView.foldCurve`: the reasoning no longer folds or opens along it. Use `Curves.easeOutCubic` with
+  `foldDuration` for changes of your own that should move with the reasoning.
 
 🐞 Fixed
 

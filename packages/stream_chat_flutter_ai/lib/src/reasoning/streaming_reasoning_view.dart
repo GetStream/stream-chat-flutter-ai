@@ -25,6 +25,11 @@ import 'package:stream_core_flutter/core.dart';
 /// in full rather than replaying the whole trace.
 const _kRevealFromStartLimit = 2000;
 
+// The curve the reasoning opens along. It starts quickly, so the panel moves
+// as soon as the header changes. Folding runs the animation backwards, so the
+// reasoning folds along this curve flipped, which starts quickly too.
+const _kFoldCurve = Curves.easeOutCubic;
+
 /// {@template streamingReasoningView}
 /// A model's reasoning (its "thinking"), shown alongside its reply.
 ///
@@ -117,13 +122,13 @@ class StreamingReasoningView extends StatefulWidget {
   /// first, rather than the two moving against each other.
   static const foldDuration = Duration(milliseconds: 450);
 
-  /// The curve the reasoning opens along.
+  /// An ease-in-out curve the reasoning no longer folds or opens along.
   ///
-  /// It starts quickly, so the panel moves as soon as the header changes, then
-  /// settles. The reasoning folds along its [Curve.flipped]. Consider it, with
-  /// [foldDuration], for changes of your own that should move with the
-  /// reasoning.
-  static const Curve foldCurve = Curves.easeOutCubic;
+  /// The reasoning now starts to fold as soon as the model is done. Consider
+  /// [Curves.easeOutCubic], with [foldDuration], for changes of your own that
+  /// should move with it.
+  @Deprecated('Use Curves.easeOutCubic instead.')
+  static const Curve foldCurve = Curves.easeInOutCubic;
 
   /// The reasoning so far. Blank lines separate paragraphs, and inline
   /// markdown (bold, italics, strikethrough, code and links) is rendered.
@@ -246,10 +251,8 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
     )..addStatusListener(_onFoldStatus);
     _foldCurve = CurvedAnimation(
       parent: _fold,
-      curve: StreamingReasoningView.foldCurve,
-      // Folding runs the controller backwards; flipped, the curve still starts
-      // quickly.
-      reverseCurve: StreamingReasoningView.foldCurve.flipped,
+      curve: _kFoldCurve,
+      reverseCurve: _kFoldCurve.flipped,
     );
     _revealFromStart = widget.isThinking;
     if (widget.isThinking) _startCount(widget.duration);
