@@ -1,7 +1,5 @@
 name: stream_chat_flutter_ai_openui
-version: 0.2.0
-# Published from its first release on: the release PR drops this line.
-publish_to: none
+version: 0.3.0
 homepage: https://github.com/GetStream/stream-chat-flutter-ai
 description: OpenUI for Stream Chat AI Flutter components. Shows the interactive UI an agent writes in OpenUI Lang in its replies.
 repository: https://github.com/GetStream/stream-chat-flutter-ai
@@ -41,7 +39,7 @@ dependencies:
   meta: ^1.9.1
   # Released in lockstep with this package: the release bumps both versions
   # and this constraint together.
-  stream_chat_flutter_ai: ^0.2.0
+  stream_chat_flutter_ai: ^0.3.0
   # The sort key `@Sort` orders text by, folding case and accents.
   stream_core: ^0.5.2
   # Stream's design system: the theme tokens and the components OpenUI

@@ -93,7 +93,7 @@ it 😎.
 
 ```yaml
 dependencies:
-  stream_chat_flutter_ai: ^0.2.0
+  stream_chat_flutter_ai: ^0.3.0
 ```
 
 ### Using `material_ui`

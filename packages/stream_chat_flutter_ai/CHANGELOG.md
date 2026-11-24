@@ -1,5 +1,21 @@
 ## Upcoming
 
+✅ Added
+
+- `StreamingReasoningView.foldAnimation`, the curve the reasoning folds and opens along, for changes of your own that
+  should move with it.
+
+🔄 Changed
+
+- `StreamingReasoningView.foldCurve` is deprecated: the reasoning no longer opens or folds along it. Use
+  `foldAnimation` instead.
+
+🐞 Fixed
+
+- `StreamingReasoningView`'s reasoning starts to fold or open straight away, instead of barely moving at first.
+
+## 0.3.0
+
 💥 Breaking
 
 - `AITranslations.playMedia` and `pauseMedia` moved to `A2UITranslations` in `stream_chat_flutter_ai_a2ui`: remove them from your `AITranslations` implementation and implement `A2UITranslations` instead.
@@ -9,14 +25,10 @@
 - `onTapLink` on `AIConversationView` and `AIAssistantMessageView`, and in `AIAssistantMessageProps` and
   `AIReasoningProps`, opens links tapped in a reply's text or reasoning your own way.
 - `AIUILinkSchemes`, the link schemes generated UI may hand to the host's `open`: `http`, `https`, `mailto` and `tel`.
-- `StreamingReasoningView.foldAnimation`, the curve the reasoning folds and opens along, for changes of your own that
-  should move with it.
 
 🔄 Changed
 
 - Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
-- `StreamingReasoningView.foldCurve` is deprecated: the reasoning no longer opens or folds along it. Use
-  `foldAnimation` instead.
 
 🐞 Fixed
 
@@ -24,7 +36,6 @@
   a country, and a language-and-country entry to a locale that also has a script.
 - Links in an agent's reply and its reasoning now open when tapped.
 - A tapped link in `StreamingReasoningView` now reaches its `onTapLink`.
-- `StreamingReasoningView`'s reasoning starts to fold or open straight away, instead of barely moving at first.
 
 ## 0.2.0
 

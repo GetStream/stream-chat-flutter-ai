@@ -77,7 +77,7 @@ melos:
         speech_to_text: ^7.0.0
         # Every package that depends on the core package is released in
         # lockstep with it, so this is always `^<the release's version>`.
-        stream_chat_flutter_ai: ^0.2.0
+        stream_chat_flutter_ai: ^0.3.0
         # The sort key OpenUI's `@Sort` orders text by; `stream_core_flutter`
         # depends on it too.
         stream_core: ^0.5.2
