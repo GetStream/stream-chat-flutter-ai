@@ -25,9 +25,8 @@ import 'package:stream_core_flutter/core.dart';
 /// in full rather than replaying the whole trace.
 const _kRevealFromStartLimit = 2000;
 
-// The curve the reasoning opens along. It starts quickly, so the panel moves
-// as soon as the header changes. Folding runs the animation backwards, so the
-// reasoning folds along this curve flipped, which starts quickly too.
+// The curve the reasoning opens and folds along, from wherever it is. It starts
+// quickly, so the panel moves as soon as the header changes or the reader taps.
 const _kFoldCurve = Curves.easeOutCubic;
 
 /// {@template streamingReasoningView}
@@ -122,11 +121,11 @@ class StreamingReasoningView extends StatefulWidget {
   /// first, rather than the two moving against each other.
   static const foldDuration = Duration(milliseconds: 450);
 
-  /// An ease-in-out curve the reasoning no longer folds or opens along.
+  /// An ease-in-out curve the reasoning no longer opens or folds along.
   ///
-  /// The reasoning now starts to fold as soon as the model is done. Consider
-  /// [Curves.easeOutCubic], with [foldDuration], for changes of your own that
-  /// should move with it.
+  /// The reasoning now opens and folds along a curve that starts quickly.
+  /// Consider [Curves.easeOutCubic], with [foldDuration], for changes of your
+  /// own that should move with it.
   @Deprecated('Use Curves.easeOutCubic instead.')
   static const Curve foldCurve = Curves.easeInOutCubic;
 
@@ -196,7 +195,6 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// 0 folded, 1 open. The panel stays mounted, at no height, until it reaches
   /// 0.
   late final AnimationController _fold;
-  late final CurvedAnimation _foldCurve;
 
   /// Drives the shimmer and the icon's pulse while the model thinks. Created on
   /// first use, so a finished step never allocates a ticker.
@@ -249,11 +247,6 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       duration: StreamingReasoningView.foldDuration,
       value: _open && !widget.isThinking ? 1 : 0,
     )..addStatusListener(_onFoldStatus);
-    _foldCurve = CurvedAnimation(
-      parent: _fold,
-      curve: _kFoldCurve,
-      reverseCurve: _kFoldCurve.flipped,
-    );
     _revealFromStart = widget.isThinking;
     if (widget.isThinking) _startCount(widget.duration);
   }
@@ -306,7 +299,6 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   void dispose() {
     _foldTimer?.cancel();
     _stopClock();
-    _foldCurve.dispose();
     _fold.dispose();
     _activity?.dispose();
     super.dispose();
@@ -359,9 +351,9 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
     if (_reduceMotion) {
       _fold.value = open ? 1 : 0;
     } else if (open) {
-      unawaited(_fold.forward());
+      unawaited(_fold.animateTo(1, curve: _kFoldCurve));
     } else {
-      unawaited(_fold.reverse());
+      unawaited(_fold.animateBack(0, curve: _kFoldCurve));
     }
   }
 
@@ -455,7 +447,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
             summary: showsSummary ? summary : null,
             theme: theme,
             activity: widget.isThinking && !_reduceMotion ? _activity : null,
-            fold: _foldCurve,
+            fold: _fold,
           ),
         ),
       ),
@@ -477,16 +469,16 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
                   // What `SizeTransition(alignment: topStart)` builds, which
                   // Flutter 3.41 — the oldest this package supports — lacks.
                   child: AnimatedBuilder(
-                    animation: _foldCurve,
+                    animation: _fold,
                     builder: (context, child) => ClipRect(
                       child: Align(
                         alignment: AlignmentDirectional.topStart,
-                        heightFactor: math.max(_foldCurve.value, 0),
+                        heightFactor: math.max(_fold.value, 0),
                         child: child,
                       ),
                     ),
                     child: FadeTransition(
-                      opacity: _foldCurve,
+                      opacity: _fold,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Column(

@@ -13,11 +13,8 @@
 🔄 Changed
 
 - Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
-
-⚠️ Deprecated
-
-- `StreamingReasoningView.foldCurve`: the reasoning no longer folds or opens along it. Use `Curves.easeOutCubic` with
-  `foldDuration` for changes of your own that should move with the reasoning.
+- `StreamingReasoningView.foldCurve` is deprecated: the reasoning no longer opens or folds along it. Use
+  `Curves.easeOutCubic` with `foldDuration` for changes of your own that should move with the reasoning.
 
 🐞 Fixed
 
@@ -25,8 +22,7 @@
   a country, and a language-and-country entry to a locale that also has a script.
 - Links in an agent's reply and its reasoning now open when tapped.
 - A tapped link in `StreamingReasoningView` now reaches its `onTapLink`.
-- `StreamingReasoningView` starts folding as soon as its header reads "Thought for", instead of staying open for a
-  moment first.
+- `StreamingReasoningView`'s reasoning starts to fold or open straight away, instead of barely moving at first.
 
 ## 0.2.0
 
