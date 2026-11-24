@@ -25,7 +25,8 @@ jobs:
     permissions:
       contents: read  # The release is created with the CI bot's app token
       id-token: write # Required for authentication using OIDC
-    runs-on: ubuntu-latest
+    runs-on:
+      group: github-public-ubuntu-static
     steps:
       - name: 📚 Checkout branch
         uses: actions/checkout@v7
