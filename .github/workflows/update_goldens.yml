@@ -9,7 +9,7 @@ on:
 jobs:
   update_goldens:
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
     steps:
       - name: 🔑 Mint CI Bot Token
         id: ci-bot-token
