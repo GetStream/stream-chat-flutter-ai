@@ -118,12 +118,14 @@ class StreamingReasoningView extends StatefulWidget {
   /// first, rather than the two moving against each other.
   static const foldDuration = Duration(milliseconds: 450);
 
-  /// How the reasoning folds and opens: a spring that starts moving at once
-  /// and settles in about [foldDuration].
+  /// The curve the reasoning folds and opens along: a spring that starts
+  /// moving at once and settles by [foldDuration].
   ///
-  /// Use it for changes of your own that should move with the reasoning, by
-  /// running a [SpringSimulation] built from it on your controller.
-  static final foldAnimation = SpringDescription.withDampingRatio(mass: 1, stiffness: 195, ratio: 0.95);
+  /// Use it, with [foldDuration], for changes of your own that should move
+  /// with the reasoning. With an [AnimationController], fold along it with
+  /// [AnimationController.animateBack] rather than
+  /// [AnimationController.reverse], which would play it backwards.
+  static const Curve foldAnimation = _FoldCurve();
 
   /// An ease-in-out curve the reasoning no longer opens or folds along.
   @Deprecated('Use foldAnimation instead.')
@@ -351,9 +353,9 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
     if (_reduceMotion) {
       _fold.value = open ? 1 : 0;
     } else if (open) {
-      unawaited(_fold.animateTo(1, curve: const _FoldCurve()));
+      unawaited(_fold.animateTo(1, curve: StreamingReasoningView.foldAnimation));
     } else {
-      unawaited(_fold.animateBack(0, curve: const _FoldCurve()));
+      unawaited(_fold.animateBack(0, curve: StreamingReasoningView.foldAnimation));
     }
   }
 
@@ -521,14 +523,19 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   }
 }
 
-// [StreamingReasoningView.foldAnimation] played over
-// [StreamingReasoningView.foldDuration], scaled to end exactly on its target.
-// The panel moves to its target from wherever it is along it, in both
-// directions, so it starts at once and always arrives on time.
+// A spring, stiffness 195 and damping ratio 0.95, played over
+// [StreamingReasoningView.foldDuration] and scaled to end exactly at 1. It
+// starts moving at once, and has all but settled by the end, so it never
+// overshoots.
 class _FoldCurve extends Curve {
   const _FoldCurve();
 
-  static final _spring = SpringSimulation(StreamingReasoningView.foldAnimation, 0, 1, 0);
+  static final _spring = SpringSimulation(
+    SpringDescription.withDampingRatio(mass: 1, stiffness: 195, ratio: 0.95),
+    0,
+    1,
+    0,
+  );
   static final _seconds = StreamingReasoningView.foldDuration.inMicroseconds / Duration.microsecondsPerSecond;
   static final _end = _spring.x(_seconds);
 
