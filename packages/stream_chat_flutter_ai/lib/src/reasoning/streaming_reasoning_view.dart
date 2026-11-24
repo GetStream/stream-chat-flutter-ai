@@ -212,6 +212,10 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// [StreamingReasoningView.duration] does not say.
   Duration? _thoughtFor;
 
+  // The pending callback of [_countFromFirstStampedFrame], cancelled on
+  // dispose.
+  int? _firstStampedFrame;
+
   /// Whether the next panel to appear reveals its text from the start: live
   /// text arriving for the first time does, a reader reopening the panel
   /// doesn't.
@@ -292,6 +296,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   @override
   void dispose() {
     _foldTimer?.cancel();
+    if (_firstStampedFrame case final id?) SchedulerBinding.instance.cancelFrameCallbackWithId(id);
     _stopClock();
     _foldCurve.dispose();
     _fold.dispose();
@@ -302,9 +307,24 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   void _startCount(Duration? from) {
     _countedFrom = from ?? Duration.zero;
     _countedSince = _now;
+    if (_countedSince == Duration.zero) _countFromFirstStampedFrame();
     _clock?.cancel();
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
+    });
+  }
+
+  // Before an app's first frame, and during its warm-up frame, the frame clock
+  // reads zero; later frames carry the engine's own clock. Counting from zero
+  // would add all of that time, so the count starts at the first frame with a
+  // time stamp instead.
+  void _countFromFirstStampedFrame() {
+    if (_firstStampedFrame != null) return;
+    _firstStampedFrame = SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _firstStampedFrame = null;
+      if (_countedSince != Duration.zero) return;
+      _countedSince = _now;
+      if (_countedSince == Duration.zero) _countFromFirstStampedFrame();
     });
   }
 

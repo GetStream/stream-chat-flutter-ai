@@ -20,6 +20,8 @@
   a country, and a language-and-country entry to a locale that also has a script.
 - Links in an agent's reply and its reasoning now open when tapped.
 - A tapped link in `StreamingReasoningView` now reaches its `onTapLink`.
+- `StreamingReasoningView` no longer shows a thinking time of thousands of minutes when it starts thinking before the
+  app's first frame.
 
 ## 0.2.0
 
