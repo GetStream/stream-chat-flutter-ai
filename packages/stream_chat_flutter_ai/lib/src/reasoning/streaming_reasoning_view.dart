@@ -123,10 +123,12 @@ class StreamingReasoningView extends StatefulWidget {
 
   /// An ease-in-out curve the reasoning no longer opens or folds along.
   ///
-  /// The reasoning now opens and folds along a curve that starts quickly.
-  /// Consider [Curves.easeOutCubic], with [foldDuration], for changes of your
-  /// own that should move with it.
-  @Deprecated('Use Curves.easeOutCubic instead.')
+  /// The reasoning now opens and folds along a curve that starts quickly in
+  /// both directions. To move changes of your own with it, consider animating
+  /// them to their target with [AnimationController.animateTo] or
+  /// [AnimationController.animateBack] along [Curves.easeOutCubic], over
+  /// [foldDuration].
+  @Deprecated('Use Curves.easeOutCubic with AnimationController.animateTo and animateBack instead.')
   static const Curve foldCurve = Curves.easeInOutCubic;
 
   /// The reasoning so far. Blank lines separate paragraphs, and inline

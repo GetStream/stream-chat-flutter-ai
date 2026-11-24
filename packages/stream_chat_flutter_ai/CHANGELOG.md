@@ -13,8 +13,9 @@
 🔄 Changed
 
 - Requires `stream_core_flutter` 0.5.4, which brings `stream_core` with it.
-- `StreamingReasoningView.foldCurve` is deprecated: the reasoning no longer opens or folds along it. Use
-  `Curves.easeOutCubic` with `foldDuration` for changes of your own that should move with the reasoning.
+- `StreamingReasoningView.foldCurve` is deprecated: the reasoning no longer opens or folds along it. To move changes
+  of your own with the reasoning, animate them with `animateTo` and `animateBack` along `Curves.easeOutCubic`, over
+  `foldDuration`.
 
 🐞 Fixed
 
