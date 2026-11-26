@@ -167,9 +167,7 @@ melos:
     test:flutter:
       exec:
         command: flutter test --coverage
-        # Each `flutter test` already runs its files in parallel; more than two
-        # at once exhausts CI's 2-core runners, which kill the job.
-        concurrency: 2
+        concurrency: 4
         failFast: true
       description: Run Flutter tests for a specific package in this project.
       packageFilters:
