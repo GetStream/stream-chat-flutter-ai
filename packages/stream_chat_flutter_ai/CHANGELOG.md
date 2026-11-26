@@ -1,3 +1,19 @@
+## Upcoming
+
+✅ Added
+
+- `StreamingReasoningView.foldAnimation`, the curve the reasoning folds and opens along, for changes of your own that
+  should move with it.
+
+🔄 Changed
+
+- `StreamingReasoningView.foldCurve` is deprecated: the reasoning no longer opens or folds along it. Use
+  `foldAnimation` instead.
+
+🐞 Fixed
+
+- `StreamingReasoningView`'s reasoning starts to fold or open straight away, instead of barely moving at first.
+
 ## 0.3.0
 
 💥 Breaking
