@@ -133,7 +133,6 @@ jobs:
       - name: "Bootstrap Workspace"
         run: melos bootstrap
       - name: "Flutter Test"
-        # Temporary: a change here makes the path filter run the tests.
         run: melos run test:all
       - name: "Collect Coverage"
         run: melos run coverage:ignore-file --no-select

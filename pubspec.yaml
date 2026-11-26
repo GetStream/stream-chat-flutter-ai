@@ -167,7 +167,7 @@ melos:
     test:flutter:
       exec:
         command: flutter test --coverage
-        concurrency: 4
+        concurrency: 2
         failFast: true
       description: Run Flutter tests for a specific package in this project.
       packageFilters:
