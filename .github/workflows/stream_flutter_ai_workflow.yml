@@ -133,9 +133,7 @@ jobs:
       - name: "Bootstrap Workspace"
         run: melos bootstrap
       - name: "Flutter Test"
-        # Two packages at a time rather than test:all's four: four parallel
-        # `flutter test` runs exhaust the 2-core runner, which kills the job.
-        run: melos exec --concurrency 2 --fail-fast -- "flutter test --coverage"
+        run: melos run test:all
       - name: "Collect Coverage"
         run: melos run coverage:ignore-file --no-select
       - name: "Upload Coverage"
