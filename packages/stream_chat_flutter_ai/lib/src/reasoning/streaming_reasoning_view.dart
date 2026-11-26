@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart' show MarkdownTapLinkCallback;
@@ -117,8 +119,17 @@ class StreamingReasoningView extends StatefulWidget {
   /// first, rather than the two moving against each other.
   static const foldDuration = Duration(milliseconds: 450);
 
-  /// The curve the reasoning folds and opens along. Use it, with
-  /// [foldDuration], for changes of your own that should move with it.
+  /// The curve the reasoning folds and opens along: a spring that starts
+  /// moving at once and settles by [foldDuration].
+  ///
+  /// Use it, with [foldDuration], for changes of your own that should move
+  /// with the reasoning. With an [AnimationController], fold along it with
+  /// [AnimationController.animateBack] rather than
+  /// [AnimationController.reverse], which would play it backwards.
+  static const Curve foldAnimation = _FoldCurve();
+
+  /// An ease-in-out curve the reasoning no longer opens or folds along.
+  @Deprecated('Use foldAnimation instead.')
   static const Curve foldCurve = Curves.easeInOutCubic;
 
   /// The reasoning so far. Blank lines separate paragraphs, and inline
@@ -187,7 +198,6 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// 0 folded, 1 open. The panel stays mounted, at no height, until it reaches
   /// 0.
   late final AnimationController _fold;
-  late final CurvedAnimation _foldCurve;
 
   /// Drives the shimmer and the icon's pulse while the model thinks. Created on
   /// first use, so a finished step never allocates a ticker.
@@ -203,10 +213,10 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// or zero.
   var _countedFrom = Duration.zero;
 
-  /// The frame time at which the count was at [_countedFrom]. Frame time
-  /// rather than a count of timer ticks, so a late or skipped tick never makes
-  /// the header lag; and in tests it moves with `pump`.
-  var _countedSince = Duration.zero;
+  /// When the count was at [_countedFrom]. Read from the clock rather than
+  /// counted in timer ticks, so a late or skipped tick never makes the header
+  /// lag; and in tests it moves with `pump`.
+  var _countedSince = clock.now();
 
   /// How long this view saw the model think, for a finished step whose
   /// [StreamingReasoningView.duration] does not say.
@@ -225,9 +235,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
   bool get _opensByDefault => widget.isThinking ? widget.showsLiveReasoning : widget.expandedWhenDone;
 
-  static Duration get _now => SchedulerBinding.instance.currentSystemFrameTimeStamp;
-
-  Duration get _elapsed => _countedFrom + (_now - _countedSince);
+  Duration get _elapsed => _countedFrom + clock.now().difference(_countedSince);
 
   @override
   void initState() {
@@ -240,7 +248,6 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       duration: StreamingReasoningView.foldDuration,
       value: _open && !widget.isThinking ? 1 : 0,
     )..addStatusListener(_onFoldStatus);
-    _foldCurve = CurvedAnimation(parent: _fold, curve: StreamingReasoningView.foldCurve);
     _revealFromStart = widget.isThinking;
     if (widget.isThinking) _startCount(widget.duration);
   }
@@ -293,7 +300,6 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   void dispose() {
     _foldTimer?.cancel();
     _stopClock();
-    _foldCurve.dispose();
     _fold.dispose();
     _activity?.dispose();
     super.dispose();
@@ -301,7 +307,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
   void _startCount(Duration? from) {
     _countedFrom = from ?? Duration.zero;
-    _countedSince = _now;
+    _countedSince = clock.now();
     _clock?.cancel();
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
@@ -346,9 +352,9 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
     if (_reduceMotion) {
       _fold.value = open ? 1 : 0;
     } else if (open) {
-      unawaited(_fold.forward());
+      unawaited(_fold.animateTo(1, curve: StreamingReasoningView.foldAnimation));
     } else {
-      unawaited(_fold.reverse());
+      unawaited(_fold.animateBack(0, curve: StreamingReasoningView.foldAnimation));
     }
   }
 
@@ -442,7 +448,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
             summary: showsSummary ? summary : null,
             theme: theme,
             activity: widget.isThinking && !_reduceMotion ? _activity : null,
-            fold: _foldCurve,
+            fold: _fold,
           ),
         ),
       ),
@@ -464,16 +470,16 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
                   // What `SizeTransition(alignment: topStart)` builds, which
                   // Flutter 3.41 — the oldest this package supports — lacks.
                   child: AnimatedBuilder(
-                    animation: _foldCurve,
+                    animation: _fold,
                     builder: (context, child) => ClipRect(
                       child: Align(
                         alignment: AlignmentDirectional.topStart,
-                        heightFactor: math.max(_foldCurve.value, 0),
+                        heightFactor: math.max(_fold.value, 0),
                         child: child,
                       ),
                     ),
                     child: FadeTransition(
-                      opacity: _foldCurve,
+                      opacity: _fold,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Column(
@@ -514,6 +520,26 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
       ],
     );
   }
+}
+
+// A spring, stiffness 195 and damping ratio 0.95, played over
+// [StreamingReasoningView.foldDuration] and scaled to end exactly at 1. It
+// starts moving at once, and has all but settled by the end, so it never
+// overshoots.
+class _FoldCurve extends Curve {
+  const _FoldCurve();
+
+  static final _spring = SpringSimulation(
+    SpringDescription.withDampingRatio(mass: 1, stiffness: 195, ratio: 0.95),
+    0,
+    1,
+    0,
+  );
+  static final _seconds = StreamingReasoningView.foldDuration.inMicroseconds / Duration.microsecondsPerSecond;
+  static final _end = _spring.x(_seconds);
+
+  @override
+  double transformInternal(double t) => _spring.x(t * _seconds) / _end;
 }
 
 /// The icon, title, summary and chevron.
