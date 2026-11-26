@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
@@ -212,10 +213,10 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
   /// or zero.
   var _countedFrom = Duration.zero;
 
-  /// The frame time at which the count was at [_countedFrom]. Frame time
-  /// rather than a count of timer ticks, so a late or skipped tick never makes
-  /// the header lag; and in tests it moves with `pump`.
-  var _countedSince = Duration.zero;
+  /// When the count was at [_countedFrom]. Read from the clock rather than
+  /// counted in timer ticks, so a late or skipped tick never makes the header
+  /// lag; and in tests it moves with `pump`.
+  var _countedSince = clock.now();
 
   /// How long this view saw the model think, for a finished step whose
   /// [StreamingReasoningView.duration] does not say.
@@ -234,9 +235,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
   bool get _opensByDefault => widget.isThinking ? widget.showsLiveReasoning : widget.expandedWhenDone;
 
-  static Duration get _now => SchedulerBinding.instance.currentSystemFrameTimeStamp;
-
-  Duration get _elapsed => _countedFrom + (_now - _countedSince);
+  Duration get _elapsed => _countedFrom + clock.now().difference(_countedSince);
 
   @override
   void initState() {
@@ -308,7 +307,7 @@ class _StreamingReasoningViewState extends State<StreamingReasoningView> with Ti
 
   void _startCount(Duration? from) {
     _countedFrom = from ?? Duration.zero;
-    _countedSince = _now;
+    _countedSince = clock.now();
     _clock?.cancel();
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
