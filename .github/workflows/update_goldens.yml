@@ -41,7 +41,7 @@ jobs:
         run: melos run update:goldens
 
       - name: 📤 Commit Changes
-        uses: GetStream/stream-core-flutter/.github/actions/bot-commit@1553108cc38556a8b427e8ca389b33250c80278f
+        uses: GetStream/stream-core-flutter/.github/actions/bot-commit@fba564f0d242a56a37f35a1f8843a325371d00a2
         with:
           files: "**/test/**/goldens/**/*.png"
           message: "chore: Update Goldens"

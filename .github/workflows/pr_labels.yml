@@ -22,4 +22,4 @@ permissions:
 
 jobs:
   review_labels:
-    uses: GetStream/stream-core-flutter/.github/workflows/pr_review_labels.yml@7ade021e2d4f6cb92b07255db47d3c3142ce8d5b # main
+    uses: GetStream/stream-core-flutter/.github/workflows/pr_review_labels.yml@fba564f0d242a56a37f35a1f8843a325371d00a2 # main
